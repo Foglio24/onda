@@ -19,10 +19,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: List installed Xcodes
+        run: ls -d /Applications/Xcode* || true
+
+      # "latest" includes release candidates: needed for the iOS 27 SDK until Xcode 27 is marked stable here.
       - name: Select the newest Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: latest-stable
+          xcode-version: latest
 
       - name: Show toolchain
         run: |
