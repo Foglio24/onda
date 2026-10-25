@@ -154,6 +154,13 @@ struct SettingsView: View {
                 StemSeparator.clearCache()
                 storageRevision += 1
             }
+            if let note = StemSeparator.interruptedRun {
+                VStack(alignment: .leading, spacing: 4) {
+                    Label("L'ultima preparazione si è interrotta", systemImage: "exclamationmark.triangle")
+                    Text(note).font(.caption).foregroundStyle(.secondary)
+                }
+                .id(storageRevision)
+            }
         } header: {
             Text("Karaoke")
         } footer: {

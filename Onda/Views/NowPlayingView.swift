@@ -277,11 +277,12 @@ struct NowPlayingView: View {
             badge {
                 Label("Modello AI \(Int(value * 100))%", systemImage: "arrow.down.circle")
             }
-        case .preparing:
+        case .preparing(let value):
             badge {
                 HStack(spacing: 6) {
                     ProgressView().controlSize(.mini).tint(.white)
-                    Text("Karaoke: preparazione…")
+                    Text(value > 0 ? "Karaoke: preparazione \(Int(value * 100))%" : "Karaoke: preparazione…")
+                        .monospacedDigit()
                 }
             }
         case .failed:
@@ -358,6 +359,9 @@ struct NowPlayingView: View {
     /// Karaoke: remove the voice or keep only the voice, at three strengths.
     private var karaokeMenu: some View {
         Menu {
+            if case .failed(let message) = player.karaokeStatus {
+                Section { Text(message) }
+            }
             Picker("Karaoke", selection: Binding(get: { player.karaokeMode }, set: { mode in
                 if mode != .off && !StemSeparator.isModelInstalled {
                     pendingKaraokeMode = mode

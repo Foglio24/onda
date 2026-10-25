@@ -10,7 +10,8 @@
 - **Interactive cover.** The player's artwork tilts in 3D with the iPhone and with your finger, with a sliding light reflection and a moving shadow. A double tap likes the song. You can turn it off in Settings → Aspetto.
 - **AI karaoke mode.** The microphone button in the player removes the vocals or keeps only the vocals, at three strengths, like Apple Music Sing.
   - The separation uses the UVR MDX-Net "Voc_FT" model, run on the iPhone by [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) and ONNX Runtime. The model is a 64 MB download, needed only once.
-  - The song keeps playing while it is prepared, then switches to the separated stems at the same position.
+  - The song keeps playing while it is prepared, with the progress shown in the player, then switches to the separated stems at the same position.
+  - Songs are separated in pieces of about 5 seconds, crossfaded together, which keeps memory use low.
   - The vocal/instrumental balance changes instantly.
   - The next song is prepared in advance, and stems are cached for replays. Manage the model and the cache in Settings → Karaoke.
 

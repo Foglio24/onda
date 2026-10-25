@@ -372,11 +372,20 @@ final class PlayerController: ObservableObject {
             return
         }
         karaokeTask?.cancel()
-        karaokeStatus = .preparing
+        karaokeStatus = .preparing(0)
+        StemSeparator.focus(on: [videoId, upNextVideoId].compactMap { $0 })
         karaokeTask = Task {
             do {
                 let source = try await Self.karaokeSource(for: track, videoId: videoId)
-                let stems = try await StemSeparator.shared.stems(for: videoId, source: source)
+                let stems = try await StemSeparator.shared.stems(for: videoId, source: source,
+                                                                 duration: track.duration) { value in
+                    Task { @MainActor in
+                        let controller = PlayerController.shared
+                        if case .preparing = controller.karaokeStatus, controller.current?.id == track.id {
+                            controller.karaokeStatus = .preparing(value)
+                        }
+                    }
+                }
                 guard !Task.isCancelled, self.current?.id == track.id, self.karaokeMode != .off else { return }
                 let item = try await KaraokeMixer.makeItem(stems: stems, mode: self.karaokeMode,
                                                            amount: self.karaokeAmount)
@@ -395,6 +404,8 @@ final class PlayerController: ObservableObject {
     private func leaveKaraoke() {
         karaokeTask?.cancel()
         karaokeStatus = .idle
+        // Stop separating: nothing needs the stems now.
+        StemSeparator.focus(on: [])
         guard isPlayingStems, let track = current else {
             karaokeTrackID = nil
             return
@@ -418,10 +429,15 @@ final class PlayerController: ObservableObject {
         guard index + 1 < queue.count else { return }
         let upNext = queue[index + 1]
         guard let videoId = upNext.videoId, StemSeparator.cachedStems(for: videoId) == nil else { return }
+        StemSeparator.focus(on: [current?.videoId, videoId].compactMap { $0 })
         Task.detached(priority: .utility) {
             guard let source = try? await PlayerController.karaokeSource(for: upNext, videoId: videoId) else { return }
-            _ = try? await StemSeparator.shared.stems(for: videoId, source: source)
+            _ = try? await StemSeparator.shared.stems(for: videoId, source: source, duration: upNext.duration)
         }
+    }
+
+    private var upNextVideoId: String? {
+        index + 1 < queue.count ? queue[index + 1].videoId : nil
     }
 
     /// A local file to separate: the download, the cached copy, or a fresh AAC copy.
@@ -918,7 +934,10 @@ final class PlayerController: ObservableObject {
             .sink { note in self.handleInterruption(note) }
             .store(in: &cancellables)
 
-        // The karaoke model takes a few hundred MB: give it back when iOS asks for memory.
+        // A separation the app was closed in the middle of shows up in Settings → Karaoke.
+        StemSeparator.noteInterruptedRun()
+        // The karaoke model takes a few hundred MB: give it back when iOS asks for memory
+        // (after the separation in progress, if any).
         NotificationCenter.default.publisher(for: UIApplication.didReceiveMemoryWarningNotification)
             .sink { _ in Task { await StemSeparator.shared.releaseEngine() } }
             .store(in: &cancellables)

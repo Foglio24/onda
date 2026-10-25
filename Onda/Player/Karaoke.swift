@@ -1,5 +1,6 @@
 import AVFoundation
 import Foundation
+import os
 #if canImport(SherpaOnnxC)
 import SherpaOnnxC
 #endif
@@ -41,7 +42,8 @@ enum KaraokeMode: Int32, CaseIterable, Identifiable {
 enum KaraokeStatus: Equatable {
     case idle
     case downloadingModel(Double)
-    case preparing
+    /// Separating the song, with the share done so far.
+    case preparing(Double)
     case ready
     case failed(String)
 }
@@ -53,16 +55,20 @@ struct StemFiles: Sendable {
 
 enum KaraokeError: LocalizedError {
     case modelMissing
+    case modelDamaged
     case engineUnavailable
     case unreadableAudio
     case separationFailed
+    case lowMemory
 
     var errorDescription: String? {
         switch self {
         case .modelMissing: return "Il modello AI per il karaoke non è stato scaricato."
+        case .modelDamaged: return "Il modello AI era danneggiato ed è stato eliminato: scaricalo di nuovo."
         case .engineUnavailable: return "Il motore AI per il karaoke non è disponibile."
         case .unreadableAudio: return "Non riesco a leggere l'audio del brano."
         case .separationFailed: return "La separazione di voce e musica non è riuscita."
+        case .lowMemory: return "Memoria insufficiente per il karaoke: chiudi qualche app e riprova."
         }
     }
 }
@@ -76,9 +82,22 @@ actor StemSeparator {
     static let modelSizeLabel = "64 MB"
     private static let modelRemoteURL = URL(
         string: "https://github.com/k2-fsa/sherpa-onnx/releases/download/source-separation-models/UVR-MDX-NET-Voc_FT.onnx")!
+    /// The full download is 66.8 MB: anything much smaller is a broken file.
+    private static let minimumModelSize = 60_000_000
     private static let cacheLimit: Int64 = 800 << 20
+    /// The model works on 44.1 kHz stereo.
+    private static let sampleRate = 44_100
+    /// Frames given to the model at once: just under one MDX-Net segment (1024 × 255 − n_fft frames),
+    /// so it runs on a single segment. Whole songs (sherpa-onnx's own 17 s chunks, three segments
+    /// each) need far more memory, and iOS closes the app.
+    private static let pieceLength = 245_000
+    /// Neighbouring pieces overlap by half a second and are crossfaded, which hides the seams.
+    private static let overlap = 22_050
+    /// Below this much free memory the separation stops with an error, before iOS closes the app.
+    private static let memoryReserve = 300 << 20
     /// One separation at a time: the model is heavy on CPU and memory.
     private static let workQueue = DispatchQueue(label: "onda.karaoke.separation", qos: .userInitiated)
+    private static let wanted = WantedSongs()
 
     nonisolated static var modelFile: URL { Storage.models.appending(path: modelName) }
 
@@ -97,6 +116,11 @@ actor StemSeparator {
 
     private var engine: OpaquePointer?
     private var inFlight: [String: Task<StemFiles, Error>] = [:]
+    private var listeners: [String: [@Sendable (Double) -> Void]] = [:]
+    /// Separations handed to `workQueue`. The engine must outlive them: freeing it in the middle
+    /// of one (on a memory warning) crashed the app.
+    private var runningJobs = 0
+    private var releaseWhenIdle = false
 
     // MARK: Model
 
@@ -110,7 +134,13 @@ actor StemSeparator {
     }
 
     /// Frees the model's memory; it is loaded again on the next separation.
+    /// While a separation runs it waits for it to finish.
     func releaseEngine() {
+        guard runningJobs == 0 else {
+            releaseWhenIdle = true
+            return
+        }
+        releaseWhenIdle = false
         #if canImport(SherpaOnnxC)
         if let engine { SherpaOnnxDestroyOfflineSourceSeparation(engine) }
         #endif
@@ -142,27 +172,70 @@ actor StemSeparator {
     nonisolated static func clearCache() {
         try? FileManager.default.removeItem(at: Storage.stems)
         try? FileManager.default.createDirectory(at: Storage.stems, withIntermediateDirectories: true)
+        clearInterruptedRun()
+    }
+
+    /// Only these songs (the one playing and the next) keep being separated;
+    /// the others stop at their next piece.
+    nonisolated static func focus(on videoIds: [String]) {
+        wanted.set(Set(videoIds))
     }
 
     /// Vocals and instrumental for a song, separating `source` (a local audio file) unless cached.
-    func stems(for videoId: String, source: URL) async throws -> StemFiles {
+    /// `duration` (the catalogue length) is only used for `progress`.
+    func stems(for videoId: String, source: URL, duration: TimeInterval?,
+               progress: (@Sendable (Double) -> Void)? = nil) async throws -> StemFiles {
         if let cached = Self.cachedStems(for: videoId) { return cached }
-        if let running = inFlight[videoId] { return try await running.value }
-        let task = Task { try await self.separate(videoId: videoId, source: source) }
+        if let progress { listeners[videoId, default: []].append(progress) }
+        if let running = inFlight[videoId] {
+            do {
+                return try await running.value
+            } catch is CancellationError where Self.wanted.contains(videoId) {
+                // Dropped, then wanted again before it stopped: start over.
+                if inFlight[videoId] == running { inFlight[videoId] = nil }
+                return try await stems(for: videoId, source: source, duration: duration)
+            }
+        }
+        let task = Task { try await self.separate(videoId: videoId, source: source, duration: duration) }
         inFlight[videoId] = task
-        defer { inFlight[videoId] = nil }
+        defer {
+            if inFlight[videoId] == task {
+                inFlight[videoId] = nil
+                listeners[videoId] = nil
+            }
+        }
         return try await task.value
     }
 
-    private func separate(videoId: String, source: URL) async throws -> StemFiles {
+    private func report(_ value: Double, for videoId: String) {
+        listeners[videoId]?.forEach { $0(value) }
+    }
+
+    private func separate(videoId: String, source: URL, duration: TimeInterval?) async throws -> StemFiles {
         guard Self.isModelInstalled else { throw KaraokeError.modelMissing }
         #if canImport(SherpaOnnxC)
+        let asset = AVURLAsset(url: source)
+        guard let track = try await asset.loadTracks(withMediaType: .audio).first else {
+            throw KaraokeError.unreadableAudio
+        }
+        var length = duration ?? 0
+        if length <= 0 { length = (try? await asset.load(.duration).seconds) ?? 0 }
+        let totalFrames = max(1, Int(length * Double(Self.sampleRate)))
+
         let engine = try loadEngine()
         let files = Self.stemFiles(for: videoId)
+        runningJobs += 1
+        defer {
+            runningJobs -= 1
+            if runningJobs == 0, releaseWhenIdle { releaseEngine() }
+        }
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             Self.workQueue.async {
                 do {
-                    try Self.separateSync(engine: engine, source: source, into: files)
+                    try Self.separateSync(engine: engine, asset: asset, track: track, videoId: videoId,
+                                          totalFrames: totalFrames, into: files) { value in
+                        Task { await self.report(value, for: videoId) }
+                    }
                     continuation.resume()
                 } catch {
                     continuation.resume(throwing: error)
@@ -191,9 +264,65 @@ actor StemSeparator {
         }
     }
 
+    // MARK: Diagnostics
+
+    /// Rewritten before every piece and removed when a separation ends: if iOS closes the app
+    /// in the middle, the next launch knows where it stopped.
+    private nonisolated static var progressNote: URL { Storage.models.appending(path: "separation-progress.txt") }
+    private nonisolated static var interruptedNote: URL { Storage.models.appending(path: "separation-interrupted.txt") }
+
+    /// Called at launch: a progress note left behind means the last separation never finished.
+    nonisolated static func noteInterruptedRun() {
+        let manager = FileManager.default
+        guard manager.fileExists(atPath: progressNote.path) else { return }
+        try? manager.removeItem(at: interruptedNote)
+        try? manager.moveItem(at: progressNote, to: interruptedNote)
+    }
+
+    /// Where the last separation stopped when the app was closed during it, if that happened.
+    nonisolated static var interruptedRun: String? {
+        try? String(contentsOf: interruptedNote, encoding: .utf8)
+    }
+
+    nonisolated static func clearInterruptedRun() {
+        try? FileManager.default.removeItem(at: interruptedNote)
+    }
+
+    private nonisolated static func leaveNote(_ step: String) {
+        let used = ByteCountFormatter.string(fromByteCount: Int64(memoryFootprint), countStyle: .memory)
+        let free = ByteCountFormatter.string(fromByteCount: Int64(os_proc_available_memory()), countStyle: .memory)
+        let date = Date.now.formatted(date: .abbreviated, time: .standard)
+        let text = "\(step) · memoria usata \(used), libera \(free) · \(date)"
+        try? text.write(to: progressNote, atomically: true, encoding: .utf8)
+    }
+
+    private nonisolated static func removeNote() {
+        try? FileManager.default.removeItem(at: progressNote)
+    }
+
+    /// The app's memory as iOS counts it against its limit.
+    private nonisolated static var memoryFootprint: UInt64 {
+        var info = task_vm_info_data_t()
+        var count = mach_msg_type_number_t(MemoryLayout<task_vm_info_data_t>.size / MemoryLayout<integer_t>.size)
+        let result = withUnsafeMutablePointer(to: &info) {
+            $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
+                task_info(mach_task_self_, task_flavor_t(TASK_VM_INFO), $0, &count)
+            }
+        }
+        return result == KERN_SUCCESS ? info.phys_footprint : 0
+    }
+
     #if canImport(SherpaOnnxC)
     private func loadEngine() throws -> OpaquePointer {
         if let engine { return engine }
+        let size = (try? FileManager.default.attributesOfItem(atPath: Self.modelFile.path)[.size] as? Int) ?? 0
+        guard size >= Self.minimumModelSize else {
+            try? FileManager.default.removeItem(at: Self.modelFile)
+            throw KaraokeError.modelDamaged
+        }
+        // No separation is running while the engine is missing, so this note is ours alone.
+        Self.leaveNote("Caricamento del modello AI")
+        defer { Self.removeNote() }
         var config = SherpaOnnxOfflineSourceSeparationConfig()
         let model = strdup(Self.modelFile.path)
         let provider = strdup("cpu")
@@ -212,78 +341,248 @@ actor StemSeparator {
         return created
     }
 
-    /// Decodes the song, runs the model and writes both stems as AAC 256 kbps.
-    private nonisolated static func separateSync(engine: OpaquePointer, source: URL, into files: StemFiles) throws {
-        let file = try AVAudioFile(forReading: source)
-        let format = file.processingFormat
-        let frameCount = AVAudioFrameCount(file.length)
-        guard frameCount > 0,
-              let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount) else {
-            throw KaraokeError.unreadableAudio
+    /// Decodes the song a piece at a time, runs the model on each piece and streams both stems
+    /// to AAC 256 kbps files. The instrumental is the song minus the vocals.
+    private nonisolated static func separateSync(engine: OpaquePointer, asset: AVAsset, track: AVAssetTrack,
+                                                 videoId: String, totalFrames: Int, into files: StemFiles,
+                                                 progress: (Double) -> Void) throws {
+        defer { removeNote() }
+        guard wanted.contains(videoId) else { throw CancellationError() }
+        let reader = try PCMReader(asset: asset, track: track, sampleRate: Double(sampleRate))
+        let vocalsWriter = try StemWriter(destination: files.vocals, sampleRate: Double(sampleRate),
+                                          capacity: pieceLength)
+        let instrumentalWriter = try StemWriter(destination: files.instrumental, sampleRate: Double(sampleRate),
+                                                capacity: pieceLength)
+        var finished = false
+        defer {
+            if !finished {
+                vocalsWriter.discard()
+                instrumentalWriter.discard()
+            }
         }
-        try file.read(into: buffer)
-        guard let channelData = buffer.floatChannelData, buffer.frameLength > 0 else {
-            throw KaraokeError.unreadableAudio
-        }
-        let left = UnsafePointer(channelData[0])
-        let right = UnsafePointer(format.channelCount > 1 ? channelData[1] : channelData[0])
-        let channels: [UnsafePointer<Float>?] = [left, right]
 
-        let output = channels.withUnsafeBufferPointer { list in
-            SherpaOnnxOfflineSourceSeparationProcess(engine, list.baseAddress, 2,
-                                                     Int32(buffer.frameLength), Int32(format.sampleRate))
+        // Song frames not written yet. The first `tailLeft.count` of them were already separated
+        // as the end of the previous piece: that is the overlap to crossfade.
+        var left: [Float] = []
+        var right: [Float] = []
+        left.reserveCapacity(pieceLength + 16_384)
+        right.reserveCapacity(pieceLength + 16_384)
+        var tailLeft: [Float] = []
+        var tailRight: [Float] = []
+        var written = 0
+        let pieces = max(1, Int((Double(totalFrames) / Double(pieceLength - overlap)).rounded(.up)))
+        var piece = 0
+
+        while true {
+            let more = try autoreleasepool { () throws -> Bool in
+                try reader.fill(&left, &right, upTo: pieceLength)
+                let carried = tailLeft.count
+                let count = min(left.count, pieceLength)
+                guard count > carried else {
+                    // The song ended inside the overlap: what is left was already separated.
+                    try writeStems(vocalsLeft: tailLeft, vocalsRight: tailRight, songLeft: left, songRight: right,
+                                   count: carried, vocalsWriter: vocalsWriter, instrumentalWriter: instrumentalWriter)
+                    return false
+                }
+                guard wanted.contains(videoId) else { throw CancellationError() }
+                let available = os_proc_available_memory()
+                if available > 0, available < memoryReserve { throw KaraokeError.lowMemory }
+                piece += 1
+                leaveNote("Separazione: pezzo \(piece) di circa \(max(piece, pieces))")
+
+                var vocals = try separateVocals(engine: engine, left: left[0..<count], right: right[0..<count])
+                for index in 0..<carried {
+                    let weight = Float(index + 1) / Float(carried + 1)
+                    vocals.left[index] = tailLeft[index] * (1 - weight) + vocals.left[index] * weight
+                    vocals.right[index] = tailRight[index] * (1 - weight) + vocals.right[index] * weight
+                }
+                let isLast = reader.isFinished && left.count <= pieceLength
+                let keep = isLast ? count : count - overlap
+                try writeStems(vocalsLeft: vocals.left, vocalsRight: vocals.right, songLeft: left, songRight: right,
+                               count: keep, vocalsWriter: vocalsWriter, instrumentalWriter: instrumentalWriter)
+                written += keep
+                progress(min(0.99, Double(written) / Double(totalFrames)))
+                guard !isLast else { return false }
+                tailLeft = Array(vocals.left[keep..<count])
+                tailRight = Array(vocals.right[keep..<count])
+                left.removeFirst(keep)
+                right.removeFirst(keep)
+                return true
+            }
+            if !more { break }
+        }
+        guard written > 0 || !tailLeft.isEmpty else { throw KaraokeError.unreadableAudio }
+        try vocalsWriter.finish()
+        try instrumentalWriter.finish()
+        finished = true
+    }
+
+    /// Writes the first `count` frames of the vocals and of the instrumental (song minus vocals).
+    private nonisolated static func writeStems(vocalsLeft: [Float], vocalsRight: [Float], songLeft: [Float],
+                                               songRight: [Float], count: Int, vocalsWriter: StemWriter,
+                                               instrumentalWriter: StemWriter) throws {
+        guard count > 0 else { return }
+        try vocalsWriter.write(count: count) { outLeft, outRight in
+            for index in 0..<count {
+                outLeft[index] = vocalsLeft[index]
+                outRight[index] = vocalsRight[index]
+            }
+        }
+        try instrumentalWriter.write(count: count) { outLeft, outRight in
+            for index in 0..<count {
+                outLeft[index] = songLeft[index] - vocalsLeft[index]
+                outRight[index] = songRight[index] - vocalsRight[index]
+            }
+        }
+    }
+
+    /// Runs the model on one piece and returns its vocals, as long as the piece.
+    private nonisolated static func separateVocals(engine: OpaquePointer, left: ArraySlice<Float>,
+                                                   right: ArraySlice<Float>) throws -> (left: [Float], right: [Float]) {
+        let count = left.count
+        let output = left.withUnsafeBufferPointer { leftSamples in
+            right.withUnsafeBufferPointer { rightSamples in
+                let channels: [UnsafePointer<Float>?] = [leftSamples.baseAddress, rightSamples.baseAddress]
+                return channels.withUnsafeBufferPointer { list in
+                    SherpaOnnxOfflineSourceSeparationProcess(engine, list.baseAddress, 2, Int32(count),
+                                                             Int32(sampleRate))
+                }
+            }
         }
         guard let output else { throw KaraokeError.separationFailed }
         defer { SherpaOnnxDestroySourceSeparationOutput(output) }
         let result = output.pointee
-        guard result.num_stems >= 2, let stems = result.stems else { throw KaraokeError.separationFailed }
         // UVR models: stem 0 is the model's target (vocals for Voc_FT), stem 1 the rest of the mix.
-        try writeStem(stems[0], sampleRate: Double(result.sample_rate), to: files.vocals)
-        try writeStem(stems[1], sampleRate: Double(result.sample_rate), to: files.instrumental)
-    }
-
-    private nonisolated static func writeStem(_ stem: SherpaOnnxSourceSeparationStem, sampleRate: Double,
-                                              to url: URL) throws {
-        let channelCount = max(1, min(2, Int(stem.num_channels)))
-        let frames = Int(stem.n)
-        guard frames > 0, sampleRate > 0, let samples = stem.samples,
-              let format = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: sampleRate,
-                                         channels: AVAudioChannelCount(channelCount), interleaved: false),
-              let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(frames)),
-              let destination = buffer.floatChannelData else {
+        guard result.num_stems >= 1, Int(result.sample_rate) == sampleRate, let stems = result.stems else {
             throw KaraokeError.separationFailed
         }
-        for channel in 0..<channelCount {
-            guard let source = samples[channel] else { throw KaraokeError.separationFailed }
-            destination[channel].update(from: source, count: frames)
+        let stem = stems[0]
+        let channelCount = Int(stem.num_channels)
+        guard channelCount >= 1, let samples = stem.samples else { throw KaraokeError.separationFailed }
+        let frames = min(count, Int(stem.n))
+        func channel(_ index: Int) -> [Float] {
+            var values = [Float](repeating: 0, count: count)
+            if frames > 0, let source = samples[min(index, channelCount - 1)] {
+                values.withUnsafeMutableBufferPointer { $0.baseAddress?.update(from: source, count: frames) }
+            }
+            return values
         }
-        buffer.frameLength = AVAudioFrameCount(frames)
+        return (channel(0), channel(1))
+    }
+    #endif
+}
 
-        let temporary = url.deletingLastPathComponent().appending(path: ".\(UUID().uuidString).m4a")
-        do {
-            try encodeAAC(buffer, sampleRate: sampleRate, channels: channelCount, to: temporary)
-            try? FileManager.default.removeItem(at: url)
-            try FileManager.default.moveItem(at: temporary, to: url)
-        } catch {
-            try? FileManager.default.removeItem(at: temporary)
-            throw error
-        }
+/// The songs whose separation is still wanted, read by the separation between pieces.
+private final class WantedSongs: @unchecked Sendable {
+    private let lock = NSLock()
+    private var ids: Set<String> = []
+
+    func set(_ newIDs: Set<String>) {
+        lock.withLock { ids = newIDs }
     }
 
-    /// In its own function so the file is closed (and finalized) before it is moved.
-    private nonisolated static func encodeAAC(_ buffer: AVAudioPCMBuffer, sampleRate: Double, channels: Int,
-                                              to url: URL) throws {
+    func contains(_ id: String) -> Bool {
+        lock.withLock { ids.contains(id) }
+    }
+}
+
+/// Decodes a song to 44.1 kHz stereo float, a little at a time. AVAssetReader reads every file
+/// AVPlayer plays (YouTube's fragmented MP4 included) and converts the sample rate itself.
+private final class PCMReader {
+    private let reader: AVAssetReader
+    private let output: AVAssetReaderTrackOutput
+    private(set) var isFinished = false
+
+    init(asset: AVAsset, track: AVAssetTrack, sampleRate: Double) throws {
+        reader = try AVAssetReader(asset: asset)
+        output = AVAssetReaderTrackOutput(track: track, outputSettings: [
+            AVFormatIDKey: kAudioFormatLinearPCM,
+            AVLinearPCMBitDepthKey: 32,
+            AVLinearPCMIsFloatKey: true,
+            AVLinearPCMIsBigEndianKey: false,
+            AVLinearPCMIsNonInterleaved: false,
+            AVSampleRateKey: sampleRate,
+            AVNumberOfChannelsKey: 2,
+        ])
+        output.alwaysCopiesSampleData = false
+        guard reader.canAdd(output) else { throw KaraokeError.unreadableAudio }
+        reader.add(output)
+        guard reader.startReading() else { throw reader.error ?? KaraokeError.unreadableAudio }
+    }
+
+    /// Appends decoded frames until `left` holds at least `count` of them or the song ends.
+    func fill(_ left: inout [Float], _ right: inout [Float], upTo count: Int) throws {
+        while left.count < count, !isFinished {
+            guard let sample = output.copyNextSampleBuffer() else {
+                if reader.status == .failed { throw reader.error ?? KaraokeError.unreadableAudio }
+                isFinished = true
+                break
+            }
+            guard let block = CMSampleBufferGetDataBuffer(sample) else { continue }
+            let length = CMBlockBufferGetDataLength(block)
+            var interleaved = [Float](repeating: 0, count: length / MemoryLayout<Float>.size)
+            let status = interleaved.withUnsafeMutableBytes { bytes -> OSStatus in
+                guard let base = bytes.baseAddress else { return kCMBlockBufferBadCustomBlockSourceErr }
+                return CMBlockBufferCopyDataBytes(block, atOffset: 0, dataLength: bytes.count, destination: base)
+            }
+            guard status == kCMBlockBufferNoErr else { throw KaraokeError.unreadableAudio }
+            var index = 0
+            while index + 1 < interleaved.count {
+                left.append(interleaved[index])
+                right.append(interleaved[index + 1])
+                index += 2
+            }
+        }
+    }
+}
+
+/// Writes one stem as AAC 256 kbps, piece by piece, into a temporary file that replaces
+/// the destination only once complete.
+private final class StemWriter {
+    private let destination: URL
+    private let temporary: URL
+    private let buffer: AVAudioPCMBuffer
+    private var file: AVAudioFile?
+
+    init(destination: URL, sampleRate: Double, capacity: Int) throws {
+        guard let format = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: sampleRate,
+                                         channels: 2, interleaved: false),
+              let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(capacity)) else {
+            throw KaraokeError.separationFailed
+        }
+        self.destination = destination
+        self.buffer = buffer
+        temporary = destination.deletingLastPathComponent().appending(path: ".\(UUID().uuidString).m4a")
         let settings: [String: Any] = [
             AVFormatIDKey: kAudioFormatMPEG4AAC,
             AVSampleRateKey: sampleRate,
-            AVNumberOfChannelsKey: channels,
+            AVNumberOfChannelsKey: 2,
             AVEncoderBitRateKey: 256_000,
         ]
-        let file = try AVAudioFile(forWriting: url, settings: settings, commonFormat: .pcmFormatFloat32,
-                                   interleaved: false)
+        file = try AVAudioFile(forWriting: temporary, settings: settings, commonFormat: .pcmFormatFloat32,
+                               interleaved: false)
+    }
+
+    /// Writes `count` frames (at most the capacity) that `fill` puts in the left and right channels.
+    func write(count: Int, _ fill: (_ left: UnsafeMutablePointer<Float>, _ right: UnsafeMutablePointer<Float>) -> Void) throws {
+        guard let file, count > 0, count <= Int(buffer.frameCapacity),
+              let channels = buffer.floatChannelData else { return }
+        fill(channels[0], channels[1])
+        buffer.frameLength = AVAudioFrameCount(count)
         try file.write(from: buffer)
     }
-    #endif
+
+    /// Closes the file (which finalizes it) and moves it in place.
+    func finish() throws {
+        autoreleasepool { file = nil }
+        try? FileManager.default.removeItem(at: destination)
+        try FileManager.default.moveItem(at: temporary, to: destination)
+    }
+
+    func discard() {
+        autoreleasepool { file = nil }
+        try? FileManager.default.removeItem(at: temporary)
+    }
 }
 
 /// Plays the two stems together, with the vocal / instrumental balance set by an audio mix
