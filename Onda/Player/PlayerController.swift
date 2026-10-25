@@ -44,7 +44,6 @@ final class PlaybackProgress: ObservableObject {
 }
 
 /// The queue and the audio engine: AVPlayer, crossfade, background audio, lock screen and Control Center.
-/// Remote commands and Now Playing info go through `nowPlayingSession`, not the shared centers.
 @MainActor
 final class PlayerController: ObservableObject {
     static let shared = PlayerController()
@@ -81,11 +80,10 @@ final class PlayerController: ObservableObject {
     private var outgoingPlayer: AVPlayer?
     private var observedPlayer: AVPlayer?
     private var timeObserver: Any?
-    /// Onda's Now Playing session. Becoming the *active* session is what makes the lock screen
-    /// and Dynamic Island player belong to Onda (and open it when tapped), not to the last music app used.
-    private var nowPlayingSession: MPNowPlayingSession?
-    /// iOS 27+: the NowPlaying framework session (`SystemNowPlaying`), used instead of `nowPlayingSession`.
-    /// Stored type-erased because the type only exists on iOS 27.
+    /// iOS 27+ with the iOS 27 SDK: the NowPlaying framework session (`SystemNowPlaying`), used instead of
+    /// MPNowPlayingInfoCenter / MPRemoteCommandCenter. Stored type-erased because the type only exists on iOS 27.
+    /// (MPNowPlayingSession is not used: removing the player it was created with at the end of a
+    /// crossfade crashed the app, and it didn't change which app owned the system player anyway.)
     private var systemNowPlayingBox: AnyObject?
     /// Cover of the current song, encoded for the iOS 27 player.
     private var currentArtworkData: Data?
@@ -139,13 +137,10 @@ final class PlayerController: ObservableObject {
         }
         #endif
         if !usesNowPlayingFramework {
-            let nowPlaying = MPNowPlayingSession(players: [player])
-            // The catalogue metadata (and the corrected song length) are published by hand.
-            nowPlaying.automaticallyPublishesNowPlayingInfo = false
-            nowPlayingSession = nowPlaying
-            configureRemoteCommands(nowPlaying.remoteCommandCenter)
+            configureRemoteCommands(MPRemoteCommandCenter.shared())
+            UserDefaults.standard.removeObject(forKey: Preferences.nowPlayingAccepted)
         }
-        UserDefaults.standard.set(usesNowPlayingFramework ? "NowPlaying (iOS 27)" : "MPNowPlayingSession",
+        UserDefaults.standard.set(usesNowPlayingFramework ? "NowPlaying (iOS 27)" : "MPNowPlayingInfoCenter",
                                   forKey: Preferences.nowPlayingBackend)
         attach(player)
         observeNotifications()
@@ -628,7 +623,6 @@ final class PlayerController: ObservableObject {
         guard let outgoing = outgoingPlayer else { return }
         outgoing.pause()
         outgoing.replaceCurrentItem(with: nil)
-        nowPlayingSession?.removePlayer(outgoing)
         outgoingPlayer = nil
         if interrupted {
             fadeInTask?.cancel()
@@ -729,13 +723,8 @@ final class PlayerController: ObservableObject {
         #if canImport(NowPlaying)
         if #available(iOS 27, *), let system = systemNowPlayingBox as? SystemNowPlaying {
             system.claim()
-            return
         }
         #endif
-        // Shown in Settings → Informazioni: whether iOS accepted Onda as the Now Playing app.
-        nowPlayingSession?.becomeActiveIfPossible { accepted in
-            UserDefaults.standard.set(accepted ? 1 : 0, forKey: Preferences.nowPlayingAccepted)
-        }
     }
 
     /// Moves the time and state observers to the player of the current song.
@@ -744,9 +733,6 @@ final class PlayerController: ObservableObject {
             observedPlayer.removeTimeObserver(timeObserver)
         }
         playerCancellables.removeAll()
-        if let nowPlayingSession, !nowPlayingSession.players.contains(newPlayer) {
-            nowPlayingSession.addPlayer(newPlayer)
-        }
         observedPlayer = newPlayer
         timeObserver = newPlayer.addPeriodicTimeObserver(
             forInterval: CMTime(seconds: 0.25, preferredTimescale: 600), queue: .main
@@ -888,7 +874,7 @@ final class PlayerController: ObservableObject {
             return
         }
         #endif
-        let center = nowPlayingSession?.nowPlayingInfoCenter ?? MPNowPlayingInfoCenter.default()
+        let center = MPNowPlayingInfoCenter.default()
         guard let track = current else {
             center.nowPlayingInfo = nil
             return

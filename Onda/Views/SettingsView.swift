@@ -268,7 +268,7 @@ struct SettingsView: View {
         switch nowPlayingAccepted {
         case 1: return "Onda (accettato da iOS)"
         case 0: return "Rifiutato da iOS"
-        default: return "Avvia un brano"
+        default: return "—"
         }
     }
 
