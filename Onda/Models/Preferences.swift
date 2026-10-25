@@ -128,6 +128,7 @@ enum Preferences {
     /// -1 unknown, 0 refused by iOS, 1 accepted.
     static let nowPlayingAccepted = "diagnostics.nowPlayingAccepted"
     static let nowPlayingBackend = "diagnostics.nowPlayingBackend"
+    static let interactiveArtwork = "player.interactiveArtwork"
     static let lyricsTranslate = "lyrics.translate"
     static let lyricsTranslationTarget = "lyrics.translationTarget"
 

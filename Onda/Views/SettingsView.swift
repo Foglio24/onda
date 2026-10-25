@@ -17,6 +17,7 @@ struct SettingsView: View {
     @AppStorage(Preferences.nowPlayingAccepted) private var nowPlayingAccepted = -1
     @AppStorage(Preferences.nowPlayingBackend) private var nowPlayingBackend = ""
     @AppStorage(Preferences.lyricsTranslate) private var translateLyrics = false
+    @AppStorage(Preferences.interactiveArtwork) private var interactiveArtwork = true
     @AppStorage(Preferences.lyricsTranslationTarget) private var translationTarget = Preferences.defaultTranslationTarget
     @AppStorage(Preferences.skipLongMixes) private var skipLongMixes = true
     @AppStorage(Preferences.dynamicColors) private var dynamicColors = true
@@ -188,13 +189,16 @@ struct SettingsView: View {
                 }
                 .padding(.vertical, 4)
             }
+            Toggle(isOn: $interactiveArtwork) {
+                Label("Copertina interattiva", systemImage: "rotate.3d")
+            }
             Toggle(isOn: $dynamicColors) {
                 Label("Colori dalla copertina", systemImage: "paintpalette")
             }
         } header: {
             Text("Aspetto")
         } footer: {
-            Text("Il colore del tema si usa per pulsanti, interruttori e brano in riproduzione. Con \"Colori dalla copertina\" sfondi e player prendono il colore dell'album in riproduzione.")
+            Text("Il colore del tema si usa per pulsanti, interruttori e brano in riproduzione. La copertina interattiva si inclina con l'iPhone e con il dito; un doppio tocco mette Mi piace. Con \"Colori dalla copertina\" sfondi e player prendono il colore dell'album in riproduzione.")
         }
     }
 

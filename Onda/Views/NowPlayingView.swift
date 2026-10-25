@@ -114,10 +114,10 @@ struct NowPlayingView: View {
     }
 
     private var artwork: some View {
-        ArtworkView(track: player.current, cornerRadius: 22, highRes: true)
-            .shadow(color: .black.opacity(0.45), radius: 30, y: 16)
-            .scaleEffect(player.isPlaying ? 1 : 0.88)
-            .animation(.spring(duration: 0.45, bounce: 0.25), value: player.isPlaying)
+        InteractiveArtwork(track: player.current, isPlaying: player.isPlaying) {
+            // Double tap likes the song (never un-likes it, like a double tap on a photo).
+            if let track = player.current, !library.isLiked(track) { library.toggleLike(track) }
+        }
     }
 
     private var titleRow: some View {
