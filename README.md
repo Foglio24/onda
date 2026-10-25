@@ -1,95 +1,102 @@
 # Onda
 
-Client musicale per iPhone ispirato a [LastWave](https://github.com/Clash-Projects/LastWave-Native) per Android.
-È scritto da zero in Swift/SwiftUI e non contiene codice del progetto originale.
-Funziona da iOS 26 in su, quindi anche su iPhone 17 Pro con iOS 27, e usa il design Liquid Glass.
+A music player for iPhone, inspired by [LastWave](https://github.com/Clash-Projects/LastWave-Native) for Android.
+It is written from scratch in Swift/SwiftUI and contains no code from the original project.
+It runs on iOS 26 and later, including iPhone 17 Pro on iOS 27, and uses the Liquid Glass design.
+The app's interface is in Italian.
 
-## Cosa fa
+See [CHANGELOG.md](CHANGELOG.md) for what changed in each version.
+
+## Features
 
 | LastWave (Android) | Onda (iOS) |
 |---|---|
-| Streaming dal catalogo YouTube Music, in background e senza pubblicità | ✅ |
-| Qualità e codec | ✅ 4 livelli: Massima (Opus 160 kbps decodificato sull'iPhone e riprodotto senza perdite, oppure Dolby Digital Plus / AAC 256 quando il video li ha), Alta (AAC 128), Media (Opus 70), Risparmio (AAC 48). Separati per Wi-Fi, rete cellulare e download |
-| Dolby Atmos | ✅ Dolby Digital Plus quando YouTube lo offre, più l'Audio spaziale di Apple con AirPods/Beats |
-| Dissolvenza tra brani | ✅ Da 0 a 12 secondi, come su Spotify |
-| Radio e mix intelligenti | ✅ Radio da ogni brano, radio automatica a fine coda, mood (Relax, Festa, …), *Taste Mix* e *Riscopri* da Last.fm |
-| Playlist | ✅ Crea, rinomina, riordina, copertina personalizzata dalle Foto, scarica tutta la playlist con un tocco |
-| Importa playlist | ✅ Da link Spotify (fino a 100 brani), Apple Music, YouTube e YouTube Music. Ogni brano viene cercato su YouTube Music |
-| Casuale e ripeti | ✅ Modalità casuale vera (anche per radio e mix), ripeti tutto / ripeti brano, timer di spegnimento |
-| Scrobbler Last.fm | ✅ Now playing, scrobble dopo metà brano o 4 minuti, coda offline, "Mi piace" sincronizzato |
-| Testi sincronizzati da LRCLIB | ✅ Scorrimento automatico, tocca una riga per saltarci, 3 animazioni e 3 dimensioni |
-| Download offline | ✅ Audio e copertina salvati nell'app |
-| Controlli su schermata di blocco, Centro di Controllo e AirPlay | ✅ |
-| Colori dinamici dalla copertina | ✅ Sfondi di tutte le schermate e del player tinti con il colore dell'album |
-| Libreria | ✅ Preferiti, playlist, download, cronologia, coda modificabile (trascina, elimina, mescola) |
+| Streams the YouTube Music catalogue, in the background and ad-free | ✅ |
+| Quality and codecs | ✅ Four levels, set separately for Wi-Fi, cellular and downloads (details below) |
+| Dolby Atmos | ✅ Dolby Digital Plus when YouTube offers it, plus Apple's Spatial Audio with AirPods/Beats |
+| Crossfade | ✅ 0–12 seconds, like Spotify |
+| Smart radios and mixes | ✅ A radio from any song, auto-radio when the queue ends, moods, and *Taste Mix* / *Rediscover* from Last.fm |
+| Playlists | ✅ Create, rename, reorder, set a custom cover from Photos, download a whole playlist in one tap |
+| Playlist import | ✅ From Spotify (up to 100 songs), Apple Music, YouTube and YouTube Music links; each song is matched on YouTube Music |
+| Shuffle and repeat | ✅ A real shuffle mode (radios and mixes too), repeat all / repeat one, sleep timer |
+| Last.fm scrobbler | ✅ Now playing, scrobble after half the song or 4 minutes, offline queue, likes synced |
+| Synced lyrics from LRCLIB | ✅ Auto-scroll, tap a line to seek, 3 animations and 3 sizes |
+| Offline downloads | ✅ Audio and artwork stored in the app |
+| Lock screen, Control Center, AirPlay | ✅ |
+| Dynamic colours from the artwork | ✅ Every screen and the player are tinted with the album's colours |
+| Library | ✅ Favourites, playlists, downloads, history, and an editable queue (drag, delete, shuffle) |
 
-Su ogni brano: tocca **···** per tutte le azioni, oppure scorri verso destra per *Mi piace* e *Aggiungi a playlist*.
+The quality levels are:
+- **Maximum:** Opus ~160 kbps, decoded on the iPhone into Apple Lossless. Dolby Digital Plus or 256 kbps AAC is used instead when the video has it.
+- **High:** AAC 128 kbps.
+- **Medium:** Opus ~70 kbps.
+- **Data saver:** AAC 48 kbps.
 
-Funzioni di LastWave **non** incluse:
-- **Scrobbler universale delle altre app**: iOS non permette a un'app di leggere cosa riproducono Spotify o Apple Music. Onda registra solo ciò che ascolti in Onda.
-- **Feed social**: può arrivare in futuro.
-- **AAC 256 / Opus 256 di YouTube Music Premium**: richiedono l'accesso con un account Premium, che Onda non fa.
-- **Android Auto / CarPlay**: CarPlay richiede un entitlement che Apple non dà agli account gratuiti.
-- **Driver USB DAC / bit-perfect**: non è possibile su iOS.
+On every song, tap **···** for all actions, or swipe right for *Like* and *Add to playlist*.
 
-## 1. Compilare l'IPA (non serve un Mac)
+Not included:
+- **Universal scrobbler for other apps:** iOS doesn't let an app see what Spotify or Apple Music are playing.
+- **Social feed:** may come later.
+- **YouTube Music Premium formats (AAC 256 / Opus 256 on every song):** they require signing in with a Premium account.
+- **CarPlay:** it needs an Apple entitlement that free accounts can't get.
+- **USB DAC driver / bit-perfect output:** not possible on iOS.
 
-L'IPA viene compilata da GitHub Actions su un Mac nel cloud.
+## Installing
 
-1. Crea un repository su GitHub (anche privato) e caricaci il contenuto di questa cartella: `.github`, `Onda`, `Support`, `project.yml`, `README.md`, `.gitignore`.
-   Senza git puoi usare **Add file → Upload files** e trascinare le cartelle nella pagina.
-   Se la cartella `.github` non viene caricata, crea il file a mano con **Add file → Create new file**: come nome scrivi `.github/workflows/build.yml` e incolla il contenuto del file.
-2. Apri la scheda **Actions** del repository. La build **Build IPA** parte da sola a ogni push su `main`, oppure puoi avviarla a mano con **Run workflow**.
-3. Dopo circa 5-10 minuti apri la build completata e scarica l'artifact **Onda-ipa**: è uno zip che contiene `Onda.ipa`.
+### Download the IPA
 
-Se crei un tag `v1.0.0`, l'IPA viene anche allegata a una Release, comoda da scaricare direttamente dall'iPhone.
+Grab `Onda.ipa` from the latest release on the [Releases](../../releases) page.
 
-> Repository privato: GitHub conta i minuti macOS 10 volte, quindi i 2000 minuti gratuiti diventano circa 20 build al mese. Con un repository pubblico i minuti sono illimitati.
+### Build it yourself (no Mac needed)
 
-## 2. Installare sull'iPhone (sideloading da Windows)
+GitHub Actions builds the IPA on a cloud Mac:
 
-Con **Sideloadly**:
+1. Push to `main` or a `feature/**` branch, or run **Build IPA** manually from the **Actions** tab.
+2. After a few minutes, download the **Onda-ipa** artifact from the finished run.
 
-1. Installa iTunes e iCloud per Windows scaricati **dal sito Apple** e non dal Microsoft Store (la pagina di Sideloadly ha i link diretti), poi installa [Sideloadly](https://sideloadly.io).
-2. Collega l'iPhone con il cavo USB e, se te lo chiede, scegli "Autorizza questo computer".
-3. Trascina `Onda.ipa` in Sideloadly, inserisci il tuo Apple ID e premi **Start**. Va bene un Apple ID gratuito.
-4. Sull'iPhone vai in **Impostazioni → Privacy e sicurezza → Modalità sviluppatore**, attivala e riavvia.
-5. Vai in **Impostazioni → Generali → VPN e gestione dispositivi**, tocca il tuo Apple ID e scegli **Autorizza**.
+Pushing a tag like `v1.2.0` also attaches the IPA to a release.
 
-Con un Apple ID gratuito l'app scade dopo **7 giorni**: per rinnovarla ripeti il punto 3, senza perdere i dati.
-Se vuoi rinnovarla direttamente dall'iPhone senza PC, usa [SideStore](https://sidestore.io).
-Con un account sviluppatore a pagamento la firma dura un anno.
+### Sideload it with Sideloadly (Windows or macOS)
 
-## 3. Collegare Last.fm (facoltativo)
+1. On Windows, install iTunes and iCloud **from Apple's website**, not the Microsoft Store. Then install [Sideloadly](https://sideloadly.io).
+2. Connect the iPhone with a USB cable and trust the computer.
+3. Drag `Onda.ipa` into Sideloadly, enter your Apple ID and press **Start**. A free Apple ID works.
+4. On the iPhone, turn on **Settings → Privacy & Security → Developer Mode** and restart.
+5. In **Settings → General → VPN & Device Management**, trust your Apple ID.
 
-1. Vai su <https://www.last.fm/api/account/create> e crea un'applicazione API. Nome e descrizione sono a piacere, il callback puoi lasciarlo vuoto.
-2. In Onda apri **Impostazioni → Last.fm**, incolla **API key** e **Shared secret** e tocca **Salva chiavi**.
-3. Tocca **Connetti account Last.fm**, accedi, scegli **Yes, allow access** e chiudi la pagina.
+With a free Apple ID the app expires after **7 days**. Re-sign it with Sideloadly; your data is kept.
+[SideStore](https://sidestore.io) can refresh it from the iPhone itself.
 
-Da quel momento in Home compaiono *Taste Mix*, *Riscopri* e i tuoi brani più ascoltati del mese.
+### Connect Last.fm (optional)
 
-## Problemi comuni
+1. Create an API application at <https://www.last.fm/api/account/create>.
+2. In Onda, go to **Impostazioni → Last.fm**, paste the API key and shared secret, then tap **Connetti account Last.fm**.
 
-- **La build su GitHub fallisce**: apri il log del passaggio *Build (unsigned)* e copia le righe che contengono `error:`.
-- **"Brano non disponibile" su tutti i brani**: YouTube cambia spesso il suo player. Aggiorna la versione di YouTubeKit in `project.yml` (`from: "0.4.9"`) e ricompila.
-- **L'app non si apre più**: è passata la scadenza dei 7 giorni, quindi rifirmala con Sideloadly.
+## Troubleshooting
 
-## Come è fatto
+- **The GitHub build fails:** open the *Build (unsigned)* step of the run and look for lines containing `error:`.
+- **"Brano non disponibile" on every song:** YouTube changed its player. Bump YouTubeKit in `project.yml` and rebuild.
+- **Opus is never used at Maximum quality:** Settings → Audio shows the last Opus error in orange.
+- **The app no longer opens:** the 7-day signature expired. Re-sign it.
+
+## How it's built
 
 ```
 Onda/
-  App/        avvio dell'app e tab bar (Home, Libreria, Impostazioni, Cerca, mini player)
-  Player/     AVPlayer, coda, radio automatica, schermata di blocco, scrobbling
-  Services/   YouTube Music (InnerTube), stream (YouTubeKit), LRCLIB, Last.fm, download, libreria
-  Views/      schermate SwiftUI
-project.yml   progetto XcodeGen (il .xcodeproj viene generato in CI)
+  App/        app entry, tab bar, mini player, presentation routing
+  Player/     AVPlayer engine, queue, crossfade, radio, lock screen, scrobbling
+  Services/   YouTube Music (InnerTube), streams (YouTubeKit), Opus decoding,
+              chunked downloads, LRCLIB, Last.fm, playlist import, library
+  Views/      SwiftUI screens
+project.yml   XcodeGen project (the .xcodeproj is generated in CI)
 ```
 
-- Ricerca e radio usano l'API web di YouTube Music (client `WEB_REMIX`).
-- Gli URL audio arrivano da [YouTubeKit](https://github.com/alexeichhorn/YouTubeKit). L'estrazione avviene sul telefono e, solo se fallisce, sul server dell'autore della libreria, che riceve l'ID del video.
-- I testi arrivano da [LRCLIB](https://lrclib.net). Lo scrobbling usa l'[API di Last.fm](https://www.last.fm/api).
+- **Search, radios and playlists** use YouTube Music's web API (the `WEB_REMIX` client).
+- **Audio URLs** come from [YouTubeKit](https://github.com/alexeichhorn/YouTubeKit). Extraction runs on the phone. Only if that fails does it use the library author's server, which receives the video ID.
+- **Opus** (WebM) is demuxed in the app and decoded with Apple's own Opus decoder into Apple Lossless, which AVPlayer plays natively.
+- **Lyrics** come from [LRCLIB](https://lrclib.net). **Scrobbling** uses the [Last.fm API](https://www.last.fm/api).
 
-## Note
+## Notes
 
-Progetto personale e non commerciale, non affiliato a Google, YouTube o Last.fm.
-I client non ufficiali e il download dei brani possono violare i Termini di servizio di YouTube: usalo solo per te.
+This is a personal, non-commercial project, not affiliated with Google, YouTube, Spotify, Apple or Last.fm.
+Unofficial clients and downloading songs may break YouTube's Terms of Service, so use it for yourself only.
