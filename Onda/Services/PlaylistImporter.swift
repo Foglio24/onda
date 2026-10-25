@@ -11,15 +11,15 @@ enum ImportError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .unsupportedLink:
-            return "Link non riconosciuto. Incolla il link di una playlist o di un album di YouTube Music, Spotify o Apple Music."
+            return String(localized: "Link non riconosciuto. Incolla il link di una playlist o di un album di YouTube Music, Spotify o Apple Music.")
         case .pageChanged:
-            return "Non riesco a leggere la playlist. Controlla che sia pubblica."
+            return String(localized: "Non riesco a leggere la playlist. Controlla che sia pubblica.")
         case .empty:
-            return "La playlist è vuota."
+            return String(localized: "La playlist è vuota.")
         case .nothingMatched:
-            return "Nessun brano della playlist è stato trovato su YouTube Music."
+            return String(localized: "Nessun brano della playlist è stato trovato su YouTube Music.")
         case .busy:
-            return "C'è già un'importazione in corso."
+            return String(localized: "C'è già un'importazione in corso.")
         }
     }
 }
@@ -56,13 +56,13 @@ final class PlaylistImporter: ObservableObject {
 
     func importPlaylist(from text: String) async throws -> Outcome {
         guard status == nil else { throw ImportError.busy }
-        status = "Lettura della playlist…"
+        status = String(localized: "Lettura della playlist…")
         defer { status = nil }
 
         switch try await Self.source(from: text) {
         case .youTube(let id):
             let result = try await InnerTube.shared.playlist(id: id)
-            let playlist = Library.shared.createPlaylist(named: result.title ?? "Playlist importata",
+            let playlist = Library.shared.createPlaylist(named: result.title ?? String(localized: "Playlist importata"),
                                                          tracks: result.tracks)
             return Outcome(playlist: playlist, unmatched: 0)
         case .spotify(let kind, let id):
@@ -76,7 +76,7 @@ final class PlaylistImporter: ObservableObject {
         guard !page.tracks.isEmpty else { throw ImportError.empty }
         let found = await match(page.tracks).compactMap { $0 }
         guard !found.isEmpty else { throw ImportError.nothingMatched }
-        let playlist = Library.shared.createPlaylist(named: page.title ?? "Playlist da \(service)",
+        let playlist = Library.shared.createPlaylist(named: page.title ?? String(localized: "Playlist da \(service)"),
                                                      tracks: found)
         return Outcome(playlist: playlist, unmatched: page.tracks.count - found.count)
     }
@@ -85,7 +85,7 @@ final class PlaylistImporter: ObservableObject {
     private func match(_ tracks: [Track]) async -> [Track?] {
         var results = [Track?](repeating: nil, count: tracks.count)
         var done = 0
-        status = "Ricerca su YouTube Music: 0/\(tracks.count)"
+        status = String(localized: "Ricerca su YouTube Music: \(done)/\(tracks.count)")
         await withTaskGroup(of: (Int, Track?).self) { group in
             var next = 0
             while next < min(4, tracks.count) {
@@ -100,7 +100,7 @@ final class PlaylistImporter: ObservableObject {
             for await (position, match) in group {
                 results[position] = match
                 done += 1
-                status = "Ricerca su YouTube Music: \(done)/\(tracks.count)"
+                status = String(localized: "Ricerca su YouTube Music: \(done)/\(tracks.count)")
                 if next < tracks.count {
                     let upcoming = next
                     let track = tracks[upcoming]

@@ -8,9 +8,9 @@ enum OpusError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .notWebM: return "File WebM non valido."
-        case .noAudio: return "Nessun audio Opus nel file."
-        case .decoderUnavailable: return "Decoder Opus non disponibile."
+        case .notWebM: return String(localized: "File WebM non valido.")
+        case .noAudio: return String(localized: "Nessun audio Opus nel file.")
+        case .decoderUnavailable: return String(localized: "Decoder Opus non disponibile.")
         }
     }
 }

@@ -93,7 +93,7 @@ struct LibraryView: View {
         }
     }
 
-    private func shortcut(_ title: String, symbol: String, tint: Color, count: Int) -> some View {
+    private func shortcut(_ title: LocalizedStringKey, symbol: String, tint: Color, count: Int) -> some View {
         HStack(spacing: 14) {
             Image(systemName: symbol)
                 .font(.title3)
@@ -113,7 +113,7 @@ struct LibraryView: View {
                 let outcome = try await importer.importPlaylist(from: link)
                 var message = "\"\(outcome.playlist.name)\": \(outcome.playlist.countLabel)."
                 if outcome.unmatched > 0 {
-                    message += " \(outcome.unmatched) non trovati su YouTube Music."
+                    message += " " + String(localized: "\(outcome.unmatched) non trovati su YouTube Music.")
                 }
                 importResult = message
             } catch {
@@ -128,9 +128,9 @@ enum TrackCollection {
 
     var title: String {
         switch self {
-        case .liked: return "Preferiti"
-        case .downloads: return "Download"
-        case .history: return "Cronologia"
+        case .liked: return String(localized: "Preferiti")
+        case .downloads: return String(localized: "Download")
+        case .history: return String(localized: "Cronologia")
         }
     }
 }

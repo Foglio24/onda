@@ -32,7 +32,7 @@ struct QueueEntry: Identifiable {
 enum PlayerError: LocalizedError {
     case unavailable
 
-    var errorDescription: String? { "Questo brano non è disponibile." }
+    var errorDescription: String? { String(localized: "Questo brano non è disponibile.") }
 }
 
 /// Playback position, kept apart from `PlayerController` so that only the views
@@ -186,13 +186,13 @@ final class PlayerController: ObservableObject {
     }
 
     func playNext(_ track: Track) {
-        guard current != nil else { return play([track], source: "Coda") }
+        guard current != nil else { return play([track], source: String(localized: "Coda")) }
         queue.insert(track, at: index + 1)
         unshuffledUpcoming.insert(track, at: 0)
     }
 
     func addToQueue(_ track: Track) {
-        guard current != nil else { return play([track], source: "Coda") }
+        guard current != nil else { return play([track], source: String(localized: "Coda")) }
         queue.append(track)
         unshuffledUpcoming.append(track)
     }
@@ -368,7 +368,7 @@ final class PlayerController: ObservableObject {
                                                            amount: self.karaokeAmount)
                 guard !Task.isCancelled, self.current?.id == track.id, self.karaokeMode != .off else { return }
                 self.karaokeTrackID = track.id
-                self.switchItem(to: item, label: "Karaoke AI", track: track)
+                self.switchItem(to: item, label: String(localized: "Karaoke AI"), track: track)
                 self.karaokeStatus = .ready
                 self.prepareNextKaraoke()
             } catch {

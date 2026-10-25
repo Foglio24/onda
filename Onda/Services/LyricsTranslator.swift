@@ -104,7 +104,7 @@ final class LyricsTranslator: ObservableObject {
         do {
             try await translate(newLines, key: key, session: session, shown: true)
         } catch {
-            report(.note("Traduzione non riuscita: \(error.localizedDescription)"), key: key)
+            report(.note(String(localized: "Traduzione non riuscita: \(error.localizedDescription)")), key: key)
         }
     }
 
@@ -112,13 +112,12 @@ final class LyricsTranslator: ObservableObject {
 
     private func run(_ lines: [LyricLine], key: String, target: Locale.Language, shown: Bool) async {
         guard let source = Self.detectLanguage(of: lines) else {
-            if shown { report(.note("Lingua del testo non riconosciuta"), key: key) }
+            if shown { report(.note(String(localized: "Lingua del testo non riconosciuta")), key: key) }
             return
         }
         guard source.languageCode != target.languageCode else {
             if shown {
-                let name = Preferences.languageName(target.minimalIdentifier).lowercased()
-                report(.note("Il testo è già in \(name)"), key: key)
+                report(.note(String(localized: "Il testo è già in \(Self.inlineName(of: target))")), key: key)
             }
             return
         }
@@ -131,8 +130,7 @@ final class LyricsTranslator: ObservableObject {
             if shown { report(.needsDownload(source), key: key) }
         default:
             if shown {
-                let name = Preferences.languageName(source.minimalIdentifier).lowercased()
-                report(.note("Traduzione da \(name) non disponibile"), key: key)
+                report(.note(String(localized: "Traduzione da \(Self.inlineName(of: source)) non disponibile")), key: key)
             }
         }
     }
@@ -151,7 +149,7 @@ final class LyricsTranslator: ObservableObject {
                 // The background one is not shared: two translations at once on one session may clash.
                 if shown { sessions[pair] = created }
             } else {
-                if shown { report(.note("Traduzione non disponibile"), key: key) }
+                if shown { report(.note(String(localized: "Traduzione non disponibile")), key: key) }
                 return
             }
             do {
@@ -160,7 +158,9 @@ final class LyricsTranslator: ObservableObject {
             } catch {
                 if shown { sessions[pair] = nil }
                 if attempt == 1 || Task.isCancelled {
-                    if shown { report(.note("Traduzione non riuscita: \(error.localizedDescription)"), key: key) }
+                    if shown {
+                        report(.note(String(localized: "Traduzione non riuscita: \(error.localizedDescription)")), key: key)
+                    }
                     return
                 }
             }
@@ -185,8 +185,13 @@ final class LyricsTranslator: ObservableObject {
         store(translated, key: key)
         if shown, shownKey == key {
             translations = Self.byLine(translated, lines: lines)
-            phase = translated.isEmpty ? .note("Nessuna traduzione ricevuta") : .done
+            phase = translated.isEmpty ? .note(String(localized: "Nessuna traduzione ricevuta")) : .done
         }
+    }
+
+    /// A language's name as written inside a sentence ("inglese" in Italian, "English" in English).
+    private static func inlineName(of language: Locale.Language) -> String {
+        Locale.current.localizedString(forIdentifier: language.minimalIdentifier) ?? language.minimalIdentifier
     }
 
     private func report(_ newPhase: Phase, key: String) {

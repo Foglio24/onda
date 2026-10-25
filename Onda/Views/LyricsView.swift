@@ -73,10 +73,10 @@ private struct SyncedLyrics: View {
 
     /// Short status under the 文A button ("Il testo è già in italiano", "Traduzione…"…).
     private var translationNote: String? {
-        if downloading { return "Download della lingua…" }
+        if downloading { return String(localized: "Download della lingua…") }
         guard translator.lines == lines else { return nil }
         switch translator.phase {
-        case .translating: return translations.isEmpty ? "Traduzione…" : nil
+        case .translating: return translations.isEmpty ? String(localized: "Traduzione…") : nil
         case .note(let text): return text
         default: return nil
         }

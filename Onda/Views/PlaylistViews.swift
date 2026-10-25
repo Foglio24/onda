@@ -180,7 +180,11 @@ struct PlaylistDetailView: View {
                     Text("Playlist scaricata")
                 } else {
                     Image(systemName: "arrow.down.circle.fill")
-                    Text(saved > 0 ? "Scarica i restanti \(downloadable.count - saved)" : "Scarica tutta la playlist")
+                    if saved > 0 {
+                        Text("Scarica i restanti \(downloadable.count - saved)")
+                    } else {
+                        Text("Scarica tutta la playlist")
+                    }
                 }
             }
             .font(.subheadline.weight(.semibold))

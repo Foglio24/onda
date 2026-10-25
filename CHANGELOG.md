@@ -3,6 +3,10 @@
 ## 1.4.0 (2026-10-25)
 
 ### Added
+- **English.** The whole app is now also in English, including messages, errors and the karaoke and translation statuses. It follows the iPhone's language, and iPhones in any other language get English.
+  - Settings → Lingua opens the app's iOS settings, where Onda can have its own language. iOS shows that choice when the iPhone has more than one preferred language.
+  - The app now declares both languages, so iOS's own buttons inside it (Cancel, Delete…) use the app's language as well.
+  - CI checks that every text in the code has its English version.
 - **Lyrics translation.** Synced lyrics can show a translation under each line, in the language you pick (Settings → Testi). It uses Apple's on-device Translation:
   - Download the language once, then lyrics translate offline without slowing songs down.
   - Translation starts as soon as a song does, and the next song's lyrics are fetched and translated while the current one plays, so the translation is usually ready when you open the lyrics.

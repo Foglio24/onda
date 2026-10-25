@@ -1,0 +1,6 @@
+/*
+  Italian is the language the app is written in: every key in the code is the Italian text,
+  shown as is, so this table stays empty. It exists so that iOS knows the app speaks Italian
+  (and shows its own buttons, such as Cancel and Delete, in Italian too).
+  The English text is in en.lproj/Localizable.strings.
+*/

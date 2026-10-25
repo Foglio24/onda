@@ -11,13 +11,13 @@ enum LastFMError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .missingCredentials:
-            return "Inserisci API key e shared secret di Last.fm nelle impostazioni."
+            return String(localized: "Inserisci API key e shared secret di Last.fm nelle impostazioni.")
         case .badResponse:
-            return "Risposta non valida da Last.fm."
+            return String(localized: "Risposta non valida da Last.fm.")
         case .emptyHistory:
-            return "Su Last.fm non ci sono ancora abbastanza ascolti per creare un mix."
+            return String(localized: "Su Last.fm non ci sono ancora abbastanza ascolti per creare un mix.")
         case .api(14, _):
-            return "Autorizzazione non completata: nella pagina di Last.fm tocca \"Yes, allow access\" e riprova."
+            return String(localized: "Autorizzazione non completata: nella pagina di Last.fm tocca \"Yes, allow access\" e riprova.")
         case .api(let code, let message):
             return "Last.fm (\(code)): \(message)"
         }
@@ -240,7 +240,7 @@ final class LastFM: ObservableObject {
         }
         if let code = json["error"] as? Int {
             if code == 9 { signOut() } // session revoked from the Last.fm website
-            throw LastFMError.api(code, json["message"] as? String ?? "errore sconosciuto")
+            throw LastFMError.api(code, json["message"] as? String ?? String(localized: "errore sconosciuto"))
         }
         return json
     }

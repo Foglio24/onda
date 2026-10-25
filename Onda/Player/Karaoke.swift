@@ -12,9 +12,9 @@ enum KaraokeMode: Int32, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .off: return "Normale"
-        case .noVocals: return "Senza voce"
-        case .vocalsOnly: return "Solo voce"
+        case .off: return String(localized: "Normale")
+        case .noVocals: return String(localized: "Senza voce")
+        case .vocalsOnly: return String(localized: "Solo voce")
         }
     }
 
@@ -76,11 +76,13 @@ enum KaraokeError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .engineUnavailable: return "Il modello AI per il karaoke non è incluso in questa versione dell'app."
-        case .modelFailed(let detail): return "Il modello AI non è riuscito a separare il brano (\(detail))."
-        case .unreadableAudio: return "Non riesco a leggere l'audio del brano."
-        case .separationFailed: return "La separazione di voce e musica non è riuscita."
-        case .lowMemory: return "Memoria insufficiente per il karaoke: chiudi qualche app e riprova."
+        case .engineUnavailable:
+            return String(localized: "Il modello AI per il karaoke non è incluso in questa versione dell'app.")
+        case .modelFailed(let detail):
+            return String(localized: "Il modello AI non è riuscito a separare il brano (\(detail)).")
+        case .unreadableAudio: return String(localized: "Non riesco a leggere l'audio del brano.")
+        case .separationFailed: return String(localized: "La separazione di voce e musica non è riuscita.")
+        case .lowMemory: return String(localized: "Memoria insufficiente per il karaoke: chiudi qualche app e riprova.")
         }
     }
 }
@@ -273,7 +275,7 @@ actor StemSeparator {
         let used = ByteCountFormatter.string(fromByteCount: Int64(memoryFootprint), countStyle: .memory)
         let free = ByteCountFormatter.string(fromByteCount: Int64(os_proc_available_memory()), countStyle: .memory)
         let date = Date.now.formatted(date: .abbreviated, time: .standard)
-        let text = "\(step) · memoria usata \(used), libera \(free) · \(date)"
+        let text = String(localized: "\(step) · memoria usata \(used), libera \(free) · \(date)")
         try? text.write(to: progressNote, atomically: true, encoding: .utf8)
     }
 
@@ -311,7 +313,7 @@ actor StemSeparator {
     private nonisolated static func loadSeparator(modelURL: URL) throws -> MDXSeparator {
         if let loadedSeparator { return loadedSeparator }
         while true {
-            leaveNote("Caricamento del modello AI (\(name(of: computeUnits)))")
+            leaveNote(String(localized: "Caricamento del modello AI (\(name(of: computeUnits)))"))
             do {
                 let separator = try MDXSeparator(modelURL: modelURL, computeUnits: computeUnits)
                 loadedSeparator = separator
@@ -397,7 +399,8 @@ actor StemSeparator {
                 let available = os_proc_available_memory()
                 if available > 0, available < memoryReserve { throw KaraokeError.lowMemory }
                 piece += 1
-                leaveNote("Separazione: pezzo \(piece) di circa \(max(piece, pieces)) (\(name(of: computeUnits)))")
+                leaveNote(String(localized:
+                    "Separazione: pezzo \(piece) di circa \(max(piece, pieces)) (\(name(of: computeUnits)))"))
 
                 var vocals = try separateVocals(modelURL: modelURL, left: left[0..<count], right: right[0..<count])
                 for index in 0..<carried {
@@ -427,8 +430,8 @@ actor StemSeparator {
 
         let seconds = Int(Date.now.timeIntervalSince(started).rounded())
         let songLength = Duration.seconds(Double(written + tailLeft.count) / Double(sampleRate))
-        let summary = "\(piece) pezzi in \(seconds) s per \(songLength.formatted(.time(pattern: .minuteSecond))) "
-            + "di brano (\(name(of: computeUnits)))"
+            .formatted(.time(pattern: .minuteSecond))
+        let summary = String(localized: "\(piece) pezzi in \(seconds) s per \(songLength) di brano (\(name(of: computeUnits)))")
         UserDefaults.standard.set(summary, forKey: lastRunKey)
     }
 

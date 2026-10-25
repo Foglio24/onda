@@ -1,0 +1,294 @@
+/*
+  English text of the app. Keys are the Italian text used in the code; interpolations
+  appear as %@ (text) and %lld (whole numbers). CI checks this file against the strings
+  the Swift compiler finds in the code (Tools/check_localization.py): every key needs an
+  entry here, even when the English is the same.
+*/
+
+/* Tabs and screens */
+"Home" = "Home";
+"Libreria" = "Library";
+"Impostazioni" = "Settings";
+"Cerca" = "Search";
+
+/* Common */
+"OK" = "OK";
+"Ops" = "Oops";
+"Annulla" = "Cancel";
+"Crea" = "Create";
+"Salva" = "Save";
+"Elimina" = "Delete";
+"Fine" = "Done";
+"Nome" = "Name";
+"Svuota" = "Clear";
+"Non disponibile" = "Not available";
+"Playlist" = "Playlist";
+"Karaoke" = "Karaoke";
+"Last.fm" = "Last.fm";
+
+/* Home */
+"Buongiorno" = "Good morning";
+"Buon pomeriggio" = "Good afternoon";
+"Buonasera" = "Good evening";
+"Relax" = "Chill";
+"Concentrazione" = "Focus";
+"Allenamento" = "Workout";
+"Festa" = "Party";
+"Malinconia" = "Melancholy";
+"Energia" = "Energy";
+"Italiana" = "Italian";
+"Anni '80" = "80s";
+"I tuoi mix" = "Your mixes";
+"Brani simili a quelli che ami" = "Songs like the ones you love";
+"Riscopri" = "Rediscover";
+"I tuoi più ascoltati dell'anno" = "Your most played this year";
+"Scelti per te" = "Picked for you";
+"Le tue playlist" = "Your playlists";
+"Ascoltati di recente" = "Recently played";
+"I tuoi preferiti" = "Your favorites";
+"I tuoi top del mese su Last.fm" = "Your top songs this month on Last.fm";
+
+/* Library */
+"Preferiti" = "Favorites";
+"Download" = "Downloads";
+"Cronologia" = "History";
+"Nuova playlist" = "New playlist";
+"Importa da Spotify, Apple Music o YouTube" = "Import from Spotify, Apple Music or YouTube";
+"Crea una playlist qui, oppure dal tasto ··· accanto a qualsiasi brano." = "Create a playlist here, or with the ··· button next to any song.";
+"Importa playlist" = "Import playlist";
+"Link della playlist" = "Playlist link";
+"Importa" = "Import";
+"Incolla il link di una playlist o di un album pubblico di Spotify, Apple Music, YouTube o YouTube Music. Da Spotify arrivano al massimo 100 brani." = "Paste the link of a public playlist or album from Spotify, Apple Music, YouTube or YouTube Music. Spotify gives at most 100 songs.";
+"Playlist importata" = "Imported playlist";
+"%lld non trovati su YouTube Music." = "%lld not found on YouTube Music.";
+"Nessun preferito" = "No favorites";
+"Tocca il cuore nel player, o scorri un brano verso destra." = "Tap the heart in the player, or swipe a song to the right.";
+"Nessun download" = "No downloads";
+"Tocca ··· accanto a un brano e scegli Scarica." = "Tap ··· next to a song and choose Download.";
+"Cronologia vuota" = "No history";
+"I brani che ascolti appariranno qui." = "Songs you listen to will show up here.";
+
+/* Playlists */
+"1 brano" = "1 song";
+"%lld brani" = "%lld songs";
+"La playlist è vuota. Aggiungi brani con il tasto ··· accanto a ogni canzone, oppure scorrendo un brano verso destra." = "This playlist is empty. Add songs with the ··· button next to any song, or by swiping a song to the right.";
+"Playlist eliminata" = "Playlist deleted";
+"Rinomina playlist" = "Rename playlist";
+"Eliminare questa playlist?" = "Delete this playlist?";
+"Rimuovere i brani scaricati di questa playlist?" = "Remove this playlist's downloaded songs?";
+"Cambia copertina" = "Change cover";
+"Usa le copertine dei brani" = "Use the songs' covers";
+"Rinomina" = "Rename";
+"Elimina playlist" = "Delete playlist";
+"Download %lld/%lld · tocca per fermare" = "Downloading %lld/%lld · tap to stop";
+"Playlist scaricata" = "Playlist downloaded";
+"Scarica i restanti %lld" = "Download the remaining %lld";
+"Scarica tutta la playlist" = "Download the whole playlist";
+"Aggiungi a playlist" = "Add to playlist";
+"\"%@\" verrà aggiunto alla nuova playlist." = "\"%@\" will be added to the new playlist.";
+
+/* Song actions */
+"Riproduci" = "Play";
+"Casuale" = "Shuffle";
+"Casuale attivo" = "Shuffle on";
+"Riproduci dopo" = "Play next";
+"Aggiungi in coda" = "Add to queue";
+"Avvia radio" = "Start radio";
+"Togli dai preferiti" = "Remove from favorites";
+"Aggiungi ai preferiti" = "Add to favorites";
+"Aggiungi a playlist…" = "Add to playlist…";
+"Rimuovi download" = "Remove download";
+"Scarica" = "Download";
+"Condividi" = "Share";
+"Mi piace" = "Like";
+"Non mi piace" = "Unlike";
+"Artista sconosciuto" = "Unknown artist";
+
+/* Search */
+"Brani e artisti" = "Songs and artists";
+"Ricerche recenti" = "Recent searches";
+"Cerca su YouTube Music" = "Search YouTube Music";
+"Scegli un brano: parte una radio di canzoni simili." = "Pick a song to start a radio of similar songs.";
+"Ricerca non riuscita" = "Search failed";
+
+/* Player */
+"Niente in riproduzione" = "Not playing";
+"IN RIPRODUZIONE DA" = "PLAYING FROM";
+"Coda" = "Queue";
+"Timer di spegnimento" = "Sleep timer";
+"%lld minuti" = "%lld minutes";
+"Fine del brano" = "End of song";
+"Fine brano" = "End of song";
+"Disattiva timer" = "Turn off timer";
+"Prossimi brani" = "Up next";
+"Radio automatica" = "Automatic radio";
+"La coda è vuota" = "The queue is empty";
+"Con la radio automatica arriveranno brani simili." = "Automatic radio will add similar songs.";
+"Aggiungi brani dal menu ··· di ogni canzone." = "Add songs from the ··· menu of any song.";
+"Questo brano non è disponibile." = "This song isn't available.";
+
+/* Karaoke */
+"Normale" = "Normal";
+"Senza voce" = "No vocals";
+"Solo voce" = "Vocals only";
+"Intensità" = "Strength";
+"Leggera" = "Light";
+"Media" = "Medium";
+"Piena" = "Full";
+"Karaoke AI" = "AI karaoke";
+"Karaoke non riuscito" = "Karaoke failed";
+"Karaoke: preparazione…" = "Karaoke: preparing…";
+"Karaoke: preparazione %@" = "Karaoke: preparing %@";
+"Il modello AI per il karaoke non è incluso in questa versione dell'app." = "This version of the app doesn't include the karaoke AI model.";
+"Il modello AI non è riuscito a separare il brano (%@)." = "The AI model couldn't separate the song (%@).";
+"Non riesco a leggere l'audio del brano." = "Can't read the song's audio.";
+"La separazione di voce e musica non è riuscita." = "Separating vocals and music didn't work.";
+"Memoria insufficiente per il karaoke: chiudi qualche app e riprova." = "Not enough memory for karaoke: close some apps and try again.";
+"Caricamento del modello AI (%@)" = "Loading the AI model (%@)";
+"Separazione: pezzo %lld di circa %lld (%@)" = "Separating: piece %lld of about %lld (%@)";
+"%@ · memoria usata %@, libera %@ · %@" = "%@ · memory used %@, free %@ · %@";
+"%lld pezzi in %lld s per %@ di brano (%@)" = "%lld pieces in %lld s for %@ of song (%@)";
+
+/* Lyrics */
+"Testo non disponibile" = "Lyrics not available";
+"♪ Brano strumentale" = "♪ Instrumental";
+"LRCLIB non ha il testo di questo brano." = "LRCLIB doesn't have the lyrics of this song.";
+"Nascondi traduzione" = "Hide translation";
+"Mostra traduzione" = "Show translation";
+"Scarica %@ per tradurre" = "Download %@ to translate";
+"Download della lingua…" = "Downloading the language…";
+"Traduzione…" = "Translating…";
+"Lingua offline" = "Offline language";
+"Scaricata" = "Downloaded";
+"Lingua del testo non riconosciuta" = "Couldn't recognize the lyrics' language";
+"Il testo è già in %@" = "The lyrics are already in %@";
+"Traduzione da %@ non disponibile" = "Translation from %@ isn't available";
+"Traduzione non disponibile" = "Translation isn't available";
+"Traduzione non riuscita: %@" = "Translation failed: %@";
+"Nessuna traduzione ricevuta" = "No translation received";
+
+/* Settings: audio */
+"Audio" = "Audio";
+"Streaming su Wi-Fi" = "Streaming on Wi-Fi";
+"Streaming su rete cellulare" = "Streaming on cellular";
+"Dolby quando disponibile" = "Dolby when available";
+"Audio spaziale" = "Spatial Audio";
+"Massima usa Opus 160 kbps, il formato migliore che YouTube dà senza Premium: Onda lo decodifica sull'iPhone e lo riproduce senza perdite. Il brano parte subito in AAC e passa a Opus appena è pronto; i due brani successivi vengono preparati in anticipo. Se un video ha l'audio Dolby Digital Plus o AAC 256 kbps, viene usato quello. L'Audio spaziale funziona con AirPods e cuffie Beats compatibili." = "Maximum uses Opus 160 kbps, the best format YouTube gives without Premium: Onda decodes it on the iPhone and plays it losslessly. The song starts right away in AAC and switches to Opus as soon as it is ready; the next two songs are prepared in advance. If a video has Dolby Digital Plus or AAC 256 kbps audio, that is used instead. Spatial Audio works with compatible AirPods and Beats headphones.";
+"Ultimo errore Opus: %@" = "Last Opus error: %@";
+"Massima · Opus 160 kbps" = "Maximum · Opus 160 kbps";
+"Alta · AAC 128 kbps" = "High · AAC 128 kbps";
+"Media · Opus 70 kbps" = "Medium · Opus 70 kbps";
+"Risparmio · AAC 48 kbps" = "Data saver · AAC 48 kbps";
+"Massima · lossless da Opus (~5 MB/min)" = "Maximum · lossless from Opus (~5 MB/min)";
+"Alta · AAC 128 kbps (~1 MB/min)" = "High · AAC 128 kbps (~1 MB/min)";
+"Risparmio · AAC 48 kbps (~0,4 MB/min)" = "Data saver · AAC 48 kbps (~0.4 MB/min)";
+"File WebM non valido." = "Invalid WebM file.";
+"Nessun audio Opus nel file." = "No Opus audio in the file.";
+"Decoder Opus non disponibile." = "Opus decoder not available.";
+"Nessuno stream audio riproducibile per questo brano." = "No playable audio stream for this song.";
+
+/* Settings: playback */
+"Riproduzione" = "Playback";
+"Dissolvenza tra brani" = "Crossfade";
+"No" = "Off";
+"%lld s" = "%lld s";
+"Salta le compilation lunghe" = "Skip long compilations";
+"La dissolvenza sovrappone la fine di un brano all'inizio del successivo, come su Spotify. La radio automatica continua con brani simili quando la coda finisce. Le compilation da più di 15 minuti vengono escluse da radio, mood e \"Scelti per te\". Il timer di spegnimento è nel menu ··· del player." = "Crossfade overlaps the end of a song with the start of the next, like on Spotify. Automatic radio keeps going with similar songs when the queue ends. Compilations longer than 15 minutes are left out of radios, moods and \"Picked for you\". The sleep timer is in the player's ··· menu.";
+
+/* Settings: karaoke */
+"Modello AI (UVR MDX-Net)" = "AI model (UVR MDX-Net)";
+"Incluso nell'app" = "Included in the app";
+"Ultima preparazione" = "Last preparation";
+"Tracce karaoke salvate" = "Saved karaoke tracks";
+"Elimina le tracce karaoke" = "Delete karaoke tracks";
+"L'ultima preparazione si è interrotta" = "The last preparation was interrupted";
+"Il karaoke usa un modello di intelligenza artificiale che separa voce e musica sull'iPhone, con il Neural Engine e la GPU. Attivalo dal tasto 🎤 nel player: il brano continua a suonare mentre viene preparato, poi passa alla versione senza voce (o solo voce). Le tracce separate restano salvate per riascoltarle subito." = "Karaoke uses an AI model that separates vocals and music on the iPhone, with the Neural Engine and the GPU. Turn it on with the 🎤 button in the player: the song keeps playing while it is prepared, then switches to the version without vocals (or vocals only). Separated tracks stay saved, so replays start right away.";
+
+/* Settings: lyrics */
+"Testi" = "Lyrics";
+"Dimensione" = "Size";
+"Piccolo" = "Small";
+"Medio" = "Medium";
+"Grande" = "Large";
+"Animazione" = "Animation";
+"Messa a fuoco" = "Focus";
+"Dissolvenza" = "Fade";
+"Bagliore" = "Glow";
+"Traduci i testi" = "Translate lyrics";
+"Traduci in" = "Translate to";
+"La traduzione avviene sull'iPhone con la traduzione di Apple: scarica la lingua qui una volta sola e i testi si traducono offline, senza rallentare il brano. Nel player il tasto 文A mostra o nasconde la traduzione." = "Lyrics are translated on the iPhone by Apple's Translation: download the language here once and lyrics translate offline, without slowing the song down. In the player, the 文A button shows or hides the translation.";
+
+/* Settings: appearance */
+"Aspetto" = "Appearance";
+"Colore del tema" = "Theme color";
+"Copertina interattiva" = "Interactive cover";
+"Colori dalla copertina" = "Colors from the cover";
+"Il colore del tema si usa per pulsanti, interruttori e brano in riproduzione. La copertina interattiva si inclina con l'iPhone e con il dito; un doppio tocco mette Mi piace. Con \"Colori dalla copertina\" sfondi e player prendono il colore dell'album in riproduzione." = "The theme color is used for buttons, switches and the song that is playing. The interactive cover tilts with the iPhone and with your finger; a double tap likes the song. With \"Colors from the cover\", backgrounds and the player take the color of the album that is playing.";
+"Rosa" = "Pink";
+"Rosso" = "Red";
+"Arancione" = "Orange";
+"Giallo" = "Yellow";
+"Verde chiaro" = "Light green";
+"Verde scuro" = "Dark green";
+"Menta" = "Mint";
+"Azzurro" = "Light blue";
+"Blu" = "Blue";
+"Indaco" = "Indigo";
+"Viola" = "Purple";
+
+/* Settings: language */
+"Lingua" = "Language";
+"Onda è in italiano e in inglese e segue la lingua dell'iPhone. Per cambiarla solo in Onda, tocca Lingua: si aprono le impostazioni dell'app, dove la scelta compare se sull'iPhone c'è più di una lingua preferita." = "Onda is in Italian and English and follows the iPhone's language. To change it just for Onda, tap Language: the app's settings open, where the choice shows up if the iPhone has more than one preferred language.";
+
+/* Settings: Last.fm */
+"API key" = "API key";
+"Shared secret" = "Shared secret";
+"Salva chiavi" = "Save keys";
+"Crea una API key su last.fm" = "Create an API key on last.fm";
+"Account" = "Account";
+"Scrobbling" = "Scrobbling";
+"Scrobble in attesa" = "Pending scrobbles";
+"Disconnetti" = "Sign out";
+"Connetti account Last.fm" = "Connect Last.fm account";
+"Modifica chiavi API" = "Edit API keys";
+"Crea gratis un'applicazione API su last.fm (nome e descrizione a piacere), incolla API key e shared secret, poi connetti l'account. Un brano viene registrato dopo metà ascolto o 4 minuti." = "Create a free API application on last.fm (any name and description), paste the API key and shared secret, then connect your account. A song is scrobbled after half of it or 4 minutes have played.";
+"Inserisci API key e shared secret di Last.fm nelle impostazioni." = "Enter your Last.fm API key and shared secret in Settings.";
+"Risposta non valida da Last.fm." = "Invalid response from Last.fm.";
+"Su Last.fm non ci sono ancora abbastanza ascolti per creare un mix." = "There aren't enough listens on Last.fm yet to make a mix.";
+"Autorizzazione non completata: nella pagina di Last.fm tocca \"Yes, allow access\" e riprova." = "Authorization not completed: on the Last.fm page tap \"Yes, allow access\" and try again.";
+"errore sconosciuto" = "unknown error";
+
+/* Settings: storage */
+"Spazio e dati" = "Storage and data";
+"Brani scaricati" = "Downloaded songs";
+"Eliminare tutti i brani scaricati?" = "Delete all downloaded songs?";
+"Elimina tutti i download" = "Delete all downloads";
+"Cache svuotata" = "Cache cleared";
+"Svuota cache (copertine e brani Opus)" = "Clear cache (covers and Opus songs)";
+"Cancella ricerche recenti" = "Clear recent searches";
+"Cancella cronologia ascolti" = "Clear listening history";
+
+/* Settings: about */
+"Informazioni" = "About";
+"Versione" = "Version";
+"Bundle ID" = "Bundle ID";
+"Player di sistema" = "System player";
+"Sistema usato" = "System used";
+"Onda (accettato da iOS)" = "Onda (accepted by iOS)";
+"Rifiutato da iOS" = "Refused by iOS";
+"Catalogo: YouTube Music · Testi: LRCLIB · Scrobbling: Last.fm" = "Catalog: YouTube Music · Lyrics: LRCLIB · Scrobbling: Last.fm";
+"Progetto personale, non affiliato a Google, YouTube o Last.fm." = "Personal project, not affiliated with Google, YouTube or Last.fm.";
+
+/* Playlist import */
+"Lettura della playlist…" = "Reading the playlist…";
+"Ricerca su YouTube Music: %lld/%lld" = "Searching YouTube Music: %lld/%lld";
+"Playlist da %@" = "Playlist from %@";
+"Link non riconosciuto. Incolla il link di una playlist o di un album di YouTube Music, Spotify o Apple Music." = "Link not recognized. Paste the link of a playlist or album from YouTube Music, Spotify or Apple Music.";
+"Non riesco a leggere la playlist. Controlla che sia pubblica." = "Can't read the playlist. Check that it is public.";
+"La playlist è vuota." = "The playlist is empty.";
+"Nessun brano della playlist è stato trovato su YouTube Music." = "None of the playlist's songs were found on YouTube Music.";
+"C'è già un'importazione in corso." = "An import is already in progress.";
+
+/* YouTube Music */
+"YouTube Music non ha risposto correttamente (%lld)." = "YouTube Music didn't respond correctly (%lld).";
+"Nessun brano trovato." = "No songs found.";

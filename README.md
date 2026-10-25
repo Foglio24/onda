@@ -3,7 +3,7 @@
 A music player for iPhone, inspired by [LastWave](https://github.com/Clash-Projects/LastWave-Native) for Android.
 It is written from scratch in Swift/SwiftUI and contains no code from the original project.
 It runs on iOS 26 and later, including iPhone 17 Pro on iOS 27, and uses the Liquid Glass design.
-The app's interface is in Italian.
+The app's interface is in Italian and English and follows the iPhone's language (English for any other language).
 
 See [CHANGELOG.md](CHANGELOG.md) for what changed in each version.
 

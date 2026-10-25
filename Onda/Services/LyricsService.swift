@@ -46,7 +46,7 @@ struct LyricsService {
         }
 
         guard let record else { return .unavailable }
-        if record.instrumental == true { return .plain("♪ Brano strumentale") }
+        if record.instrumental == true { return .plain(String(localized: "♪ Brano strumentale")) }
         if let synced = record.syncedLyrics {
             let lines = Self.parseLRC(synced)
             if !lines.isEmpty { return .synced(lines) }

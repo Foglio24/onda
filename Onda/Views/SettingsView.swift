@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct SettingsView: View {
     @EnvironmentObject private var lastfm: LastFM
@@ -44,6 +45,7 @@ struct SettingsView: View {
                 karaokeSection
                 lyricsSection
                 appearanceSection
+                languageSection
                 lastfmSection
                 storageSection
                 aboutSection
@@ -237,6 +239,28 @@ struct SettingsView: View {
         }
     }
 
+    /// The app follows the iPhone's language; iOS lets each app have its own in the app's settings page.
+    private var languageSection: some View {
+        Section {
+            Button {
+                if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
+            } label: {
+                LabeledContent {
+                    Text(appLanguage)
+                } label: {
+                    Label("Lingua", systemImage: "globe").foregroundStyle(.primary)
+                }
+            }
+        } footer: {
+            Text("Onda è in italiano e in inglese e segue la lingua dell'iPhone. Per cambiarla solo in Onda, tocca Lingua: si aprono le impostazioni dell'app, dove la scelta compare se sull'iPhone c'è più di una lingua preferita.")
+        }
+    }
+
+    private var appLanguage: String {
+        let code = Bundle.main.preferredLocalizations.first ?? "it"
+        return Locale.current.localizedString(forLanguageCode: code)?.capitalized(with: Locale.current) ?? code
+    }
+
     @ViewBuilder private var lastfmSection: some View {
         Section {
             if !lastfm.hasCredentials || editingKeys {
@@ -322,8 +346,8 @@ struct SettingsView: View {
 
     private var nowPlayingStatus: String {
         switch nowPlayingAccepted {
-        case 1: return "Onda (accettato da iOS)"
-        case 0: return "Rifiutato da iOS"
+        case 1: return String(localized: "Onda (accettato da iOS)")
+        case 0: return String(localized: "Rifiutato da iOS")
         default: return "—"
         }
     }

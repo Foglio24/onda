@@ -4,7 +4,7 @@ import YouTubeKit
 enum StreamError: LocalizedError {
     case noPlayableStream
 
-    var errorDescription: String? { "Nessuno stream audio riproducibile per questo brano." }
+    var errorDescription: String? { String(localized: "Nessuno stream audio riproducibile per questo brano.") }
 }
 
 enum StreamFormat: Sendable {

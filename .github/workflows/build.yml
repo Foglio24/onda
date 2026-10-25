@@ -100,6 +100,13 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             build
 
+      # Every text the compiler finds in the code needs an English entry in en.lproj.
+      - name: Check the English translation
+        run: |
+          plutil -lint Onda/Resources/*.lproj/Localizable.strings
+          python3 Tools/check_localization.py build Onda/Resources/en.lproj/Localizable.strings \
+            build/Build/Products/Release-iphoneos/Onda.app
+
       - name: Package IPA
         run: |
           mkdir -p Payload

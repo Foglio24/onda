@@ -278,8 +278,9 @@ struct NowPlayingView: View {
 
     /// "Karaoke: preparazione 35% · 12 s".
     private static func karaokeProgressText(_ value: Double, remaining: TimeInterval?) -> String {
-        guard value > 0 else { return "Karaoke: preparazione…" }
-        var text = "Karaoke: preparazione \(Int(value * 100))%"
+        guard value > 0 else { return String(localized: "Karaoke: preparazione…") }
+        let percent = value.formatted(.percent.precision(.fractionLength(0)))
+        var text = String(localized: "Karaoke: preparazione \(percent)")
         if let remaining {
             text += remaining < 60 ? " · \(max(1, Int(remaining))) s" : " · \(Int((remaining / 60).rounded())) min"
         }

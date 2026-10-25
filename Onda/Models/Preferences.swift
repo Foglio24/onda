@@ -10,17 +10,17 @@ enum AccentChoice: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .pink: return "Rosa"
-        case .red: return "Rosso"
-        case .orange: return "Arancione"
-        case .yellow: return "Giallo"
-        case .lightGreen: return "Verde chiaro"
-        case .darkGreen: return "Verde scuro"
-        case .mint: return "Menta"
-        case .lightBlue: return "Azzurro"
-        case .blue: return "Blu"
-        case .indigo: return "Indaco"
-        case .purple: return "Viola"
+        case .pink: return String(localized: "Rosa")
+        case .red: return String(localized: "Rosso")
+        case .orange: return String(localized: "Arancione")
+        case .yellow: return String(localized: "Giallo")
+        case .lightGreen: return String(localized: "Verde chiaro")
+        case .darkGreen: return String(localized: "Verde scuro")
+        case .mint: return String(localized: "Menta")
+        case .lightBlue: return String(localized: "Azzurro")
+        case .blue: return String(localized: "Blu")
+        case .indigo: return String(localized: "Indaco")
+        case .purple: return String(localized: "Viola")
         }
     }
 
@@ -58,18 +58,18 @@ enum AudioQuality: String, CaseIterable, Identifiable, Sendable {
 
     var title: String {
         switch self {
-        case .max: return "Massima · Opus 160 kbps"
-        case .high: return "Alta · AAC 128 kbps"
-        case .medium: return "Media · Opus 70 kbps"
-        case .low: return "Risparmio · AAC 48 kbps"
+        case .max: return String(localized: "Massima · Opus 160 kbps")
+        case .high: return String(localized: "Alta · AAC 128 kbps")
+        case .medium: return String(localized: "Media · Opus 70 kbps")
+        case .low: return String(localized: "Risparmio · AAC 48 kbps")
         }
     }
 
     var downloadTitle: String {
         switch self {
-        case .max: return "Massima · lossless da Opus (~5 MB/min)"
-        case .high: return "Alta · AAC 128 kbps (~1 MB/min)"
-        case .medium, .low: return "Risparmio · AAC 48 kbps (~0,4 MB/min)"
+        case .max: return String(localized: "Massima · lossless da Opus (~5 MB/min)")
+        case .high: return String(localized: "Alta · AAC 128 kbps (~1 MB/min)")
+        case .medium, .low: return String(localized: "Risparmio · AAC 48 kbps (~0,4 MB/min)")
         }
     }
 
@@ -84,9 +84,9 @@ enum LyricsStyle: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .focus: return "Messa a fuoco"
-        case .fade: return "Dissolvenza"
-        case .glow: return "Bagliore"
+        case .focus: return String(localized: "Messa a fuoco")
+        case .fade: return String(localized: "Dissolvenza")
+        case .glow: return String(localized: "Bagliore")
         }
     }
 }
@@ -98,9 +98,9 @@ enum LyricsSize: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .small: return "Piccolo"
-        case .medium: return "Medio"
-        case .large: return "Grande"
+        case .small: return String(localized: "Piccolo")
+        case .medium: return String(localized: "Medio")
+        case .large: return String(localized: "Grande")
         }
     }
 

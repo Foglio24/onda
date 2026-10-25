@@ -9,7 +9,7 @@ struct Playlist: Codable, Hashable, Identifiable {
     var coverFile: String?
 
     var countLabel: String {
-        tracks.count == 1 ? "1 brano" : "\(tracks.count) brani"
+        tracks.count == 1 ? String(localized: "1 brano") : String(localized: "\(tracks.count) brani")
     }
 
     var customCoverURL: URL? {

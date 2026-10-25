@@ -5,13 +5,18 @@ options:
   deploymentTarget:
     iOS: "26.0"
   createIntermediateGroups: true
+  # The code's text is Italian (it.lproj stays empty); English is in Onda/Resources/en.lproj.
+  # English is the fallback for iPhones in any other language.
+  developmentLanguage: en
 
 settings:
   base:
     SWIFT_VERSION: "5.0"
     SWIFT_STRICT_CONCURRENCY: minimal
     MARKETING_VERSION: "1.4.0"
-    CURRENT_PROJECT_VERSION: "11"
+    CURRENT_PROJECT_VERSION: "12"
+    # Lists the localizable strings of each Swift file, for Tools/check_localization.py.
+    SWIFT_EMIT_LOC_STRINGS: YES
 
 packages:
   YouTubeKit:
@@ -37,6 +42,10 @@ targets:
       path: Support/Info.plist
       properties:
         CFBundleDisplayName: Onda
+        CFBundleDevelopmentRegion: en
+        CFBundleLocalizations:
+          - it
+          - en
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         LSRequiresIPhoneOS: true

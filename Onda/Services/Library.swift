@@ -55,7 +55,7 @@ final class Library: ObservableObject {
     @discardableResult
     func createPlaylist(named name: String, tracks: [Track] = []) -> Playlist {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        let playlist = Playlist(id: UUID(), name: trimmed.isEmpty ? "Nuova playlist" : trimmed,
+        let playlist = Playlist(id: UUID(), name: trimmed.isEmpty ? String(localized: "Nuova playlist") : trimmed,
                                 tracks: tracks.uniqued(), createdAt: .now)
         playlists.insert(playlist, at: 0)
         savePlaylists()

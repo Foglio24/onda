@@ -7,9 +7,9 @@ enum InnerTubeError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .badResponse(let status):
-            return "YouTube Music non ha risposto correttamente (\(status))."
+            return String(localized: "YouTube Music non ha risposto correttamente (\(status)).")
         case .notFound:
-            return "Nessun brano trovato."
+            return String(localized: "Nessun brano trovato.")
         }
     }
 }

@@ -20,14 +20,14 @@ struct HomeView: View {
     }
 
     private let moods = [
-        Mood(title: "Relax", query: "chill relax songs", symbol: "leaf.fill"),
-        Mood(title: "Concentrazione", query: "lofi focus study", symbol: "brain.head.profile"),
-        Mood(title: "Allenamento", query: "workout gym motivation songs", symbol: "figure.run"),
-        Mood(title: "Festa", query: "party dance hits", symbol: "party.popper.fill"),
-        Mood(title: "Malinconia", query: "sad songs", symbol: "cloud.rain.fill"),
-        Mood(title: "Energia", query: "upbeat energetic songs", symbol: "bolt.fill"),
-        Mood(title: "Italiana", query: "hit italiane", symbol: "music.mic"),
-        Mood(title: "Anni '80", query: "80s hits", symbol: "radio.fill"),
+        Mood(title: String(localized: "Relax"), query: "chill relax songs", symbol: "leaf.fill"),
+        Mood(title: String(localized: "Concentrazione"), query: "lofi focus study", symbol: "brain.head.profile"),
+        Mood(title: String(localized: "Allenamento"), query: "workout gym motivation songs", symbol: "figure.run"),
+        Mood(title: String(localized: "Festa"), query: "party dance hits", symbol: "party.popper.fill"),
+        Mood(title: String(localized: "Malinconia"), query: "sad songs", symbol: "cloud.rain.fill"),
+        Mood(title: String(localized: "Energia"), query: "upbeat energetic songs", symbol: "bolt.fill"),
+        Mood(title: String(localized: "Italiana"), query: "hit italiane", symbol: "music.mic"),
+        Mood(title: String(localized: "Anni '80"), query: "80s hits", symbol: "radio.fill"),
     ]
 
     var body: some View {
@@ -101,9 +101,10 @@ struct HomeView: View {
         VStack(alignment: .leading, spacing: 12) {
             sectionTitle("I tuoi mix")
             HStack(spacing: 12) {
-                mixCard(id: "taste", title: "Taste Mix", subtitle: "Brani simili a quelli che ami",
+                mixCard(id: "taste", title: "Taste Mix", subtitle: String(localized: "Brani simili a quelli che ami"),
                         symbol: "sparkles", tint: .purple) { try await lastfm.tasteMix() }
-                mixCard(id: "rediscover", title: "Riscopri", subtitle: "I tuoi più ascoltati dell'anno",
+                mixCard(id: "rediscover", title: String(localized: "Riscopri"),
+                        subtitle: String(localized: "I tuoi più ascoltati dell'anno"),
                         symbol: "arrow.counterclockwise", tint: .orange) { try await lastfm.rediscoverMix() }
             }
             .padding(.horizontal)
@@ -145,7 +146,7 @@ struct HomeView: View {
                 LazyHGrid(rows: Array(repeating: GridItem(.fixed(58), spacing: 8), count: 4), spacing: 20) {
                     ForEach(Array(quickPicks.enumerated()), id: \.element.id) { position, track in
                         TrackRow(track: track) {
-                            player.play(quickPicks, startAt: position, source: "Scelti per te")
+                            player.play(quickPicks, startAt: position, source: String(localized: "Scelti per te"))
                         }
                         .frame(width: 320)
                     }
@@ -176,7 +177,7 @@ struct HomeView: View {
         }
     }
 
-    private func trackShelf(_ title: String, tracks: [Track]) -> some View {
+    private func trackShelf(_ title: LocalizedStringKey, tracks: [Track]) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             sectionTitle(title)
             ScrollView(.horizontal) {
@@ -212,7 +213,7 @@ struct HomeView: View {
         }
     }
 
-    private func sectionTitle(_ title: String) -> some View {
+    private func sectionTitle(_ title: LocalizedStringKey) -> some View {
         Text(title)
             .font(.title2.bold())
             .padding(.horizontal)
@@ -220,9 +221,9 @@ struct HomeView: View {
 
     private var greeting: String {
         switch Calendar.current.component(.hour, from: .now) {
-        case 5..<12: return "Buongiorno"
-        case 12..<18: return "Buon pomeriggio"
-        default: return "Buonasera"
+        case 5..<12: return String(localized: "Buongiorno")
+        case 12..<18: return String(localized: "Buon pomeriggio")
+        default: return String(localized: "Buonasera")
         }
     }
 

@@ -17,7 +17,7 @@ struct Track: Codable, Hashable, Identifiable {
         let names = artists.map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
         self.videoId = videoId
         self.title = title
-        self.artist = names.isEmpty ? "Artista sconosciuto" : names.joined(separator: ", ")
+        self.artist = names.isEmpty ? String(localized: "Artista sconosciuto") : names.joined(separator: ", ")
         self.primaryArtist = names.first ?? ""
         self.album = album
         self.duration = duration

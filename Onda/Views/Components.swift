@@ -337,7 +337,7 @@ struct MiniPlayer: View {
         HStack(spacing: 10) {
             ArtworkView(track: player.current, size: 32, cornerRadius: 6)
             VStack(alignment: .leading, spacing: 0) {
-                Text(player.current?.title ?? "Niente in riproduzione")
+                Text(player.current?.title ?? String(localized: "Niente in riproduzione"))
                     .font(.subheadline.weight(.semibold))
                     .lineLimit(1)
                 if let subtitle {
