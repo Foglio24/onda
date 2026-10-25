@@ -9,13 +9,19 @@ Funziona da iOS 26 in su, quindi anche su iPhone 17 Pro con iOS 27, e usa il des
 | LastWave (Android) | Onda (iOS) |
 |---|---|
 | Streaming dal catalogo YouTube Music, in background e senza pubblicità | ✅ Audio AAC (m4a). AVPlayer non decodifica Opus/WebM, quindi niente Opus |
+| Scelta della qualità | ✅ Alta (AAC 128 kbps) o Risparmio dati (48 kbps), separata per Wi-Fi, rete cellulare e download |
+| Dolby Atmos | ✅ Audio spaziale di Apple con AirPods/Beats. YouTube non ha brani Atmos, quindi l'iPhone spazializza lo stereo |
 | Radio e mix intelligenti | ✅ Radio da ogni brano, radio automatica a fine coda, mood (Relax, Festa, …), *Taste Mix* e *Riscopri* da Last.fm |
+| Playlist | ✅ Crea, rinomina, riordina, elimina, importa playlist pubbliche da YouTube Music |
+| Casuale e ripeti | ✅ Modalità casuale vera (anche per radio e mix), ripeti tutto / ripeti brano, timer di spegnimento |
 | Scrobbler Last.fm | ✅ Now playing, scrobble dopo metà brano o 4 minuti, coda offline, "Mi piace" sincronizzato |
-| Testi sincronizzati da LRCLIB | ✅ Scorrimento automatico, riga attiva evidenziata, tocca una riga per saltarci |
+| Testi sincronizzati da LRCLIB | ✅ Scorrimento automatico, tocca una riga per saltarci, 3 animazioni e 3 dimensioni |
 | Download offline | ✅ Audio e copertina salvati nell'app |
 | Controlli su schermata di blocco, Centro di Controllo e AirPlay | ✅ |
-| Colori dinamici dalla copertina | ✅ Sfondo del player tinto con il colore dell'album |
-| Libreria | ✅ Preferiti, download, cronologia, coda modificabile (trascina, elimina, mescola) |
+| Colori dinamici dalla copertina | ✅ Sfondi di tutte le schermate e del player tinti con il colore dell'album |
+| Libreria | ✅ Preferiti, playlist, download, cronologia, coda modificabile (trascina, elimina, mescola) |
+
+Su ogni brano: tocca **···** per tutte le azioni, oppure scorri verso destra per *Mi piace* e *Aggiungi a playlist*.
 
 Funzioni di LastWave **non** incluse:
 - **Scrobbler universale delle altre app**: iOS non permette a un'app di leggere cosa riproducono Spotify o Apple Music. Onda registra solo ciò che ascolti in Onda.

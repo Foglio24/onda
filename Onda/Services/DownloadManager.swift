@@ -24,8 +24,9 @@ final class DownloadManager: ObservableObject {
         lastError = nil
         Task {
             do {
-                let remote = try await StreamResolver.shared.audioURL(for: videoId)
-                try await Self.transfer(remote, to: Storage.audioFile(for: videoId)) { value in
+                let remote = try await StreamResolver.shared.audioStream(
+                    for: videoId, quality: Preferences.quality(for: Preferences.downloadQuality))
+                try await Self.transfer(remote.url, to: Storage.audioFile(for: videoId)) { value in
                     Task { @MainActor in
                         // Ignore late updates arriving after the download finished.
                         if DownloadManager.shared.progress[videoId] != nil {

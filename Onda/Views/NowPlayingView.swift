@@ -4,7 +4,9 @@ struct NowPlayingView: View {
     @EnvironmentObject private var player: PlayerController
     @EnvironmentObject private var progress: PlaybackProgress
     @EnvironmentObject private var library: Library
+    @EnvironmentObject private var router: AppRouter
     @Environment(\.dismiss) private var dismiss
+    @AppStorage(Preferences.spatialAudio) private var spatialAudio = true
 
     private enum Panel { case artwork, lyrics, queue }
 
@@ -13,7 +15,7 @@ struct NowPlayingView: View {
     @State private var scrubTime: TimeInterval = 0
 
     var body: some View {
-        VStack(spacing: 18) {
+        VStack(spacing: 16) {
             topBar
             if panel == .artwork {
                 Spacer(minLength: 0)
@@ -34,6 +36,7 @@ struct NowPlayingView: View {
                     .lineLimit(2)
             }
             scrubber
+            badges
             controls
             bottomBar
         }
@@ -43,6 +46,9 @@ struct NowPlayingView: View {
         .background { background }
         .environment(\.colorScheme, .dark)
         .animation(.smooth(duration: 0.35), value: panel)
+        .sheet(item: router.addToPlaylistBinding(fromPlayer: true)) { track in
+            AddToPlaylistSheet(track: track)
+        }
     }
 
     // MARK: Pieces
@@ -50,7 +56,11 @@ struct NowPlayingView: View {
     private var background: some View {
         ZStack {
             Color.black
-            LinearGradient(colors: [player.artworkColor, player.artworkColor.opacity(0.55), .black],
+            ArtworkView(track: player.current, cornerRadius: 0)
+                .scaleEffect(1.6)
+                .blur(radius: 70)
+                .opacity(0.55)
+            LinearGradient(colors: [player.artworkColor.opacity(0.85), player.artworkColor.opacity(0.4), .black.opacity(0.9)],
                            startPoint: .top, endPoint: .bottom)
         }
         .ignoresSafeArea()
@@ -76,6 +86,8 @@ struct NowPlayingView: View {
             Spacer()
             Menu {
                 if let track = player.current { TrackMenu(track: track, inPlayer: true) }
+                Divider()
+                sleepTimerMenu
             } label: {
                 Image(systemName: "ellipsis")
                     .font(.title3.weight(.semibold))
@@ -85,15 +97,29 @@ struct NowPlayingView: View {
         .buttonStyle(.plain)
     }
 
+    private var sleepTimerMenu: some View {
+        Menu {
+            ForEach([15, 30, 45, 60], id: \.self) { minutes in
+                Button("\(minutes) minuti") { player.setSleepTimer(minutes: minutes) }
+            }
+            Button("Fine del brano") { player.stopAtEndOfTrack() }
+            if player.sleepTimer != .off {
+                Button("Disattiva timer", role: .destructive) { player.cancelSleepTimer() }
+            }
+        } label: {
+            Label("Timer di spegnimento", systemImage: "moon.zzz")
+        }
+    }
+
     private var artwork: some View {
-        ArtworkView(track: player.current, cornerRadius: 18, highRes: true)
+        ArtworkView(track: player.current, cornerRadius: 22, highRes: true)
             .shadow(color: .black.opacity(0.45), radius: 30, y: 16)
             .scaleEffect(player.isPlaying ? 1 : 0.88)
             .animation(.spring(duration: 0.45, bounce: 0.25), value: player.isPlaying)
     }
 
     private var titleRow: some View {
-        HStack(alignment: .center, spacing: 12) {
+        HStack(alignment: .center, spacing: 8) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(player.current?.title ?? "—")
                     .font(.title2.bold())
@@ -104,13 +130,14 @@ struct NowPlayingView: View {
                     .lineLimit(1)
             }
             Spacer()
+            addToPlaylistButton
             likeButton
         }
     }
 
     private var compactHeader: some View {
         HStack(spacing: 12) {
-            ArtworkView(track: player.current, size: 56, cornerRadius: 8)
+            ArtworkView(track: player.current, size: 56, cornerRadius: 10)
             VStack(alignment: .leading, spacing: 2) {
                 Text(player.current?.title ?? "")
                     .font(.headline)
@@ -121,8 +148,21 @@ struct NowPlayingView: View {
                     .lineLimit(1)
             }
             Spacer()
+            addToPlaylistButton
             likeButton
         }
+    }
+
+    private var addToPlaylistButton: some View {
+        Button {
+            router.trackToAdd = player.current
+        } label: {
+            Image(systemName: "text.badge.plus")
+                .font(.title3)
+                .frame(width: 40, height: 44)
+        }
+        .buttonStyle(.plain)
+        .disabled(player.current == nil)
     }
 
     private var likeButton: some View {
@@ -131,8 +171,9 @@ struct NowPlayingView: View {
         } label: {
             Image(systemName: isLiked ? "heart.fill" : "heart")
                 .font(.title2)
+                .foregroundStyle(isLiked ? Color.pink : Color.white)
                 .contentTransition(.symbolEffect(.replace))
-                .frame(width: 44, height: 44)
+                .frame(width: 40, height: 44)
         }
         .buttonStyle(.plain)
     }
@@ -169,12 +210,47 @@ struct NowPlayingView: View {
         }
     }
 
+    /// Format, spatial audio and sleep timer, like the badges in the Music app.
+    private var badges: some View {
+        HStack(spacing: 8) {
+            if let info = player.streamInfo {
+                badge { Label(info, systemImage: "waveform") }
+            }
+            if spatialAudio {
+                badge { Label("Audio spaziale", systemImage: "headphones") }
+            }
+            switch player.sleepTimer {
+            case .off:
+                EmptyView()
+            case .at(let end):
+                badge {
+                    Label { Text(end, style: .timer) } icon: { Image(systemName: "moon.fill") }
+                }
+            case .endOfTrack:
+                badge { Label("Fine brano", systemImage: "moon.fill") }
+            }
+        }
+        .frame(height: 24)
+    }
+
+    private func badge<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        content()
+            .font(.caption2.weight(.semibold))
+            .lineLimit(1)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .glassEffect(.regular, in: .capsule)
+    }
+
     private var controls: some View {
         HStack {
-            Button { player.shuffleUpcoming() } label: {
-                Image(systemName: "shuffle").font(.title3).frame(width: 44, height: 44)
+            Button { player.toggleShuffle() } label: {
+                Image(systemName: "shuffle")
+                    .font(.title3)
+                    .frame(width: 44, height: 44)
+                    .background(Color.white.opacity(player.shuffleEnabled ? 0.22 : 0), in: .circle)
             }
-            .foregroundStyle(Color.white.opacity(0.7))
+            .foregroundStyle(Color.white.opacity(player.shuffleEnabled ? 1 : 0.55))
             Spacer()
             Button { player.previous() } label: {
                 Image(systemName: "backward.fill").font(.system(size: 30)).frame(width: 56, height: 56)
@@ -199,9 +275,12 @@ struct NowPlayingView: View {
             }
             Spacer()
             Button { player.cycleRepeat() } label: {
-                Image(systemName: player.repeatMode.symbol).font(.title3).frame(width: 44, height: 44)
+                Image(systemName: player.repeatMode.symbol)
+                    .font(.title3)
+                    .frame(width: 44, height: 44)
+                    .background(Color.white.opacity(player.repeatMode == .off ? 0 : 0.22), in: .circle)
             }
-            .foregroundStyle(Color.white.opacity(player.repeatMode == .off ? 0.5 : 1))
+            .foregroundStyle(Color.white.opacity(player.repeatMode == .off ? 0.55 : 1))
         }
         .buttonStyle(.plain)
     }

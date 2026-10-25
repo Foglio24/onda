@@ -1,12 +1,14 @@
 import Combine
 import Foundation
+import SwiftUI
 
-/// Liked songs, listening history and the list of downloaded songs, saved as JSON files.
+/// Liked songs, playlists, listening history and downloaded songs, saved as JSON files.
 @MainActor
 final class Library: ObservableObject {
     static let shared = Library()
 
     @Published private(set) var liked: [Track]
+    @Published private(set) var playlists: [Playlist]
     @Published private(set) var history: [Track]
     @Published private(set) var downloads: [Track]
 
@@ -14,6 +16,7 @@ final class Library: ObservableObject {
 
     private init() {
         liked = Self.load("liked")
+        playlists = Self.load("playlists")
         history = Self.load("history")
         downloads = Self.load("downloads")
     }
@@ -35,6 +38,76 @@ final class Library: ObservableObject {
         }
         Self.save(liked, as: "liked")
         Task { await LastFM.shared.love(track, loved: nowLiked) }
+    }
+
+    func moveLiked(fromOffsets source: IndexSet, toOffset destination: Int) {
+        liked.move(fromOffsets: source, toOffset: destination)
+        Self.save(liked, as: "liked")
+    }
+
+    // MARK: Playlists
+
+    func playlist(_ id: UUID) -> Playlist? {
+        playlists.first { $0.id == id }
+    }
+
+    @discardableResult
+    func createPlaylist(named name: String, tracks: [Track] = []) -> Playlist {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let playlist = Playlist(id: UUID(), name: trimmed.isEmpty ? "Nuova playlist" : trimmed,
+                                tracks: tracks.uniqued(), createdAt: .now)
+        playlists.insert(playlist, at: 0)
+        savePlaylists()
+        return playlist
+    }
+
+    func renamePlaylist(_ id: UUID, to name: String) {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        updatePlaylist(id) { $0.name = trimmed }
+    }
+
+    func deletePlaylist(_ id: UUID) {
+        playlists.removeAll { $0.id == id }
+        savePlaylists()
+    }
+
+    func deletePlaylists(atOffsets offsets: IndexSet) {
+        playlists.remove(atOffsets: offsets)
+        savePlaylists()
+    }
+
+    func contains(_ track: Track, in id: UUID) -> Bool {
+        playlist(id)?.tracks.contains { $0.id == track.id } ?? false
+    }
+
+    /// Adds the song to the playlist, or removes it if it is already there.
+    func toggle(_ track: Track, in id: UUID) {
+        updatePlaylist(id) { playlist in
+            if let position = playlist.tracks.firstIndex(where: { $0.id == track.id }) {
+                playlist.tracks.remove(at: position)
+            } else {
+                playlist.tracks.append(track)
+            }
+        }
+    }
+
+    func removeTracks(atOffsets offsets: IndexSet, from id: UUID) {
+        updatePlaylist(id) { $0.tracks.remove(atOffsets: offsets) }
+    }
+
+    func moveTracks(fromOffsets source: IndexSet, toOffset destination: Int, in id: UUID) {
+        updatePlaylist(id) { $0.tracks.move(fromOffsets: source, toOffset: destination) }
+    }
+
+    private func updatePlaylist(_ id: UUID, _ change: (inout Playlist) -> Void) {
+        guard let position = playlists.firstIndex(where: { $0.id == id }) else { return }
+        change(&playlists[position])
+        savePlaylists()
+    }
+
+    private func savePlaylists() {
+        Self.save(playlists, as: "playlists")
     }
 
     // MARK: History
@@ -83,13 +156,13 @@ final class Library: ObservableObject {
         Storage.support.appending(path: "\(name).json")
     }
 
-    private static func load(_ name: String) -> [Track] {
+    private static func load<T: Decodable>(_ name: String) -> [T] {
         guard let data = try? Data(contentsOf: fileURL(name)) else { return [] }
-        return (try? JSONDecoder().decode([Track].self, from: data)) ?? []
+        return (try? JSONDecoder().decode([T].self, from: data)) ?? []
     }
 
-    private static func save(_ tracks: [Track], as name: String) {
-        guard let data = try? JSONEncoder().encode(tracks) else { return }
+    private static func save<T: Encodable>(_ items: [T], as name: String) {
+        guard let data = try? JSONEncoder().encode(items) else { return }
         try? data.write(to: fileURL(name), options: .atomic)
     }
 }

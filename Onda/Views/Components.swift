@@ -45,45 +45,140 @@ struct ArtworkView: View {
     }
 }
 
+/// Cover for a playlist: a 2×2 mosaic of its first songs, or a single cover, or a gradient.
+struct PlaylistArtwork: View {
+    let tracks: [Track]
+    var size: CGFloat? = nil
+    var cornerRadius: CGFloat = 12
+
+    var body: some View {
+        let covers = Array(tracks.prefix(4))
+        Rectangle()
+            .fill(LinearGradient(colors: [.purple, .pink], startPoint: .topLeading, endPoint: .bottomTrailing))
+            .overlay {
+                if covers.count == 4 {
+                    Grid(horizontalSpacing: 0, verticalSpacing: 0) {
+                        GridRow {
+                            ArtworkView(track: covers[0], cornerRadius: 0)
+                            ArtworkView(track: covers[1], cornerRadius: 0)
+                        }
+                        GridRow {
+                            ArtworkView(track: covers[2], cornerRadius: 0)
+                            ArtworkView(track: covers[3], cornerRadius: 0)
+                        }
+                    }
+                } else if let first = covers.first {
+                    ArtworkView(track: first, cornerRadius: 0)
+                } else {
+                    Image(systemName: "music.note.list")
+                        .font(.system(size: (size ?? 160) * 0.32, weight: .semibold))
+                        .foregroundStyle(Color.white.opacity(0.9))
+                }
+            }
+            .aspectRatio(1, contentMode: .fit)
+            .frame(width: size, height: size)
+            .clipShape(.rect(cornerRadius: cornerRadius))
+    }
+}
+
+/// Soft background tinted with the colours of the song that is playing.
+struct AmbientBackground: View {
+    @EnvironmentObject private var player: PlayerController
+
+    var body: some View {
+        ZStack(alignment: .top) {
+            Color(uiColor: .systemBackground)
+            LinearGradient(colors: [player.artworkColor.opacity(0.6), player.artworkColor.opacity(0.18), .clear],
+                           startPoint: .top, endPoint: .bottom)
+                .frame(height: 560)
+            RadialGradient(colors: [player.artworkColor.opacity(0.35), .clear],
+                           center: .topTrailing, startRadius: 0, endRadius: 380)
+        }
+        .ignoresSafeArea()
+        .animation(.easeInOut(duration: 0.8), value: player.artworkColor)
+    }
+}
+
+/// A song in a list: tap to play, "···" for every action, swipe right to like or add to a playlist.
 struct TrackRow: View {
     let track: Track
+    var showsMenu = true
+    let action: () -> Void
+
     @EnvironmentObject private var player: PlayerController
+    @EnvironmentObject private var library: Library
     @EnvironmentObject private var downloads: DownloadManager
+    @EnvironmentObject private var router: AppRouter
 
     private var isCurrent: Bool { player.current?.id == track.id }
 
     var body: some View {
-        HStack(spacing: 12) {
-            ArtworkView(track: track, size: 50, cornerRadius: 6)
-                .overlay {
-                    if isCurrent {
-                        Image(systemName: "waveform")
-                            .font(.headline)
-                            .foregroundStyle(.white)
-                            .symbolEffect(.variableColor.iterative, isActive: player.isPlaying)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            .background(.black.opacity(0.45), in: .rect(cornerRadius: 6))
+        HStack(spacing: 4) {
+            Button(action: action) {
+                HStack(spacing: 12) {
+                    artwork
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(track.title)
+                            .font(.body.weight(.medium))
+                            .foregroundStyle(isCurrent ? Color.accentColor : Color.primary)
+                            .lineLimit(1)
+                        HStack(spacing: 4) {
+                            if library.isLiked(track) {
+                                Image(systemName: "heart.fill").font(.caption2).foregroundStyle(.pink)
+                            }
+                            if downloads.isDownloaded(track) {
+                                Image(systemName: "arrow.down.circle.fill").font(.caption2)
+                            }
+                            Text(track.subtitle).lineLimit(1)
+                        }
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
                     }
+                    Spacer(minLength: 0)
+                    trailing
                 }
-            VStack(alignment: .leading, spacing: 2) {
-                Text(track.title)
-                    .font(.body.weight(.medium))
-                    .foregroundStyle(isCurrent ? Color.accentColor : Color.primary)
-                    .lineLimit(1)
-                HStack(spacing: 4) {
-                    if downloads.isDownloaded(track) {
-                        Image(systemName: "arrow.down.circle.fill").font(.caption2)
-                    }
-                    Text(track.subtitle).lineLimit(1)
-                }
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .contentShape(.rect)
             }
-            Spacer(minLength: 0)
-            trailing
+            .buttonStyle(.plain)
+
+            if showsMenu {
+                Menu {
+                    TrackMenu(track: track)
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 34, height: 44)
+                        .contentShape(.rect)
+                }
+            }
         }
-        .contentShape(.rect)
         .contextMenu { TrackMenu(track: track) }
+        .swipeActions(edge: .leading, allowsFullSwipe: true) {
+            Button { library.toggleLike(track) } label: {
+                Label(library.isLiked(track) ? "Non mi piace" : "Mi piace",
+                      systemImage: library.isLiked(track) ? "heart.slash.fill" : "heart.fill")
+            }
+            .tint(.pink)
+            Button { router.trackToAdd = track } label: {
+                Label("Playlist", systemImage: "text.badge.plus")
+            }
+            .tint(.indigo)
+        }
+    }
+
+    private var artwork: some View {
+        ArtworkView(track: track, size: 50, cornerRadius: 6)
+            .overlay {
+                if isCurrent {
+                    Image(systemName: "waveform")
+                        .font(.headline)
+                        .foregroundStyle(.white)
+                        .symbolEffect(.variableColor.iterative, isActive: player.isPlaying)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(.black.opacity(0.45), in: .rect(cornerRadius: 6))
+                }
+            }
     }
 
     @ViewBuilder private var trailing: some View {
@@ -120,13 +215,68 @@ struct TrackCard: View {
     }
 }
 
-/// The actions available on every song, used in context menus and in the player's "…" menu.
+struct PlaylistCard: View {
+    let playlist: Playlist
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            PlaylistArtwork(tracks: playlist.tracks, size: 150, cornerRadius: 14)
+            Text(playlist.name)
+                .font(.subheadline.weight(.semibold))
+                .lineLimit(1)
+            Text(playlist.countLabel)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .frame(width: 150, alignment: .leading)
+        .contentShape(.rect)
+    }
+}
+
+/// "Riproduci" and "Casuale" buttons shown above a list of songs.
+struct PlayShuffleButtons: View {
+    let tracks: [Track]
+    let source: String
+    @EnvironmentObject private var player: PlayerController
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Button {
+                player.play(tracks, source: source, shuffled: false)
+            } label: {
+                Label("Riproduci", systemImage: "play.fill")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .contentShape(.capsule)
+            }
+            .buttonStyle(.plain)
+            .glassEffect(.regular.tint(Color.accentColor.opacity(0.55)).interactive(), in: .capsule)
+
+            Button {
+                player.play(tracks, startAt: Int.random(in: tracks.indices), source: source, shuffled: true)
+            } label: {
+                Label("Casuale", systemImage: "shuffle")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .contentShape(.capsule)
+            }
+            .buttonStyle(.plain)
+            .glassEffect(.regular.interactive(), in: .capsule)
+        }
+        .disabled(tracks.isEmpty)
+    }
+}
+
+/// The actions available on every song, used in "···" menus, context menus and the player.
 struct TrackMenu: View {
     let track: Track
     var inPlayer = false
     @EnvironmentObject private var player: PlayerController
     @EnvironmentObject private var library: Library
     @EnvironmentObject private var downloads: DownloadManager
+    @EnvironmentObject private var router: AppRouter
 
     var body: some View {
         if !inPlayer {
@@ -143,10 +293,13 @@ struct TrackMenu: View {
         Divider()
         Button { library.toggleLike(track) } label: {
             if library.isLiked(track) {
-                Label("Non mi piace più", systemImage: "heart.slash")
+                Label("Togli dai preferiti", systemImage: "heart.slash")
             } else {
-                Label("Mi piace", systemImage: "heart")
+                Label("Aggiungi ai preferiti", systemImage: "heart")
             }
+        }
+        Button { router.trackToAdd = track } label: {
+            Label("Aggiungi a playlist…", systemImage: "text.badge.plus")
         }
         if let videoId = track.videoId {
             if downloads.isDownloaded(track) {

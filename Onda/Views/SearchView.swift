@@ -2,7 +2,7 @@ import SwiftUI
 
 struct SearchView: View {
     @EnvironmentObject private var player: PlayerController
-    @AppStorage("search.recent") private var recentRaw = ""
+    @AppStorage(Preferences.recentSearches) private var recentRaw = ""
     @State private var query = ""
     @State private var results: [Track] = []
     @State private var isSearching = false
@@ -19,17 +19,17 @@ struct SearchView: View {
                     recentSection
                 } else {
                     ForEach(results) { track in
-                        Button {
+                        TrackRow(track: track) {
                             remember(query)
                             player.playRadio(from: track)
-                        } label: {
-                            TrackRow(track: track)
                         }
-                        .buttonStyle(.plain)
+                        .listRowBackground(Color.clear)
                     }
                 }
             }
             .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .background { AmbientBackground() }
             .overlay { overlay }
             .navigationTitle("Cerca")
             .searchable(text: $query, prompt: "Brani e artisti")
@@ -46,6 +46,7 @@ struct SearchView: View {
                         Label(item, systemImage: "clock.arrow.circlepath")
                             .foregroundStyle(.primary)
                     }
+                    .listRowBackground(Color.clear)
                 }
                 .onDelete { offsets in
                     var items = recent

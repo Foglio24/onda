@@ -5,8 +5,8 @@ enum AppTab: Hashable {
 }
 
 struct RootView: View {
+    @EnvironmentObject private var router: AppRouter
     @State private var selection: AppTab = .home
-    @State private var showPlayer = false
     @Namespace private var transition
 
     var body: some View {
@@ -26,12 +26,15 @@ struct RootView: View {
         }
         .tabBarMinimizeBehavior(.onScrollDown)
         .tabViewBottomAccessory {
-            MiniPlayer { showPlayer = true }
+            MiniPlayer { router.showPlayer = true }
                 .matchedTransitionSource(id: "now-playing", in: transition)
         }
-        .fullScreenCover(isPresented: $showPlayer) {
+        .fullScreenCover(isPresented: $router.showPlayer) {
             NowPlayingView()
                 .navigationTransition(.zoom(sourceID: "now-playing", in: transition))
+        }
+        .sheet(item: router.addToPlaylistBinding(fromPlayer: false)) { track in
+            AddToPlaylistSheet(track: track)
         }
     }
 }

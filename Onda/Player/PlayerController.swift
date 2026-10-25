@@ -17,6 +17,12 @@ enum RepeatMode {
     }
 }
 
+enum SleepTimer: Equatable {
+    case off
+    case at(Date)
+    case endOfTrack
+}
+
 struct QueueEntry: Identifiable {
     let index: Int
     let track: Track
@@ -41,6 +47,7 @@ final class PlaybackProgress: ObservableObject {
 @MainActor
 final class PlayerController: ObservableObject {
     static let shared = PlayerController()
+    static let defaultTint = Color(red: 0.24, green: 0.18, blue: 0.42)
 
     @Published private(set) var queue: [Track] = []
     @Published private(set) var index = 0
@@ -49,7 +56,11 @@ final class PlayerController: ObservableObject {
     @Published private(set) var errorMessage: String? = nil
     @Published private(set) var source = ""
     @Published private(set) var lyrics: LyricsState = .idle
-    @Published private(set) var artworkColor = Color(red: 0.24, green: 0.18, blue: 0.42)
+    @Published private(set) var artworkColor = PlayerController.defaultTint
+    /// "AAC · 129 kbps", or "AAC · offline" for downloaded songs.
+    @Published private(set) var streamInfo: String? = nil
+    @Published private(set) var shuffleEnabled = false
+    @Published private(set) var sleepTimer: SleepTimer = .off
     @Published var repeatMode: RepeatMode = .off
     @Published var autoRadio: Bool {
         didSet { UserDefaults.standard.set(autoRadio, forKey: "player.autoRadio") }
@@ -71,7 +82,10 @@ final class PlayerController: ObservableObject {
     private var loadTask: Task<Void, Never>?
     private var lyricsTask: Task<Void, Never>?
     private var artworkTask: Task<Void, Never>?
+    private var sleepTask: Task<Void, Never>?
     private var nowPlayingArtwork: MPMediaItemArtwork?
+    /// The upcoming songs in their original order, to restore when shuffle is turned off.
+    private var unshuffledUpcoming: [Track] = []
     private var playWhenReady = true
     private var isExtendingQueue = false
     private var failuresInARow = 0
@@ -80,17 +94,32 @@ final class PlayerController: ObservableObject {
 
     private init() {
         autoRadio = UserDefaults.standard.object(forKey: "player.autoRadio") as? Bool ?? true
-        try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, policy: .longFormAudio)
+        let session = AVAudioSession.sharedInstance()
+        try? session.setCategory(.playback, mode: .default, policy: .longFormAudio)
+        try? session.setSupportsMultichannelContent(true)
         observePlayer()
         configureRemoteCommands()
     }
 
     // MARK: Queue
 
-    func play(_ tracks: [Track], startAt start: Int = 0, source: String, startRadio: Bool = false) {
+    /// Replaces the queue. With shuffle on, the chosen song plays first and the rest follow in random order.
+    func play(_ tracks: [Track], startAt start: Int = 0, source: String, startRadio: Bool = false,
+              shuffled: Bool? = nil) {
         guard tracks.indices.contains(start) else { return }
-        queue = tracks
-        index = start
+        if let shuffled { shuffleEnabled = shuffled }
+        var list = tracks
+        var first = start
+        if shuffleEnabled {
+            let chosen = list.remove(at: start)
+            unshuffledUpcoming = list
+            list = [chosen] + list.shuffled()
+            first = 0
+        } else {
+            unshuffledUpcoming = []
+        }
+        queue = list
+        index = first
         self.source = source
         failuresInARow = 0
         loadCurrent()
@@ -105,11 +134,13 @@ final class PlayerController: ObservableObject {
     func playNext(_ track: Track) {
         guard current != nil else { return play([track], source: "Coda") }
         queue.insert(track, at: index + 1)
+        unshuffledUpcoming.insert(track, at: 0)
     }
 
     func addToQueue(_ track: Track) {
         guard current != nil else { return play([track], source: "Coda") }
         queue.append(track)
+        unshuffledUpcoming.append(track)
     }
 
     func jump(to position: Int) {
@@ -118,14 +149,31 @@ final class PlayerController: ObservableObject {
         loadCurrent()
     }
 
-    func shuffleUpcoming() {
-        guard index + 1 < queue.count else { return }
-        let shuffled = queue[(index + 1)...].shuffled()
-        queue.replaceSubrange((index + 1)..., with: shuffled)
+    func toggleShuffle() {
+        guard !queue.isEmpty else {
+            shuffleEnabled.toggle()
+            return
+        }
+        let upcomingTracks = Array(queue[(index + 1)...])
+        if shuffleEnabled {
+            // Back to the original order; songs added while shuffled keep their place at the end.
+            let remaining = Set(upcomingTracks.map(\.id))
+            var restored = unshuffledUpcoming.filter { remaining.contains($0.id) }.uniqued()
+            let restoredIDs = Set(restored.map(\.id))
+            restored += upcomingTracks.filter { !restoredIDs.contains($0.id) }
+            queue.replaceSubrange((index + 1)..., with: restored)
+            unshuffledUpcoming = []
+        } else {
+            unshuffledUpcoming = upcomingTracks
+            queue.replaceSubrange((index + 1)..., with: upcomingTracks.shuffled())
+        }
+        shuffleEnabled.toggle()
     }
 
     func removeUpcoming(atOffsets offsets: IndexSet) {
+        let removed = Set(offsets.map { queue[$0 + index + 1].id })
         queue.remove(atOffsets: IndexSet(offsets.map { $0 + index + 1 }))
+        unshuffledUpcoming.removeAll { removed.contains($0.id) }
     }
 
     func moveUpcoming(fromOffsets source: IndexSet, toOffset destination: Int) {
@@ -184,6 +232,49 @@ final class PlayerController: ObservableObject {
         repeatMode = repeatMode.next
     }
 
+    // MARK: Sleep timer
+
+    func setSleepTimer(minutes: Int) {
+        sleepTask?.cancel()
+        sleepTimer = .at(Date.now.addingTimeInterval(TimeInterval(minutes * 60)))
+        sleepTask = Task {
+            try? await Task.sleep(for: .seconds(minutes * 60))
+            guard !Task.isCancelled else { return }
+            self.sleepTimer = .off
+            self.pause()
+        }
+    }
+
+    func stopAtEndOfTrack() {
+        sleepTask?.cancel()
+        sleepTimer = .endOfTrack
+    }
+
+    func cancelSleepTimer() {
+        sleepTask?.cancel()
+        sleepTimer = .off
+    }
+
+    // MARK: Settings hooks
+
+    /// Applies the "Audio spaziale" preference to the song that is playing.
+    func applySpatialAudioPreference() {
+        player.currentItem?.allowedAudioSpatializationFormats = Self.spatializationFormats
+    }
+
+    /// Applies the "Colori dinamici" preference to the player tint.
+    func applyThemePreference() {
+        if Preferences.dynamicColorsEnabled, let track = current {
+            loadArtwork(for: track)
+        } else {
+            artworkColor = Self.defaultTint
+        }
+    }
+
+    private static var spatializationFormats: AVAudioSpatializationFormats {
+        Preferences.spatialAudioEnabled ? .monoStereoAndMultichannel : []
+    }
+
     // MARK: Loading
 
     private func loadCurrent() {
@@ -194,6 +285,7 @@ final class PlayerController: ObservableObject {
         retriedCurrentItem = false
         isLoading = true
         errorMessage = nil
+        streamInfo = nil
         itemStatus = nil
         player.replaceCurrentItem(with: nil)
         progress.currentTime = 0
@@ -213,9 +305,10 @@ final class PlayerController: ObservableObject {
                     self.queue[position] = playable
                     self.loadArtwork(for: playable)
                 }
-                let url = try await self.streamURL(for: playable)
+                let stream = try await self.stream(for: playable)
                 guard !Task.isCancelled, self.index == position else { return }
-                self.start(url: url, track: playable)
+                self.streamInfo = stream.label
+                self.start(url: stream.url, track: playable)
             } catch {
                 guard !Task.isCancelled, self.index == position else { return }
                 self.fail(error.localizedDescription)
@@ -224,14 +317,16 @@ final class PlayerController: ObservableObject {
         extendQueueIfNeeded()
     }
 
-    private func streamURL(for track: Track) async throws -> URL {
-        if let local = Storage.localAudio(for: track) { return local }
+    private func stream(for track: Track) async throws -> (url: URL, label: String) {
+        if let local = Storage.localAudio(for: track) { return (local, "AAC · offline") }
         guard let videoId = track.videoId else { throw PlayerError.unavailable }
-        return try await StreamResolver.shared.audioURL(for: videoId)
+        let stream = try await StreamResolver.shared.audioStream(for: videoId, quality: Preferences.streamingQuality)
+        return (stream.url, stream.label)
     }
 
     private func start(url: URL, track: Track, isRetry: Bool = false) {
         let item = AVPlayerItem(url: url)
+        item.allowedAudioSpatializationFormats = Self.spatializationFormats
         itemStatus = item.publisher(for: \.status)
             .receive(on: DispatchQueue.main)
             .sink { status in self.itemStatusChanged(status, track: track) }
@@ -265,10 +360,12 @@ final class PlayerController: ObservableObject {
             let position = index
             Task {
                 await StreamResolver.shared.invalidate(videoId)
-                let url = try? await StreamResolver.shared.audioURL(for: videoId)
+                let stream = try? await StreamResolver.shared.audioStream(
+                    for: videoId, quality: Preferences.streamingQuality)
                 guard self.index == position else { return }
-                if let url {
-                    self.start(url: url, track: track, isRetry: true)
+                if let stream {
+                    self.streamInfo = stream.label
+                    self.start(url: stream.url, track: track, isRetry: true)
                 } else {
                     self.fail(message)
                 }
@@ -314,6 +411,11 @@ final class PlayerController: ObservableObject {
     }
 
     private func itemFinished() {
+        if sleepTimer == .endOfTrack {
+            sleepTimer = .off
+            pause()
+            return
+        }
         guard repeatMode == .one, let track = current else { return advance() }
         seek(to: 0)
         scrobbler.begin(track)
@@ -334,9 +436,14 @@ final class PlayerController: ObservableObject {
         defer { isExtendingQueue = false }
         guard let radio = try? await InnerTube.shared.radio(for: seed) else { return false }
         let known = Set(queue.map(\.id))
-        let fresh = radio.filter { !known.contains($0.id) }
+        let skipLong = Preferences.skipsLongMixes
+        let fresh = radio.filter { track in
+            !known.contains(track.id) && !(skipLong && (track.duration ?? 0) > Preferences.longMixThreshold)
+        }
         guard !fresh.isEmpty else { return false }
-        queue.append(contentsOf: fresh.prefix(30))
+        let added = Array(fresh.prefix(30))
+        unshuffledUpcoming.append(contentsOf: added)
+        queue.append(contentsOf: shuffleEnabled ? added.shuffled() : added)
         return true
     }
 
@@ -345,8 +452,9 @@ final class PlayerController: ObservableObject {
         guard index + 1 < queue.count else { return }
         let upNext = queue[index + 1]
         guard let videoId = upNext.videoId, Storage.localAudio(for: upNext) == nil else { return }
+        let quality = Preferences.streamingQuality
         Task.detached(priority: .utility) {
-            _ = try? await StreamResolver.shared.audioURL(for: videoId)
+            _ = try? await StreamResolver.shared.audioStream(for: videoId, quality: quality)
         }
     }
 
@@ -367,7 +475,11 @@ final class PlayerController: ObservableObject {
             guard let artwork = await ArtworkLoader.shared.artwork(for: track),
                   !Task.isCancelled, self.current?.id == track.id else { return }
             self.nowPlayingArtwork = Self.makeArtwork(artwork.image)
-            if let tint = artwork.tint { self.artworkColor = Color(uiColor: tint) }
+            if Preferences.dynamicColorsEnabled, let tint = artwork.tint {
+                self.artworkColor = Color(uiColor: tint)
+            } else {
+                self.artworkColor = Self.defaultTint
+            }
             self.updateNowPlayingInfo()
         }
     }

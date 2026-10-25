@@ -6,6 +6,8 @@ struct HomeView: View {
     @EnvironmentObject private var lastfm: LastFM
 
     @State private var quickPicks: [Track] = []
+    /// The song the quick picks were built from; nil when they came from the generic fallback.
+    @State private var quickPicksSeed: String?
     @State private var topTracks: [Track] = []
     @State private var busyItem: String?
     @State private var errorText: String?
@@ -31,17 +33,28 @@ struct HomeView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 28) {
+                VStack(alignment: .leading, spacing: 30) {
                     moodChips
                     if lastfm.isConnected { mixCards }
                     if !quickPicks.isEmpty { quickPicksShelf }
-                    if !library.history.isEmpty { recentShelf }
+                    if !library.playlists.isEmpty { playlistsShelf }
+                    if !library.history.isEmpty {
+                        trackShelf("Ascoltati di recente", tracks: Array(library.history.prefix(20)))
+                    }
+                    if !library.liked.isEmpty {
+                        trackShelf("I tuoi preferiti", tracks: Array(library.liked.prefix(20)))
+                    }
                     if !topTracks.isEmpty { topTracksList }
                 }
                 .padding(.vertical, 8)
             }
+            .background { AmbientBackground() }
             .navigationTitle(greeting)
-            .task { if quickPicks.isEmpty { await loadQuickPicks() } }
+            .task(id: library.history.first?.videoId) {
+                // Replace the generic picks with personal ones as soon as there is something to go on.
+                let canPersonalize = quickPicksSeed == nil && library.history.first?.videoId != nil
+                if quickPicks.isEmpty || canPersonalize { await loadQuickPicks() }
+            }
             .task(id: lastfm.username) { await loadTopTracks() }
             .refreshable {
                 await loadQuickPicks()
@@ -131,12 +144,10 @@ struct HomeView: View {
             ScrollView(.horizontal) {
                 LazyHGrid(rows: Array(repeating: GridItem(.fixed(58), spacing: 8), count: 4), spacing: 20) {
                     ForEach(Array(quickPicks.enumerated()), id: \.element.id) { position, track in
-                        Button {
+                        TrackRow(track: track) {
                             player.play(quickPicks, startAt: position, source: "Scelti per te")
-                        } label: {
-                            TrackRow(track: track).frame(width: 300)
                         }
-                        .buttonStyle(.plain)
+                        .frame(width: 320)
                     }
                 }
                 .scrollTargetLayout()
@@ -147,12 +158,30 @@ struct HomeView: View {
         }
     }
 
-    private var recentShelf: some View {
+    private var playlistsShelf: some View {
         VStack(alignment: .leading, spacing: 12) {
-            sectionTitle("Ascoltati di recente")
+            sectionTitle("Le tue playlist")
             ScrollView(.horizontal) {
                 LazyHStack(spacing: 14) {
-                    ForEach(Array(library.history.prefix(20))) { track in
+                    ForEach(library.playlists) { playlist in
+                        NavigationLink { PlaylistDetailView(playlistID: playlist.id) } label: {
+                            PlaylistCard(playlist: playlist)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal)
+            }
+            .scrollIndicators(.hidden)
+        }
+    }
+
+    private func trackShelf(_ title: String, tracks: [Track]) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionTitle(title)
+            ScrollView(.horizontal) {
+                LazyHStack(spacing: 14) {
+                    ForEach(tracks) { track in
                         Button { player.playRadio(from: track) } label: { TrackCard(track: track) }
                             .buttonStyle(.plain)
                     }
@@ -168,18 +197,15 @@ struct HomeView: View {
             sectionTitle("I tuoi top del mese su Last.fm")
             VStack(spacing: 10) {
                 ForEach(Array(topTracks.prefix(10).enumerated()), id: \.element.id) { position, track in
-                    Button {
-                        player.play(topTracks, startAt: position, source: "Top Last.fm")
-                    } label: {
-                        HStack(spacing: 14) {
-                            Text("\(position + 1)")
-                                .font(.headline.monospacedDigit())
-                                .foregroundStyle(.secondary)
-                                .frame(width: 24)
-                            TrackRow(track: track)
+                    HStack(spacing: 12) {
+                        Text("\(position + 1)")
+                            .font(.headline.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                            .frame(width: 24)
+                        TrackRow(track: track) {
+                            player.play(topTracks, startAt: position, source: "Top Last.fm")
                         }
                     }
-                    .buttonStyle(.plain)
                 }
             }
             .padding(.horizontal)
@@ -204,7 +230,8 @@ struct HomeView: View {
 
     private func playMood(_ mood: Mood) {
         perform(mood.id) {
-            let tracks = try await InnerTube.shared.searchSongs(mood.query)
+            let found = try await InnerTube.shared.searchSongs(mood.query)
+            let tracks = withoutLongMixes(found)
             guard !tracks.isEmpty else { throw InnerTubeError.notFound }
             player.play(tracks.shuffled(), source: mood.title)
         }
@@ -228,14 +255,22 @@ struct HomeView: View {
         do {
             if let seed = library.history.first?.videoId {
                 let radio = try await InnerTube.shared.radio(for: seed)
-                quickPicks = Array(radio.dropFirst().prefix(20))
+                quickPicks = Array(withoutLongMixes(Array(radio.dropFirst())).prefix(20))
+                quickPicksSeed = seed
             } else {
                 let hits = try await InnerTube.shared.searchSongs("top hits")
-                quickPicks = Array(hits.prefix(20))
+                quickPicks = Array(withoutLongMixes(hits).prefix(20))
+                quickPicksSeed = nil
             }
         } catch {
             // Keep whatever was shown before; the shelf simply stays hidden when empty.
         }
+    }
+
+    /// Drops hour-long compilations uploaded as "songs", unless the user turned the filter off.
+    private func withoutLongMixes(_ tracks: [Track]) -> [Track] {
+        guard Preferences.skipsLongMixes else { return tracks }
+        return tracks.filter { ($0.duration ?? 0) <= Preferences.longMixThreshold }
     }
 
     private func loadTopTracks() async {

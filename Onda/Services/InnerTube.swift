@@ -55,6 +55,60 @@ struct InnerTube {
             .uniqued()
     }
 
+    /// Songs of a public YouTube / YouTube Music playlist, following up to 10 pages of results.
+    func playlist(id playlistId: String) async throws -> (title: String?, tracks: [Track]) {
+        let id = playlistId.hasPrefix("VL") ? String(playlistId.dropFirst(2)) : playlistId
+        let firstPage = try await post("browse", ["browseId": "VL\(id)"])
+        let title = Self.playlistTitle(firstPage)
+
+        var items = J.findAll("musicPlaylistShelfRenderer", in: firstPage["contents"]).first
+            .map { J.array($0["contents"]) } ?? []
+        if items.isEmpty {
+            items = J.findAll("musicShelfRenderer", in: firstPage["contents"]).first
+                .map { J.array($0["contents"]) } ?? []
+        }
+
+        var tracks: [Track] = []
+        for _ in 0..<10 {
+            tracks += items
+                .compactMap { J.dict(J.value($0, "musicResponsiveListItemRenderer")) }
+                .compactMap(Self.parseListItem)
+            let token = items.compactMap {
+                J.string(J.value($0, "continuationItemRenderer", "continuationEndpoint",
+                                 "continuationCommand", "token"))
+            }.first
+            guard let token else { break }
+            let page = try await post("browse", ["continuation": token])
+            items = J.findAll("appendContinuationItemsAction", in: page).first
+                .map { J.array($0["continuationItems"]) } ?? []
+        }
+        guard !tracks.isEmpty else { throw InnerTubeError.notFound }
+        return (title, tracks.uniqued())
+    }
+
+    /// The playlist ID from a link such as `https://music.youtube.com/playlist?list=PL…`, or the text itself.
+    static func playlistID(from text: String) -> String? {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let components = URLComponents(string: trimmed),
+           let list = components.queryItems?.first(where: { $0.name == "list" })?.value, !list.isEmpty {
+            return list
+        }
+        let isBareID = !trimmed.isEmpty && trimmed.allSatisfy { $0.isLetter || $0.isNumber || $0 == "_" || $0 == "-" }
+        return isBareID ? trimmed : nil
+    }
+
+    private static func playlistTitle(_ json: [String: Any]) -> String? {
+        let headers = ["musicResponsiveHeaderRenderer", "musicDetailHeaderRenderer",
+                       "musicEditablePlaylistDetailHeaderRenderer", "musicImmersiveHeaderRenderer"]
+        for key in headers {
+            if let header = J.findAll(key, in: json).first,
+               let title = J.string(J.value(header, "title", "runs", 0, "text")) {
+                return title
+            }
+        }
+        return nil
+    }
+
     /// Finds the YouTube Music version of a track that only has artist and title (e.g. from Last.fm).
     func resolve(_ track: Track) async throws -> Track {
         if track.videoId != nil { return track }
