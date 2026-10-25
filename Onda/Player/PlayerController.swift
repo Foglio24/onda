@@ -84,6 +84,11 @@ final class PlayerController: ObservableObject {
     /// Onda's Now Playing session. Becoming the *active* session is what makes the lock screen
     /// and Dynamic Island player belong to Onda (and open it when tapped), not to the last music app used.
     private var nowPlayingSession: MPNowPlayingSession?
+    /// iOS 27+: the NowPlaying framework session (`SystemNowPlaying`), used instead of `nowPlayingSession`.
+    /// Stored type-erased because the type only exists on iOS 27.
+    private var systemNowPlayingBox: AnyObject?
+    /// Cover of the current song, encoded for the iOS 27 player.
+    private var currentArtworkData: Data?
     private var playerCancellables = Set<AnyCancellable>()
     private var cancellables = Set<AnyCancellable>()
     private var itemStatus: AnyCancellable?
@@ -119,13 +124,31 @@ final class PlayerController: ObservableObject {
         let session = AVAudioSession.sharedInstance()
         try? session.setCategory(.playback, mode: .default)
         try? session.setSupportsMultichannelContent(true)
-        let nowPlaying = MPNowPlayingSession(players: [player])
-        // The catalogue metadata (and the corrected song length) are published by hand.
-        nowPlaying.automaticallyPublishesNowPlayingInfo = false
-        nowPlayingSession = nowPlaying
+        var usesNowPlayingFramework = false
+        #if canImport(NowPlaying)
+        if #available(iOS 27, *) {
+            let system = SystemNowPlaying()
+            system.model.handlers = OndaMediaSessionModel.Handlers(
+                play: { self.resume() },
+                pause: { self.pause() },
+                togglePlayPause: { self.togglePlayPause() },
+                next: { self.next() },
+                previous: { self.previous() })
+            systemNowPlayingBox = system
+            usesNowPlayingFramework = true
+        }
+        #endif
+        if !usesNowPlayingFramework {
+            let nowPlaying = MPNowPlayingSession(players: [player])
+            // The catalogue metadata (and the corrected song length) are published by hand.
+            nowPlaying.automaticallyPublishesNowPlayingInfo = false
+            nowPlayingSession = nowPlaying
+            configureRemoteCommands(nowPlaying.remoteCommandCenter)
+        }
+        UserDefaults.standard.set(usesNowPlayingFramework ? "NowPlaying (iOS 27)" : "MPNowPlayingSession",
+                                  forKey: Preferences.nowPlayingBackend)
         attach(player)
         observeNotifications()
-        configureRemoteCommands(nowPlaying.remoteCommandCenter)
     }
 
     // MARK: Queue
@@ -684,10 +707,12 @@ final class PlayerController: ObservableObject {
     private func loadArtwork(for track: Track) {
         artworkTask?.cancel()
         nowPlayingArtwork = nil
+        currentArtworkData = nil
         artworkTask = Task {
             guard let artwork = await ArtworkLoader.shared.artwork(for: track),
                   !Task.isCancelled, self.current?.id == track.id else { return }
             self.nowPlayingArtwork = Self.makeArtwork(artwork.image)
+            self.currentArtworkData = artwork.image.jpegData(compressionQuality: 0.85)
             if Preferences.dynamicColorsEnabled, let tint = artwork.tint {
                 self.artworkColor = Color(uiColor: tint)
             } else {
@@ -701,6 +726,12 @@ final class PlayerController: ObservableObject {
 
     private func activateSession() {
         try? AVAudioSession.sharedInstance().setActive(true)
+        #if canImport(NowPlaying)
+        if #available(iOS 27, *), let system = systemNowPlayingBox as? SystemNowPlaying {
+            system.claim()
+            return
+        }
+        #endif
         // Shown in Settings → Informazioni: whether iOS accepted Onda as the Now Playing app.
         nowPlayingSession?.becomeActiveIfPossible { accepted in
             UserDefaults.standard.set(accepted ? 1 : 0, forKey: Preferences.nowPlayingAccepted)
@@ -839,6 +870,24 @@ final class PlayerController: ObservableObject {
     }
 
     private func updateNowPlayingInfo() {
+        #if canImport(NowPlaying)
+        if #available(iOS 27, *), let system = systemNowPlayingBox as? SystemNowPlaying {
+            let model = system.model
+            guard let track = current else {
+                model.title = ""
+                return
+            }
+            model.contentID = track.id
+            model.title = track.title
+            model.artist = track.artist
+            model.duration = progress.duration
+            model.isPlaying = player.timeControlStatus == .playing
+            model.elapsed = progress.currentTime
+            model.timestamp = .now
+            model.artworkData = currentArtworkData
+            return
+        }
+        #endif
         let center = nowPlayingSession?.nowPlayingInfoCenter ?? MPNowPlayingInfoCenter.default()
         guard let track = current else {
             center.nowPlayingInfo = nil

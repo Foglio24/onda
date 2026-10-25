@@ -127,6 +127,7 @@ enum Preferences {
     static let accent = "theme.accent"
     /// -1 unknown, 0 refused by iOS, 1 accepted.
     static let nowPlayingAccepted = "diagnostics.nowPlayingAccepted"
+    static let nowPlayingBackend = "diagnostics.nowPlayingBackend"
     static let dynamicColors = "theme.dynamicColors"
     static let lyricsStyle = "lyrics.style"
     static let lyricsSize = "lyrics.size"

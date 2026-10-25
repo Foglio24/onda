@@ -13,7 +13,8 @@ permissions:
 
 jobs:
   build:
-    runs-on: macos-latest
+    # macOS 26 is needed for Xcode 27 and its iOS 27 SDK (NowPlaying framework).
+    runs-on: macos-26
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4

@@ -15,6 +15,7 @@ struct SettingsView: View {
     @AppStorage(Preferences.opusLastError) private var opusLastError = ""
     @AppStorage(Preferences.accent) private var accent: AccentChoice = .pink
     @AppStorage(Preferences.nowPlayingAccepted) private var nowPlayingAccepted = -1
+    @AppStorage(Preferences.nowPlayingBackend) private var nowPlayingBackend = ""
     @AppStorage(Preferences.skipLongMixes) private var skipLongMixes = true
     @AppStorage(Preferences.dynamicColors) private var dynamicColors = true
     @AppStorage(Preferences.lyricsStyle) private var lyricsStyle: LyricsStyle = .focus
@@ -254,6 +255,7 @@ struct SettingsView: View {
             LabeledContent("Bundle ID", value: Bundle.main.bundleIdentifier ?? "—")
                 .textSelection(.enabled)
             LabeledContent("Player di sistema", value: nowPlayingStatus)
+            LabeledContent("Sistema usato", value: nowPlayingBackend.isEmpty ? "—" : nowPlayingBackend)
             Text("Catalogo: YouTube Music · Testi: LRCLIB · Scrobbling: Last.fm")
             Text("Progetto personale, non affiliato a Google, YouTube o Last.fm.")
         } header: {

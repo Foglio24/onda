@@ -10,8 +10,8 @@ settings:
   base:
     SWIFT_VERSION: "5.0"
     SWIFT_STRICT_CONCURRENCY: minimal
-    MARKETING_VERSION: "1.3.2"
-    CURRENT_PROJECT_VERSION: "6"
+    MARKETING_VERSION: "1.3.3"
+    CURRENT_PROJECT_VERSION: "7"
 
 packages:
   YouTubeKit:

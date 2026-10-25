@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.3 (2026-10-25)
+
+### Fixed
+- **On iOS 27, the lock screen and Dynamic Island player belonged to another music app.** Tapping it opened that app, and closing Onda didn't animate into the Dynamic Island. iOS 27 replaces the old Now Playing APIs with the new NowPlaying framework, and Apple documents mixing the two as undefined. Onda now publishes through a `MediaSession` on iOS 27 and keeps `MPNowPlayingSession` on iOS 26. The IPA is now built with Xcode 27.
+- Settings → Informazioni also shows which Now Playing system is in use.
+
 ## 1.3.2 (2026-10-25)
 
 ### Added
