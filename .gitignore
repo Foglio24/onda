@@ -2,6 +2,9 @@
 Onda.xcodeproj/
 Support/Info.plist
 
+# Downloaded by CI
+Frameworks/
+
 # Build output
 build/
 DerivedData/

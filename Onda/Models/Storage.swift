@@ -7,6 +7,11 @@ enum Storage {
     static let downloads: URL = makeDirectory(
         URL.documentsDirectory.appending(path: "Downloads", directoryHint: .isDirectory))
     static let covers: URL = makeDirectory(support.appending(path: "Covers", directoryHint: .isDirectory))
+    /// AI models downloaded on demand (karaoke).
+    static let models: URL = makeDirectory(support.appending(path: "Models", directoryHint: .isDirectory))
+    /// Vocals / instrumental stems made by the karaoke model, kept for replays.
+    static let stems: URL = makeDirectory(
+        URL.cachesDirectory.appending(path: "KaraokeStems", directoryHint: .isDirectory))
 
     static func audioFile(for videoId: String) -> URL { downloads.appending(path: "\(videoId).m4a") }
     static func artworkFile(for videoId: String) -> URL { downloads.appending(path: "\(videoId).jpg") }

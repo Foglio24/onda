@@ -8,7 +8,11 @@
   - The 文A button in the lyrics panel shows or hides the translation.
   - For a song in a language you haven't downloaded, the lyrics panel offers to download it.
 - **Interactive cover.** The player's artwork tilts in 3D with the iPhone and with your finger, with a sliding light reflection and a moving shadow. A double tap likes the song. You can turn it off in Settings → Aspetto.
-- **Karaoke mode.** The microphone button in the player can remove the vocals or keep only the vocals, at three strengths. It works on the stereo signal in real time (vocals are usually mixed in the centre), so it is lighter than Apple Music Sing's machine-learning stem separation and works best on songs with centred vocals. When it is off, the audio isn't processed at all.
+- **AI karaoke mode.** The microphone button in the player removes the vocals or keeps only the vocals, at three strengths, like Apple Music Sing.
+  - The separation uses the UVR MDX-Net "Voc_FT" model, run on the iPhone by [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) and ONNX Runtime. The model is a 64 MB download, needed only once.
+  - The song keeps playing while it is prepared, then switches to the separated stems at the same position.
+  - The vocal/instrumental balance changes instantly.
+  - The next song is prepared in advance, and stems are cached for replays. Manage the model and the cache in Settings → Karaoke.
 
 ## 1.3.4 (2026-10-25)
 

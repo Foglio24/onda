@@ -36,6 +36,16 @@ jobs:
       - name: Install XcodeGen
         run: brew install xcodegen
 
+      # Prebuilt iOS framework of sherpa-onnx (with ONNX Runtime), used by the AI karaoke.
+      - name: Download sherpa-onnx
+        run: |
+          mkdir -p Frameworks
+          curl -fsSL -o sherpa-onnx.zip \
+            https://github.com/k2-fsa/sherpa-onnx/releases/download/xcframework/sherpa-onnx-v2.0.0-ios-shared-onnxruntime-static.xcframework.zip
+          unzip -q sherpa-onnx.zip -d Frameworks
+          rm sherpa-onnx.zip
+          ls Frameworks
+
       - name: Generate Xcode project
         run: |
           mkdir -p Support

@@ -27,6 +27,9 @@ targets:
       - path: Onda
     dependencies:
       - package: YouTubeKit
+      # sherpa-onnx (ONNX Runtime inside) for the AI karaoke. Downloaded by CI, see build.yml.
+      - framework: Frameworks/SherpaOnnxC.xcframework
+        embed: true
     scheme: {}
     info:
       path: Support/Info.plist

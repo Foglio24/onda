@@ -63,6 +63,7 @@ final class PlayerController: ObservableObject {
     @Published private(set) var sleepTimer: SleepTimer = .off
     @Published private(set) var karaokeMode: KaraokeMode = .off
     @Published private(set) var karaokeAmount: Float = 1
+    @Published private(set) var karaokeStatus: KaraokeStatus = .idle
     @Published var repeatMode: RepeatMode = .off
     @Published var autoRadio: Bool {
         didSet { UserDefaults.standard.set(autoRadio, forKey: "player.autoRadio") }
@@ -104,6 +105,10 @@ final class PlayerController: ObservableObject {
     private var upgradeTask: Task<Void, Never>?
     /// A seek made while streaming, applied when the local copy takes over.
     private var requestedSeek: (time: TimeInterval, at: Date)?
+    /// Separates the current song for karaoke.
+    private var karaokeTask: Task<Void, Never>?
+    /// The song whose karaoke stems are playing right now.
+    private var karaokeTrackID: String?
     /// Seconds of fade-in for the song being loaded as part of a crossfade.
     private var pendingFadeIn: TimeInterval?
     /// Catalogue length of the song fading out, to know how much of it is left.
@@ -310,27 +315,120 @@ final class PlayerController: ObservableObject {
 
     // MARK: Karaoke
 
+    /// Turns karaoke on or off. The song keeps playing normally while the AI separates it,
+    /// then playback moves to the separated stems at the same position.
     func setKaraoke(_ mode: KaraokeMode) {
         karaokeMode = mode
-        KaraokeControl.shared.mode = mode.rawValue
-        let items = [player.currentItem, outgoingPlayer?.currentItem].compactMap { $0 }
         if mode == .off {
-            // No processing at all while off.
-            items.forEach { KaraokeEngine.detach(from: $0) }
+            leaveKaraoke()
+        } else if isPlayingStems {
+            updateKaraokeMix()
         } else {
-            for item in items { Task { await KaraokeEngine.attach(to: item) } }
+            startKaraoke()
         }
     }
 
+    /// How much of the other part is removed: 1 removes it completely.
     func setKaraokeAmount(_ amount: Float) {
         karaokeAmount = amount
-        KaraokeControl.shared.amount = amount
+        updateKaraokeMix()
     }
 
-    /// New items (next song, local copy, crossfade) keep the karaoke mode.
-    private func applyKaraoke(to item: AVPlayerItem) {
-        guard karaokeMode != .off else { return }
-        Task { await KaraokeEngine.attach(to: item) }
+    /// Downloads the AI model once, then starts karaoke on the current song.
+    func downloadKaraokeModel() {
+        if case .downloadingModel = karaokeStatus { return }
+        karaokeStatus = .downloadingModel(0)
+        Task {
+            do {
+                try await StemSeparator.downloadModel { value in
+                    Task { @MainActor in
+                        let controller = PlayerController.shared
+                        if case .downloadingModel = controller.karaokeStatus {
+                            controller.karaokeStatus = .downloadingModel(value)
+                        }
+                    }
+                }
+                self.karaokeStatus = .idle
+                self.startKaraoke()
+            } catch {
+                self.karaokeStatus = .failed(error.localizedDescription)
+            }
+        }
+    }
+
+    private var isPlayingStems: Bool {
+        karaokeTrackID != nil && karaokeTrackID == current?.id
+            && player.currentItem?.asset is AVMutableComposition
+    }
+
+    private func startKaraoke() {
+        guard karaokeMode != .off, let track = current, let videoId = track.videoId else { return }
+        guard StemSeparator.isEngineAvailable else {
+            karaokeStatus = .failed(KaraokeError.engineUnavailable.localizedDescription)
+            return
+        }
+        guard StemSeparator.isModelInstalled else {
+            karaokeStatus = .idle
+            return
+        }
+        karaokeTask?.cancel()
+        karaokeStatus = .preparing
+        karaokeTask = Task {
+            do {
+                let source = try await Self.karaokeSource(for: track, videoId: videoId)
+                let stems = try await StemSeparator.shared.stems(for: videoId, source: source)
+                guard !Task.isCancelled, self.current?.id == track.id, self.karaokeMode != .off else { return }
+                let item = try await KaraokeMixer.makeItem(stems: stems, mode: self.karaokeMode,
+                                                           amount: self.karaokeAmount)
+                guard !Task.isCancelled, self.current?.id == track.id, self.karaokeMode != .off else { return }
+                self.karaokeTrackID = track.id
+                self.switchItem(to: item, label: "Karaoke AI", track: track)
+                self.karaokeStatus = .ready
+                self.prepareNextKaraoke()
+            } catch {
+                guard !Task.isCancelled else { return }
+                self.karaokeStatus = .failed(error.localizedDescription)
+            }
+        }
+    }
+
+    private func leaveKaraoke() {
+        karaokeTask?.cancel()
+        karaokeStatus = .idle
+        guard isPlayingStems, let track = current else {
+            karaokeTrackID = nil
+            return
+        }
+        karaokeTrackID = nil
+        Task {
+            guard let original = try? await self.stream(for: track),
+                  self.current?.id == track.id, self.karaokeMode == .off else { return }
+            self.switchItem(to: AVPlayerItem(url: original.url), label: original.label, track: track)
+        }
+    }
+
+    private func updateKaraokeMix() {
+        guard isPlayingStems, let item = player.currentItem,
+              let composition = item.asset as? AVMutableComposition else { return }
+        item.audioMix = KaraokeMixer.mix(for: composition, mode: karaokeMode, amount: karaokeAmount)
+    }
+
+    /// Separates the next song while this one plays, so its karaoke is ready when it starts.
+    private func prepareNextKaraoke() {
+        guard index + 1 < queue.count else { return }
+        let upNext = queue[index + 1]
+        guard let videoId = upNext.videoId, StemSeparator.cachedStems(for: videoId) == nil else { return }
+        Task.detached(priority: .utility) {
+            guard let source = try? await PlayerController.karaokeSource(for: upNext, videoId: videoId) else { return }
+            _ = try? await StemSeparator.shared.stems(for: videoId, source: source)
+        }
+    }
+
+    /// A local file to separate: the download, the cached copy, or a fresh AAC copy.
+    nonisolated private static func karaokeSource(for track: Track, videoId: String) async throws -> URL {
+        if let local = Storage.localAudio(for: track) { return local }
+        if let cached = OpusPipeline.cachedFile(videoId: videoId) { return cached.url }
+        return try await prepareCopy(videoId: videoId, quality: .high).url
     }
 
     // MARK: Settings hooks
@@ -360,6 +458,8 @@ final class PlayerController: ObservableObject {
         if !crossfading { endCrossfade() }
         loadTask?.cancel()
         upgradeTask?.cancel()
+        karaokeTask?.cancel()
+        karaokeTrackID = nil
         requestedSeek = nil
         guard let track = current else { return }
         let position = index
@@ -447,10 +547,17 @@ final class PlayerController: ObservableObject {
         _ = await prepareOpus(videoId: videoId, quality: quality, duration: duration)
     }
 
-    /// Replaces the current item with a better local file at the same position.
+    /// Replaces the current item with a better local file at the same position
+    /// (not while karaoke stems are playing).
     private func switchToLocal(_ url: URL, label: String, track: Track) {
         guard current?.id == track.id, let item = player.currentItem,
-              (item.asset as? AVURLAsset)?.url != url else { return }
+              (item.asset as? AVURLAsset)?.url != url, !isPlayingStems else { return }
+        switchItem(to: AVPlayerItem(url: url), label: label, track: track)
+    }
+
+    /// Swaps the current item (local copy, karaoke stems, or back to the original) at the same position.
+    private func switchItem(to newItem: AVPlayerItem, label: String, track: Track) {
+        guard current?.id == track.id, player.currentItem != nil else { return }
         var position = player.currentTime().seconds
         if let requested = requestedSeek {
             // The user scrubbed while streaming: honour it, counting the time played since.
@@ -458,13 +565,11 @@ final class PlayerController: ObservableObject {
         }
         requestedSeek = nil
         let wasPlaying = player.timeControlStatus != .paused
-        let local = AVPlayerItem(url: url)
-        local.allowedAudioSpatializationFormats = Self.spatializationFormats
-        itemStatus = local.publisher(for: \.status)
+        newItem.allowedAudioSpatializationFormats = Self.spatializationFormats
+        itemStatus = newItem.publisher(for: \.status)
             .receive(on: DispatchQueue.main)
             .sink { status in self.itemStatusChanged(status, track: track) }
-        player.replaceCurrentItem(with: local)
-        applyKaraoke(to: local)
+        player.replaceCurrentItem(with: newItem)
         if position.isFinite, position > 0.5 {
             player.seek(to: CMTime(seconds: position, preferredTimescale: 600),
                         toleranceBefore: .zero, toleranceAfter: .zero)
@@ -480,7 +585,6 @@ final class PlayerController: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { status in self.itemStatusChanged(status, track: track) }
         player.replaceCurrentItem(with: item)
-        applyKaraoke(to: item)
 
         if pendingFadeIn != nil {
             // Crossfading in: stay silent until the song really plays (see `startPendingFades`).
@@ -520,6 +624,8 @@ final class PlayerController: ObservableObject {
         loadLyrics(for: track)
         prefetchNext()
         updateNowPlayingInfo()
+        // Karaoke stays on from song to song: separate this one too (often already done in advance).
+        if karaokeMode != .off { startKaraoke() }
     }
 
     private func itemStatusChanged(_ status: AVPlayerItem.Status, track: Track) {
@@ -810,6 +916,11 @@ final class PlayerController: ObservableObject {
         NotificationCenter.default.publisher(for: AVAudioSession.interruptionNotification)
             .receive(on: DispatchQueue.main)
             .sink { note in self.handleInterruption(note) }
+            .store(in: &cancellables)
+
+        // The karaoke model takes a few hundred MB: give it back when iOS asks for memory.
+        NotificationCenter.default.publisher(for: UIApplication.didReceiveMemoryWarningNotification)
+            .sink { _ in Task { await StemSeparator.shared.releaseEngine() } }
             .store(in: &cancellables)
     }
 

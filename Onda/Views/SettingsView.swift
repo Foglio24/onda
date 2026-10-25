@@ -33,12 +33,15 @@ struct SettingsView: View {
     @State private var alertText: String?
     @State private var confirmDeleteDownloads = false
     @State private var cacheCleared = false
+    /// Bumped after deleting files, so sizes and statuses read from disk refresh.
+    @State private var storageRevision = 0
 
     var body: some View {
         NavigationStack {
             Form {
                 audioSection
                 playbackSection
+                karaokeSection
                 lyricsSection
                 appearanceSection
                 lastfmSection
@@ -126,6 +129,48 @@ struct SettingsView: View {
         } footer: {
             Text("La dissolvenza sovrappone la fine di un brano all'inizio del successivo, come su Spotify. La radio automatica continua con brani simili quando la coda finisce. Le compilation da più di 15 minuti vengono escluse da radio, mood e \"Scelti per te\". Il timer di spegnimento è nel menu ··· del player.")
         }
+    }
+
+    private var karaokeSection: some View {
+        Section {
+            LabeledContent {
+                Text(karaokeModelStatus).foregroundStyle(.secondary)
+            } label: {
+                Label("Modello AI (UVR MDX-Net)", systemImage: "music.mic")
+            }
+            if StemSeparator.isModelInstalled {
+                Button("Elimina il modello", role: .destructive) {
+                    Task {
+                        await StemSeparator.shared.deleteModel()
+                        storageRevision += 1
+                    }
+                }
+            } else if !isDownloadingKaraokeModel {
+                Button("Scarica il modello (\(StemSeparator.modelSizeLabel))") { player.downloadKaraokeModel() }
+            }
+            LabeledContent("Tracce karaoke salvate",
+                           value: ByteCountFormatter.string(fromByteCount: StemSeparator.cacheSize, countStyle: .file))
+            Button("Elimina le tracce karaoke") {
+                StemSeparator.clearCache()
+                storageRevision += 1
+            }
+        } header: {
+            Text("Karaoke")
+        } footer: {
+            Text("Il karaoke usa un modello di intelligenza artificiale che separa voce e musica sull'iPhone. Attivalo dal tasto 🎤 nel player: il brano continua a suonare mentre viene preparato, poi passa alla versione senza voce (o solo voce). Le tracce separate restano salvate per riascoltarle subito.")
+                .id(storageRevision)
+        }
+    }
+
+    private var isDownloadingKaraokeModel: Bool {
+        if case .downloadingModel = player.karaokeStatus { return true }
+        return false
+    }
+
+    private var karaokeModelStatus: String {
+        if case .downloadingModel(let value) = player.karaokeStatus { return "Download \(Int(value * 100))%" }
+        if !StemSeparator.isEngineAvailable { return "Non disponibile" }
+        return StemSeparator.isModelInstalled ? "Scaricato" : "Da scaricare"
     }
 
     private var lyricsSection: some View {
