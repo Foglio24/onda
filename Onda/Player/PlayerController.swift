@@ -91,6 +91,10 @@ final class PlayerController: ObservableObject {
     private var sleepTask: Task<Void, Never>?
     private var fadeOutTask: Task<Void, Never>?
     private var fadeInTask: Task<Void, Never>?
+    /// Prepares the local copy of the streaming song (see `switchToLocal`).
+    private var upgradeTask: Task<Void, Never>?
+    /// A seek made while streaming, applied when the local copy takes over.
+    private var requestedSeek: (time: TimeInterval, at: Date)?
     /// Seconds of fade-in for the song being loaded as part of a crossfade.
     private var pendingFadeIn: TimeInterval?
     private var nowPlayingArtwork: MPMediaItemArtwork?
@@ -235,6 +239,10 @@ final class PlayerController: ObservableObject {
     }
 
     func seek(to seconds: TimeInterval) {
+        if let asset = player.currentItem?.asset as? AVURLAsset, !asset.url.isFileURL {
+            // Seeking in YouTube's streams is unreliable: remember it for when the local copy takes over.
+            requestedSeek = (seconds, Date.now)
+        }
         player.seek(to: CMTime(seconds: seconds, preferredTimescale: 600),
                     toleranceBefore: .zero, toleranceAfter: .zero)
         progress.currentTime = seconds
@@ -296,6 +304,8 @@ final class PlayerController: ObservableObject {
     private func loadCurrent(crossfading: Bool = false) {
         if !crossfading { endCrossfade() }
         loadTask?.cancel()
+        upgradeTask?.cancel()
+        requestedSeek = nil
         guard let track = current else { return }
         let position = index
         playWhenReady = true
@@ -335,29 +345,62 @@ final class PlayerController: ObservableObject {
         extendQueueIfNeeded()
     }
 
+    /// Downloaded or cached file when there is one; otherwise the plain AAC stream, which starts at once.
+    /// `start` then prepares a local copy in the chosen quality and switches to it.
     private func stream(for track: Track) async throws -> (url: URL, label: String) {
         if let local = Storage.localAudio(for: track) {
             return (local, "\(DownloadManager.formatLabel(for: track) ?? "AAC") · offline")
         }
         guard let videoId = track.videoId else { throw PlayerError.unavailable }
-        return try await Self.playableStream(videoId: videoId, quality: Preferences.streamingQuality,
-                                             duration: track.duration)
+        if let cached = OpusPipeline.cachedFile(videoId: videoId) { return cached }
+        let quality = Preferences.streamingQuality
+        let initial: AudioQuality = quality == .low || quality == .medium ? .low : .high
+        let stream = try await StreamResolver.shared.stream(for: videoId, quality: initial)
+        return (stream.url, stream.label)
     }
 
-    /// Resolves the stream for the quality, decoding Opus when needed and falling back to AAC if that fails.
-    nonisolated static func playableStream(videoId: String, quality: AudioQuality,
-                                           duration: TimeInterval?) async throws -> (url: URL, label: String) {
+    /// A local file of the song in the requested quality: decoded Opus, or a copy of the AAC/Dolby stream.
+    /// Falls back to an AAC copy when Opus fails.
+    nonisolated static func prepareLocal(videoId: String, quality: AudioQuality,
+                                         duration: TimeInterval?) async throws -> (url: URL, label: String) {
         let tooLongForOpus = (duration ?? 0) > Preferences.opusLengthLimit
         let effective = quality.usesOpus && tooLongForOpus ? AudioQuality.high : quality
         let stream = try await StreamResolver.shared.stream(for: videoId, quality: effective)
-        guard stream.format == .opus else { return (stream.url, stream.label) }
-        do {
-            let file = try await OpusPipeline.shared.playableFile(videoId: videoId, stream: stream)
-            return (file, stream.label)
-        } catch {
+        if stream.format == .opus {
+            if let file = try? await OpusPipeline.shared.playableFile(videoId: videoId, stream: stream) {
+                return (file, stream.label)
+            }
             let fallback = try await StreamResolver.shared.stream(for: videoId, quality: .high)
-            return (fallback.url, fallback.label)
+            let copy = try await OpusPipeline.shared.localCopy(videoId: videoId, stream: fallback)
+            return (copy, fallback.label)
         }
+        let copy = try await OpusPipeline.shared.localCopy(videoId: videoId, stream: stream)
+        return (copy, stream.label)
+    }
+
+    /// Replaces the streaming item with its local copy at the same position, without a gap in the queue.
+    private func switchToLocal(_ url: URL, label: String, track: Track) {
+        guard current?.id == track.id, let item = player.currentItem,
+              (item.asset as? AVURLAsset)?.url.isFileURL == false else { return }
+        var position = player.currentTime().seconds
+        if let requested = requestedSeek {
+            // The user scrubbed while streaming: honour it, counting the time played since.
+            position = requested.time + (player.timeControlStatus == .playing ? Date.now.timeIntervalSince(requested.at) : 0)
+        }
+        requestedSeek = nil
+        let wasPlaying = player.timeControlStatus != .paused
+        let local = AVPlayerItem(url: url)
+        local.allowedAudioSpatializationFormats = Self.spatializationFormats
+        itemStatus = local.publisher(for: \.status)
+            .receive(on: DispatchQueue.main)
+            .sink { status in self.itemStatusChanged(status, track: track) }
+        player.replaceCurrentItem(with: local)
+        if position.isFinite, position > 0.5 {
+            player.seek(to: CMTime(seconds: position, preferredTimescale: 600),
+                        toleranceBefore: .zero, toleranceAfter: .zero)
+        }
+        if wasPlaying || playWhenReady { player.play() }
+        streamInfo = label
     }
 
     private func start(url: URL, track: Track, isRetry: Bool = false) {
@@ -380,6 +423,16 @@ final class PlayerController: ObservableObject {
         if playWhenReady {
             activateSession()
             player.play()
+        }
+        if !url.isFileURL, let videoId = track.videoId {
+            let quality = Preferences.streamingQuality
+            let duration = track.duration
+            upgradeTask?.cancel()
+            upgradeTask = Task {
+                guard let local = try? await Self.prepareLocal(videoId: videoId, quality: quality, duration: duration),
+                      !Task.isCancelled else { return }
+                self.switchToLocal(local.url, label: local.label, track: track)
+            }
         }
         guard !isRetry else { return }
         scrobbler.begin(track)
@@ -560,7 +613,7 @@ final class PlayerController: ObservableObject {
         let quality = Preferences.streamingQuality
         let duration = upNext.duration
         Task.detached(priority: .utility) {
-            _ = try? await PlayerController.playableStream(videoId: videoId, quality: quality, duration: duration)
+            _ = try? await PlayerController.prepareLocal(videoId: videoId, quality: quality, duration: duration)
         }
     }
 

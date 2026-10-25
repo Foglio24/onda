@@ -26,18 +26,61 @@ actor OpusPipeline {
 
     private var inFlight: [String: Task<URL, Error>] = [:]
 
-    /// A playable lossless file for the stream, decoding it unless it is already cached.
+    /// A playable lossless file for an Opus stream, decoding it unless it is already cached.
     func playableFile(videoId: String, stream: ResolvedStream) async throws -> URL {
-        let destination = Self.cacheDirectory.appending(path: "\(videoId)-\(stream.bitrate ?? 0).m4a")
+        try await cached(Self.cacheFile(videoId: videoId, stream: stream)) { destination in
+            let webm = destination.deletingLastPathComponent().appending(path: ".\(UUID().uuidString).webm")
+            defer { try? FileManager.default.removeItem(at: webm) }
+            try await Self.download(stream.url, to: webm)
+            try Self.transcode(webm: webm, to: destination)
+        }
+    }
+
+    /// A local copy of an AAC or Dolby stream: AVPlayer seeks and measures reliably only in local files.
+    func localCopy(videoId: String, stream: ResolvedStream) async throws -> URL {
+        try await cached(Self.cacheFile(videoId: videoId, stream: stream)) { destination in
+            try await Self.download(stream.url, to: destination)
+        }
+    }
+
+    /// The best cached file for a song, with its format label, if one is ready.
+    nonisolated static func cachedFile(videoId: String) -> (url: URL, label: String)? {
+        let files = (try? FileManager.default.contentsOfDirectory(at: cacheDirectory,
+                                                                  includingPropertiesForKeys: [.fileSizeKey])) ?? []
+        let matches = files.filter { $0.lastPathComponent.hasPrefix("\(videoId)__") }
+        // The biggest file is the best quality (lossless Opus beats a plain AAC copy).
+        guard let best = matches.max(by: { size(of: $0) < size(of: $1) }) else { return nil }
+        let parts = best.deletingPathExtension().lastPathComponent.components(separatedBy: "__")
+        let label = parts.count == 3 ? "\(parts[1]) · \(parts[2]) kbps" : "AAC"
+        return (best, label)
+    }
+
+    private nonisolated static func size(of url: URL) -> Int {
+        (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0
+    }
+
+    /// "<videoId>__Opus__160.m4a"
+    private nonisolated static func cacheFile(videoId: String, stream: ResolvedStream) -> URL {
+        let format: String
+        switch stream.format {
+        case .aac: format = "AAC"
+        case .opus: format = "Opus"
+        case .dolby: format = "Dolby"
+        }
+        let kbps = Int((Double(stream.bitrate ?? 0) / 1000).rounded())
+        return cacheDirectory.appending(path: "\(videoId)__\(format)__\(kbps).m4a")
+    }
+
+    /// Runs `build` once per destination, sharing the result with concurrent callers.
+    private func cached(_ destination: URL,
+                        build: @escaping @Sendable (URL) async throws -> Void) async throws -> URL {
         if FileManager.default.fileExists(atPath: destination.path) {
             try? FileManager.default.setAttributes([.modificationDate: Date.now], ofItemAtPath: destination.path)
             return destination
         }
         if let running = inFlight[destination.path] { return try await running.value }
         let task = Task.detached(priority: .userInitiated) {
-            let (webm, _) = try await URLSession.shared.download(from: stream.url)
-            defer { try? FileManager.default.removeItem(at: webm) }
-            try Self.transcode(webm: webm, to: destination)
+            try await build(destination)
             return destination
         }
         inFlight[destination.path] = task
@@ -45,6 +88,16 @@ actor OpusPipeline {
         let file = try await task.value
         Self.pruneCache()
         return file
+    }
+
+    nonisolated static func download(_ url: URL, to destination: URL) async throws {
+        let (temporary, response) = try await URLSession.shared.download(from: url)
+        defer { try? FileManager.default.removeItem(at: temporary) }
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw URLError(.badServerResponse)
+        }
+        try? FileManager.default.removeItem(at: destination)
+        try FileManager.default.moveItem(at: temporary, to: destination)
     }
 
     /// Decodes a downloaded WebM/Opus file into an Apple Lossless .m4a at `destination`.
@@ -94,6 +147,7 @@ actor OpusPipeline {
         let packets = track.packets
         let feed = Feed()
         var framesToSkip = AVAudioFrameCount(track.preSkip)
+        var emptyRounds = 0
 
         while true {
             guard let output = AVAudioPCMBuffer(pcmFormat: pcmFormat, frameCapacity: 48_000) else {
@@ -127,6 +181,13 @@ actor OpusPipeline {
                 return buffer
             }
             if status == .error { throw conversionError ?? OpusError.decoderUnavailable }
+            // Guard against a decoder that stops producing audio without ever reporting the end.
+            if output.frameLength == 0 {
+                emptyRounds += 1
+                if emptyRounds > 3 { break }
+            } else {
+                emptyRounds = 0
+            }
 
             // Opus starts with a few milliseconds of encoder delay ("pre-skip") that must be dropped.
             if framesToSkip > 0, output.frameLength > 0 {
