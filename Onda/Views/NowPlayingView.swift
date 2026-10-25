@@ -15,8 +15,6 @@ struct NowPlayingView: View {
     @State private var isScrubbing = false
     @State private var scrubTime: TimeInterval = 0
     @State private var scrubToken = 0
-    @State private var showKaraokeDownload = false
-    @State private var pendingKaraokeMode: KaraokeMode = .noVocals
 
     var body: some View {
         VStack(spacing: 16) {
@@ -52,16 +50,6 @@ struct NowPlayingView: View {
         .animation(.smooth(duration: 0.35), value: panel)
         .sheet(item: router.addToPlaylistBinding(fromPlayer: true)) { track in
             AddToPlaylistSheet(track: track)
-        }
-        .confirmationDialog("Karaoke con l'intelligenza artificiale", isPresented: $showKaraokeDownload,
-                            titleVisibility: .visible) {
-            Button("Scarica il modello (\(StemSeparator.modelSizeLabel))") {
-                player.setKaraoke(pendingKaraokeMode)
-                player.downloadKaraokeModel()
-            }
-            Button("Annulla", role: .cancel) {}
-        } message: {
-            Text("Un modello AI separa voce e musica sull'iPhone. Si scarica una volta sola; ogni brano viene preparato in pochi secondi mentre continua a suonare.")
         }
     }
 
@@ -273,15 +261,11 @@ struct NowPlayingView: View {
 
     @ViewBuilder private var karaokeBadge: some View {
         switch player.karaokeStatus {
-        case .downloadingModel(let value):
-            badge {
-                Label("Modello AI \(Int(value * 100))%", systemImage: "arrow.down.circle")
-            }
-        case .preparing(let value):
+        case .preparing(let value, let remaining):
             badge {
                 HStack(spacing: 6) {
                     ProgressView().controlSize(.mini).tint(.white)
-                    Text(value > 0 ? "Karaoke: preparazione \(Int(value * 100))%" : "Karaoke: preparazione…")
+                    Text(Self.karaokeProgressText(value, remaining: remaining))
                         .monospacedDigit()
                 }
             }
@@ -290,6 +274,16 @@ struct NowPlayingView: View {
         case .ready, .idle:
             badge { Label(player.karaokeMode.title, systemImage: player.karaokeMode.symbol) }
         }
+    }
+
+    /// "Karaoke: preparazione 35% · 12 s".
+    private static func karaokeProgressText(_ value: Double, remaining: TimeInterval?) -> String {
+        guard value > 0 else { return "Karaoke: preparazione…" }
+        var text = "Karaoke: preparazione \(Int(value * 100))%"
+        if let remaining {
+            text += remaining < 60 ? " · \(max(1, Int(remaining))) s" : " · \(Int((remaining / 60).rounded())) min"
+        }
+        return text
     }
 
     private func badge<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
@@ -362,14 +356,8 @@ struct NowPlayingView: View {
             if case .failed(let message) = player.karaokeStatus {
                 Section { Text(message) }
             }
-            Picker("Karaoke", selection: Binding(get: { player.karaokeMode }, set: { mode in
-                if mode != .off && !StemSeparator.isModelInstalled {
-                    pendingKaraokeMode = mode
-                    showKaraokeDownload = true
-                } else {
-                    player.setKaraoke(mode)
-                }
-            })) {
+            Picker("Karaoke", selection: Binding(get: { player.karaokeMode },
+                                                 set: { player.setKaraoke($0) })) {
                 ForEach(KaraokeMode.allCases) { mode in
                     Label(mode.title, systemImage: mode.symbol).tag(mode)
                 }

@@ -336,28 +336,6 @@ final class PlayerController: ObservableObject {
         updateKaraokeMix()
     }
 
-    /// Downloads the AI model once, then starts karaoke on the current song.
-    func downloadKaraokeModel() {
-        if case .downloadingModel = karaokeStatus { return }
-        karaokeStatus = .downloadingModel(0)
-        Task {
-            do {
-                try await StemSeparator.downloadModel { value in
-                    Task { @MainActor in
-                        let controller = PlayerController.shared
-                        if case .downloadingModel = controller.karaokeStatus {
-                            controller.karaokeStatus = .downloadingModel(value)
-                        }
-                    }
-                }
-                self.karaokeStatus = .idle
-                self.startKaraoke()
-            } catch {
-                self.karaokeStatus = .failed(error.localizedDescription)
-            }
-        }
-    }
-
     private var isPlayingStems: Bool {
         karaokeTrackID != nil && karaokeTrackID == current?.id
             && player.currentItem?.asset is AVMutableComposition
@@ -365,17 +343,14 @@ final class PlayerController: ObservableObject {
 
     private func startKaraoke() {
         guard karaokeMode != .off, let track = current, let videoId = track.videoId else { return }
-        guard StemSeparator.isEngineAvailable else {
+        guard StemSeparator.isAvailable else {
             karaokeStatus = .failed(KaraokeError.engineUnavailable.localizedDescription)
             return
         }
-        guard StemSeparator.isModelInstalled else {
-            karaokeStatus = .idle
-            return
-        }
         karaokeTask?.cancel()
-        karaokeStatus = .preparing(0)
+        karaokeStatus = .preparing(0, remaining: nil)
         StemSeparator.focus(on: [videoId, upNextVideoId].compactMap { $0 })
+        let clock = KaraokeClock()
         karaokeTask = Task {
             do {
                 let source = try await Self.karaokeSource(for: track, videoId: videoId)
@@ -384,7 +359,7 @@ final class PlayerController: ObservableObject {
                     Task { @MainActor in
                         let controller = PlayerController.shared
                         if case .preparing = controller.karaokeStatus, controller.current?.id == track.id {
-                            controller.karaokeStatus = .preparing(value)
+                            controller.karaokeStatus = .preparing(value, remaining: clock.remaining(at: value))
                         }
                     }
                 }
@@ -966,10 +941,11 @@ final class PlayerController: ObservableObject {
 
         // A separation the app was closed in the middle of shows up in Settings → Karaoke.
         StemSeparator.noteInterruptedRun()
+        StemSeparator.removeLegacyModel()
         // The karaoke model takes a few hundred MB: give it back when iOS asks for memory
         // (after the separation in progress, if any).
         NotificationCenter.default.publisher(for: UIApplication.didReceiveMemoryWarningNotification)
-            .sink { _ in Task { await StemSeparator.shared.releaseEngine() } }
+            .sink { _ in StemSeparator.releaseEngine() }
             .store(in: &cancellables)
     }
 

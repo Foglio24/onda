@@ -134,19 +134,13 @@ struct SettingsView: View {
     private var karaokeSection: some View {
         Section {
             LabeledContent {
-                Text(karaokeModelStatus).foregroundStyle(.secondary)
+                Text(StemSeparator.isAvailable ? "Incluso nell'app" : "Non disponibile").foregroundStyle(.secondary)
             } label: {
                 Label("Modello AI (UVR MDX-Net)", systemImage: "music.mic")
             }
-            if StemSeparator.isModelInstalled {
-                Button("Elimina il modello", role: .destructive) {
-                    Task {
-                        await StemSeparator.shared.deleteModel()
-                        storageRevision += 1
-                    }
-                }
-            } else if !isDownloadingKaraokeModel {
-                Button("Scarica il modello (\(StemSeparator.modelSizeLabel))") { player.downloadKaraokeModel() }
+            if let lastRun = StemSeparator.lastRun {
+                LabeledContent("Ultima preparazione", value: lastRun)
+                    .id(storageRevision)
             }
             LabeledContent("Tracce karaoke salvate",
                            value: ByteCountFormatter.string(fromByteCount: StemSeparator.cacheSize, countStyle: .file))
@@ -164,20 +158,9 @@ struct SettingsView: View {
         } header: {
             Text("Karaoke")
         } footer: {
-            Text("Il karaoke usa un modello di intelligenza artificiale che separa voce e musica sull'iPhone. Attivalo dal tasto 🎤 nel player: il brano continua a suonare mentre viene preparato, poi passa alla versione senza voce (o solo voce). Le tracce separate restano salvate per riascoltarle subito.")
+            Text("Il karaoke usa un modello di intelligenza artificiale che separa voce e musica sull'iPhone, con il Neural Engine e la GPU. Attivalo dal tasto 🎤 nel player: il brano continua a suonare mentre viene preparato, poi passa alla versione senza voce (o solo voce). Le tracce separate restano salvate per riascoltarle subito.")
                 .id(storageRevision)
         }
-    }
-
-    private var isDownloadingKaraokeModel: Bool {
-        if case .downloadingModel = player.karaokeStatus { return true }
-        return false
-    }
-
-    private var karaokeModelStatus: String {
-        if case .downloadingModel(let value) = player.karaokeStatus { return "Download \(Int(value * 100))%" }
-        if !StemSeparator.isEngineAvailable { return "Non disponibile" }
-        return StemSeparator.isModelInstalled ? "Scaricato" : "Da scaricare"
     }
 
     private var lyricsSection: some View {

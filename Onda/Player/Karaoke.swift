@@ -1,9 +1,7 @@
 import AVFoundation
+import CoreML
 import Foundation
 import os
-#if canImport(SherpaOnnxC)
-import SherpaOnnxC
-#endif
 
 enum KaraokeMode: Int32, CaseIterable, Identifiable {
     case off = 0
@@ -41,9 +39,8 @@ enum KaraokeMode: Int32, CaseIterable, Identifiable {
 
 enum KaraokeStatus: Equatable {
     case idle
-    case downloadingModel(Double)
-    /// Separating the song, with the share done so far.
-    case preparing(Double)
+    /// Separating the song: the share done so far and, once known, the seconds left.
+    case preparing(Double, remaining: TimeInterval?)
     case ready
     case failed(String)
 }
@@ -53,19 +50,34 @@ struct StemFiles: Sendable {
     let instrumental: URL
 }
 
+/// Estimates the time a separation still needs from the progress reported so far
+/// (measured from the first report, which may come from a separation already under way).
+@MainActor
+final class KaraokeClock {
+    private var start: (date: Date, value: Double)?
+
+    func remaining(at value: Double) -> TimeInterval? {
+        guard let start else {
+            self.start = (.now, value)
+            return nil
+        }
+        let done = value - start.value
+        guard done > 0.01 else { return nil }
+        return Date.now.timeIntervalSince(start.date) / done * (1 - value)
+    }
+}
+
 enum KaraokeError: LocalizedError {
-    case modelMissing
-    case modelDamaged
     case engineUnavailable
+    case modelFailed(String)
     case unreadableAudio
     case separationFailed
     case lowMemory
 
     var errorDescription: String? {
         switch self {
-        case .modelMissing: return "Il modello AI per il karaoke non è stato scaricato."
-        case .modelDamaged: return "Il modello AI era danneggiato ed è stato eliminato: scaricalo di nuovo."
-        case .engineUnavailable: return "Il motore AI per il karaoke non è disponibile."
+        case .engineUnavailable: return "Il modello AI per il karaoke non è incluso in questa versione dell'app."
+        case .modelFailed(let detail): return "Il modello AI non è riuscito a separare il brano (\(detail))."
         case .unreadableAudio: return "Non riesco a leggere l'audio del brano."
         case .separationFailed: return "La separazione di voce e musica non è riuscita."
         case .lowMemory: return "Memoria insufficiente per il karaoke: chiudi qualche app e riprova."
@@ -73,78 +85,58 @@ enum KaraokeError: LocalizedError {
     }
 }
 
-/// Splits a song into vocals and instrumental with an AI model (UVR MDX-Net "Voc_FT"),
-/// run on the iPhone by sherpa-onnx / ONNX Runtime. Results are cached per song.
+/// Splits a song into vocals and instrumental with an AI model (UVR MDX-Net "Voc_FT"), run by
+/// Core ML on the Neural Engine / GPU (see `MDXSeparator`). The model ships inside the app;
+/// results are cached per song.
 actor StemSeparator {
     static let shared = StemSeparator()
 
-    static let modelName = "UVR-MDX-NET-Voc_FT.onnx"
-    static let modelSizeLabel = "64 MB"
-    private static let modelRemoteURL = URL(
-        string: "https://github.com/k2-fsa/sherpa-onnx/releases/download/source-separation-models/UVR-MDX-NET-Voc_FT.onnx")!
-    /// The full download is 66.8 MB: anything much smaller is a broken file.
-    private static let minimumModelSize = 60_000_000
     private static let cacheLimit: Int64 = 800 << 20
-    /// The model works on 44.1 kHz stereo.
-    private static let sampleRate = 44_100
-    /// Frames given to the model at once: just under one MDX-Net segment (1024 × 255 − n_fft frames),
-    /// so it runs on a single segment. Whole songs (sherpa-onnx's own 17 s chunks, three segments
-    /// each) need far more memory, and iOS closes the app.
-    private static let pieceLength = 245_000
+    private static let sampleRate = MDXSeparator.sampleRate
+    /// Frames given to the model at once (about 5.8 s), the most it takes in one go.
+    private static let pieceLength = MDXSeparator.maxPieceLength
     /// Neighbouring pieces overlap by half a second and are crossfaded, which hides the seams.
     private static let overlap = 22_050
     /// Below this much free memory the separation stops with an error, before iOS closes the app.
     private static let memoryReserve = 300 << 20
-    /// One separation at a time: the model is heavy on CPU and memory.
+    /// One separation at a time. The model is used, loaded and freed only on this queue, so
+    /// freeing it (on a memory warning) waits for the separation in progress.
     private static let workQueue = DispatchQueue(label: "onda.karaoke.separation", qos: .userInitiated)
     private static let wanted = WantedSongs()
+    private static let lastRunKey = "karaoke.lastRun"
+    /// The sherpa-onnx model that 1.4.0 test builds downloaded; Core ML has replaced it.
+    private static let legacyModelName = "UVR-MDX-NET-Voc_FT.onnx"
 
-    nonisolated static var modelFile: URL { Storage.models.appending(path: modelName) }
+    // Only touched on `workQueue`.
+    private static var loadedSeparator: MDXSeparator?
+    private static var computeUnits: MLComputeUnits = .all
 
-    nonisolated static var isModelInstalled: Bool {
-        FileManager.default.fileExists(atPath: modelFile.path)
+    /// The compiled Core ML model bundled with the app (made in CI from the ONNX model).
+    nonisolated static var modelURL: URL? {
+        Bundle.main.url(forResource: "VocFT", withExtension: "mlmodelc", subdirectory: "Karaoke")
     }
 
-    /// False only if the app was built without the sherpa-onnx framework.
-    nonisolated static var isEngineAvailable: Bool {
-        #if canImport(SherpaOnnxC)
-        return true
-        #else
-        return false
-        #endif
-    }
+    nonisolated static var isAvailable: Bool { modelURL != nil }
 
-    private var engine: OpaquePointer?
     private var inFlight: [String: Task<StemFiles, Error>] = [:]
     private var listeners: [String: [@Sendable (Double) -> Void]] = [:]
-    /// Separations handed to `workQueue`. The engine must outlive them: freeing it in the middle
-    /// of one (on a memory warning) crashed the app.
-    private var runningJobs = 0
-    private var releaseWhenIdle = false
 
     // MARK: Model
 
-    nonisolated static func downloadModel(progress: @escaping @Sendable (Double) -> Void) async throws {
-        try await ChunkedDownload.fetch(modelRemoteURL, to: modelFile, progress: progress)
+    /// Frees the model's memory once the separation in progress (if any) is done;
+    /// it is loaded again on the next one.
+    nonisolated static func releaseEngine() {
+        workQueue.async { loadedSeparator = nil }
     }
 
-    func deleteModel() {
-        releaseEngine()
-        try? FileManager.default.removeItem(at: Self.modelFile)
+    /// Deletes the model older test builds downloaded (64 MB).
+    nonisolated static func removeLegacyModel() {
+        try? FileManager.default.removeItem(at: Storage.models.appending(path: legacyModelName))
     }
 
-    /// Frees the model's memory; it is loaded again on the next separation.
-    /// While a separation runs it waits for it to finish.
-    func releaseEngine() {
-        guard runningJobs == 0 else {
-            releaseWhenIdle = true
-            return
-        }
-        releaseWhenIdle = false
-        #if canImport(SherpaOnnxC)
-        if let engine { SherpaOnnxDestroyOfflineSourceSeparation(engine) }
-        #endif
-        engine = nil
+    /// "48 pezzi in 14 s (Neural Engine/GPU)", for Settings.
+    nonisolated static var lastRun: String? {
+        UserDefaults.standard.string(forKey: lastRunKey)
     }
 
     // MARK: Stems
@@ -212,8 +204,7 @@ actor StemSeparator {
     }
 
     private func separate(videoId: String, source: URL, duration: TimeInterval?) async throws -> StemFiles {
-        guard Self.isModelInstalled else { throw KaraokeError.modelMissing }
-        #if canImport(SherpaOnnxC)
+        guard let modelURL = Self.modelURL else { throw KaraokeError.engineUnavailable }
         let asset = AVURLAsset(url: source)
         guard let track = try await asset.loadTracks(withMediaType: .audio).first else {
             throw KaraokeError.unreadableAudio
@@ -221,18 +212,11 @@ actor StemSeparator {
         var length = duration ?? 0
         if length <= 0 { length = (try? await asset.load(.duration).seconds) ?? 0 }
         let totalFrames = max(1, Int(length * Double(Self.sampleRate)))
-
-        let engine = try loadEngine()
         let files = Self.stemFiles(for: videoId)
-        runningJobs += 1
-        defer {
-            runningJobs -= 1
-            if runningJobs == 0, releaseWhenIdle { releaseEngine() }
-        }
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             Self.workQueue.async {
                 do {
-                    try Self.separateSync(engine: engine, asset: asset, track: track, videoId: videoId,
+                    try Self.separateSync(modelURL: modelURL, asset: asset, track: track, videoId: videoId,
                                           totalFrames: totalFrames, into: files) { value in
                         Task { await self.report(value, for: videoId) }
                     }
@@ -244,9 +228,6 @@ actor StemSeparator {
         }
         Self.pruneCache()
         return files
-        #else
-        throw KaraokeError.engineUnavailable
-        #endif
     }
 
     private static func pruneCache() {
@@ -312,42 +293,70 @@ actor StemSeparator {
         return result == KERN_SUCCESS ? info.phys_footprint : 0
     }
 
-    #if canImport(SherpaOnnxC)
-    private func loadEngine() throws -> OpaquePointer {
-        if let engine { return engine }
-        let size = (try? FileManager.default.attributesOfItem(atPath: Self.modelFile.path)[.size] as? Int) ?? 0
-        guard size >= Self.minimumModelSize else {
-            try? FileManager.default.removeItem(at: Self.modelFile)
-            throw KaraokeError.modelDamaged
+    private nonisolated static func name(of units: MLComputeUnits) -> String {
+        if units == .cpuOnly { return "CPU" }
+        if units == .cpuAndGPU { return "GPU" }
+        return "Neural Engine/GPU"
+    }
+
+    /// The next, safer choice when the current one fails: GPU, then CPU only.
+    private nonisolated static func fallback(from units: MLComputeUnits) -> MLComputeUnits? {
+        if units == .cpuOnly { return nil }
+        if units == .cpuAndGPU { return .cpuOnly }
+        return .cpuAndGPU
+    }
+
+    // MARK: Separation (on workQueue)
+
+    private nonisolated static func loadSeparator(modelURL: URL) throws -> MDXSeparator {
+        if let loadedSeparator { return loadedSeparator }
+        while true {
+            leaveNote("Caricamento del modello AI (\(name(of: computeUnits)))")
+            do {
+                let separator = try MDXSeparator(modelURL: modelURL, computeUnits: computeUnits)
+                loadedSeparator = separator
+                return separator
+            } catch {
+                guard let next = fallback(from: computeUnits) else {
+                    throw KaraokeError.modelFailed(error.localizedDescription)
+                }
+                computeUnits = next
+            }
         }
-        // No separation is running while the engine is missing, so this note is ours alone.
-        Self.leaveNote("Caricamento del modello AI")
-        defer { Self.removeNote() }
-        var config = SherpaOnnxOfflineSourceSeparationConfig()
-        let model = strdup(Self.modelFile.path)
-        let provider = strdup("cpu")
-        defer {
-            free(model)
-            free(provider)
+    }
+
+    /// Runs the model on one piece. Should the Neural Engine / GPU give back a broken result
+    /// (float16 overflow), the piece is redone on a safer compute unit, used from then on.
+    private nonisolated static func separateVocals(modelURL: URL, left: ArraySlice<Float>,
+                                                   right: ArraySlice<Float>) throws -> (left: [Float], right: [Float]) {
+        while true {
+            let separator = try loadSeparator(modelURL: modelURL)
+            let vocals: (left: [Float], right: [Float])
+            do {
+                vocals = try separator.vocals(left: left, right: right)
+            } catch {
+                guard let next = fallback(from: computeUnits) else {
+                    throw KaraokeError.modelFailed(error.localizedDescription)
+                }
+                computeUnits = next
+                loadedSeparator = nil
+                continue
+            }
+            if vocals.left.allSatisfy(\.isFinite) && vocals.right.allSatisfy(\.isFinite) { return vocals }
+            guard let next = fallback(from: computeUnits) else { throw KaraokeError.separationFailed }
+            computeUnits = next
+            loadedSeparator = nil
         }
-        config.model.uvr.model = UnsafePointer(model)
-        config.model.provider = UnsafePointer(provider)
-        config.model.num_threads = 4
-        config.model.debug = 0
-        guard let created = SherpaOnnxCreateOfflineSourceSeparation(&config) else {
-            throw KaraokeError.engineUnavailable
-        }
-        engine = created
-        return created
     }
 
     /// Decodes the song a piece at a time, runs the model on each piece and streams both stems
     /// to AAC 256 kbps files. The instrumental is the song minus the vocals.
-    private nonisolated static func separateSync(engine: OpaquePointer, asset: AVAsset, track: AVAssetTrack,
+    private nonisolated static func separateSync(modelURL: URL, asset: AVAsset, track: AVAssetTrack,
                                                  videoId: String, totalFrames: Int, into files: StemFiles,
                                                  progress: (Double) -> Void) throws {
         defer { removeNote() }
         guard wanted.contains(videoId) else { throw CancellationError() }
+        let started = Date.now
         let reader = try PCMReader(asset: asset, track: track, sampleRate: Double(sampleRate))
         let vocalsWriter = try StemWriter(destination: files.vocals, sampleRate: Double(sampleRate),
                                           capacity: pieceLength)
@@ -388,9 +397,9 @@ actor StemSeparator {
                 let available = os_proc_available_memory()
                 if available > 0, available < memoryReserve { throw KaraokeError.lowMemory }
                 piece += 1
-                leaveNote("Separazione: pezzo \(piece) di circa \(max(piece, pieces))")
+                leaveNote("Separazione: pezzo \(piece) di circa \(max(piece, pieces)) (\(name(of: computeUnits)))")
 
-                var vocals = try separateVocals(engine: engine, left: left[0..<count], right: right[0..<count])
+                var vocals = try separateVocals(modelURL: modelURL, left: left[0..<count], right: right[0..<count])
                 for index in 0..<carried {
                     let weight = Float(index + 1) / Float(carried + 1)
                     vocals.left[index] = tailLeft[index] * (1 - weight) + vocals.left[index] * weight
@@ -415,6 +424,12 @@ actor StemSeparator {
         try vocalsWriter.finish()
         try instrumentalWriter.finish()
         finished = true
+
+        let seconds = Int(Date.now.timeIntervalSince(started).rounded())
+        let songLength = Duration.seconds(Double(written + tailLeft.count) / Double(sampleRate))
+        let summary = "\(piece) pezzi in \(seconds) s per \(songLength.formatted(.time(pattern: .minuteSecond))) "
+            + "di brano (\(name(of: computeUnits)))"
+        UserDefaults.standard.set(summary, forKey: lastRunKey)
     }
 
     /// Writes the first `count` frames of the vocals and of the instrumental (song minus vocals).
@@ -435,41 +450,6 @@ actor StemSeparator {
             }
         }
     }
-
-    /// Runs the model on one piece and returns its vocals, as long as the piece.
-    private nonisolated static func separateVocals(engine: OpaquePointer, left: ArraySlice<Float>,
-                                                   right: ArraySlice<Float>) throws -> (left: [Float], right: [Float]) {
-        let count = left.count
-        let output = left.withUnsafeBufferPointer { leftSamples in
-            right.withUnsafeBufferPointer { rightSamples in
-                let channels: [UnsafePointer<Float>?] = [leftSamples.baseAddress, rightSamples.baseAddress]
-                return channels.withUnsafeBufferPointer { list in
-                    SherpaOnnxOfflineSourceSeparationProcess(engine, list.baseAddress, 2, Int32(count),
-                                                             Int32(sampleRate))
-                }
-            }
-        }
-        guard let output else { throw KaraokeError.separationFailed }
-        defer { SherpaOnnxDestroySourceSeparationOutput(output) }
-        let result = output.pointee
-        // UVR models: stem 0 is the model's target (vocals for Voc_FT), stem 1 the rest of the mix.
-        guard result.num_stems >= 1, Int(result.sample_rate) == sampleRate, let stems = result.stems else {
-            throw KaraokeError.separationFailed
-        }
-        let stem = stems[0]
-        let channelCount = Int(stem.num_channels)
-        guard channelCount >= 1, let samples = stem.samples else { throw KaraokeError.separationFailed }
-        let frames = min(count, Int(stem.n))
-        func channel(_ index: Int) -> [Float] {
-            var values = [Float](repeating: 0, count: count)
-            if frames > 0, let source = samples[min(index, channelCount - 1)] {
-                values.withUnsafeMutableBufferPointer { $0.baseAddress?.update(from: source, count: frames) }
-            }
-            return values
-        }
-        return (channel(0), channel(1))
-    }
-    #endif
 }
 
 /// The songs whose separation is still wanted, read by the separation between pieces.

@@ -36,15 +36,47 @@ jobs:
       - name: Install XcodeGen
         run: brew install xcodegen
 
-      # Prebuilt iOS framework of sherpa-onnx (with ONNX Runtime), used by the AI karaoke.
-      - name: Download sherpa-onnx
+      # The AI karaoke's vocal model (UVR MDX-Net Voc_FT), converted from ONNX to Core ML.
+      # Cached: it only changes with the conversion script.
+      - name: Restore the karaoke model
+        id: karaoke-model
+        uses: actions/cache@v4
+        with:
+          path: |
+            Generated/VocFT.mlpackage
+            Generated/karaoke-fixture.bin
+          key: karaoke-model-${{ hashFiles('Tools/convert_karaoke_model.py') }}
+
+      - name: Set up Python
+        if: steps.karaoke-model.outputs.cache-hit != 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Convert the karaoke model to Core ML
+        if: steps.karaoke-model.outputs.cache-hit != 'true'
         run: |
-          mkdir -p Frameworks
-          curl -fsSL -o sherpa-onnx.zip \
-            https://github.com/k2-fsa/sherpa-onnx/releases/download/xcframework/sherpa-onnx-v2.0.0-ios-shared-onnxruntime-static.xcframework.zip
-          unzip -q sherpa-onnx.zip -d Frameworks
-          rm sherpa-onnx.zip
-          ls Frameworks
+          python -m pip install --quiet "numpy==1.26.4" "torch==2.5.1" "coremltools==8.3.0" \
+            "onnx==1.17.0" "onnx2torch==1.5.15" "onnxruntime==1.20.1"
+          mkdir -p Generated
+          curl -fsSL -o Generated/Voc_FT.onnx \
+            https://github.com/k2-fsa/sherpa-onnx/releases/download/source-separation-models/UVR-MDX-NET-Voc_FT.onnx
+          python Tools/convert_karaoke_model.py Generated/Voc_FT.onnx Generated/VocFT.mlpackage \
+            Generated/karaoke-fixture.bin
+          rm Generated/Voc_FT.onnx
+
+      - name: Compile the karaoke model
+        run: |
+          mkdir -p Generated/Karaoke
+          xcrun coremlcompiler compile Generated/VocFT.mlpackage Generated/Karaoke
+          du -sh Generated/Karaoke/VocFT.mlmodelc
+
+      # Runs the app's own Swift separation code on macOS against onnxruntime's result.
+      - name: Check the karaoke separation
+        run: |
+          swiftc -O Onda/Player/MDXSeparator.swift Tools/KaraokeCheck/main.swift -o build-karaoke-check
+          ./build-karaoke-check Generated/Karaoke/VocFT.mlmodelc Generated/karaoke-fixture.bin
+          rm build-karaoke-check
 
       - name: Generate Xcode project
         run: |

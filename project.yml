@@ -11,7 +11,7 @@ settings:
     SWIFT_VERSION: "5.0"
     SWIFT_STRICT_CONCURRENCY: minimal
     MARKETING_VERSION: "1.4.0"
-    CURRENT_PROJECT_VERSION: "10"
+    CURRENT_PROJECT_VERSION: "11"
 
 packages:
   YouTubeKit:
@@ -25,11 +25,13 @@ targets:
     deploymentTarget: "26.0"
     sources:
       - path: Onda
+      # The karaoke's Core ML model (VocFT.mlmodelc), converted by CI: see build.yml.
+      - path: Generated/Karaoke
+        type: folder
+        buildPhase: resources
+        optional: true
     dependencies:
       - package: YouTubeKit
-      # sherpa-onnx (ONNX Runtime inside) for the AI karaoke. Downloaded by CI, see build.yml.
-      - framework: Frameworks/SherpaOnnxC.xcframework
-        embed: true
     scheme: {}
     info:
       path: Support/Info.plist
