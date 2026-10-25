@@ -6,36 +6,36 @@ struct LyricsView: View {
     @EnvironmentObject private var player: PlayerController
 
     var body: some View {
-        Group {
-            switch player.lyrics {
-            case .idle, .loading:
-                ProgressView()
-                    .tint(.white)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            case .synced(let lines):
-                SyncedLyrics(lines: lines)
-            case .plain(let text):
-                ScrollView {
-                    Text(text)
-                        .font(.title3.weight(.semibold))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.vertical, 32)
-                }
-                .scrollIndicators(.hidden)
-            case .unavailable:
-                ContentUnavailableView("Testo non disponibile", systemImage: "quote.bubble",
-                                       description: Text("LRCLIB non ha il testo di questo brano."))
+        switch player.lyrics {
+        case .idle, .loading:
+            ProgressView()
+                .tint(.white)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        case .synced(let lines):
+            SyncedLyrics(lines: lines)
+        case .plain(let text):
+            ScrollView {
+                Text(text)
+                    .font(.title3.weight(.semibold))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 32)
             }
+            .scrollIndicators(.hidden)
+            .mask { LyricsView.edgeFade }
+        case .unavailable:
+            ContentUnavailableView("Testo non disponibile", systemImage: "quote.bubble",
+                                   description: Text("LRCLIB non ha il testo di questo brano."))
         }
-        // Fade lines in and out at the edges.
-        .mask {
-            LinearGradient(stops: [
-                .init(color: .clear, location: 0),
-                .init(color: .black, location: 0.08),
-                .init(color: .black, location: 0.92),
-                .init(color: .clear, location: 1),
-            ], startPoint: .top, endPoint: .bottom)
-        }
+    }
+
+    /// Fades the lines in and out at the top and bottom edges.
+    static var edgeFade: some View {
+        LinearGradient(stops: [
+            .init(color: .clear, location: 0),
+            .init(color: .black, location: 0.08),
+            .init(color: .black, location: 0.92),
+            .init(color: .clear, location: 1),
+        ], startPoint: .top, endPoint: .bottom)
     }
 }
 
@@ -56,6 +56,10 @@ private struct SyncedLyrics: View {
     @State private var configuration: TranslationSession.Configuration?
     /// A source language that can be translated once its model is downloaded.
     @State private var downloadableSource: Locale.Language?
+    /// Short status under the 文A button ("Già in italiano", "Traduzione non riuscita"…).
+    @State private var translationNote: String?
+    /// Set when the user turns translation on, so a missing language is downloaded right away.
+    @State private var userAskedToTranslate = false
 
     private var inactiveOpacity: Double { style == .fade ? 0.22 : 0.32 }
 
@@ -108,6 +112,8 @@ private struct SyncedLyrics: View {
                 if let currentID { proxy.scrollTo(currentID, anchor: .center) }
             }
         }
+        .mask { LyricsView.edgeFade }
+        // Outside the fade, so the controls are always fully visible.
         .overlay(alignment: .topTrailing) { translationControls }
         .task(id: translationKey) { await prepareTranslation() }
         .translationTask(configuration) { session in
@@ -118,34 +124,49 @@ private struct SyncedLyrics: View {
     // MARK: Translation
 
     private var translationControls: some View {
-        HStack(spacing: 8) {
-            if translateEnabled, let source = downloadableSource {
-                Button {
-                    // The system asks to download the language, then translates.
-                    configuration = TranslationSession.Configuration(
-                        source: source, target: Locale.Language(identifier: targetIdentifier))
-                } label: {
-                    Label("Scarica \(Preferences.languageName(source.minimalIdentifier))", systemImage: "arrow.down.circle")
-                        .font(.caption.weight(.semibold))
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .glassEffect(.regular, in: .capsule)
-                }
-                .buttonStyle(.plain)
-            }
+        VStack(alignment: .trailing, spacing: 6) {
             Button {
                 translateEnabled.toggle()
+                userAskedToTranslate = translateEnabled
             } label: {
                 Image(systemName: "translate")
                     .font(.footnote.weight(.semibold))
-                    .frame(width: 34, height: 34)
-                    .background(Color.white.opacity(translateEnabled ? 0.25 : 0.08), in: .circle)
+                    .frame(width: 36, height: 36)
+                    .background(Color.white.opacity(translateEnabled ? 0.3 : 0.12), in: .circle)
             }
             .buttonStyle(.plain)
             .accessibilityLabel(translateEnabled ? "Nascondi traduzione" : "Mostra traduzione")
+
+            if translateEnabled, let source = downloadableSource {
+                Button {
+                    downloadAndTranslate(from: source)
+                } label: {
+                    Label("Scarica \(Preferences.languageName(source.minimalIdentifier)) per tradurre",
+                          systemImage: "arrow.down.circle.fill")
+                        .font(.caption.weight(.semibold))
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 7)
+                        .background(Color.black.opacity(0.45), in: .capsule)
+                }
+                .buttonStyle(.plain)
+            } else if translateEnabled, let note = translationNote {
+                Text(note)
+                    .font(.caption.weight(.semibold))
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 7)
+                    .background(Color.black.opacity(0.45), in: .capsule)
+            }
         }
         .foregroundStyle(.white)
         .padding(.top, 4)
+    }
+
+    /// The system shows its download sheet for the language, then the lines are translated.
+    private func downloadAndTranslate(from source: Locale.Language) {
+        translationNote = "Download della lingua…"
+        downloadableSource = nil
+        configuration = TranslationSession.Configuration(
+            source: source, target: Locale.Language(identifier: targetIdentifier))
     }
 
     /// Decides whether to translate: only when the language model is already on the iPhone,
@@ -154,18 +175,34 @@ private struct SyncedLyrics: View {
         translations = [:]
         configuration = nil
         downloadableSource = nil
-        guard translateEnabled, let source = Self.detectLanguage(of: lines) else { return }
+        translationNote = nil
+        let askedNow = userAskedToTranslate
+        userAskedToTranslate = false
+        guard translateEnabled else { return }
+        guard let source = Self.detectLanguage(of: lines) else {
+            translationNote = "Lingua del testo non riconosciuta"
+            return
+        }
         let target = Locale.Language(identifier: targetIdentifier)
-        guard source.languageCode != target.languageCode else { return }
+        guard source.languageCode != target.languageCode else {
+            translationNote = "Il testo è già in \(Preferences.languageName(targetIdentifier).lowercased())"
+            return
+        }
+        translationNote = "Traduzione…"
         let status = await LanguageAvailability().status(from: source, to: target)
         guard !Task.isCancelled else { return }
         switch status {
         case .installed:
             configuration = TranslationSession.Configuration(source: source, target: target)
         case .supported:
-            downloadableSource = source
+            if askedNow {
+                // The user just turned translation on: ask for the download straight away.
+                downloadAndTranslate(from: source)
+            } else {
+                downloadableSource = source
+            }
         default:
-            break
+            translationNote = "Traduzione da \(Preferences.languageName(source.minimalIdentifier).lowercased()) non disponibile"
         }
     }
 
@@ -173,16 +210,23 @@ private struct SyncedLyrics: View {
         let requests = lines
             .filter { !$0.text.isEmpty }
             .map { TranslationSession.Request(sourceText: $0.text, clientIdentifier: String($0.id)) }
-        guard !requests.isEmpty, let responses = try? await session.translations(from: requests) else { return }
+        guard !requests.isEmpty else { return }
         var result: [Int: String] = [:]
-        for response in responses {
-            if let id = response.clientIdentifier.flatMap({ Int($0) }) {
-                result[id] = response.targetText
+        do {
+            let responses = try await session.translations(from: requests)
+            for response in responses {
+                if let id = response.clientIdentifier.flatMap({ Int($0) }) {
+                    result[id] = response.targetText
+                }
             }
+        } catch {
+            translationNote = "Traduzione non riuscita: \(error.localizedDescription)"
+            return
         }
         withAnimation(.easeOut(duration: 0.3)) {
             translations = result
             downloadableSource = nil
+            translationNote = result.isEmpty ? "Nessuna traduzione ricevuta" : nil
         }
     }
 
