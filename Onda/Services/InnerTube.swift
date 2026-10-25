@@ -109,6 +109,54 @@ struct InnerTube {
         return nil
     }
 
+    /// The YouTube Music song that best matches a track from another service, judged on
+    /// artist, title and length. Nil when nothing is close enough.
+    func bestMatch(for wanted: Track) async throws -> Track? {
+        let results = try await searchSongs("\(wanted.primaryArtist) \(Self.baseTitle(wanted.title))")
+        let scored = results.prefix(8).map { ($0, Self.matchScore($0, wanted)) }
+        guard let best = scored.max(by: { $0.1 < $1.1 }), best.1 >= 4 else { return nil }
+        return best.0
+    }
+
+    private static func matchScore(_ candidate: Track, _ wanted: Track) -> Int {
+        var score = 0
+        let wantedArtist = normalized(wanted.primaryArtist)
+        let candidateArtists = normalized(candidate.artist)
+        let candidateMain = normalized(candidate.primaryArtist)
+        if !wantedArtist.isEmpty,
+           candidateArtists.contains(wantedArtist) || (!candidateMain.isEmpty && wantedArtist.contains(candidateMain)) {
+            score += 3
+        }
+        let candidateTitle = normalized(baseTitle(candidate.title))
+        let wantedTitle = normalized(baseTitle(wanted.title))
+        if candidateTitle == wantedTitle {
+            score += 3
+        } else if !candidateTitle.isEmpty, !wantedTitle.isEmpty,
+                  candidateTitle.contains(wantedTitle) || wantedTitle.contains(candidateTitle) {
+            score += 2
+        }
+        if let a = candidate.duration, let b = wanted.duration {
+            let difference = abs(a - b)
+            if difference <= 3 { score += 2 } else if difference <= 10 { score += 1 } else if difference > 40 { score -= 2 }
+        }
+        return score
+    }
+
+    /// "Song (feat. X) - Remastered 2011" -> "Song"
+    private static func baseTitle(_ title: String) -> String {
+        let cleaned = title
+            .replacingOccurrences(of: #"\s*[\(\[][^\)\]]*[\)\]]"#, with: "", options: .regularExpression)
+            .replacingOccurrences(of: #"\s+-\s+.*$"#, with: "", options: .regularExpression)
+            .trimmingCharacters(in: .whitespaces)
+        return cleaned.isEmpty ? title : cleaned
+    }
+
+    private static func normalized(_ text: String) -> String {
+        text.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
+            .replacingOccurrences(of: "&", with: "and")
+            .trimmingCharacters(in: .whitespaces)
+    }
+
     /// Finds the YouTube Music version of a track that only has artist and title (e.g. from Last.fm).
     func resolve(_ track: Track) async throws -> Track {
         if track.videoId != nil { return track }

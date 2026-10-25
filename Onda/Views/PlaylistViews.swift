@@ -1,3 +1,4 @@
+import PhotosUI
 import SwiftUI
 
 struct PlaylistRow: View {
@@ -5,7 +6,7 @@ struct PlaylistRow: View {
 
     var body: some View {
         HStack(spacing: 14) {
-            PlaylistArtwork(tracks: playlist.tracks, size: 56, cornerRadius: 10)
+            PlaylistArtwork(playlist: playlist, size: 56, cornerRadius: 10)
             VStack(alignment: .leading, spacing: 2) {
                 Text(playlist.name)
                     .font(.body.weight(.medium))
@@ -23,10 +24,14 @@ struct PlaylistDetailView: View {
 
     @EnvironmentObject private var library: Library
     @EnvironmentObject private var player: PlayerController
+    @EnvironmentObject private var downloads: DownloadManager
     @Environment(\.dismiss) private var dismiss
     @State private var showRename = false
     @State private var newName = ""
     @State private var confirmDelete = false
+    @State private var confirmRemoveDownloads = false
+    @State private var showPhotoPicker = false
+    @State private var photoItem: PhotosPickerItem?
 
     var body: some View {
         Group {
@@ -57,27 +62,23 @@ struct PlaylistDetailView: View {
                 }
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
-                .toolbar {
-                    Menu {
-                        Button {
-                            newName = playlist.name
-                            showRename = true
-                        } label: {
-                            Label("Rinomina", systemImage: "pencil")
-                        }
-                        Button(role: .destructive) { confirmDelete = true } label: {
-                            Label("Elimina playlist", systemImage: "trash")
-                        }
-                    } label: {
-                        Image(systemName: "ellipsis")
-                    }
-                }
+                .toolbar { toolbarMenu(playlist) }
             } else {
                 ContentUnavailableView("Playlist eliminata", systemImage: "music.note.list")
             }
         }
         .background { AmbientBackground() }
         .navigationBarTitleDisplayMode(.inline)
+        .photosPicker(isPresented: $showPhotoPicker, selection: $photoItem, matching: .images)
+        .onChange(of: photoItem) { _, item in
+            guard let item else { return }
+            Task {
+                if let data = try? await item.loadTransferable(type: Data.self) {
+                    library.setCover(data, for: playlistID)
+                }
+                photoItem = nil
+            }
+        }
         .alert("Rinomina playlist", isPresented: $showRename) {
             TextField("Nome", text: $newName)
             Button("Salva") { library.renamePlaylist(playlistID, to: newName) }
@@ -89,12 +90,58 @@ struct PlaylistDetailView: View {
                 dismiss()
             }
         }
+        .confirmationDialog("Rimuovere i brani scaricati di questa playlist?", isPresented: $confirmRemoveDownloads,
+                            titleVisibility: .visible) {
+            Button("Rimuovi download", role: .destructive) {
+                if let playlist = library.playlist(playlistID) { downloads.removeAll(playlist.tracks) }
+            }
+        }
+    }
+
+    private func toolbarMenu(_ playlist: Playlist) -> some View {
+        Menu {
+            Button { showPhotoPicker = true } label: {
+                Label("Cambia copertina", systemImage: "photo")
+            }
+            if playlist.coverFile != nil {
+                Button { library.removeCover(for: playlistID) } label: {
+                    Label("Usa le copertine dei brani", systemImage: "square.grid.2x2")
+                }
+            }
+            Button {
+                newName = playlist.name
+                showRename = true
+            } label: {
+                Label("Rinomina", systemImage: "pencil")
+            }
+            if playlist.tracks.contains(where: { downloads.isDownloaded($0) }) {
+                Button(role: .destructive) { confirmRemoveDownloads = true } label: {
+                    Label("Rimuovi download", systemImage: "arrow.down.circle.dotted")
+                }
+            }
+            Button(role: .destructive) { confirmDelete = true } label: {
+                Label("Elimina playlist", systemImage: "trash")
+            }
+        } label: {
+            Image(systemName: "ellipsis")
+        }
     }
 
     private func header(_ playlist: Playlist) -> some View {
         VStack(spacing: 14) {
-            PlaylistArtwork(tracks: playlist.tracks, size: 220, cornerRadius: 22)
-                .shadow(color: .black.opacity(0.35), radius: 24, y: 12)
+            Button { showPhotoPicker = true } label: {
+                PlaylistArtwork(playlist: playlist, size: 220, cornerRadius: 22)
+                    .overlay(alignment: .bottomTrailing) {
+                        Image(systemName: "camera.fill")
+                            .font(.footnote.weight(.semibold))
+                            .padding(9)
+                            .glassEffect(.regular, in: .circle)
+                            .padding(10)
+                    }
+                    .shadow(color: .black.opacity(0.35), radius: 24, y: 12)
+            }
+            .buttonStyle(.plain)
+
             VStack(spacing: 4) {
                 Text(playlist.name)
                     .font(.title2.bold())
@@ -105,10 +152,45 @@ struct PlaylistDetailView: View {
             }
             if !playlist.tracks.isEmpty {
                 PlayShuffleButtons(tracks: playlist.tracks, source: playlist.name)
+                downloadButton(playlist)
             }
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
+    }
+
+    /// One tap saves the whole playlist; shows progress while it runs.
+    @ViewBuilder private func downloadButton(_ playlist: Playlist) -> some View {
+        let downloadable = playlist.tracks.filter { $0.videoId != nil }
+        let saved = downloadable.filter { downloads.isDownloaded($0) }.count
+        let inProgress = downloadable.filter { downloads.isQueued($0) }.count
+        Button {
+            if inProgress > 0 {
+                downloads.cancelWaiting(in: downloadable)
+            } else {
+                downloads.downloadAll(downloadable)
+            }
+        } label: {
+            HStack(spacing: 8) {
+                if inProgress > 0 {
+                    ProgressView().controlSize(.small)
+                    Text("Download \(saved)/\(downloadable.count) · tocca per fermare")
+                } else if saved == downloadable.count {
+                    Image(systemName: "checkmark.circle.fill")
+                    Text("Playlist scaricata")
+                } else {
+                    Image(systemName: "arrow.down.circle.fill")
+                    Text(saved > 0 ? "Scarica i restanti \(downloadable.count - saved)" : "Scarica tutta la playlist")
+                }
+            }
+            .font(.subheadline.weight(.semibold))
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 11)
+            .contentShape(.capsule)
+        }
+        .buttonStyle(.plain)
+        .glassEffect(.regular.interactive(), in: .capsule)
+        .disabled(downloadable.isEmpty || (saved == downloadable.count && inProgress == 0))
     }
 
     private func summary(_ playlist: Playlist) -> String {

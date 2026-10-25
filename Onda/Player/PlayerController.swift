@@ -43,7 +43,7 @@ final class PlaybackProgress: ObservableObject {
     @Published var duration: TimeInterval = 0
 }
 
-/// The queue and the audio engine: AVPlayer, background audio, lock screen and Control Center.
+/// The queue and the audio engine: AVPlayer, crossfade, background audio, lock screen and Control Center.
 @MainActor
 final class PlayerController: ObservableObject {
     static let shared = PlayerController()
@@ -57,7 +57,7 @@ final class PlayerController: ObservableObject {
     @Published private(set) var source = ""
     @Published private(set) var lyrics: LyricsState = .idle
     @Published private(set) var artworkColor = PlayerController.defaultTint
-    /// "AAC · 129 kbps", or "AAC · offline" for downloaded songs.
+    /// "AAC · 129 kbps", "Opus · 160 kbps", or "… · offline" for downloaded songs.
     @Published private(set) var streamInfo: String? = nil
     @Published private(set) var shuffleEnabled = false
     @Published private(set) var sleepTimer: SleepTimer = .off
@@ -74,15 +74,25 @@ final class PlayerController: ObservableObject {
         queue.indices.filter { $0 > index }.map { QueueEntry(index: $0, track: queue[$0]) }
     }
 
-    private let player = AVPlayer()
-    private let scrobbler = Scrobbler()
+    /// The player of the current song. During a crossfade a fresh one takes over
+    /// while `outgoingPlayer` fades the previous song out.
+    private var player = AVPlayer()
+    private var outgoingPlayer: AVPlayer?
+    private var observedPlayer: AVPlayer?
+    private var timeObserver: Any?
+    private var playerCancellables = Set<AnyCancellable>()
     private var cancellables = Set<AnyCancellable>()
     private var itemStatus: AnyCancellable?
-    private var timeObserver: Any?
+
+    private let scrobbler = Scrobbler()
     private var loadTask: Task<Void, Never>?
     private var lyricsTask: Task<Void, Never>?
     private var artworkTask: Task<Void, Never>?
     private var sleepTask: Task<Void, Never>?
+    private var fadeOutTask: Task<Void, Never>?
+    private var fadeInTask: Task<Void, Never>?
+    /// Seconds of fade-in for the song being loaded as part of a crossfade.
+    private var pendingFadeIn: TimeInterval?
     private var nowPlayingArtwork: MPMediaItemArtwork?
     /// The upcoming songs in their original order, to restore when shuffle is turned off.
     private var unshuffledUpcoming: [Track] = []
@@ -90,6 +100,8 @@ final class PlayerController: ObservableObject {
     private var isExtendingQueue = false
     private var failuresInARow = 0
     private var retriedCurrentItem = false
+    /// Set once the current song has ended (or started fading out), so it is never finished twice.
+    private var finishedCurrent = false
     private var lastTick: TimeInterval = 0
 
     private init() {
@@ -97,7 +109,8 @@ final class PlayerController: ObservableObject {
         let session = AVAudioSession.sharedInstance()
         try? session.setCategory(.playback, mode: .default, policy: .longFormAudio)
         try? session.setSupportsMultichannelContent(true)
-        observePlayer()
+        attach(player)
+        observeNotifications()
         configureRemoteCommands()
     }
 
@@ -191,6 +204,7 @@ final class PlayerController: ObservableObject {
     }
 
     func pause() {
+        endCrossfade()
         playWhenReady = false
         player.pause()
         updateNowPlayingInfo()
@@ -225,6 +239,7 @@ final class PlayerController: ObservableObject {
                     toleranceBefore: .zero, toleranceAfter: .zero)
         progress.currentTime = seconds
         lastTick = seconds
+        if seconds < progress.duration - 1 { finishedCurrent = false }
         updateNowPlayingInfo()
     }
 
@@ -277,12 +292,15 @@ final class PlayerController: ObservableObject {
 
     // MARK: Loading
 
-    private func loadCurrent() {
+    /// Loads the song at `index`. As part of a crossfade the previous song keeps playing on `outgoingPlayer`.
+    private func loadCurrent(crossfading: Bool = false) {
+        if !crossfading { endCrossfade() }
         loadTask?.cancel()
         guard let track = current else { return }
         let position = index
         playWhenReady = true
         retriedCurrentItem = false
+        finishedCurrent = false
         isLoading = true
         errorMessage = nil
         streamInfo = nil
@@ -318,10 +336,28 @@ final class PlayerController: ObservableObject {
     }
 
     private func stream(for track: Track) async throws -> (url: URL, label: String) {
-        if let local = Storage.localAudio(for: track) { return (local, "AAC · offline") }
+        if let local = Storage.localAudio(for: track) {
+            return (local, "\(DownloadManager.formatLabel(for: track) ?? "AAC") · offline")
+        }
         guard let videoId = track.videoId else { throw PlayerError.unavailable }
-        let stream = try await StreamResolver.shared.audioStream(for: videoId, quality: Preferences.streamingQuality)
-        return (stream.url, stream.label)
+        return try await Self.playableStream(videoId: videoId, quality: Preferences.streamingQuality,
+                                             duration: track.duration)
+    }
+
+    /// Resolves the stream for the quality, decoding Opus when needed and falling back to AAC if that fails.
+    nonisolated static func playableStream(videoId: String, quality: AudioQuality,
+                                           duration: TimeInterval?) async throws -> (url: URL, label: String) {
+        let tooLongForOpus = (duration ?? 0) > Preferences.opusLengthLimit
+        let effective = quality.usesOpus && tooLongForOpus ? AudioQuality.high : quality
+        let stream = try await StreamResolver.shared.stream(for: videoId, quality: effective)
+        guard stream.format == .opus else { return (stream.url, stream.label) }
+        do {
+            let file = try await OpusPipeline.shared.playableFile(videoId: videoId, stream: stream)
+            return (file, stream.label)
+        } catch {
+            let fallback = try await StreamResolver.shared.stream(for: videoId, quality: .high)
+            return (fallback.url, fallback.label)
+        }
     }
 
     private func start(url: URL, track: Track, isRetry: Bool = false) {
@@ -331,6 +367,16 @@ final class PlayerController: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { status in self.itemStatusChanged(status, track: track) }
         player.replaceCurrentItem(with: item)
+
+        fadeInTask?.cancel()
+        if let fadeIn = pendingFadeIn {
+            pendingFadeIn = nil
+            let target = player
+            target.volume = 0
+            fadeInTask = Task { await Self.fade(target, in: true, over: fadeIn) }
+        } else {
+            player.volume = 1
+        }
         if playWhenReady {
             activateSession()
             player.play()
@@ -359,9 +405,9 @@ final class PlayerController: ObservableObject {
             retriedCurrentItem = true
             let position = index
             Task {
+                // Retry with plain AAC: the most reliable rendition.
                 await StreamResolver.shared.invalidate(videoId)
-                let stream = try? await StreamResolver.shared.audioStream(
-                    for: videoId, quality: Preferences.streamingQuality)
+                let stream = try? await StreamResolver.shared.stream(for: videoId, quality: .high)
                 guard self.index == position else { return }
                 if let stream {
                     self.streamInfo = stream.label
@@ -411,6 +457,8 @@ final class PlayerController: ObservableObject {
     }
 
     private func itemFinished() {
+        guard !finishedCurrent else { return }
+        finishedCurrent = true
         if sleepTimer == .endOfTrack {
             sleepTimer = .off
             pause()
@@ -421,6 +469,62 @@ final class PlayerController: ObservableObject {
         scrobbler.begin(track)
         player.play()
     }
+
+    // MARK: Crossfade
+
+    private var canCrossfade: Bool {
+        index + 1 < queue.count && repeatMode != .one && sleepTimer != .endOfTrack && playWhenReady
+    }
+
+    /// Starts the next song on a fresh player while this one fades out over its last seconds.
+    private func beginCrossfade(remaining: TimeInterval) {
+        finishedCurrent = true
+        let fading = player
+        outgoingPlayer = fading
+        fadeOutTask?.cancel()
+        fadeOutTask = Task {
+            await Self.fade(fading, in: false, over: remaining)
+            guard !Task.isCancelled else { return }
+            self.endCrossfade(interrupted: false)
+        }
+        let incoming = AVPlayer()
+        player = incoming
+        attach(incoming)
+        pendingFadeIn = min(remaining, Preferences.crossfadeSeconds)
+        index += 1
+        loadCurrent(crossfading: true)
+    }
+
+    /// Stops the song fading out. At the natural end of the fade the new song keeps fading in;
+    /// when the user skips or pauses, the new song jumps to full volume.
+    private func endCrossfade(interrupted: Bool = true) {
+        fadeOutTask?.cancel()
+        fadeOutTask = nil
+        guard let outgoing = outgoingPlayer else { return }
+        outgoing.pause()
+        outgoing.replaceCurrentItem(with: nil)
+        outgoingPlayer = nil
+        if interrupted {
+            fadeInTask?.cancel()
+            pendingFadeIn = nil
+            player.volume = 1
+        }
+        isPlaying = player.timeControlStatus != .paused
+    }
+
+    /// Equal-power fade, so the overall loudness stays steady while two songs overlap.
+    private static func fade(_ target: AVPlayer, in fadingIn: Bool, over duration: TimeInterval) async {
+        let start = target.volume
+        let steps = max(1, Int(duration * 25))
+        for step in 1...steps {
+            try? await Task.sleep(for: .milliseconds(40))
+            if Task.isCancelled { return }
+            let progress = Float(step) / Float(steps)
+            target.volume = fadingIn ? sin(progress * .pi / 2) : start * cos(progress * .pi / 2)
+        }
+    }
+
+    // MARK: Queue upkeep
 
     /// Keeps the music going: when few songs are left, appends a radio based on the current one.
     private func extendQueueIfNeeded() {
@@ -447,14 +551,16 @@ final class PlayerController: ObservableObject {
         return true
     }
 
-    /// Resolves the next stream URL early, so the switch is quick even with the screen locked.
+    /// Prepares the next song early (URL, and the Opus decode at the top qualities),
+    /// so the switch is instant even with the screen locked.
     private func prefetchNext() {
         guard index + 1 < queue.count else { return }
         let upNext = queue[index + 1]
         guard let videoId = upNext.videoId, Storage.localAudio(for: upNext) == nil else { return }
         let quality = Preferences.streamingQuality
+        let duration = upNext.duration
         Task.detached(priority: .utility) {
-            _ = try? await StreamResolver.shared.audioStream(for: videoId, quality: quality)
+            _ = try? await PlayerController.playableStream(videoId: videoId, quality: quality, duration: duration)
         }
     }
 
@@ -490,27 +596,50 @@ final class PlayerController: ObservableObject {
         try? AVAudioSession.sharedInstance().setActive(true)
     }
 
-    private func observePlayer() {
-        timeObserver = player.addPeriodicTimeObserver(
+    /// Moves the time and state observers to the player of the current song.
+    private func attach(_ newPlayer: AVPlayer) {
+        if let observedPlayer, let timeObserver {
+            observedPlayer.removeTimeObserver(timeObserver)
+        }
+        playerCancellables.removeAll()
+        observedPlayer = newPlayer
+        timeObserver = newPlayer.addPeriodicTimeObserver(
             forInterval: CMTime(seconds: 0.25, preferredTimescale: 600), queue: .main
         ) { time in
             let seconds = time.seconds
             MainActor.assumeIsolated { self.tick(seconds) }
         }
-
-        player.publisher(for: \.timeControlStatus)
+        newPlayer.publisher(for: \.timeControlStatus)
             .receive(on: DispatchQueue.main)
             .sink { status in
-                self.isPlaying = status != .paused
+                // While the next song loads during a crossfade, the previous one is still audible.
+                self.isPlaying = status != .paused || self.outgoingPlayer != nil
                 if status == .playing { self.isLoading = false }
                 self.updateNowPlayingInfo()
             }
-            .store(in: &cancellables)
+            .store(in: &playerCancellables)
+    }
 
+    private func observeNotifications() {
         NotificationCenter.default.publisher(for: AVPlayerItem.didPlayToEndTimeNotification)
             .receive(on: DispatchQueue.main)
             .sink { note in
-                guard (note.object as? AVPlayerItem) === self.player.currentItem else { return }
+                guard let item = note.object as? AVPlayerItem else { return }
+                if item === self.player.currentItem {
+                    self.itemFinished()
+                } else if let outgoing = self.outgoingPlayer, item === outgoing.currentItem {
+                    self.endCrossfade(interrupted: false)
+                }
+            }
+            .store(in: &cancellables)
+
+        // A stream that stalls right at its end has simply finished.
+        NotificationCenter.default.publisher(for: AVPlayerItem.playbackStalledNotification)
+            .receive(on: DispatchQueue.main)
+            .sink { note in
+                guard (note.object as? AVPlayerItem) === self.player.currentItem,
+                      self.progress.duration > 0,
+                      self.progress.currentTime >= self.progress.duration - 3 else { return }
                 self.itemFinished()
             }
             .store(in: &cancellables)
@@ -526,20 +655,38 @@ final class PlayerController: ObservableObject {
         let delta = seconds - lastTick
         lastTick = seconds
         progress.currentTime = seconds
-        if let length = player.currentItem?.duration.seconds, length.isFinite, length > 0,
-           abs(progress.duration - length) > 0.5 {
+
+        // YouTube's audio files often report a wrong (even doubled) length to AVPlayer,
+        // so the catalogue length wins; the file's own length is only a fallback.
+        let itemLength = player.currentItem?.duration.seconds ?? 0
+        let length = current?.duration ?? (itemLength.isFinite && itemLength > 0 ? itemLength : 0)
+        if length > 0, abs(progress.duration - length) > 0.5 {
             progress.duration = length
             updateNowPlayingInfo()
         }
         if player.timeControlStatus == .playing, delta > 0, delta < 1.5 {
             scrobbler.addListeningTime(delta, trackLength: progress.duration)
         }
+
+        guard length > 0, !finishedCurrent, player.timeControlStatus == .playing else { return }
+        let remaining = length - seconds
+        let crossfade = Preferences.crossfadeSeconds
+        if crossfade > 0, outgoingPlayer == nil, canCrossfade, length > crossfade * 3, remaining <= crossfade {
+            beginCrossfade(remaining: max(0.5, remaining))
+        } else if remaining < -1.5 {
+            // The file keeps "playing" silence past the real end.
+            itemFinished()
+        }
     }
 
     private func handleInterruption(_ note: Notification) {
         guard let rawType = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
-              AVAudioSession.InterruptionType(rawValue: rawType) == .ended,
-              let rawOptions = note.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt,
+              let type = AVAudioSession.InterruptionType(rawValue: rawType) else { return }
+        if type == .began {
+            endCrossfade()
+            return
+        }
+        guard let rawOptions = note.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt,
               AVAudioSession.InterruptionOptions(rawValue: rawOptions).contains(.shouldResume),
               playWhenReady else { return }
         player.play()

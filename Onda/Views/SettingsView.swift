@@ -6,10 +6,12 @@ struct SettingsView: View {
     @EnvironmentObject private var downloads: DownloadManager
     @EnvironmentObject private var library: Library
 
-    @AppStorage(Preferences.wifiQuality) private var wifiQuality: AudioQuality = .high
-    @AppStorage(Preferences.cellularQuality) private var cellularQuality: AudioQuality = .high
-    @AppStorage(Preferences.downloadQuality) private var downloadQuality: AudioQuality = .high
+    @AppStorage(Preferences.wifiQuality) private var wifiQuality = Preferences.defaultWifiQuality
+    @AppStorage(Preferences.cellularQuality) private var cellularQuality = Preferences.defaultCellularQuality
+    @AppStorage(Preferences.downloadQuality) private var downloadQuality = Preferences.defaultDownloadQuality
     @AppStorage(Preferences.spatialAudio) private var spatialAudio = true
+    @AppStorage(Preferences.preferDolby) private var preferDolby = true
+    @AppStorage(Preferences.crossfade) private var crossfade = Preferences.defaultCrossfade
     @AppStorage(Preferences.skipLongMixes) private var skipLongMixes = true
     @AppStorage(Preferences.dynamicColors) private var dynamicColors = true
     @AppStorage(Preferences.lyricsStyle) private var lyricsStyle: LyricsStyle = .focus
@@ -71,14 +73,12 @@ struct SettingsView: View {
                 Label("Streaming su rete cellulare", systemImage: "antenna.radiowaves.left.and.right")
             }
             Picker(selection: $downloadQuality) {
-                ForEach(AudioQuality.allCases) { Text($0.title).tag($0) }
+                ForEach(AudioQuality.downloadCases) { Text($0.downloadTitle).tag($0) }
             } label: {
                 Label("Download", systemImage: "arrow.down.circle")
             }
-            LabeledContent {
-                Text("AAC (m4a)")
-            } label: {
-                Label("Codec", systemImage: "waveform")
+            Toggle(isOn: $preferDolby) {
+                Label("Dolby quando disponibile", systemImage: "hifispeaker.2")
             }
             Toggle(isOn: $spatialAudio) {
                 Label("Audio spaziale", systemImage: "headphones")
@@ -86,12 +86,22 @@ struct SettingsView: View {
         } header: {
             Text("Audio")
         } footer: {
-            Text("YouTube offre l'audio in AAC e in Opus, ma il lettore di iOS non decodifica Opus: Onda usa AAC. L'Audio spaziale è il sistema con cui l'iPhone riproduce il Dolby Atmos e funziona con AirPods e cuffie Beats compatibili; YouTube non distribuisce brani in Dolby Atmos, quindi l'iPhone spazializza l'audio stereo. La nuova qualità vale dal brano successivo.")
+            Text("Massima usa Opus 160 kbps, il formato migliore che YouTube dà senza Premium: Onda lo decodifica sull'iPhone e lo riproduce senza perdite, quindi il brano parte un paio di secondi dopo (il successivo è preparato in anticipo). Se un video ha l'audio Dolby Digital Plus o AAC 256 kbps, viene usato quello. L'Audio spaziale funziona con AirPods e cuffie Beats compatibili. La nuova qualità vale dal brano successivo.")
         }
     }
 
     private var playbackSection: some View {
         Section {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Label("Dissolvenza tra brani", systemImage: "waveform.path")
+                    Spacer()
+                    Text(crossfade == 0 ? "No" : "\(Int(crossfade)) s")
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                }
+                Slider(value: $crossfade, in: 0...12, step: 1)
+            }
             Toggle(isOn: $player.autoRadio) {
                 Label("Radio automatica", systemImage: "infinity")
             }
@@ -101,7 +111,7 @@ struct SettingsView: View {
         } header: {
             Text("Riproduzione")
         } footer: {
-            Text("La radio automatica continua con brani simili quando la coda finisce. Le compilation da più di 15 minuti vengono escluse da radio, mood e \"Scelti per te\". Il timer di spegnimento è nel menu ··· del player.")
+            Text("La dissolvenza sovrappone la fine di un brano all'inizio del successivo, come su Spotify. La radio automatica continua con brani simili quando la coda finisce. Le compilation da più di 15 minuti vengono escluse da radio, mood e \"Scelti per te\". Il timer di spegnimento è nel menu ··· del player.")
         }
     }
 
@@ -187,8 +197,9 @@ struct SettingsView: View {
                            value: ByteCountFormatter.string(fromByteCount: downloads.totalSize, countStyle: .file))
             Button("Elimina tutti i download", role: .destructive) { confirmDeleteDownloads = true }
                 .disabled(downloads.totalSize == 0)
-            Button(cacheCleared ? "Cache delle copertine svuotata" : "Svuota cache delle copertine") {
+            Button(cacheCleared ? "Cache svuotata" : "Svuota cache (copertine e brani Opus)") {
                 URLCache.shared.removeAllCachedResponses()
+                OpusPipeline.clearCache()
                 cacheCleared = true
             }
             .disabled(cacheCleared)

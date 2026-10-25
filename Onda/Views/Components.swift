@@ -45,18 +45,23 @@ struct ArtworkView: View {
     }
 }
 
-/// Cover for a playlist: a 2×2 mosaic of its first songs, or a single cover, or a gradient.
+/// Cover for a playlist: the photo the user picked, else a 2×2 mosaic of its first songs,
+/// a single cover, or a gradient.
 struct PlaylistArtwork: View {
-    let tracks: [Track]
+    let playlist: Playlist
     var size: CGFloat? = nil
     var cornerRadius: CGFloat = 12
 
     var body: some View {
-        let covers = Array(tracks.prefix(4))
+        let covers = Array(playlist.tracks.prefix(4))
         Rectangle()
             .fill(LinearGradient(colors: [.purple, .pink], startPoint: .topLeading, endPoint: .bottomTrailing))
             .overlay {
-                if covers.count == 4 {
+                if let custom = playlist.customCoverURL {
+                    AsyncImage(url: custom) { phase in
+                        if let image = phase.image { image.resizable().scaledToFill() }
+                    }
+                } else if covers.count == 4 {
                     Grid(horizontalSpacing: 0, verticalSpacing: 0) {
                         GridRow {
                             ArtworkView(track: covers[0], cornerRadius: 0)
@@ -220,7 +225,7 @@ struct PlaylistCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            PlaylistArtwork(tracks: playlist.tracks, size: 150, cornerRadius: 14)
+            PlaylistArtwork(playlist: playlist, size: 150, cornerRadius: 14)
             Text(playlist.name)
                 .font(.subheadline.weight(.semibold))
                 .lineLimit(1)

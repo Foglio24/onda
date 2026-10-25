@@ -6,6 +6,7 @@ enum Storage {
         URL.applicationSupportDirectory.appending(path: "Onda", directoryHint: .isDirectory))
     static let downloads: URL = makeDirectory(
         URL.documentsDirectory.appending(path: "Downloads", directoryHint: .isDirectory))
+    static let covers: URL = makeDirectory(support.appending(path: "Covers", directoryHint: .isDirectory))
 
     static func audioFile(for videoId: String) -> URL { downloads.appending(path: "\(videoId).m4a") }
     static func artworkFile(for videoId: String) -> URL { downloads.appending(path: "\(videoId).jpg") }

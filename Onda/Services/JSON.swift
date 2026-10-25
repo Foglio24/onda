@@ -23,6 +23,16 @@ enum J {
     static func array(_ value: Any?) -> [Any] { value as? [Any] ?? [] }
     static func dict(_ value: Any?) -> [String: Any]? { value as? [String: Any] }
 
+    /// Calls `visit` on every object below `root`, parents before children. Array order is preserved.
+    static func walk(_ root: Any?, _ visit: ([String: Any]) -> Void) {
+        if let object = root as? [String: Any] {
+            visit(object)
+            for (_, child) in object { walk(child, visit) }
+        } else if let array = root as? [Any] {
+            for child in array { walk(child, visit) }
+        }
+    }
+
     /// Every object stored under `key` anywhere below `root`. Array order is preserved.
     static func findAll(_ key: String, in root: Any?) -> [[String: Any]] {
         var results: [[String: Any]] = []

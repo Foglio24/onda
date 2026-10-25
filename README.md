@@ -8,11 +8,13 @@ Funziona da iOS 26 in su, quindi anche su iPhone 17 Pro con iOS 27, e usa il des
 
 | LastWave (Android) | Onda (iOS) |
 |---|---|
-| Streaming dal catalogo YouTube Music, in background e senza pubblicità | ✅ Audio AAC (m4a). AVPlayer non decodifica Opus/WebM, quindi niente Opus |
-| Scelta della qualità | ✅ Alta (AAC 128 kbps) o Risparmio dati (48 kbps), separata per Wi-Fi, rete cellulare e download |
-| Dolby Atmos | ✅ Audio spaziale di Apple con AirPods/Beats. YouTube non ha brani Atmos, quindi l'iPhone spazializza lo stereo |
+| Streaming dal catalogo YouTube Music, in background e senza pubblicità | ✅ |
+| Qualità e codec | ✅ 4 livelli: Massima (Opus 160 kbps decodificato sull'iPhone e riprodotto senza perdite, oppure Dolby Digital Plus / AAC 256 quando il video li ha), Alta (AAC 128), Media (Opus 70), Risparmio (AAC 48). Separati per Wi-Fi, rete cellulare e download |
+| Dolby Atmos | ✅ Dolby Digital Plus quando YouTube lo offre, più l'Audio spaziale di Apple con AirPods/Beats |
+| Dissolvenza tra brani | ✅ Da 0 a 12 secondi, come su Spotify |
 | Radio e mix intelligenti | ✅ Radio da ogni brano, radio automatica a fine coda, mood (Relax, Festa, …), *Taste Mix* e *Riscopri* da Last.fm |
-| Playlist | ✅ Crea, rinomina, riordina, elimina, importa playlist pubbliche da YouTube Music |
+| Playlist | ✅ Crea, rinomina, riordina, copertina personalizzata dalle Foto, scarica tutta la playlist con un tocco |
+| Importa playlist | ✅ Da link Spotify (fino a 100 brani), Apple Music, YouTube e YouTube Music. Ogni brano viene cercato su YouTube Music |
 | Casuale e ripeti | ✅ Modalità casuale vera (anche per radio e mix), ripeti tutto / ripeti brano, timer di spegnimento |
 | Scrobbler Last.fm | ✅ Now playing, scrobble dopo metà brano o 4 minuti, coda offline, "Mi piace" sincronizzato |
 | Testi sincronizzati da LRCLIB | ✅ Scorrimento automatico, tocca una riga per saltarci, 3 animazioni e 3 dimensioni |
@@ -25,7 +27,8 @@ Su ogni brano: tocca **···** per tutte le azioni, oppure scorri verso destra 
 
 Funzioni di LastWave **non** incluse:
 - **Scrobbler universale delle altre app**: iOS non permette a un'app di leggere cosa riproducono Spotify o Apple Music. Onda registra solo ciò che ascolti in Onda.
-- **Import di playlist Spotify/Apple Music** e **feed social**: possono arrivare in futuro.
+- **Feed social**: può arrivare in futuro.
+- **AAC 256 / Opus 256 di YouTube Music Premium**: richiedono l'accesso con un account Premium, che Onda non fa.
 - **Android Auto / CarPlay**: CarPlay richiede un entitlement che Apple non dà agli account gratuiti.
 - **Driver USB DAC / bit-perfect**: non è possibile su iOS.
 

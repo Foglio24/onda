@@ -2,12 +2,13 @@ import SwiftUI
 
 struct LibraryView: View {
     @EnvironmentObject private var library: Library
+    @ObservedObject private var importer = PlaylistImporter.shared
     @State private var showNewPlaylist = false
     @State private var showImport = false
     @State private var newName = ""
     @State private var importLink = ""
-    @State private var importing = false
     @State private var errorText: String?
+    @State private var importResult: String?
 
     var body: some View {
         NavigationStack {
@@ -36,15 +37,16 @@ struct LibraryView: View {
                         importLink = ""
                         showImport = true
                     } label: {
-                        HStack {
-                            Label("Importa da YouTube Music", systemImage: "square.and.arrow.down.fill")
-                            if importing {
-                                Spacer()
+                        if let status = importer.status {
+                            HStack(spacing: 10) {
                                 ProgressView()
+                                Text(status).foregroundStyle(.secondary)
                             }
+                        } else {
+                            Label("Importa da Spotify, Apple Music o YouTube", systemImage: "square.and.arrow.down.fill")
                         }
                     }
-                    .disabled(importing)
+                    .disabled(importer.status != nil)
 
                     ForEach(library.playlists) { playlist in
                         NavigationLink { PlaylistDetailView(playlistID: playlist.id) } label: {
@@ -75,12 +77,18 @@ struct LibraryView: View {
                 Button("Importa") { importPlaylist() }
                 Button("Annulla", role: .cancel) {}
             } message: {
-                Text("Incolla il link di una playlist pubblica di YouTube o YouTube Music.")
+                Text("Incolla il link di una playlist o di un album pubblico di Spotify, Apple Music, YouTube o YouTube Music. Da Spotify arrivano al massimo 100 brani.")
             }
             .alert("Ops", isPresented: Binding(get: { errorText != nil }, set: { if !$0 { errorText = nil } })) {
                 Button("OK", role: .cancel) {}
             } message: {
                 Text(errorText ?? "")
+            }
+            .alert("Playlist importata", isPresented: Binding(get: { importResult != nil },
+                                                              set: { if !$0 { importResult = nil } })) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(importResult ?? "")
             }
         }
     }
@@ -99,19 +107,18 @@ struct LibraryView: View {
     }
 
     private func importPlaylist() {
-        guard let id = InnerTube.playlistID(from: importLink) else {
-            errorText = "Il link non sembra quello di una playlist: deve contenere \"list=\"."
-            return
-        }
-        importing = true
+        let link = importLink
         Task {
             do {
-                let result = try await InnerTube.shared.playlist(id: id)
-                library.createPlaylist(named: result.title ?? "Playlist importata", tracks: result.tracks)
+                let outcome = try await importer.importPlaylist(from: link)
+                var message = "\"\(outcome.playlist.name)\": \(outcome.playlist.countLabel)."
+                if outcome.unmatched > 0 {
+                    message += " \(outcome.unmatched) non trovati su YouTube Music."
+                }
+                importResult = message
             } catch {
-                errorText = "Importazione non riuscita. La playlist deve essere pubblica. (\(error.localizedDescription))"
+                errorText = error.localizedDescription
             }
-            importing = false
         }
     }
 }
