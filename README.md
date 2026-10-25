@@ -24,6 +24,8 @@ See [CHANGELOG.md](CHANGELOG.md) for what changed in each version.
 | Offline downloads | ✅ Audio and artwork stored in the app |
 | Lock screen, Control Center, AirPlay | ✅ |
 | Dynamic colours from the artwork | ✅ Every screen and the player are tinted with the album's colours |
+| Theme colour | ✅ 11 preset accent colours |
+| Instant start | ✅ Links of songs on screen are unlocked in the background, and playback starts with the first audio |
 | Library | ✅ Favourites, playlists, downloads, history, and an editable queue (drag, delete, shuffle) |
 
 The quality levels are:

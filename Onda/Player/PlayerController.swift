@@ -355,9 +355,8 @@ final class PlayerController: ObservableObject {
         }
         guard let videoId = track.videoId else { throw PlayerError.unavailable }
         if let cached = OpusPipeline.cachedFile(videoId: videoId) { return cached }
-        let quality = Preferences.streamingQuality
-        let initial: AudioQuality = quality == .low || quality == .medium ? .low : .high
-        let stream = try await StreamResolver.shared.stream(for: videoId, quality: initial)
+        // Usually already resolved by StreamPrewarmer while the song was on screen.
+        let stream = try await StreamResolver.shared.stream(for: videoId, quality: Preferences.initialStreamQuality)
         return (stream.url, stream.label)
     }
 
@@ -437,7 +436,9 @@ final class PlayerController: ObservableObject {
         }
         if playWhenReady {
             activateSession()
-            player.play()
+            // Start as soon as the first audio arrives instead of waiting for a "safe" buffer;
+            // later stalls are still handled by AVPlayer's normal waiting.
+            player.playImmediately(atRate: 1)
         }
         if Storage.localAudio(for: track) == nil, let videoId = track.videoId {
             let quality = Preferences.streamingQuality

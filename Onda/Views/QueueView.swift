@@ -9,7 +9,6 @@ struct QueueView: View {
                 Label("Radio automatica", systemImage: "infinity")
                     .font(.subheadline.weight(.semibold))
             }
-            .tint(.pink)
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
             .glassEffect(.regular, in: .rect(cornerRadius: 18))

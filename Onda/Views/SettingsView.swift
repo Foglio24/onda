@@ -13,6 +13,7 @@ struct SettingsView: View {
     @AppStorage(Preferences.preferDolby) private var preferDolby = true
     @AppStorage(Preferences.crossfade) private var crossfade = Preferences.defaultCrossfade
     @AppStorage(Preferences.opusLastError) private var opusLastError = ""
+    @AppStorage(Preferences.accent) private var accent: AccentChoice = .pink
     @AppStorage(Preferences.skipLongMixes) private var skipLongMixes = true
     @AppStorage(Preferences.dynamicColors) private var dynamicColors = true
     @AppStorage(Preferences.lyricsStyle) private var lyricsStyle: LyricsStyle = .focus
@@ -141,13 +142,40 @@ struct SettingsView: View {
 
     private var appearanceSection: some View {
         Section {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Label("Colore del tema", systemImage: "paintbrush.fill")
+                    Spacer()
+                    Text(accent.title).foregroundStyle(.secondary)
+                }
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 6), spacing: 12) {
+                    ForEach(AccentChoice.allCases) { choice in
+                        Button { accent = choice } label: {
+                            Circle()
+                                .fill(choice.color.gradient)
+                                .frame(width: 34, height: 34)
+                                .overlay {
+                                    if choice == accent {
+                                        Image(systemName: "checkmark")
+                                            .font(.footnote.weight(.bold))
+                                            .foregroundStyle(.white)
+                                    }
+                                }
+                                .overlay { Circle().strokeBorder(Color.primary.opacity(choice == accent ? 0.6 : 0), lineWidth: 2).padding(-4) }
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(choice.title)
+                    }
+                }
+                .padding(.vertical, 4)
+            }
             Toggle(isOn: $dynamicColors) {
                 Label("Colori dalla copertina", systemImage: "paintpalette")
             }
         } header: {
             Text("Aspetto")
         } footer: {
-            Text("Sfondi e player prendono il colore dell'album in riproduzione.")
+            Text("Il colore del tema si usa per pulsanti, interruttori e brano in riproduzione. Con \"Colori dalla copertina\" sfondi e player prendono il colore dell'album in riproduzione.")
         }
     }
 

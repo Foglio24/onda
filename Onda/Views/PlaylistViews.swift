@@ -277,6 +277,6 @@ struct AddToPlaylistSheet: View {
     private var checkmark: some View {
         Image(systemName: "checkmark.circle.fill")
             .font(.title3)
-            .foregroundStyle(Color.accentColor)
+            .foregroundStyle(.tint)
     }
 }

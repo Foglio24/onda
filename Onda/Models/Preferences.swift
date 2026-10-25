@@ -1,5 +1,45 @@
 import Foundation
 import Network
+import SwiftUI
+
+/// The app's tint colour, picked in Settings.
+enum AccentChoice: String, CaseIterable, Identifiable {
+    case pink, red, orange, yellow, lightGreen, darkGreen, mint, lightBlue, blue, indigo, purple
+
+    var id: Self { self }
+
+    var title: String {
+        switch self {
+        case .pink: return "Rosa"
+        case .red: return "Rosso"
+        case .orange: return "Arancione"
+        case .yellow: return "Giallo"
+        case .lightGreen: return "Verde chiaro"
+        case .darkGreen: return "Verde scuro"
+        case .mint: return "Menta"
+        case .lightBlue: return "Azzurro"
+        case .blue: return "Blu"
+        case .indigo: return "Indaco"
+        case .purple: return "Viola"
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .pink: return Color(red: 1.0, green: 0.31, blue: 0.6)
+        case .red: return Color(red: 0.96, green: 0.23, blue: 0.25)
+        case .orange: return .orange
+        case .yellow: return Color(red: 1.0, green: 0.8, blue: 0.1)
+        case .lightGreen: return Color(red: 0.45, green: 0.86, blue: 0.36)
+        case .darkGreen: return Color(red: 0.12, green: 0.55, blue: 0.28)
+        case .mint: return .mint
+        case .lightBlue: return Color(red: 0.35, green: 0.76, blue: 1.0)
+        case .blue: return Color(red: 0.16, green: 0.42, blue: 1.0)
+        case .indigo: return .indigo
+        case .purple: return .purple
+        }
+    }
+}
 
 enum AudioQuality: String, CaseIterable, Identifiable, Sendable {
     /// Best available: Dolby or 256 kbps AAC when YouTube offers them, otherwise Opus ~160 kbps.
@@ -84,6 +124,7 @@ enum Preferences {
     static let skipLongMixes = "radio.skipLongMixes"
     static let crossfade = "playback.crossfade"
     static let opusLastError = "audio.opusLastError"
+    static let accent = "theme.accent"
     static let dynamicColors = "theme.dynamicColors"
     static let lyricsStyle = "lyrics.style"
     static let lyricsSize = "lyrics.size"
@@ -114,6 +155,12 @@ enum Preferences {
     /// The quality to stream at right now, depending on Wi-Fi or cellular.
     static var streamingQuality: AudioQuality {
         quality(for: NetworkMonitor.shared.isExpensive ? cellularQuality : wifiQuality)
+    }
+
+    /// What a song starts streaming with before its local copy takes over (AAC, playable right away).
+    static var initialStreamQuality: AudioQuality {
+        let quality = streamingQuality
+        return quality == .low || quality == .medium ? .low : .high
     }
 
     static var downloadQualitySetting: AudioQuality {

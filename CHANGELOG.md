@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.3.0 (2026-10-25)
+
+### Added
+- **Theme colour.** Choose the app's accent colour in Settings: pink, red, orange, yellow, light green, dark green, mint, light blue, blue, indigo or purple.
+
+### Improved
+- **Songs start almost instantly, like on Spotify.**
+  - The stream links of songs on screen (search results, shelves, playlists, queue) are unlocked in the background before you tap them.
+  - Playback begins as soon as the first audio arrives instead of waiting for a large buffer.
+  - The last played song is prepared at launch, which also warms YouTube's player script for the first song you tap.
+
 ## 1.2.0 (2026-10-25)
 
 ### Added

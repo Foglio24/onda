@@ -11,6 +11,10 @@ enum Storage {
     static func audioFile(for videoId: String) -> URL { downloads.appending(path: "\(videoId).m4a") }
     static func artworkFile(for videoId: String) -> URL { downloads.appending(path: "\(videoId).jpg") }
 
+    static func audioFileExists(videoId: String) -> Bool {
+        FileManager.default.fileExists(atPath: audioFile(for: videoId).path)
+    }
+
     static func localAudio(for track: Track) -> URL? {
         existing(track.videoId.map { audioFile(for: $0) })
     }

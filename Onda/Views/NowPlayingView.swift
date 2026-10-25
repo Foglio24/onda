@@ -7,6 +7,7 @@ struct NowPlayingView: View {
     @EnvironmentObject private var router: AppRouter
     @Environment(\.dismiss) private var dismiss
     @AppStorage(Preferences.spatialAudio) private var spatialAudio = true
+    @AppStorage(Preferences.accent) private var accent: AccentChoice = .pink
 
     private enum Panel { case artwork, lyrics, queue }
 
@@ -312,7 +313,7 @@ struct NowPlayingView: View {
         HStack {
             panelButton(.lyrics, symbol: "quote.bubble")
             Spacer()
-            AirPlayButton().frame(width: 44, height: 44)
+            AirPlayButton(activeTint: accent.color).frame(width: 44, height: 44)
             Spacer()
             panelButton(.queue, symbol: "list.bullet")
         }

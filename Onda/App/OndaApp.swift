@@ -23,7 +23,11 @@ struct OndaApp: App {
                 .environmentObject(downloads)
                 .environmentObject(lastfm)
                 .environmentObject(router)
-                .task { await lastfm.flushPending() }
+                .task {
+                    // Warms YouTube's player script up front, so the first tapped song starts quickly too.
+                    if let recent = library.history.first { StreamPrewarmer.shared.request(recent) }
+                    await lastfm.flushPending()
+                }
         }
     }
 }

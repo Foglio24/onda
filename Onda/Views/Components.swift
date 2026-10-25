@@ -125,7 +125,7 @@ struct TrackRow: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(track.title)
                             .font(.body.weight(.medium))
-                            .foregroundStyle(isCurrent ? Color.accentColor : Color.primary)
+                            .foregroundStyle(isCurrent ? AnyShapeStyle(.tint) : AnyShapeStyle(.primary))
                             .lineLimit(1)
                         HStack(spacing: 4) {
                             if library.isLiked(track) {
@@ -159,6 +159,7 @@ struct TrackRow: View {
             }
         }
         .contextMenu { TrackMenu(track: track) }
+        .onAppear { StreamPrewarmer.shared.request(track) }
         .swipeActions(edge: .leading, allowsFullSwipe: true) {
             Button { library.toggleLike(track) } label: {
                 Label(library.isLiked(track) ? "Non mi piace" : "Mi piace",
@@ -217,6 +218,7 @@ struct TrackCard: View {
         .frame(width: 150, alignment: .leading)
         .contentShape(.rect)
         .contextMenu { TrackMenu(track: track) }
+        .onAppear { StreamPrewarmer.shared.request(track) }
     }
 }
 
@@ -243,6 +245,7 @@ struct PlayShuffleButtons: View {
     let tracks: [Track]
     let source: String
     @EnvironmentObject private var player: PlayerController
+    @AppStorage(Preferences.accent) private var accent: AccentChoice = .pink
 
     var body: some View {
         HStack(spacing: 12) {
@@ -256,7 +259,7 @@ struct PlayShuffleButtons: View {
                     .contentShape(.capsule)
             }
             .buttonStyle(.plain)
-            .glassEffect(.regular.tint(Color.accentColor.opacity(0.55)).interactive(), in: .capsule)
+            .glassEffect(.regular.tint(accent.color.opacity(0.55)).interactive(), in: .capsule)
 
             Button {
                 player.play(tracks, startAt: Int.random(in: tracks.indices), source: source, shuffled: true)
@@ -380,15 +383,18 @@ struct MiniPlayer: View {
 }
 
 struct AirPlayButton: UIViewRepresentable {
+    var activeTint: Color
+
     func makeUIView(context: Context) -> AVRoutePickerView {
         let view = AVRoutePickerView()
         view.tintColor = .white
-        view.activeTintColor = .systemPink
         view.prioritizesVideoDevices = false
         return view
     }
 
-    func updateUIView(_ uiView: AVRoutePickerView, context: Context) {}
+    func updateUIView(_ uiView: AVRoutePickerView, context: Context) {
+        uiView.activeTintColor = UIColor(activeTint)
+    }
 }
 
 struct SafariView: UIViewControllerRepresentable {

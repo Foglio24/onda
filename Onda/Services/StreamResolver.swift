@@ -40,10 +40,25 @@ actor StreamResolver {
     }
 
     private var cache: [String: Entry] = [:]
+    /// Resolutions in progress, so a tap on a song being pre-resolved waits for the same work.
+    private var inFlight: [String: Task<ResolvedStream, Error>] = [:]
 
     func stream(for videoId: String, quality: AudioQuality) async throws -> ResolvedStream {
         let key = "\(videoId)|\(quality.rawValue)|\(Preferences.prefersDolby)"
         if let entry = cache[key], entry.expires > .now { return entry.stream }
+        if let running = inFlight[key] { return try await running.value }
+        let task = Task { try await self.resolve(videoId, quality: quality, key: key) }
+        inFlight[key] = task
+        defer { inFlight[key] = nil }
+        return try await task.value
+    }
+
+    func isCached(_ videoId: String, quality: AudioQuality) -> Bool {
+        let key = "\(videoId)|\(quality.rawValue)|\(Preferences.prefersDolby)"
+        return (cache[key]?.expires ?? .distantPast) > .now
+    }
+
+    private func resolve(_ videoId: String, quality: AudioQuality, key: String) async throws -> ResolvedStream {
         // Local extraction first; the remote fallback keeps working when YouTube changes its player.
         let streams = try await YouTube(videoID: videoId, methods: [.local, .remote]).streams
         let audio = streams.filterAudioOnly()
@@ -94,5 +109,51 @@ actor StreamResolver {
 
     private static func resolved(_ stream: YouTubeKit.Stream, _ format: StreamFormat) -> ResolvedStream {
         ResolvedStream(url: stream.url, format: format, bitrate: bitrate(of: stream))
+    }
+}
+
+/// Unlocks the stream links of songs shown on screen before they are tapped, like Spotify does,
+/// so playback can start right away. Most recently shown songs go first, two at a time.
+actor StreamPrewarmer {
+    static let shared = StreamPrewarmer()
+
+    private static let maxQueued = 8
+    private static let maxRunning = 2
+    private var queue: [String] = []
+    private var running = 0
+
+    nonisolated func request(_ track: Track) {
+        guard let videoId = track.videoId else { return }
+        Task { await self.enqueue(videoId) }
+    }
+
+    private func enqueue(_ videoId: String) {
+        queue.removeAll { $0 == videoId }
+        queue.append(videoId)
+        if queue.count > Self.maxQueued { queue.removeFirst(queue.count - Self.maxQueued) }
+        pump()
+    }
+
+    private func pump() {
+        while running < Self.maxRunning, let videoId = queue.popLast() {
+            running += 1
+            Task {
+                await Self.resolve(videoId)
+                self.finished()
+            }
+        }
+    }
+
+    private func finished() {
+        running -= 1
+        pump()
+    }
+
+    private static func resolve(_ videoId: String) async {
+        let quality = Preferences.initialStreamQuality
+        guard Storage.audioFileExists(videoId: videoId) == false,
+              OpusPipeline.cachedFile(videoId: videoId) == nil,
+              await StreamResolver.shared.isCached(videoId, quality: quality) == false else { return }
+        _ = try? await StreamResolver.shared.stream(for: videoId, quality: quality)
     }
 }

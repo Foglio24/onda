@@ -6,6 +6,7 @@ enum AppTab: Hashable {
 
 struct RootView: View {
     @EnvironmentObject private var router: AppRouter
+    @AppStorage(Preferences.accent) private var accent: AccentChoice = .pink
     @State private var selection: AppTab = .home
     @Namespace private var transition
 
@@ -36,5 +37,7 @@ struct RootView: View {
         .sheet(item: router.addToPlaylistBinding(fromPlayer: false)) { track in
             AddToPlaylistSheet(track: track)
         }
+        // Outermost, so the player and sheets presented above inherit it too.
+        .tint(accent.color)
     }
 }
