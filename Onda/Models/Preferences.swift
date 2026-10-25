@@ -83,6 +83,7 @@ enum Preferences {
     static let downloadFormats = "download.formats"
     static let skipLongMixes = "radio.skipLongMixes"
     static let crossfade = "playback.crossfade"
+    static let opusLastError = "audio.opusLastError"
     static let dynamicColors = "theme.dynamicColors"
     static let lyricsStyle = "lyrics.style"
     static let lyricsSize = "lyrics.size"

@@ -12,6 +12,7 @@ struct SettingsView: View {
     @AppStorage(Preferences.spatialAudio) private var spatialAudio = true
     @AppStorage(Preferences.preferDolby) private var preferDolby = true
     @AppStorage(Preferences.crossfade) private var crossfade = Preferences.defaultCrossfade
+    @AppStorage(Preferences.opusLastError) private var opusLastError = ""
     @AppStorage(Preferences.skipLongMixes) private var skipLongMixes = true
     @AppStorage(Preferences.dynamicColors) private var dynamicColors = true
     @AppStorage(Preferences.lyricsStyle) private var lyricsStyle: LyricsStyle = .focus
@@ -86,7 +87,13 @@ struct SettingsView: View {
         } header: {
             Text("Audio")
         } footer: {
-            Text("Massima usa Opus 160 kbps, il formato migliore che YouTube dà senza Premium: Onda lo decodifica sull'iPhone e lo riproduce senza perdite, quindi il brano parte un paio di secondi dopo (il successivo è preparato in anticipo). Se un video ha l'audio Dolby Digital Plus o AAC 256 kbps, viene usato quello. L'Audio spaziale funziona con AirPods e cuffie Beats compatibili. La nuova qualità vale dal brano successivo.")
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Massima usa Opus 160 kbps, il formato migliore che YouTube dà senza Premium: Onda lo decodifica sull'iPhone e lo riproduce senza perdite. Il brano parte subito in AAC e passa a Opus appena è pronto; i due brani successivi vengono preparati in anticipo. Se un video ha l'audio Dolby Digital Plus o AAC 256 kbps, viene usato quello. L'Audio spaziale funziona con AirPods e cuffie Beats compatibili.")
+                if !opusLastError.isEmpty {
+                    Text("Ultimo errore Opus: \(opusLastError)")
+                        .foregroundStyle(.orange)
+                }
+            }
         }
     }
 

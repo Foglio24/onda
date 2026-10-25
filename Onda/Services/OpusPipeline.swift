@@ -91,13 +91,7 @@ actor OpusPipeline {
     }
 
     nonisolated static func download(_ url: URL, to destination: URL) async throws {
-        let (temporary, response) = try await URLSession.shared.download(from: url)
-        defer { try? FileManager.default.removeItem(at: temporary) }
-        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
-            throw URLError(.badServerResponse)
-        }
-        try? FileManager.default.removeItem(at: destination)
-        try FileManager.default.moveItem(at: temporary, to: destination)
+        try await ChunkedDownload.fetch(url, to: destination)
     }
 
     /// Decodes a downloaded WebM/Opus file into an Apple Lossless .m4a at `destination`.

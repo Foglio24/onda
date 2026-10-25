@@ -161,31 +161,6 @@ final class DownloadManager: ObservableObject {
     /// Downloads `url` to `destination`, reporting progress along the way.
     nonisolated static func transfer(_ url: URL, to destination: URL,
                                      progress: @escaping @Sendable (Double) -> Void) async throws {
-        var observation: NSKeyValueObservation?
-        defer { observation?.invalidate() }
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            let task = URLSession.shared.downloadTask(with: url) { temporary, response, error in
-                if let error {
-                    continuation.resume(throwing: error)
-                    return
-                }
-                guard let temporary, let http = response as? HTTPURLResponse,
-                      (200..<300).contains(http.statusCode) else {
-                    continuation.resume(throwing: URLError(.badServerResponse))
-                    return
-                }
-                do {
-                    try? FileManager.default.removeItem(at: destination)
-                    try FileManager.default.moveItem(at: temporary, to: destination)
-                    continuation.resume()
-                } catch {
-                    continuation.resume(throwing: error)
-                }
-            }
-            observation = task.progress.observe(\.fractionCompleted) { value, _ in
-                progress(value.fractionCompleted)
-            }
-            task.resume()
-        }
+        try await ChunkedDownload.fetch(url, to: destination, progress: progress)
     }
 }

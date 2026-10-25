@@ -97,6 +97,8 @@ final class PlayerController: ObservableObject {
     private var requestedSeek: (time: TimeInterval, at: Date)?
     /// Seconds of fade-in for the song being loaded as part of a crossfade.
     private var pendingFadeIn: TimeInterval?
+    /// Catalogue length of the song fading out, to know how much of it is left.
+    private var outgoingLength: TimeInterval = 0
     private var nowPlayingArtwork: MPMediaItemArtwork?
     /// The upcoming songs in their original order, to restore when shuffle is turned off.
     private var unshuffledUpcoming: [Track] = []
@@ -359,29 +361,44 @@ final class PlayerController: ObservableObject {
         return (stream.url, stream.label)
     }
 
-    /// A local file of the song in the requested quality: decoded Opus, or a copy of the AAC/Dolby stream.
-    /// Falls back to an AAC copy when Opus fails.
-    nonisolated static func prepareLocal(videoId: String, quality: AudioQuality,
-                                         duration: TimeInterval?) async throws -> (url: URL, label: String) {
-        let tooLongForOpus = (duration ?? 0) > Preferences.opusLengthLimit
-        let effective = quality.usesOpus && tooLongForOpus ? AudioQuality.high : quality
-        let stream = try await StreamResolver.shared.stream(for: videoId, quality: effective)
+    /// A local copy of the plain stream (Dolby, AAC 256 or AAC 128/48): quick to fetch,
+    /// so the song can seek and crossfade early.
+    nonisolated static func prepareCopy(videoId: String, quality: AudioQuality) async throws -> (url: URL, label: String) {
+        var stream = try await StreamResolver.shared.stream(for: videoId, quality: quality)
         if stream.format == .opus {
-            if let file = try? await OpusPipeline.shared.playableFile(videoId: videoId, stream: stream) {
-                return (file, stream.label)
-            }
-            let fallback = try await StreamResolver.shared.stream(for: videoId, quality: .high)
-            let copy = try await OpusPipeline.shared.localCopy(videoId: videoId, stream: fallback)
-            return (copy, fallback.label)
+            stream = try await StreamResolver.shared.stream(for: videoId, quality: quality == .medium ? .low : .high)
         }
         let copy = try await OpusPipeline.shared.localCopy(videoId: videoId, stream: stream)
         return (copy, stream.label)
     }
 
-    /// Replaces the streaming item with its local copy at the same position, without a gap in the queue.
+    /// The decoded Opus file for the top qualities, when YouTube's best stream is Opus. Nil otherwise.
+    nonisolated static func prepareOpus(videoId: String, quality: AudioQuality,
+                                        duration: TimeInterval?) async -> (url: URL, label: String)? {
+        guard quality.usesOpus, (duration ?? 0) <= Preferences.opusLengthLimit,
+              let stream = try? await StreamResolver.shared.stream(for: videoId, quality: quality),
+              stream.format == .opus else { return nil }
+        do {
+            let file = try await OpusPipeline.shared.playableFile(videoId: videoId, stream: stream)
+            UserDefaults.standard.removeObject(forKey: Preferences.opusLastError)
+            return (file, stream.label)
+        } catch {
+            // Shown in Settings, to understand why Opus isn't used.
+            UserDefaults.standard.set(error.localizedDescription, forKey: Preferences.opusLastError)
+            return nil
+        }
+    }
+
+    /// Caches a song ahead of time: the quick copy first, then the Opus decode.
+    nonisolated static func prepare(videoId: String, quality: AudioQuality, duration: TimeInterval?) async {
+        _ = try? await prepareCopy(videoId: videoId, quality: quality)
+        _ = await prepareOpus(videoId: videoId, quality: quality, duration: duration)
+    }
+
+    /// Replaces the current item with a better local file at the same position.
     private func switchToLocal(_ url: URL, label: String, track: Track) {
         guard current?.id == track.id, let item = player.currentItem,
-              (item.asset as? AVURLAsset)?.url.isFileURL == false else { return }
+              (item.asset as? AVURLAsset)?.url != url else { return }
         var position = player.currentTime().seconds
         if let requested = requestedSeek {
             // The user scrubbed while streaming: honour it, counting the time played since.
@@ -411,27 +428,34 @@ final class PlayerController: ObservableObject {
             .sink { status in self.itemStatusChanged(status, track: track) }
         player.replaceCurrentItem(with: item)
 
-        fadeInTask?.cancel()
-        if let fadeIn = pendingFadeIn {
-            pendingFadeIn = nil
-            let target = player
-            target.volume = 0
-            fadeInTask = Task { await Self.fade(target, in: true, over: fadeIn) }
-        } else {
+        if pendingFadeIn != nil {
+            // Crossfading in: stay silent until the song really plays (see `startPendingFades`).
+            player.volume = 0
+        } else if !isRetry {
+            fadeInTask?.cancel()
             player.volume = 1
         }
         if playWhenReady {
             activateSession()
             player.play()
         }
-        if !url.isFileURL, let videoId = track.videoId {
+        if Storage.localAudio(for: track) == nil, let videoId = track.videoId {
             let quality = Preferences.streamingQuality
             let duration = track.duration
+            let isStreaming = !url.isFileURL
             upgradeTask?.cancel()
             upgradeTask = Task {
-                guard let local = try? await Self.prepareLocal(videoId: videoId, quality: quality, duration: duration),
-                      !Task.isCancelled else { return }
-                self.switchToLocal(local.url, label: local.label, track: track)
+                // 1. A quick local copy, so seeking and crossfade work.
+                if isStreaming, let copy = try? await Self.prepareCopy(videoId: videoId, quality: quality),
+                   !Task.isCancelled {
+                    self.switchToLocal(copy.url, label: copy.label, track: track)
+                }
+                // 2. Lossless Opus. Switching mid-song would be audible, so only near the start;
+                //    otherwise it is ready for the next time the song plays.
+                if let opus = await Self.prepareOpus(videoId: videoId, quality: quality, duration: duration),
+                   !Task.isCancelled, self.player.currentTime().seconds < 20 {
+                    self.switchToLocal(opus.url, label: opus.label, track: track)
+                }
             }
         }
         guard !isRetry else { return }
@@ -529,23 +553,39 @@ final class PlayerController: ObservableObject {
         index + 1 < queue.count && repeatMode != .one && sleepTimer != .endOfTrack && playWhenReady
     }
 
-    /// Starts the next song on a fresh player while this one fades out over its last seconds.
-    private func beginCrossfade(remaining: TimeInterval) {
+    /// Starts loading the next song on a fresh player. The fades begin once it actually plays,
+    /// so a slow start never leaves a gap of silence.
+    private func beginCrossfade(remaining: TimeInterval, length: TimeInterval) {
         finishedCurrent = true
-        let fading = player
-        outgoingPlayer = fading
+        outgoingPlayer = player
+        outgoingLength = length
         fadeOutTask?.cancel()
-        fadeOutTask = Task {
-            await Self.fade(fading, in: false, over: remaining)
-            guard !Task.isCancelled else { return }
-            self.endCrossfade(interrupted: false)
-        }
+        fadeOutTask = nil
         let incoming = AVPlayer()
         player = incoming
         attach(incoming)
         pendingFadeIn = min(remaining, Preferences.crossfadeSeconds)
         index += 1
         loadCurrent(crossfading: true)
+    }
+
+    /// Called when the new song starts playing: fades it in and the previous one out over
+    /// whatever is left of the previous song.
+    private func startPendingFades() {
+        let left = outgoingPlayer.map { max(0.5, outgoingLength - $0.currentTime().seconds) }
+        if let fadeIn = pendingFadeIn {
+            pendingFadeIn = nil
+            let target = player
+            fadeInTask?.cancel()
+            fadeInTask = Task { await Self.fade(target, in: true, over: min(fadeIn, left ?? fadeIn)) }
+        }
+        if let outgoing = outgoingPlayer, fadeOutTask == nil, let left {
+            fadeOutTask = Task {
+                await Self.fade(outgoing, in: false, over: left)
+                guard !Task.isCancelled else { return }
+                self.endCrossfade(interrupted: false)
+            }
+        }
     }
 
     /// Stops the song fading out. At the natural end of the fade the new song keeps fading in;
@@ -604,16 +644,20 @@ final class PlayerController: ObservableObject {
         return true
     }
 
-    /// Prepares the next song early (URL, and the Opus decode at the top qualities),
-    /// so the switch is instant even with the screen locked.
+    /// Caches the next two songs while this one plays, so they start instantly and crossfade on time,
+    /// even with the screen locked.
     private func prefetchNext() {
-        guard index + 1 < queue.count else { return }
-        let upNext = queue[index + 1]
-        guard let videoId = upNext.videoId, Storage.localAudio(for: upNext) == nil else { return }
         let quality = Preferences.streamingQuality
-        let duration = upNext.duration
+        let upcoming = queue.indices.filter { $0 > index }.prefix(2).map { queue[$0] }
+        let songs = upcoming.compactMap { track -> (String, TimeInterval?)? in
+            guard let videoId = track.videoId, Storage.localAudio(for: track) == nil else { return nil }
+            return (videoId, track.duration)
+        }
+        guard !songs.isEmpty else { return }
         Task.detached(priority: .utility) {
-            _ = try? await PlayerController.prepareLocal(videoId: videoId, quality: quality, duration: duration)
+            for (videoId, duration) in songs {
+                await PlayerController.prepare(videoId: videoId, quality: quality, duration: duration)
+            }
         }
     }
 
@@ -667,7 +711,10 @@ final class PlayerController: ObservableObject {
             .sink { status in
                 // While the next song loads during a crossfade, the previous one is still audible.
                 self.isPlaying = status != .paused || self.outgoingPlayer != nil
-                if status == .playing { self.isLoading = false }
+                if status == .playing {
+                    self.isLoading = false
+                    self.startPendingFades()
+                }
                 self.updateNowPlayingInfo()
             }
             .store(in: &playerCancellables)
@@ -725,7 +772,7 @@ final class PlayerController: ObservableObject {
         let remaining = length - seconds
         let crossfade = Preferences.crossfadeSeconds
         if crossfade > 0, outgoingPlayer == nil, canCrossfade, length > crossfade * 3, remaining <= crossfade {
-            beginCrossfade(remaining: max(0.5, remaining))
+            beginCrossfade(remaining: max(0.5, remaining), length: length)
         } else if remaining < -1.5 {
             // The file keeps "playing" silence past the real end.
             itemFinished()
