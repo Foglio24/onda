@@ -701,7 +701,10 @@ final class PlayerController: ObservableObject {
 
     private func activateSession() {
         try? AVAudioSession.sharedInstance().setActive(true)
-        nowPlayingSession?.becomeActiveIfPossible { _ in }
+        // Shown in Settings → Informazioni: whether iOS accepted Onda as the Now Playing app.
+        nowPlayingSession?.becomeActiveIfPossible { accepted in
+            UserDefaults.standard.set(accepted ? 1 : 0, forKey: Preferences.nowPlayingAccepted)
+        }
     }
 
     /// Moves the time and state observers to the player of the current song.

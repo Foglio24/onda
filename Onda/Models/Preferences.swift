@@ -125,6 +125,8 @@ enum Preferences {
     static let crossfade = "playback.crossfade"
     static let opusLastError = "audio.opusLastError"
     static let accent = "theme.accent"
+    /// -1 unknown, 0 refused by iOS, 1 accepted.
+    static let nowPlayingAccepted = "diagnostics.nowPlayingAccepted"
     static let dynamicColors = "theme.dynamicColors"
     static let lyricsStyle = "lyrics.style"
     static let lyricsSize = "lyrics.size"

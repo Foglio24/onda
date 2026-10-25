@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.2 (2026-10-25)
+
+### Added
+- **Diagnostics in Settings → Informazioni.** They show the app's bundle ID and whether iOS accepted Onda as the Now Playing app. This helps track down why the lock screen and Dynamic Island player can open another music app.
+
 ## 1.3.1 (2026-10-25)
 
 ### Fixed

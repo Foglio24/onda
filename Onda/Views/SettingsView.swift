@@ -14,6 +14,7 @@ struct SettingsView: View {
     @AppStorage(Preferences.crossfade) private var crossfade = Preferences.defaultCrossfade
     @AppStorage(Preferences.opusLastError) private var opusLastError = ""
     @AppStorage(Preferences.accent) private var accent: AccentChoice = .pink
+    @AppStorage(Preferences.nowPlayingAccepted) private var nowPlayingAccepted = -1
     @AppStorage(Preferences.skipLongMixes) private var skipLongMixes = true
     @AppStorage(Preferences.dynamicColors) private var dynamicColors = true
     @AppStorage(Preferences.lyricsStyle) private var lyricsStyle: LyricsStyle = .focus
@@ -250,12 +251,23 @@ struct SettingsView: View {
     private var aboutSection: some View {
         Section {
             LabeledContent("Versione", value: Bundle.main.appVersion)
+            LabeledContent("Bundle ID", value: Bundle.main.bundleIdentifier ?? "—")
+                .textSelection(.enabled)
+            LabeledContent("Player di sistema", value: nowPlayingStatus)
             Text("Catalogo: YouTube Music · Testi: LRCLIB · Scrobbling: Last.fm")
             Text("Progetto personale, non affiliato a Google, YouTube o Last.fm.")
         } header: {
             Text("Informazioni")
         }
         .font(.footnote)
+    }
+
+    private var nowPlayingStatus: String {
+        switch nowPlayingAccepted {
+        case 1: return "Onda (accettato da iOS)"
+        case 0: return "Rifiutato da iOS"
+        default: return "Avvia un brano"
+        }
     }
 
     // MARK: Last.fm
