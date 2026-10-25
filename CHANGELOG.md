@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.1 (2026-10-25)
+
+### Fixed
+- **Tapping the player on the lock screen or in the Dynamic Island opened another music app (e.g. Spotify) instead of Onda.** Onda now registers its own Now Playing session and asks iOS to make it the active one whenever playback starts. Remote commands and song info go through that session.
+
 ## 1.3.0 (2026-10-25)
 
 ### Added
