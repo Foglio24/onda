@@ -7,6 +7,7 @@ struct OndaApp: App {
     @StateObject private var downloads = DownloadManager.shared
     @StateObject private var lastfm = LastFM.shared
     @StateObject private var router = AppRouter.shared
+    @StateObject private var translator = LyricsTranslator.shared
 
     init() {
         // A bigger shared cache keeps cover art loaded by AsyncImage between screens.
@@ -23,6 +24,7 @@ struct OndaApp: App {
                 .environmentObject(downloads)
                 .environmentObject(lastfm)
                 .environmentObject(router)
+                .environmentObject(translator)
                 .task {
                     // Warms YouTube's player script up front, so the first tapped song starts quickly too.
                     if let recent = library.history.first { StreamPrewarmer.shared.request(recent) }

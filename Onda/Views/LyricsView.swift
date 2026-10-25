@@ -41,25 +41,46 @@ struct LyricsView: View {
 
 /// Karaoke-style lyrics: the current line lights up and stays centred; tap a line to jump there.
 /// With translation on, each line shows its translation underneath, made on the iPhone by Apple's
-/// Translation framework with a language downloaded beforehand (Settings → Testi).
+/// Translation framework (see `LyricsTranslator`, which starts as soon as the song does).
 private struct SyncedLyrics: View {
     let lines: [LyricLine]
     @EnvironmentObject private var player: PlayerController
     @EnvironmentObject private var progress: PlaybackProgress
+    @EnvironmentObject private var translator: LyricsTranslator
     @AppStorage(Preferences.lyricsStyle) private var style: LyricsStyle = .focus
     @AppStorage(Preferences.lyricsSize) private var size: LyricsSize = .medium
     @AppStorage(Preferences.lyricsTranslate) private var translateEnabled = false
     @AppStorage(Preferences.lyricsTranslationTarget) private var targetIdentifier = Preferences.defaultTranslationTarget
 
-    /// Translated text by line id.
-    @State private var translations: [Int: String] = [:]
+    /// Used only to download a missing language, which shows the system sheet.
     @State private var configuration: TranslationSession.Configuration?
-    /// A source language that can be translated once its model is downloaded.
-    @State private var downloadableSource: Locale.Language?
-    /// Short status under the 文A button ("Già in italiano", "Traduzione non riuscita"…).
-    @State private var translationNote: String?
+    @State private var downloading = false
     /// Set when the user turns translation on, so a missing language is downloaded right away.
     @State private var userAskedToTranslate = false
+
+    /// Translated text by line id, once these lyrics have it.
+    private var translations: [Int: String] {
+        translator.lines == lines ? translator.translations : [:]
+    }
+
+    /// A language that can translate these lyrics once downloaded.
+    private var downloadableSource: Locale.Language? {
+        guard !downloading, translator.lines == lines, case .needsDownload(let source) = translator.phase else {
+            return nil
+        }
+        return source
+    }
+
+    /// Short status under the 文A button ("Il testo è già in italiano", "Traduzione…"…).
+    private var translationNote: String? {
+        if downloading { return "Download della lingua…" }
+        guard translator.lines == lines else { return nil }
+        switch translator.phase {
+        case .translating: return translations.isEmpty ? "Traduzione…" : nil
+        case .note(let text): return text
+        default: return nil
+        }
+    }
 
     private var inactiveOpacity: Double { style == .fade ? 0.22 : 0.32 }
 
@@ -115,9 +136,17 @@ private struct SyncedLyrics: View {
         .mask { LyricsView.edgeFade }
         // Outside the fade, so the controls are always fully visible.
         .overlay(alignment: .topTrailing) { translationControls }
-        .task(id: translationKey) { await prepareTranslation() }
+        // Usually already done by the player when the song started; this catches setting changes.
+        .task(id: translationKey) { translator.show(lines) }
+        .onChange(of: translator.phase) { _, phase in
+            guard userAskedToTranslate, phase != .translating else { return }
+            userAskedToTranslate = false
+            // The user just turned translation on: ask for the missing language straight away.
+            if case .needsDownload(let source) = phase { downloadAndTranslate(from: source) }
+        }
         .translationTask(configuration) { session in
-            await translate(with: session)
+            await translator.translate(lines, with: session)
+            downloading = false
         }
     }
 
@@ -163,78 +192,14 @@ private struct SyncedLyrics: View {
 
     /// The system shows its download sheet for the language, then the lines are translated.
     private func downloadAndTranslate(from source: Locale.Language) {
-        translationNote = "Download della lingua…"
-        downloadableSource = nil
-        configuration = TranslationSession.Configuration(
-            source: source, target: Locale.Language(identifier: targetIdentifier))
-    }
-
-    /// Decides whether to translate: only when the language model is already on the iPhone,
-    /// so nothing is downloaded while a song loads.
-    private func prepareTranslation() async {
-        translations = [:]
-        configuration = nil
-        downloadableSource = nil
-        translationNote = nil
-        let askedNow = userAskedToTranslate
-        userAskedToTranslate = false
-        guard translateEnabled else { return }
-        guard let source = Self.detectLanguage(of: lines) else {
-            translationNote = "Lingua del testo non riconosciuta"
-            return
-        }
+        downloading = true
         let target = Locale.Language(identifier: targetIdentifier)
-        guard source.languageCode != target.languageCode else {
-            translationNote = "Il testo è già in \(Preferences.languageName(targetIdentifier).lowercased())"
-            return
-        }
-        translationNote = "Traduzione…"
-        let status = await LanguageAvailability().status(from: source, to: target)
-        guard !Task.isCancelled else { return }
-        switch status {
-        case .installed:
+        if configuration?.source == source, configuration?.target == target {
+            // Same languages as a download the user cancelled: ask again.
+            configuration?.invalidate()
+        } else {
             configuration = TranslationSession.Configuration(source: source, target: target)
-        case .supported:
-            if askedNow {
-                // The user just turned translation on: ask for the download straight away.
-                downloadAndTranslate(from: source)
-            } else {
-                downloadableSource = source
-            }
-        default:
-            translationNote = "Traduzione da \(Preferences.languageName(source.minimalIdentifier).lowercased()) non disponibile"
         }
-    }
-
-    private func translate(with session: TranslationSession) async {
-        let requests = lines
-            .filter { !$0.text.isEmpty }
-            .map { TranslationSession.Request(sourceText: $0.text, clientIdentifier: String($0.id)) }
-        guard !requests.isEmpty else { return }
-        var result: [Int: String] = [:]
-        do {
-            let responses = try await session.translations(from: requests)
-            for response in responses {
-                if let id = response.clientIdentifier.flatMap({ Int($0) }) {
-                    result[id] = response.targetText
-                }
-            }
-        } catch {
-            translationNote = "Traduzione non riuscita: \(error.localizedDescription)"
-            return
-        }
-        withAnimation(.easeOut(duration: 0.3)) {
-            translations = result
-            downloadableSource = nil
-            translationNote = result.isEmpty ? "Nessuna traduzione ricevuta" : nil
-        }
-    }
-
-    private static func detectLanguage(of lines: [LyricLine]) -> Locale.Language? {
-        let recognizer = NLLanguageRecognizer()
-        recognizer.processString(lines.map(\.text).joined(separator: "\n"))
-        guard let language = recognizer.dominantLanguage else { return nil }
-        return Locale.Language(identifier: language.rawValue)
     }
 }
 

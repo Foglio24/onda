@@ -97,6 +97,8 @@ final class PlayerController: ObservableObject {
     private let scrobbler = Scrobbler()
     private var loadTask: Task<Void, Never>?
     private var lyricsTask: Task<Void, Never>?
+    /// The next songs' lyrics, fetched ahead of time, by track id.
+    private var prefetchedLyrics: [String: LyricsState] = [:]
     private var artworkTask: Task<Void, Never>?
     private var sleepTask: Task<Void, Never>?
     private var fadeOutTask: Task<Void, Never>?
@@ -825,6 +827,7 @@ final class PlayerController: ObservableObject {
     /// Caches the next two songs while this one plays, so they start instantly and crossfade on time,
     /// even with the screen locked.
     private func prefetchNext() {
+        prefetchLyrics()
         let quality = Preferences.streamingQuality
         let upcoming = queue.indices.filter { $0 > index }.prefix(2).map { queue[$0] }
         let songs = upcoming.compactMap { track -> (String, TimeInterval?)? in
@@ -839,13 +842,40 @@ final class PlayerController: ObservableObject {
         }
     }
 
+    /// Loads the lyrics (often already fetched during the previous song) and starts translating them,
+    /// so both are ready when the lyrics panel opens.
     private func loadLyrics(for track: Track) {
         lyricsTask?.cancel()
+        LyricsTranslator.shared.show([])
+        if let prefetched = prefetchedLyrics[track.id] {
+            showLyrics(prefetched)
+            return
+        }
         lyrics = .loading
         lyricsTask = Task {
             let result = await LyricsService.shared.lyrics(for: track)
             guard !Task.isCancelled, self.current?.id == track.id else { return }
-            self.lyrics = result
+            self.showLyrics(result)
+        }
+    }
+
+    private func showLyrics(_ result: LyricsState) {
+        lyrics = result
+        if case .synced(let lines) = result { LyricsTranslator.shared.show(lines) }
+    }
+
+    /// Fetches the next song's lyrics, and translates them, while this one plays.
+    private func prefetchLyrics() {
+        guard index + 1 < queue.count else { return }
+        let upNext = queue[index + 1]
+        guard prefetchedLyrics[upNext.id] == nil else { return }
+        Task {
+            let result = await LyricsService.shared.lyrics(for: upNext)
+            // A network error also reads as "unavailable": leave it to be fetched again.
+            guard result != .unavailable else { return }
+            if self.prefetchedLyrics.count >= 20 { self.prefetchedLyrics.removeAll() }
+            self.prefetchedLyrics[upNext.id] = result
+            if case .synced(let lines) = result { LyricsTranslator.shared.prefetch(lines) }
         }
     }
 
