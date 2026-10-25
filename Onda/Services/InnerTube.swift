@@ -1,0 +1,180 @@
+import Foundation
+
+enum InnerTubeError: LocalizedError {
+    case badResponse(Int)
+    case notFound
+
+    var errorDescription: String? {
+        switch self {
+        case .badResponse(let status):
+            return "YouTube Music non ha risposto correttamente (\(status))."
+        case .notFound:
+            return "Nessun brano trovato."
+        }
+    }
+}
+
+/// Minimal client for the YouTube Music web API (the "WEB_REMIX" InnerTube client).
+/// Used for search and radios; the audio stream itself comes from `StreamResolver`.
+struct InnerTube {
+    static let shared = InnerTube()
+
+    private static let base = URL(string: "https://music.youtube.com/youtubei/v1/")!
+    private static let songsFilter = "EgWKAQIIAWoMEA4QChADEAQQCRAF"
+    private static let userAgent =
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15"
+
+    private static var context: [String: Any] {
+        [
+            "client": [
+                "clientName": "WEB_REMIX",
+                "clientVersion": "1.20250310.01.00",
+                "hl": Locale.current.language.languageCode?.identifier ?? "en",
+                "gl": Locale.current.region?.identifier ?? "US",
+            ],
+        ]
+    }
+
+    func searchSongs(_ query: String) async throws -> [Track] {
+        let json = try await post("search", ["query": query, "params": Self.songsFilter])
+        return J.findAll("musicResponsiveListItemRenderer", in: json["contents"])
+            .compactMap(Self.parseListItem)
+            .uniqued()
+    }
+
+    /// The radio YouTube Music builds when you start a song: the song itself followed by similar ones.
+    func radio(for videoId: String) async throws -> [Track] {
+        let json = try await post("next", [
+            "videoId": videoId,
+            "playlistId": "RDAMVM\(videoId)",
+            "isAudioOnly": true,
+            "enablePersistentPlaylistPanel": true,
+        ])
+        return J.findAll("playlistPanelVideoRenderer", in: json["contents"])
+            .compactMap(Self.parsePanelItem)
+            .uniqued()
+    }
+
+    /// Finds the YouTube Music version of a track that only has artist and title (e.g. from Last.fm).
+    func resolve(_ track: Track) async throws -> Track {
+        if track.videoId != nil { return track }
+        let results = try await searchSongs("\(track.primaryArtist) \(track.title)")
+        let sameArtist = results.first {
+            $0.primaryArtist.localizedCaseInsensitiveCompare(track.primaryArtist) == .orderedSame
+        }
+        guard let match = sameArtist ?? results.first else { throw InnerTubeError.notFound }
+        return match
+    }
+
+    private func post(_ endpoint: String, _ body: [String: Any]) async throws -> [String: Any] {
+        var url = Self.base.appending(path: endpoint)
+        url.append(queryItems: [URLQueryItem(name: "prettyPrint", value: "false")])
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("https://music.youtube.com", forHTTPHeaderField: "Origin")
+        request.setValue("https://music.youtube.com/", forHTTPHeaderField: "Referer")
+        request.setValue(Self.userAgent, forHTTPHeaderField: "User-Agent")
+        var payload = body
+        payload["context"] = Self.context
+        request.httpBody = try JSONSerialization.data(withJSONObject: payload)
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        guard status == 200, let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw InnerTubeError.badResponse(status)
+        }
+        return json
+    }
+
+    // MARK: Parsing
+
+    private struct Byline {
+        var artists: [String] = []
+        var album: String?
+        var duration: TimeInterval?
+    }
+
+    private static let kindLabels: Set<String> = ["Song", "Brano", "Canzone", "Video"]
+
+    /// A row of search results.
+    private static func parseListItem(_ item: [String: Any]) -> Track? {
+        let columns = J.array(item["flexColumns"]).compactMap {
+            J.dict(J.value($0, "musicResponsiveListItemFlexColumnRenderer"))
+        }
+        guard let titleRun = J.value(columns.first, "text", "runs", 0),
+              let title = J.string(J.value(titleRun, "text")) else { return nil }
+        let videoId = J.string(J.value(item, "playlistItemData", "videoId"))
+            ?? J.string(J.value(titleRun, "navigationEndpoint", "watchEndpoint", "videoId"))
+        guard let videoId else { return nil }
+
+        var byline = parseByline(columns.dropFirst().flatMap { J.array(J.value($0, "text", "runs")) })
+        if byline.duration == nil {
+            let fixed = J.string(J.value(item, "fixedColumns", 0, "musicResponsiveListItemFixedColumnRenderer",
+                                         "text", "runs", 0, "text"))
+            byline.duration = fixed.flatMap { parseDuration($0) }
+        }
+        let thumbnails = J.value(item, "thumbnail", "musicThumbnailRenderer", "thumbnail", "thumbnails")
+        return Track(videoId: videoId, title: title, artists: byline.artists, album: byline.album,
+                     duration: byline.duration, artworkURL: lastThumbnail(thumbnails))
+    }
+
+    /// A row of the "up next" panel returned by the `next` endpoint.
+    private static func parsePanelItem(_ item: [String: Any]) -> Track? {
+        guard let videoId = J.string(item["videoId"]),
+              let title = J.string(J.value(item, "title", "runs", 0, "text")) else { return nil }
+        var byline = parseByline(J.array(J.value(item, "longBylineText", "runs")))
+        if byline.artists.isEmpty, let short = J.string(J.value(item, "shortBylineText", "runs", 0, "text")) {
+            byline.artists = [short]
+        }
+        let length = J.string(J.value(item, "lengthText", "runs", 0, "text")).flatMap { parseDuration($0) }
+        return Track(videoId: videoId, title: title, artists: byline.artists, album: byline.album,
+                     duration: length ?? byline.duration,
+                     artworkURL: lastThumbnail(J.value(item, "thumbnail", "thumbnails")))
+    }
+
+    /// Bylines look like "Artist • Album • 3:45": links tell artists and albums apart.
+    private static func parseByline(_ runs: [Any]) -> Byline {
+        var byline = Byline()
+        var plain: [String] = []
+        for run in runs {
+            guard let text = J.string(J.value(run, "text")) else { continue }
+            let pageType = J.string(J.value(run, "navigationEndpoint", "browseEndpoint",
+                                            "browseEndpointContextSupportedConfigs",
+                                            "browseEndpointContextMusicConfig", "pageType")) ?? ""
+            switch pageType {
+            case "MUSIC_PAGE_TYPE_ARTIST", "MUSIC_PAGE_TYPE_USER_CHANNEL":
+                byline.artists.append(text)
+            case "MUSIC_PAGE_TYPE_ALBUM":
+                byline.album = text
+            default:
+                let trimmed = text.trimmingCharacters(in: .whitespaces)
+                if let duration = parseDuration(trimmed) {
+                    byline.duration = duration
+                } else if !trimmed.isEmpty, trimmed != "•", trimmed != "&", trimmed != "," {
+                    plain.append(trimmed)
+                }
+            }
+        }
+        // Some artists (e.g. "Various Artists") have no link: the first plain run is the artist.
+        if byline.artists.isEmpty, let first = plain.first(where: { !kindLabels.contains($0) }) {
+            byline.artists = [first]
+        }
+        return byline
+    }
+
+    private static func lastThumbnail(_ thumbnails: Any?) -> URL? {
+        J.string(J.value(J.array(thumbnails).last, "url")).flatMap { URL(string: $0) }
+    }
+
+    static func parseDuration(_ text: String) -> TimeInterval? {
+        let parts = text.split(separator: ":")
+        guard (2...3).contains(parts.count) else { return nil }
+        var total: TimeInterval = 0
+        for part in parts {
+            guard let value = Double(part) else { return nil }
+            total = total * 60 + value
+        }
+        return total
+    }
+}
