@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.4.0 (2026-10-25)
+
+### Added
+- **Lyrics translation.** Synced lyrics can show a translation under each line, in the language you pick (Settings → Testi). It uses Apple's on-device Translation:
+  - Download the language once, then lyrics translate offline without slowing songs down.
+  - The 文A button in the lyrics panel shows or hides the translation.
+  - For a song in a language you haven't downloaded, the lyrics panel offers to download it.
+- **Interactive cover.** The player's artwork tilts in 3D with the iPhone and with your finger, with a sliding light reflection and a moving shadow. A double tap likes the song. You can turn it off in Settings → Aspetto.
+- **Karaoke mode.** The microphone button in the player can remove the vocals or keep only the vocals, at three strengths. It works on the stereo signal in real time (vocals are usually mixed in the centre), so it is lighter than Apple Music Sing's machine-learning stem separation and works best on songs with centred vocals. When it is off, the audio isn't processed at all.
+
 ## 1.3.4 (2026-10-25)
 
 ### Fixed

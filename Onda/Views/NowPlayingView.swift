@@ -240,7 +240,9 @@ struct NowPlayingView: View {
             if let info = player.streamInfo {
                 badge { Label(info, systemImage: "waveform") }
             }
-            if spatialAudio {
+            if player.karaokeMode != .off {
+                badge { Label(player.karaokeMode.title, systemImage: player.karaokeMode.symbol) }
+            } else if spatialAudio {
                 badge { Label("Audio spaziale", systemImage: "headphones") }
             }
             switch player.sleepTimer {
@@ -313,10 +315,37 @@ struct NowPlayingView: View {
         HStack {
             panelButton(.lyrics, symbol: "quote.bubble")
             Spacer()
+            karaokeMenu
+            Spacer()
             AirPlayButton(activeTint: accent.color).frame(width: 44, height: 44)
             Spacer()
             panelButton(.queue, symbol: "list.bullet")
         }
+    }
+
+    /// Karaoke: remove the voice or keep only the voice, at three strengths.
+    private var karaokeMenu: some View {
+        Menu {
+            Picker("Karaoke", selection: Binding(get: { player.karaokeMode }, set: { player.setKaraoke($0) })) {
+                ForEach(KaraokeMode.allCases) { mode in
+                    Label(mode.title, systemImage: mode.symbol).tag(mode)
+                }
+            }
+            if player.karaokeMode != .off {
+                Picker("Intensità", selection: Binding(get: { player.karaokeAmount },
+                                                       set: { player.setKaraokeAmount($0) })) {
+                    Text("Leggera").tag(Float(0.5))
+                    Text("Media").tag(Float(0.75))
+                    Text("Piena").tag(Float(1))
+                }
+            }
+        } label: {
+            Image(systemName: player.karaokeMode == .off ? "music.mic" : player.karaokeMode.symbol)
+                .font(.title3)
+                .frame(width: 44, height: 44)
+                .background(Color.white.opacity(player.karaokeMode == .off ? 0 : 0.2), in: .circle)
+        }
+        .buttonStyle(.plain)
     }
 
     private func panelButton(_ target: Panel, symbol: String) -> some View {

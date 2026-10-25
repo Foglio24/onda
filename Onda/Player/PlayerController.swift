@@ -61,6 +61,8 @@ final class PlayerController: ObservableObject {
     @Published private(set) var streamInfo: String? = nil
     @Published private(set) var shuffleEnabled = false
     @Published private(set) var sleepTimer: SleepTimer = .off
+    @Published private(set) var karaokeMode: KaraokeMode = .off
+    @Published private(set) var karaokeAmount: Float = 1
     @Published var repeatMode: RepeatMode = .off
     @Published var autoRadio: Bool {
         didSet { UserDefaults.standard.set(autoRadio, forKey: "player.autoRadio") }
@@ -306,6 +308,31 @@ final class PlayerController: ObservableObject {
         sleepTimer = .off
     }
 
+    // MARK: Karaoke
+
+    func setKaraoke(_ mode: KaraokeMode) {
+        karaokeMode = mode
+        KaraokeControl.shared.mode = mode.rawValue
+        let items = [player.currentItem, outgoingPlayer?.currentItem].compactMap { $0 }
+        if mode == .off {
+            // No processing at all while off.
+            items.forEach { KaraokeEngine.detach(from: $0) }
+        } else {
+            for item in items { Task { await KaraokeEngine.attach(to: item) } }
+        }
+    }
+
+    func setKaraokeAmount(_ amount: Float) {
+        karaokeAmount = amount
+        KaraokeControl.shared.amount = amount
+    }
+
+    /// New items (next song, local copy, crossfade) keep the karaoke mode.
+    private func applyKaraoke(to item: AVPlayerItem) {
+        guard karaokeMode != .off else { return }
+        Task { await KaraokeEngine.attach(to: item) }
+    }
+
     // MARK: Settings hooks
 
     /// Applies the "Audio spaziale" preference to the song that is playing.
@@ -437,6 +464,7 @@ final class PlayerController: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { status in self.itemStatusChanged(status, track: track) }
         player.replaceCurrentItem(with: local)
+        applyKaraoke(to: local)
         if position.isFinite, position > 0.5 {
             player.seek(to: CMTime(seconds: position, preferredTimescale: 600),
                         toleranceBefore: .zero, toleranceAfter: .zero)
@@ -452,6 +480,7 @@ final class PlayerController: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { status in self.itemStatusChanged(status, track: track) }
         player.replaceCurrentItem(with: item)
+        applyKaraoke(to: item)
 
         if pendingFadeIn != nil {
             // Crossfading in: stay silent until the song really plays (see `startPendingFades`).
