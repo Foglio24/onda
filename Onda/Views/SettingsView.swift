@@ -16,6 +16,8 @@ struct SettingsView: View {
     @AppStorage(Preferences.accent) private var accent: AccentChoice = .pink
     @AppStorage(Preferences.nowPlayingAccepted) private var nowPlayingAccepted = -1
     @AppStorage(Preferences.nowPlayingBackend) private var nowPlayingBackend = ""
+    @AppStorage(Preferences.lyricsTranslate) private var translateLyrics = false
+    @AppStorage(Preferences.lyricsTranslationTarget) private var translationTarget = Preferences.defaultTranslationTarget
     @AppStorage(Preferences.skipLongMixes) private var skipLongMixes = true
     @AppStorage(Preferences.dynamicColors) private var dynamicColors = true
     @AppStorage(Preferences.lyricsStyle) private var lyricsStyle: LyricsStyle = .focus
@@ -137,8 +139,23 @@ struct SettingsView: View {
             } label: {
                 Label("Animazione", systemImage: "sparkles")
             }
+            Toggle(isOn: $translateLyrics) {
+                Label("Traduci i testi", systemImage: "translate")
+            }
+            if translateLyrics {
+                Picker(selection: $translationTarget) {
+                    ForEach(Preferences.translationLanguages, id: \.self) { identifier in
+                        Text(Preferences.languageName(identifier)).tag(identifier)
+                    }
+                } label: {
+                    Label("Traduci in", systemImage: "globe")
+                }
+                TranslationDownloadRow(targetIdentifier: translationTarget)
+            }
         } header: {
             Text("Testi")
+        } footer: {
+            Text("La traduzione avviene sull'iPhone con la traduzione di Apple: scarica la lingua qui una volta sola e i testi si traducono offline, senza rallentare il brano. Nel player il tasto 文A mostra o nasconde la traduzione.")
         }
     }
 

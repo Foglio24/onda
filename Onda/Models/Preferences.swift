@@ -128,6 +128,23 @@ enum Preferences {
     /// -1 unknown, 0 refused by iOS, 1 accepted.
     static let nowPlayingAccepted = "diagnostics.nowPlayingAccepted"
     static let nowPlayingBackend = "diagnostics.nowPlayingBackend"
+    static let lyricsTranslate = "lyrics.translate"
+    static let lyricsTranslationTarget = "lyrics.translationTarget"
+
+    /// The phone's language, used as the default translation target.
+    static var defaultTranslationTarget: String {
+        Locale.current.language.languageCode?.identifier ?? "it"
+    }
+
+    /// Languages Apple's on-device translation offers, as BCP-47 identifiers.
+    static let translationLanguages = [
+        "it", "en", "es", "fr", "de", "pt-BR", "nl", "pl", "ru", "uk", "tr",
+        "ar", "hi", "id", "th", "vi", "ja", "ko", "zh-Hans", "zh-Hant",
+    ]
+
+    static func languageName(_ identifier: String) -> String {
+        Locale.current.localizedString(forIdentifier: identifier)?.capitalized ?? identifier
+    }
     static let dynamicColors = "theme.dynamicColors"
     static let lyricsStyle = "lyrics.style"
     static let lyricsSize = "lyrics.size"
