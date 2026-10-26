@@ -1,0 +1,34 @@
+Onda
+Copyright (c) 2026 Foglio24. All rights reserved.
+
+This repository is public so that anyone can read its source code and release notes, and so that
+the Onda app can check GitHub for new versions. Publishing the code does not make it open source:
+no licence to use, copy, modify or distribute it is granted, except as written below.
+
+You may:
+
+1. Read the source code, the release notes and the other files in this repository.
+2. Download the app (the IPA files attached to the releases) and install it on your own devices,
+   for personal, non-commercial use.
+3. Fork the repository on GitHub, only as far as GitHub's Terms of Service require.
+
+You may not, without prior written permission from the copyright holder:
+
+1. Copy, modify, merge, publish, distribute, sublicense or sell the source code or the app, in
+   whole or in part, or use them to make other software.
+2. Publish the app, or any app built from this code, on an app store, a website, an AltStore or
+   SideStore source, or any other channel.
+3. Use the name "Onda" or its icon for another app or service.
+4. Remove or change this notice or the copyright notices in the files.
+
+Components made by others keep their own licences and are listed in THIRD_PARTY_NOTICES.md.
+Nothing in this file applies to them, and nothing in it gives any right to the music, artwork,
+lyrics or trademarks of the services Onda connects to.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT
+NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+For permissions, open an issue at https://github.com/Foglio24/onda/issues.

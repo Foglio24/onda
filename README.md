@@ -49,7 +49,7 @@ Not included:
 
 Grab `Onda.ipa` from the latest release on the [Releases](../../releases) page.
 
-### Build it yourself (no Mac needed)
+### How the IPA is built (no Mac needed)
 
 GitHub Actions builds the IPA on a cloud Mac:
 
@@ -98,7 +98,16 @@ project.yml   XcodeGen project (the .xcodeproj is generated in CI)
 - **Opus** (WebM) is demuxed in the app and decoded with Apple's own Opus decoder into Apple Lossless, which AVPlayer plays natively.
 - **Lyrics** come from [LRCLIB](https://lrclib.net). **Scrobbling** uses the [Last.fm API](https://www.last.fm/api).
 
-## Notes
+## License
 
-This is a personal, non-commercial project, not affiliated with Google, YouTube, Spotify, Apple or Last.fm.
-Unofficial clients and downloading songs may break YouTube's Terms of Service, so use it for yourself only.
+Copyright © 2026 Foglio24. All rights reserved.
+
+The code is public to read, not open source. You may download the released app and install it on your own devices for personal, non-commercial use. Copying, modifying or redistributing the code or the app, or using the name Onda for another app, needs written permission. See [LICENSE](LICENSE) for the full terms.
+
+Work by others (YouTubeKit, the UVR karaoke model and the build tools) keeps its own licence: see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+## Disclaimer
+
+Onda is a personal, non-commercial project. It is not affiliated with, endorsed by or sponsored by Google, YouTube, Spotify, Apple, Last.fm or LRCLIB. Their names are trademarks of their owners, and the music, artwork and lyrics belong to their rights holders.
+
+Unofficial clients and downloading songs may break YouTube's Terms of Service, so use Onda for yourself only and at your own risk. It comes with no warranty.
