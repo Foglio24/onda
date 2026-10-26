@@ -79,7 +79,9 @@ actor OpusPipeline {
             return destination
         }
         if let running = inFlight[destination.path] { return try await running.value }
-        let task = Task.detached(priority: .userInitiated) {
+        // The caller's priority: urgent for the song that is playing, low for songs cached ahead,
+        // whose decoding then runs on the efficiency cores and slows down when the iPhone is warm.
+        let task = Task.detached(priority: Task.currentPriority) {
             try await build(destination)
             return destination
         }

@@ -1,8 +1,9 @@
 import SwiftUI
 
+/// The full-screen player. It doesn't observe the playback position itself: only the scrubber
+/// (and the lyrics) redraw as the song plays, not the cover, buttons and glass around them.
 struct NowPlayingView: View {
     @EnvironmentObject private var player: PlayerController
-    @EnvironmentObject private var progress: PlaybackProgress
     @EnvironmentObject private var library: Library
     @EnvironmentObject private var router: AppRouter
     @Environment(\.dismiss) private var dismiss
@@ -12,9 +13,6 @@ struct NowPlayingView: View {
     private enum Panel { case artwork, lyrics, queue }
 
     @State private var panel: Panel = .artwork
-    @State private var isScrubbing = false
-    @State private var scrubTime: TimeInterval = 0
-    @State private var scrubToken = 0
 
     var body: some View {
         VStack(spacing: 16) {
@@ -37,7 +35,7 @@ struct NowPlayingView: View {
                     .foregroundStyle(Color.white.opacity(0.85))
                     .lineLimit(2)
             }
-            scrubber
+            PlayerScrubber()
             badges
             controls
             bottomBar
@@ -199,55 +197,6 @@ struct NowPlayingView: View {
         return library.isLiked(track)
     }
 
-    /// Custom scrubber instead of `Slider`: in the full-screen player the system's dismiss gesture
-    /// competes with the slider and often swallows the end of the drag, so the seek never happened.
-    /// A high-priority drag gesture always wins and seeks to wherever the finger lifts.
-    private var scrubber: some View {
-        let duration = max(progress.duration, 1)
-        let shown = isScrubbing ? scrubTime : min(progress.currentTime, duration)
-        return VStack(spacing: 4) {
-            GeometryReader { geometry in
-                let width = max(geometry.size.width, 1)
-                let fraction = min(max(shown / duration, 0), 1)
-                ZStack(alignment: .leading) {
-                    Capsule().fill(Color.white.opacity(0.25))
-                    Capsule().fill(Color.white).frame(width: width * CGFloat(fraction))
-                }
-                .frame(height: isScrubbing ? 12 : 6)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .contentShape(.rect)
-                .highPriorityGesture(
-                    DragGesture(minimumDistance: 0)
-                        .onChanged { value in
-                            scrubToken += 1
-                            isScrubbing = true
-                            scrubTime = Double(min(max(value.location.x / width, 0), 1)) * duration
-                        }
-                        .onEnded { value in
-                            let target = Double(min(max(value.location.x / width, 0), 1)) * duration
-                            scrubTime = target
-                            player.seek(to: target)
-                            // Keep showing the target until the player has caught up.
-                            let token = scrubToken
-                            Task {
-                                try? await Task.sleep(for: .milliseconds(700))
-                                if token == scrubToken { isScrubbing = false }
-                            }
-                        }
-                )
-            }
-            .frame(height: 30)
-            .animation(.spring(duration: 0.25), value: isScrubbing)
-            HStack {
-                Text(shown.formattedTime)
-                Spacer()
-                Text("-" + max(0, progress.duration - shown).formattedTime)
-            }
-            .font(.caption.monospacedDigit())
-            .foregroundStyle(Color.white.opacity(0.6))
-        }
-    }
-
     /// Format, spatial audio and sleep timer, like the badges in the Music app.
     private var badges: some View {
         HStack(spacing: 8) {
@@ -404,5 +353,62 @@ struct NowPlayingView: View {
                 .background(Color.white.opacity(panel == target ? 0.2 : 0), in: .circle)
         }
         .buttonStyle(.plain)
+    }
+}
+
+/// Custom scrubber instead of `Slider`: in the full-screen player the system's dismiss gesture
+/// competes with the slider and often swallows the end of the drag, so the seek never happened.
+/// A high-priority drag gesture always wins and seeks to wherever the finger lifts.
+/// It is the only part of the player that follows the position, four times a second.
+private struct PlayerScrubber: View {
+    @EnvironmentObject private var progress: PlaybackProgress
+    @State private var isScrubbing = false
+    @State private var scrubTime: TimeInterval = 0
+    @State private var scrubToken = 0
+
+    var body: some View {
+        let duration = max(progress.duration, 1)
+        let shown = isScrubbing ? scrubTime : min(progress.currentTime, duration)
+        VStack(spacing: 4) {
+            GeometryReader { geometry in
+                let width = max(geometry.size.width, 1)
+                let fraction = min(max(shown / duration, 0), 1)
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Color.white.opacity(0.25))
+                    Capsule().fill(Color.white).frame(width: width * CGFloat(fraction))
+                }
+                .frame(height: isScrubbing ? 12 : 6)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .contentShape(.rect)
+                .highPriorityGesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { value in
+                            scrubToken += 1
+                            isScrubbing = true
+                            scrubTime = Double(min(max(value.location.x / width, 0), 1)) * duration
+                        }
+                        .onEnded { value in
+                            let target = Double(min(max(value.location.x / width, 0), 1)) * duration
+                            scrubTime = target
+                            PlayerController.shared.seek(to: target)
+                            // Keep showing the target until the player has caught up.
+                            let token = scrubToken
+                            Task {
+                                try? await Task.sleep(for: .milliseconds(700))
+                                if token == scrubToken { isScrubbing = false }
+                            }
+                        }
+                )
+            }
+            .frame(height: 30)
+            .animation(.spring(duration: 0.25), value: isScrubbing)
+            HStack {
+                Text(shown.formattedTime)
+                Spacer()
+                Text("-" + max(0, progress.duration - shown).formattedTime)
+            }
+            .font(.caption.monospacedDigit())
+            .foregroundStyle(Color.white.opacity(0.6))
+        }
     }
 }

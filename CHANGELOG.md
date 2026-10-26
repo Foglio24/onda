@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.8.0 (beta)
+
+### Improved
+- **Cooler iPhone.** Onda does less work in the background and redraws less on screen:
+  - The full-screen player no longer redraws everything four times a second: only the progress bar follows the song, and the lyrics redraw only when the line changes.
+  - The interactive cover's motion sensor no longer redraws anything while the iPhone is held still or lies on a table. It stops when the app is in the background or the screen is locked, and it is off with Reduce Motion, in Low Power Mode and while the iPhone is hot.
+  - While the iPhone is warm or in Low Power Mode, Onda skips work for songs that may never play: links of songs on screen are no longer unlocked in advance, only the next song is cached (not the next two), and karaoke prepares the next song only when it starts.
+  - Songs cached in advance are decoded at low priority, on the iPhone's efficiency cores, instead of at full speed.
+  - The cover is no longer re-encoded at every song for a lock-screen player that doesn't use it.
+
+### Changed
+- **Downloads look like the Music app's.**
+  - In song lists, a dotted circle marks a song waiting to download, a ring fills up while it downloads, and a small arrow marks a song that is on the iPhone, next to its length.
+  - Albums and playlists have a download button that turns into a ring filling up as the songs arrive (tap it to stop), then into a tick once everything is saved.
+  - **Library → Download** shows the number of songs, total length and space used, the songs still downloading with their own ring (tap to stop one, or stop all), and a choice of order: recently downloaded, title or artist. While songs download, the Download row in the Library shows how many are left with an overall ring.
+  - **Storage** (from Download's menu, or Settings → Spazio e dati → Brani scaricati), like iPhone Settings → Music: a bar with Onda's downloads, the rest of the iPhone and the free space, then the space taken by each artist. Each artist lists their songs with format and size. Swipe left on an artist or a song to remove it from the iPhone.
+  - A download that is running can now be stopped too (from the ring or the song's ··· menu), not only those waiting; stopping one is no longer reported as a failure.
+  - Pieces of downloads interrupted when the app was closed are deleted at the next launch, so they no longer take up space.
+
 ## 1.7.0 (2026-10-26)
 
 ### Added

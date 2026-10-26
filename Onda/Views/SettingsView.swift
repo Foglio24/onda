@@ -321,8 +321,10 @@ struct SettingsView: View {
 
     private var storageSection: some View {
         Section {
-            LabeledContent("Brani scaricati",
-                           value: ByteCountFormatter.string(fromByteCount: downloads.totalSize, countStyle: .file))
+            NavigationLink { DownloadStorageView() } label: {
+                LabeledContent("Brani scaricati",
+                               value: ByteCountFormatter.string(fromByteCount: downloads.totalSize, countStyle: .file))
+            }
             Button("Elimina tutti i download", role: .destructive) { confirmDeleteDownloads = true }
                 .disabled(downloads.totalSize == 0)
             Button(cacheCleared ? "Cache svuotata" : "Svuota cache (copertine e brani Opus)") {

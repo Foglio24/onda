@@ -114,6 +114,8 @@ actor StreamResolver {
 
 /// Unlocks the stream links of songs shown on screen before they are tapped, like Spotify does,
 /// so playback can start right away. Most recently shown songs go first, two at a time.
+/// Paused while the iPhone is warm or in Low Power Mode (see `PowerState`): songs then take
+/// a moment longer to start.
 actor StreamPrewarmer {
     static let shared = StreamPrewarmer()
 
@@ -123,7 +125,7 @@ actor StreamPrewarmer {
     private var running = 0
 
     nonisolated func request(_ track: Track) {
-        guard let videoId = track.videoId else { return }
+        guard let videoId = track.videoId, !PowerState.isConstrained else { return }
         Task { await self.enqueue(videoId) }
     }
 

@@ -125,9 +125,6 @@ struct TrackRow: View {
                             if library.isLiked(track) {
                                 Image(systemName: "heart.fill").font(.caption2).foregroundStyle(.pink)
                             }
-                            if downloads.isDownloaded(track) {
-                                Image(systemName: "arrow.down.circle.fill").font(.caption2)
-                            }
                             Text(track.subtitle).lineLimit(1)
                         }
                         .font(.subheadline)
@@ -181,15 +178,15 @@ struct TrackRow: View {
             }
     }
 
-    @ViewBuilder private var trailing: some View {
-        if let value = downloads.progress[track.videoId ?? track.id] {
-            Text(value, format: .percent.precision(.fractionLength(0)))
-                .font(.caption.monospacedDigit())
-                .foregroundStyle(.secondary)
-        } else if let duration = track.duration {
-            Text(duration.formattedTime)
-                .font(.caption.monospacedDigit())
-                .foregroundStyle(.secondary)
+    /// The download mark (waiting, a filling ring, or the arrow of a saved song), then the length.
+    private var trailing: some View {
+        HStack(spacing: 8) {
+            DownloadIndicator(state: downloads.state(of: track))
+            if let duration = track.duration {
+                Text(duration.formattedTime)
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+            }
         }
     }
 }
@@ -318,7 +315,11 @@ struct TrackMenu: View {
             Button(role: .destructive) { downloads.remove(track) } label: {
                 Label("Rimuovi download", systemImage: "trash")
             }
-        } else if !downloads.isQueued(track) {
+        } else if downloads.isQueued(track) {
+            Button(role: .destructive) { downloads.cancel([track]) } label: {
+                Label("Annulla download", systemImage: "xmark.circle")
+            }
+        } else {
             Button { downloads.download(track) } label: {
                 Label("Scarica", systemImage: "arrow.down.circle")
             }

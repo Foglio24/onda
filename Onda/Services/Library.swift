@@ -68,8 +68,11 @@ final class Library: ObservableObject {
     /// Reuses a previously resolved identity for older Last.fm rows still on screen.
     func resolvedTrack(matching track: Track) -> Track? {
         if track.videoId != nil { return track }
-        return (liked + history + downloads + playlists.flatMap(\.tracks))
-            .first { $0.videoId != nil && $0.isSameRecording(as: track) }
+        // Searched list by list, without copying the whole library for every row on screen.
+        let matches: (Track) -> Bool = { $0.videoId != nil && $0.isSameRecording(as: track) }
+        return liked.first(where: matches) ?? history.first(where: matches)
+            ?? downloads.first(where: matches)
+            ?? playlists.lazy.compactMap { $0.tracks.first(where: matches) }.first
     }
 
     // MARK: Liked

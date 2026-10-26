@@ -39,4 +39,11 @@ shot 6-settings it 5 settings
 shot 7-player it 15 "player:K0HSD_i2DvA"
 shot 8-home-english en 10 home
 
+# Downloads: six songs start downloading, seen once while they run and again later in the same launch.
+shot 9-downloading it 9 "downloads:K0HSD_i2DvA"
+sleep 30
+xcrun simctl io "$device" screenshot "$out/10-downloaded.png" >/dev/null && echo "Saved 10-downloaded"
+shot 11-storage it 6 storage
+shot 12-album-downloads it 8 "album:MPREb_ePmUY37w4pZ"
+
 xcrun simctl shutdown "$device" || true

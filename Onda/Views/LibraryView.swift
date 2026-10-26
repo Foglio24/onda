@@ -2,7 +2,9 @@ import SwiftUI
 
 struct LibraryView: View {
     @EnvironmentObject private var library: Library
+    @EnvironmentObject private var downloads: DownloadManager
     @ObservedObject private var importer = PlaylistImporter.shared
+    @State private var showDownloads = false
     @State private var showNewPlaylist = false
     @State private var showImport = false
     @State private var newName = ""
@@ -17,9 +19,20 @@ struct LibraryView: View {
                     NavigationLink { TrackCollectionView(collection: .liked) } label: {
                         shortcut("Preferiti", symbol: "heart.fill", tint: .pink, count: library.liked.count)
                     }
-                    NavigationLink { TrackCollectionView(collection: .downloads) } label: {
-                        shortcut("Download", symbol: "arrow.down.circle.fill", tint: .blue,
-                                 count: library.downloads.count)
+                    NavigationLink { DownloadsView() } label: {
+                        if downloads.batchTotal > 0 {
+                            // Like the Music app's "Downloading" row: overall ring and songs left.
+                            shortcut("Download", symbol: "arrow.down.circle.fill", tint: .blue) {
+                                HStack(spacing: 8) {
+                                    Text("\(downloads.batchTotal - downloads.batchDone) in corso")
+                                        .monospacedDigit()
+                                    ProgressRing(value: downloads.batchFraction, size: 18, showsStop: false)
+                                }
+                            }
+                        } else {
+                            shortcut("Download", symbol: "arrow.down.circle.fill", tint: .blue,
+                                     count: library.downloads.count)
+                        }
                     }
                     NavigationLink { TrackCollectionView(collection: .history) } label: {
                         shortcut("Cronologia", symbol: "clock.fill", tint: .orange, count: library.history.count)
@@ -65,6 +78,9 @@ struct LibraryView: View {
             .scrollContentBackground(.hidden)
             .background { AmbientBackground() }
             .navigationTitle("Libreria")
+            // Opened directly only by the CI screenshots (see `LaunchScene`).
+            .navigationDestination(isPresented: $showDownloads) { DownloadsView() }
+            .task { if LaunchScene.opensDownloads { showDownloads = true } }
             .alert("Nuova playlist", isPresented: $showNewPlaylist) {
                 TextField("Nome", text: $newName)
                 Button("Crea") { library.createPlaylist(named: newName) }
@@ -94,6 +110,13 @@ struct LibraryView: View {
     }
 
     private func shortcut(_ title: LocalizedStringKey, symbol: String, tint: Color, count: Int) -> some View {
+        shortcut(title, symbol: symbol, tint: tint) {
+            Text("\(count)")
+        }
+    }
+
+    private func shortcut<Detail: View>(_ title: LocalizedStringKey, symbol: String, tint: Color,
+                                        @ViewBuilder detail: () -> Detail) -> some View {
         HStack(spacing: 14) {
             Image(systemName: symbol)
                 .font(.title3)
@@ -102,7 +125,7 @@ struct LibraryView: View {
                 .background(tint.gradient, in: .rect(cornerRadius: 10))
             Text(title).font(.body.weight(.medium))
             Spacer()
-            Text("\(count)").foregroundStyle(.secondary)
+            detail().foregroundStyle(.secondary)
         }
     }
 

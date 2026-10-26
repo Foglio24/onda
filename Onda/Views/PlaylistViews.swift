@@ -160,43 +160,14 @@ struct PlaylistDetailView: View {
         .padding(.vertical, 8)
     }
 
-    /// One tap saves the whole playlist; shows progress while it runs.
-    @ViewBuilder private func downloadButton(_ playlist: Playlist) -> some View {
-        // Last.fm songs are resolved by the download queue, rather than silently skipped.
-        let downloadable = playlist.tracks
-        let saved = downloadable.filter { downloads.isDownloaded($0) }.count
-        let inProgress = downloadable.filter { downloads.isQueued($0) }.count
-        Button {
-            if inProgress > 0 {
-                downloads.cancelWaiting(in: downloadable)
-            } else {
-                downloads.downloadAll(downloadable)
-            }
-        } label: {
-            HStack(spacing: 8) {
-                if inProgress > 0 {
-                    ProgressView().controlSize(.small)
-                    Text("Download \(saved)/\(downloadable.count) · tocca per fermare")
-                } else if saved == downloadable.count {
-                    Image(systemName: "checkmark.circle.fill")
-                    Text("Playlist scaricata")
-                } else {
-                    Image(systemName: "arrow.down.circle.fill")
-                    if saved > 0 {
-                        Text("Scarica i restanti \(downloadable.count - saved)")
-                    } else {
-                        Text("Scarica tutta la playlist")
-                    }
-                }
-            }
-            .font(.subheadline.weight(.semibold))
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 11)
-            .contentShape(.capsule)
-        }
-        .buttonStyle(.plain)
-        .glassEffect(.regular.interactive(), in: .capsule)
-        .disabled(downloadable.isEmpty || (saved == downloadable.count && inProgress == 0))
+    /// One tap saves the whole playlist, with the Music app's progress ring while it runs.
+    /// Last.fm songs are resolved by the download queue, rather than silently skipped.
+    private func downloadButton(_ playlist: Playlist) -> some View {
+        CollectionDownloadButton(tracks: playlist.tracks,
+                                 downloadTitle: String(localized: "Scarica tutta la playlist"),
+                                 doneTitle: String(localized: "Playlist scaricata"), verticalPadding: 11)
+            .buttonStyle(.plain)
+            .glassEffect(.regular.interactive(), in: .capsule)
     }
 
     private func summary(_ playlist: Playlist) -> String {

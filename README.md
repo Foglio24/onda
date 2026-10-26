@@ -23,7 +23,7 @@ See [CHANGELOG.md](CHANGELOG.md) for what changed in each version.
 | Shuffle and repeat | ✅ A real shuffle mode (radios and mixes too), repeat all / repeat one, sleep timer |
 | Last.fm scrobbler | ✅ Now playing, scrobble after half the song or 4 minutes, offline queue, likes synced |
 | Synced lyrics from LRCLIB | ✅ Auto-scroll, tap a line to seek, 3 animations and 3 sizes |
-| Offline downloads | ✅ Audio and artwork stored in the app |
+| Offline downloads | ✅ Audio and artwork stored in the app, with the Music app's progress rings, whole albums and playlists in one tap, and a storage page by artist |
 | Lock screen, Control Center, AirPlay | ✅ |
 | Dynamic colours from the artwork | ✅ Every screen and the player are tinted with the album's colours |
 | Theme colour | ✅ 11 preset accent colours |

@@ -73,6 +73,30 @@
 "Tocca ··· accanto a un brano e scegli Scarica." = "Tap ··· next to a song and choose Download.";
 "Cronologia vuota" = "No history";
 "I brani che ascolti appariranno qui." = "Songs you listen to will show up here.";
+"%lld in corso" = "%lld downloading";
+
+/* Downloads */
+"In attesa di download" = "Waiting to download";
+"Download in corso" = "Downloading";
+"Scaricato" = "Downloaded";
+"Annulla download" = "Cancel download";
+"Scaricati di recente" = "Recently downloaded";
+"Titolo" = "Title";
+"Artista" = "Artist";
+"Ordina per" = "Sort by";
+"Opzioni" = "Options";
+"Spazio occupato" = "Storage";
+"Fermare tutti i download in corso?" = "Stop all downloads in progress?";
+"Ferma i download" = "Stop downloads";
+"Download in corso: %lld di %lld" = "Downloading: %lld of %lld";
+"Ferma tutti" = "Stop all";
+"Sull'iPhone" = "On this iPhone";
+"In attesa" = "Waiting";
+"Musica scaricata" = "Downloaded music";
+"Scorri a sinistra su un artista o su un brano per toglierlo dall'iPhone: resta nei preferiti e nelle playlist, e si può riscaricare." = "Swipe left on an artist or a song to remove it from this iPhone: it stays in your favorites and playlists, and can be downloaded again.";
+"Download di Onda" = "Onda downloads";
+"Altro" = "Other";
+"Disponibile" = "Available";
 
 /* Playlists */
 "1 brano" = "1 song";

@@ -1,7 +1,9 @@
 import CoreMotion
 import SwiftUI
+import UIKit
 
-/// Device tilt, smoothed, from -1 to 1 on each axis. Only runs while a view needs it.
+/// Device tilt, smoothed, from -1 to 1 on each axis. Only runs while a view needs it and the app
+/// is on screen, and not at all with Reduce Motion, in Low Power Mode or while the iPhone is hot.
 @MainActor
 final class MotionTilt: ObservableObject {
     static let shared = MotionTilt()
@@ -11,33 +13,80 @@ final class MotionTilt: ObservableObject {
 
     private let manager = CMMotionManager()
     private var users = 0
+    private var isRunning = false
+    private var inBackground = false
+    /// Smoothed readings. They reach `pitch` and `roll` only when the change can be seen,
+    /// so an iPhone held still (or lying on a table) redraws nothing.
+    private var smoothPitch: Double = 0
+    private var smoothRoll: Double = 0
+    private static let visibleChange = 0.015
+    private var observers: [NSObjectProtocol] = []
 
-    private init() {}
+    private init() {
+        inBackground = UIApplication.shared.applicationState == .background
+        let center = NotificationCenter.default
+        let updates: [(Notification.Name, Bool?)] = [
+            (UIApplication.didEnterBackgroundNotification, true),
+            (UIApplication.willEnterForegroundNotification, false),
+            (UIAccessibility.reduceMotionStatusDidChangeNotification, nil),
+            (.NSProcessInfoPowerStateDidChange, nil),
+            (ProcessInfo.thermalStateDidChangeNotification, nil),
+        ]
+        observers = updates.map { name, background in
+            center.addObserver(forName: name, object: nil, queue: .main) { _ in
+                MainActor.assumeIsolated {
+                    if let background { MotionTilt.shared.inBackground = background }
+                    MotionTilt.shared.update()
+                }
+            }
+        }
+    }
 
     func start() {
         users += 1
-        guard users == 1, manager.isDeviceMotionAvailable else { return }
-        manager.deviceMotionUpdateInterval = 1.0 / 30
-        manager.startDeviceMotionUpdates(to: .main) { motion, _ in
-            guard let motion else { return }
-            // Measured from how a phone is usually held: tilted about 40° towards the face.
-            let pitch = max(-1, min(1, (motion.attitude.pitch - 0.7) / 0.6))
-            let roll = max(-1, min(1, motion.attitude.roll / 0.6))
-            MainActor.assumeIsolated { MotionTilt.shared.apply(pitch: pitch, roll: roll) }
-        }
+        update()
     }
 
     func stop() {
         users = max(0, users - 1)
-        guard users == 0 else { return }
-        manager.stopDeviceMotionUpdates()
-        pitch = 0
-        roll = 0
+        update()
+    }
+
+    private var shouldRun: Bool {
+        let info = ProcessInfo.processInfo
+        return users > 0 && !inBackground && manager.isDeviceMotionAvailable
+            && !UIAccessibility.isReduceMotionEnabled && !info.isLowPowerModeEnabled
+            && info.thermalState.rawValue < ProcessInfo.ThermalState.serious.rawValue
+    }
+
+    private func update() {
+        if shouldRun, !isRunning {
+            isRunning = true
+            manager.deviceMotionUpdateInterval = 1.0 / 30
+            manager.startDeviceMotionUpdates(to: .main) { motion, _ in
+                guard let motion else { return }
+                // Measured from how a phone is usually held: tilted about 40° towards the face.
+                let pitch = max(-1, min(1, (motion.attitude.pitch - 0.7) / 0.6))
+                let roll = max(-1, min(1, motion.attitude.roll / 0.6))
+                MainActor.assumeIsolated { MotionTilt.shared.apply(pitch: pitch, roll: roll) }
+            }
+        } else if !shouldRun, isRunning {
+            isRunning = false
+            manager.stopDeviceMotionUpdates()
+            smoothPitch = 0
+            smoothRoll = 0
+            withAnimation(.smooth(duration: 0.5)) {
+                pitch = 0
+                roll = 0
+            }
+        }
     }
 
     private func apply(pitch: Double, roll: Double) {
-        self.pitch += (pitch - self.pitch) * 0.2
-        self.roll += (roll - self.roll) * 0.2
+        smoothPitch += (pitch - smoothPitch) * 0.2
+        smoothRoll += (roll - smoothRoll) * 0.2
+        if abs(smoothPitch - self.pitch) >= Self.visibleChange { self.pitch = smoothPitch }
+        if abs(smoothRoll - self.roll) >= Self.visibleChange { self.roll = smoothRoll }
     }
 }
 

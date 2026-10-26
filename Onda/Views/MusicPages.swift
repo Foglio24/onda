@@ -251,7 +251,6 @@ struct AlbumView: View {
 
     @EnvironmentObject private var player: PlayerController
     @EnvironmentObject private var library: Library
-    @EnvironmentObject private var downloads: DownloadManager
     @State private var page: AlbumPage?
     @State private var failure: String?
     @State private var saved = false
@@ -298,17 +297,8 @@ struct AlbumView: View {
                     .foregroundStyle(.secondary)
                 PlayShuffleButtons(tracks: page.tracks, source: page.title)
                 HStack(spacing: 10) {
-                    Button {
-                        downloads.downloadAll(page.tracks)
-                    } label: {
-                        Label("Scarica", systemImage: "arrow.down.circle")
-                            .font(.subheadline.weight(.semibold))
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.75)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 4)
-                    }
-                    .buttonStyle(.glass)
+                    CollectionDownloadButton(tracks: page.tracks, compact: true)
+                        .buttonStyle(.glass)
                     Button {
                         library.createPlaylist(named: page.title, tracks: page.tracks)
                         saved = true

@@ -515,8 +515,9 @@ final class PlayerController: ObservableObject {
     }
 
     /// Separates the next song while this one plays, so its karaoke is ready when it starts.
+    /// Not while the iPhone is warm: the next song is then separated when it starts.
     private func prepareNextKaraoke() {
-        guard index + 1 < queue.count else { return }
+        guard index + 1 < queue.count, !PowerState.isConstrained else { return }
         let upNext = queue[index + 1]
         guard let videoId = upNext.videoId, StemSeparator.cachedStems(for: videoId) == nil else { return }
         StemSeparator.focus(on: [current?.videoId, videoId].compactMap { $0 })
@@ -967,11 +968,12 @@ final class PlayerController: ObservableObject {
     }
 
     /// Caches the next two songs while this one plays, so they start instantly and crossfade on time,
-    /// even with the screen locked.
+    /// even with the screen locked. Only the next one while the iPhone is warm.
     private func prefetchNext() {
         prefetchLyrics()
         let quality = Preferences.streamingQuality
-        let upcoming = queue.indices.filter { $0 > index }.prefix(2).map { queue[$0] }
+        let ahead = PowerState.isConstrained ? 1 : 2
+        let upcoming = queue.indices.filter { $0 > index }.prefix(ahead).map { queue[$0] }
         if Preferences.normalizesVolume {
             let videoIds = upcoming.compactMap(\.videoId)
             Task.detached(priority: .utility) {
@@ -1035,7 +1037,10 @@ final class PlayerController: ObservableObject {
             guard let artwork = await ArtworkLoader.shared.artwork(for: track),
                   !Task.isCancelled, self.current?.id == track.id else { return }
             self.nowPlayingArtwork = Self.makeArtwork(artwork.image)
-            self.currentArtworkData = artwork.image.jpegData(compressionQuality: 0.85)
+            // Only the iOS 27 player takes the cover as data: don't re-encode it for nothing.
+            if self.systemNowPlayingBox != nil {
+                self.currentArtworkData = artwork.image.jpegData(compressionQuality: 0.85)
+            }
             self.backdrop = artwork.backdrop
             if Preferences.dynamicColorsEnabled, let tint = artwork.tint {
                 self.artworkColor = Color(uiColor: tint)

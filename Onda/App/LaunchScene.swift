@@ -2,18 +2,36 @@ import SwiftUI
 
 /// Opens a given screen at launch, for the screenshots CI takes on a simulator
 /// (Tools/Screenshots/run.sh): `-OndaScene home | library | settings | search:<query> |
-/// artist:<browseId> | album:<browseId> | player:<videoId>`.
+/// artist:<browseId> | album:<browseId> | player:<videoId> | downloads:<videoId> | storage`.
+/// `downloads` downloads the first songs of a song's radio and shows them downloading;
+/// `storage` shows the space they take.
 /// Launch arguments are never passed in normal use, so this does nothing then.
 @MainActor
 enum LaunchScene {
+    private static var scene: String? { UserDefaults.standard.string(forKey: "OndaScene") }
+
+    /// Library → Download is opened at launch.
+    static var opensDownloads: Bool {
+        scene?.hasPrefix("downloads") == true || opensStorage
+    }
+
+    /// Library → Download → Spazio occupato is opened at launch.
+    static var opensStorage: Bool { scene == "storage" }
+
     static func apply(select: (AppTab) -> Void) {
-        guard let scene = UserDefaults.standard.string(forKey: "OndaScene") else { return }
+        guard let scene = Self.scene else { return }
         let parts = scene.split(separator: ":", maxSplits: 1).map(String.init)
         let value = parts.count > 1 ? parts[1] : ""
         let router = AppRouter.shared
         switch parts.first ?? "" {
-        case "library":
+        case "library", "storage":
             select(.library)
+        case "downloads":
+            select(.library)
+            Task {
+                guard let tracks = try? await InnerTube.shared.radio(for: value), !tracks.isEmpty else { return }
+                DownloadManager.shared.downloadAll(Array(tracks.prefix(6)))
+            }
         case "settings":
             select(.settings)
         case "search":

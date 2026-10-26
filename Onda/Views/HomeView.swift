@@ -137,7 +137,7 @@ struct HomeView: View {
             }
             .buttonStyle(.plain)
         case .downloads:
-            NavigationLink { TrackCollectionView(collection: .downloads) } label: {
+            NavigationLink { DownloadsView() } label: {
                 ShortcutTile(title: String(localized: "Download")) {
                     SymbolArtwork(symbol: "arrow.down.circle.fill", tint: .blue)
                 }

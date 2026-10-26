@@ -12,7 +12,7 @@ struct LyricsView: View {
                 .tint(.white)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         case .synced(let lines):
-            SyncedLyrics(lines: lines)
+            LyricsClock(lines: lines)
         case .plain(let text):
             ScrollView {
                 Text(text)
@@ -39,13 +39,26 @@ struct LyricsView: View {
     }
 }
 
+/// Follows the position (four times a second) and hands the current line to `SyncedLyrics`,
+/// which redraws only when the line changes.
+private struct LyricsClock: View {
+    let lines: [LyricLine]
+    @EnvironmentObject private var progress: PlaybackProgress
+
+    var body: some View {
+        // Lines are sorted by time and their ids are their positions.
+        let currentID = lines.last(where: { $0.time <= progress.currentTime + 0.25 })?.id
+        SyncedLyrics(lines: lines, currentID: currentID)
+            .equatable()
+    }
+}
+
 /// Karaoke-style lyrics: the current line lights up and stays centred; tap a line to jump there.
 /// With translation on, each line shows its translation underneath, made on the iPhone by Apple's
 /// Translation framework (see `LyricsTranslator`, which starts as soon as the song does).
-private struct SyncedLyrics: View {
+private struct SyncedLyrics: View, Equatable {
     let lines: [LyricLine]
-    @EnvironmentObject private var player: PlayerController
-    @EnvironmentObject private var progress: PlaybackProgress
+    let currentID: Int?
     @EnvironmentObject private var translator: LyricsTranslator
     @AppStorage(Preferences.lyricsStyle) private var style: LyricsStyle = .focus
     @AppStorage(Preferences.lyricsSize) private var size: LyricsSize = .medium
@@ -84,9 +97,8 @@ private struct SyncedLyrics: View {
 
     private var inactiveOpacity: Double { style == .fade ? 0.22 : 0.32 }
 
-    /// Lines are sorted by time and their ids are their positions.
-    private var activeID: Int? {
-        lines.last(where: { $0.time <= progress.currentTime + 0.25 })?.id
+    nonisolated static func == (lhs: SyncedLyrics, rhs: SyncedLyrics) -> Bool {
+        lhs.currentID == rhs.currentID && lhs.lines == rhs.lines
     }
 
     /// Changes whenever the song or the translation settings change.
@@ -95,7 +107,6 @@ private struct SyncedLyrics: View {
     }
 
     var body: some View {
-        let currentID = activeID
         ScrollViewReader { proxy in
             ScrollView {
                 VStack(alignment: .leading, spacing: 26) {
@@ -117,7 +128,7 @@ private struct SyncedLyrics: View {
                                 radius: style == .glow && active ? 14 : 0)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .contentShape(.rect)
-                        .onTapGesture { player.seek(to: line.time) }
+                        .onTapGesture { PlayerController.shared.seek(to: line.time) }
                         .animation(.spring(duration: 0.5, bounce: 0.2), value: active)
                         .id(line.id)
                     }

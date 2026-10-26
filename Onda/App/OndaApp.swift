@@ -2,13 +2,16 @@ import SwiftUI
 
 @main
 struct OndaApp: App {
-    @StateObject private var player = PlayerController.shared
-    @StateObject private var library = Library.shared
-    @StateObject private var downloads = DownloadManager.shared
-    @StateObject private var lastfm = LastFM.shared
-    @StateObject private var router = AppRouter.shared
-    @StateObject private var translator = LyricsTranslator.shared
-    @StateObject private var updater = AppUpdater.shared
+    // Plain references to the app-wide objects, not @StateObject: the views that show their state
+    // observe them, while the app itself doesn't need to re-run its body every time one changes.
+    // Computed, so they are still created after `init` has set up the URL cache.
+    private var player: PlayerController { .shared }
+    private var library: Library { .shared }
+    private var downloads: DownloadManager { .shared }
+    private var lastfm: LastFM { .shared }
+    private var router: AppRouter { .shared }
+    private var translator: LyricsTranslator { .shared }
+    private var updater: AppUpdater { .shared }
 
     init() {
         // A bigger shared cache keeps cover art loaded by AsyncImage between screens.
