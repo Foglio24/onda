@@ -33,7 +33,7 @@ jobs:
           xcodebuild -version
           xcrun --sdk iphoneos --show-sdk-version
 
-      - name: Check playback, library, scrobble, update, equalizer and song details logic
+      - name: Check app logic and energy budgets
         run: |
           bash Tools/PlaybackCheck/run.sh
           bash Tools/LibraryCheck/run.sh
@@ -41,6 +41,8 @@ jobs:
           bash Tools/UpdateCheck/run.sh
           bash Tools/EqualizerCheck/run.sh
           bash Tools/SongDetailsCheck/run.sh
+          bash Tools/EnergyCheck/run.sh
+          bash Tools/AudioWorkCheck/run.sh
 
       # Talks to the real YouTube Music: a failure means YouTube changed something (or is down),
       # so it is reported without blocking the build.

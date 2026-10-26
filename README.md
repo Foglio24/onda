@@ -38,6 +38,8 @@ The quality levels are:
 - **Medium:** Opus ~70 kbps.
 - **Data saver:** AAC 48 kbps.
 
+Wi-Fi and cellular default to **High (native AAC)** to avoid converting every streamed song on the phone. Existing explicit quality choices are preserved. Maximum remains available; conversion and AI work stop when Low Power Mode is enabled or iOS reports a serious thermal state. Only the next song's AAC copy is prepared ahead, and karaoke prepares the current song on demand. These limits reduce avoidable work; temperature and battery improvements still need measurement on an iPhone.
+
 On every song, tap **···** for all actions, or swipe right for *Like* and *Add to playlist*.
 
 Not included:

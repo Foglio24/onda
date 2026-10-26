@@ -244,9 +244,17 @@ final class DownloadManager: ObservableObject {
             progress[videoId] = progress.removeValue(forKey: requestKey) ?? 0
             let audioDestination = Storage.audioFile(for: videoId)
             destination = audioDestination
-            let quality = Preferences.downloadQualitySetting
+            let requestedQuality = Preferences.downloadQualitySetting
+            let quality = requestedQuality.usesOpus && !EnergyPolicy.current.allowsAudioConversion
+                ? AudioQuality.high : requestedQuality
             let tooLongForOpus = (playable.duration ?? 0) > Preferences.opusLengthLimit
             var stream = try await StreamResolver.shared.stream(for: videoId, quality: tooLongForOpus ? .high : quality)
+            try Task.checkCancellation()
+            // The thermal budget may have changed while YouTube resolved the URL.
+            if stream.format == .opus && !EnergyPolicy.current.allowsAudioConversion {
+                stream = try await StreamResolver.shared.stream(for: videoId, quality: .high)
+                try Task.checkCancellation()
+            }
             // Opus still needs decoding once the transfer is done: keep some of the bar for it.
             let scale = stream.format == .opus ? 0.85 : 1.0
             let report: @Sendable (Double) -> Void = { value in

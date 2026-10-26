@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.9.1 (2026-10-26)
+
+### Improved
+- **Less work during normal listening.** Wi-Fi now defaults to native AAC 128 kbps, like cellular. Existing explicit quality choices are kept; Maximum remains available.
+- Only the next song's native AAC copy is prepared ahead. Upcoming songs are no longer converted from Opus to Apple Lossless, and old preparation is cancelled when songs change or playback pauses.
+- Shared audio preparation stops once no caller needs it, while one cancelled caller cannot interrupt another caller's audio. Cache files become visible only when complete.
+- Opus conversions for playback and downloads run one at a time at utility priority, and stop between chunks when iOS reports serious thermal pressure or Low Power Mode is enabled. Downloads fall back to native AAC.
+- Karaoke AI prepares the current song on demand, stops on pause/background or excessive heat, and releases its model when it is no longer needed. Already prepared audio continues to play.
+- Cover motion uses fewer sensor updates and stops from the first elevated thermal state, in addition to the existing background, Reduce Motion and Low Power Mode limits.
+
+### For development
+- CI runs regression checks for energy budgets and shared audio cancellation in addition to all existing app logic, karaoke, localization and screenshot checks.
+- Temperature and battery improvements still need measurement on an iPhone; the automated checks verify scheduling and correctness, not physical device temperature.
+
 ## 1.9.0 (2026-10-26)
 
 ### Added

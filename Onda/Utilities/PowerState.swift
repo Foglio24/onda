@@ -5,8 +5,6 @@ import Foundation
 /// of time) waits then, as Apple recommends from the "fair" thermal state up.
 enum PowerState {
     static var isConstrained: Bool {
-        let info = ProcessInfo.processInfo
-        return info.isLowPowerModeEnabled
-            || info.thermalState.rawValue >= ProcessInfo.ThermalState.fair.rawValue
+        !EnergyPolicy.current.allowsSpeculativeWork
     }
 }

@@ -73,6 +73,7 @@ enum KaraokeError: LocalizedError {
     case unreadableAudio
     case separationFailed
     case lowMemory
+    case energyLimited
 
     var errorDescription: String? {
         switch self {
@@ -83,6 +84,8 @@ enum KaraokeError: LocalizedError {
         case .unreadableAudio: return String(localized: "Non riesco a leggere l'audio del brano.")
         case .separationFailed: return String(localized: "La separazione di voce e musica non è riuscita.")
         case .lowMemory: return String(localized: "Memoria insufficiente per il karaoke: chiudi qualche app e riprova.")
+        case .energyLimited:
+            return String(localized: "Karaoke AI temporaneamente non disponibile: Risparmio energetico attivo o temperatura dell'iPhone elevata.")
         }
     }
 }
@@ -103,7 +106,7 @@ actor StemSeparator {
     private static let memoryReserve = 300 << 20
     /// One separation at a time. The model is used, loaded and freed only on this queue, so
     /// freeing it (on a memory warning) waits for the separation in progress.
-    private static let workQueue = DispatchQueue(label: "onda.karaoke.separation", qos: .userInitiated)
+    private static let workQueue = DispatchQueue(label: "onda.karaoke.separation", qos: .utility)
     private static let wanted = WantedSongs()
     private static let lastRunKey = "karaoke.lastRun"
     /// The sherpa-onnx model that 1.4.0 test builds downloaded; Core ML has replaced it.
@@ -180,6 +183,7 @@ actor StemSeparator {
     func stems(for videoId: String, source: URL, duration: TimeInterval?,
                progress: (@Sendable (Double) -> Void)? = nil) async throws -> StemFiles {
         if let cached = Self.cachedStems(for: videoId) { return cached }
+        guard EnergyPolicy.current.allowsKaraoke else { throw KaraokeError.energyLimited }
         if let progress { listeners[videoId, default: []].append(progress) }
         if let running = inFlight[videoId] {
             do {
@@ -356,8 +360,12 @@ actor StemSeparator {
     private nonisolated static func separateSync(modelURL: URL, asset: AVAsset, track: AVAssetTrack,
                                                  videoId: String, totalFrames: Int, into files: StemFiles,
                                                  progress: (Double) -> Void) throws {
-        defer { removeNote() }
+        defer {
+            removeNote()
+            if !EnergyPolicy.current.allowsKaraoke { loadedSeparator = nil }
+        }
         guard wanted.contains(videoId) else { throw CancellationError() }
+        guard EnergyPolicy.current.allowsKaraoke else { throw KaraokeError.energyLimited }
         let started = Date.now
         let reader = try PCMReader(asset: asset, track: track, sampleRate: Double(sampleRate))
         let vocalsWriter = try StemWriter(destination: files.vocals, sampleRate: Double(sampleRate),
@@ -396,6 +404,7 @@ actor StemSeparator {
                     return false
                 }
                 guard wanted.contains(videoId) else { throw CancellationError() }
+                guard EnergyPolicy.current.allowsKaraoke else { throw KaraokeError.energyLimited }
                 let available = os_proc_available_memory()
                 if available > 0, available < memoryReserve { throw KaraokeError.lowMemory }
                 piece += 1

@@ -85,7 +85,7 @@ final class LyricsTranslator: ObservableObject {
 
     /// Translates the next song's lyrics in the background, so they show at once when it starts.
     func prefetch(_ newLines: [LyricLine]) {
-        guard Self.isEnabled, !newLines.isEmpty else { return }
+        guard Self.isEnabled, !newLines.isEmpty, EnergyPolicy.current.allowsSpeculativeWork else { return }
         let target = Self.target
         let key = Self.key(for: newLines, target: target)
         guard key != shownKey, key != prefetchKey, cached(key) == nil else { return }

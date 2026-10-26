@@ -44,13 +44,20 @@ actor StreamResolver {
     private var inFlight: [String: Task<ResolvedStream, Error>] = [:]
 
     func stream(for videoId: String, quality: AudioQuality) async throws -> ResolvedStream {
+        try Task.checkCancellation()
         let key = "\(videoId)|\(quality.rawValue)|\(Preferences.prefersDolby)"
         if let entry = cache[key], entry.expires > .now { return entry.stream }
-        if let running = inFlight[key] { return try await running.value }
+        if let running = inFlight[key] {
+            let stream = try await running.value
+            try Task.checkCancellation()
+            return stream
+        }
         let task = Task { try await self.resolve(videoId, quality: quality, key: key) }
         inFlight[key] = task
         defer { inFlight[key] = nil }
-        return try await task.value
+        let stream = try await task.value
+        try Task.checkCancellation()
+        return stream
     }
 
     func isCached(_ videoId: String, quality: AudioQuality) -> Bool {
@@ -113,23 +120,22 @@ actor StreamResolver {
 }
 
 /// Unlocks the stream links of songs shown on screen before they are tapped, like Spotify does,
-/// so playback can start right away. Most recently shown songs go first, two at a time.
-/// Paused while the iPhone is warm or in Low Power Mode (see `PowerState`): songs then take
-/// a moment longer to start.
+/// so playback can start right away. Most recently shown songs go first, one at a time.
 actor StreamPrewarmer {
     static let shared = StreamPrewarmer()
 
-    private static let maxQueued = 8
-    private static let maxRunning = 2
+    private static let maxQueued = 4
+    private static let maxRunning = 1
     private var queue: [String] = []
     private var running = 0
 
     nonisolated func request(_ track: Track) {
-        guard let videoId = track.videoId, !PowerState.isConstrained else { return }
+        guard EnergyPolicy.current.allowsSpeculativeWork, let videoId = track.videoId else { return }
         Task { await self.enqueue(videoId) }
     }
 
     private func enqueue(_ videoId: String) {
+        guard EnergyPolicy.current.allowsSpeculativeWork else { queue.removeAll(); return }
         queue.removeAll { $0 == videoId }
         queue.append(videoId)
         if queue.count > Self.maxQueued { queue.removeFirst(queue.count - Self.maxQueued) }
@@ -137,9 +143,10 @@ actor StreamPrewarmer {
     }
 
     private func pump() {
+        guard EnergyPolicy.current.allowsSpeculativeWork else { queue.removeAll(); return }
         while running < Self.maxRunning, let videoId = queue.popLast() {
             running += 1
-            Task {
+            Task(priority: .utility) {
                 await Self.resolve(videoId)
                 self.finished()
             }
@@ -152,10 +159,12 @@ actor StreamPrewarmer {
     }
 
     private static func resolve(_ videoId: String) async {
+        guard !Task.isCancelled, EnergyPolicy.current.allowsSpeculativeWork else { return }
         let quality = Preferences.initialStreamQuality
         guard Storage.audioFileExists(videoId: videoId) == false,
               OpusPipeline.cachedFile(videoId: videoId) == nil,
               await StreamResolver.shared.isCached(videoId, quality: quality) == false else { return }
+        guard !Task.isCancelled, EnergyPolicy.current.allowsSpeculativeWork else { return }
         _ = try? await StreamResolver.shared.stream(for: videoId, quality: quality)
     }
 }
