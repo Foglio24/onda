@@ -9,6 +9,7 @@ struct SettingsView: View {
     @EnvironmentObject private var updater: AppUpdater
     @ObservedObject private var diagnostics = Diagnostics.shared
     @ObservedObject private var equalizer = Equalizer.shared
+    @ObservedObject private var startupMetrics = PlaybackStartupMetrics.shared
 
     @AppStorage(Preferences.wifiQuality) private var wifiQuality = Preferences.defaultWifiQuality
     @AppStorage(Preferences.cellularQuality) private var cellularQuality = Preferences.defaultCellularQuality
@@ -393,6 +394,7 @@ struct SettingsView: View {
 
     private var diagnosticsSection: some View {
         Section {
+            startupTimes
             if diagnostics.reports.isEmpty {
                 Text("Nessun rapporto")
                     .foregroundStyle(.secondary)
@@ -417,7 +419,41 @@ struct SettingsView: View {
         } header: {
             Text("Diagnostica")
         } footer: {
-            Text("Se Onda si chiude da sola o si blocca, iOS prepara un rapporto tecnico e lo consegna all'app a un avvio successivo, di solito entro un giorno. Toccalo per condividerlo: contiene solo dati tecnici dell'app, non la tua musica né i tuoi account.")
+            VStack(alignment: .leading, spacing: 6) {
+                Text("I tempi di avvio vanno dal tocco su un brano alla prima nota, sugli ultimi 20 avvii, e restano sull'iPhone.")
+                Text("Se Onda si chiude da sola o si blocca, iOS prepara un rapporto tecnico e lo consegna all'app a un avvio successivo, di solito entro un giorno. Toccalo per condividerlo: contiene solo dati tecnici dell'app, non la tua musica né i tuoi account.")
+            }
+        }
+    }
+
+    /// How long songs take to start (see `PlaybackStartupMetrics`), once there is something to show.
+    @ViewBuilder private var startupTimes: some View {
+        if let median = startupMetrics.manualMedian {
+            LabeledContent("Avvio dei brani scelti",
+                           value: String(localized: "\(Self.seconds(median)) · mediana di \(startupMetrics.manualCount)"))
+        }
+        if let median = startupMetrics.automaticMedian {
+            LabeledContent("Passaggio automatico",
+                           value: String(localized: "\(Self.seconds(median)) · mediana di \(startupMetrics.automaticCount)"))
+        }
+        if let last = startupMetrics.last {
+            LabeledContent("Ultimo avvio", value: [Self.seconds(last.playingAfter), Self.sourceName(last.source)]
+                .compactMap { $0 }.joined(separator: " · "))
+            Button("Azzera i tempi di avvio") { startupMetrics.removeAll() }
+        }
+    }
+
+    private static func seconds(_ value: TimeInterval) -> String {
+        value.formatted(.number.precision(.fractionLength(1))) + " s"
+    }
+
+    private static func sourceName(_ source: StartupSource?) -> String? {
+        switch source {
+        case .prepared?, .preparing?: return String(localized: "già preparato")
+        case .resolvedURL?: return String(localized: "link già pronto")
+        case .network?: return String(localized: "da internet")
+        case .localFile?: return String(localized: "file sull'iPhone")
+        case nil: return nil
         }
     }
 

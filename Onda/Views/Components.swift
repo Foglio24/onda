@@ -152,7 +152,7 @@ struct TrackRow: View {
             }
         }
         .contextMenu { TrackMenu(track: track) }
-        .onAppear { StreamPrewarmer.shared.request(track) }
+        .playbackWarmup(track)
         .swipeActions(edge: .leading, allowsFullSwipe: true) {
             Button { library.toggleLike(track) } label: {
                 Label(library.isLiked(track) ? "Non mi piace" : "Mi piace",
@@ -212,7 +212,7 @@ struct TrackCard: View {
         .frame(width: size, alignment: .leading)
         .contentShape(.rect)
         .contextMenu { TrackMenu(track: track) }
-        .onAppear { StreamPrewarmer.shared.request(track) }
+        .playbackWarmup(track)
     }
 }
 

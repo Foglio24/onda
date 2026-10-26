@@ -29,7 +29,7 @@ See [CHANGELOG.md](CHANGELOG.md) for what changed in each version.
 | Lock screen, Control Center, AirPlay | ✅ |
 | Dynamic colours from the artwork | ✅ Every screen and the player are tinted with the album's colours |
 | Theme colour | ✅ 11 preset accent colours |
-| Instant start | ✅ Links of songs on screen are unlocked in the background, and playback starts with the first audio |
+| Instant start | ✅ Audio links in one quick request, the likely next song ready in advance on Wi-Fi, links of songs on screen unlocked in the background, and playback starts with the first audio |
 | Library | ✅ Favourites, playlists, downloads, history, and an editable queue (drag, delete, shuffle) that comes back after a restart |
 
 The quality levels are:

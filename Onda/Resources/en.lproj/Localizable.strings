@@ -447,3 +447,15 @@
 "Batteria" = "Drums";
 "Tastiere" = "Keyboards";
 "Sintetizzatore" = "Synthesizer";
+
+/* Startup times (Settings → Diagnostica) */
+"Avvio dei brani scelti" = "Start of songs you pick";
+"Passaggio automatico" = "Automatic changes";
+"Ultimo avvio" = "Last start";
+"%@ · mediana di %lld" = "%@ · median of %lld";
+"Azzera i tempi di avvio" = "Reset start times";
+"già preparato" = "already prepared";
+"link già pronto" = "link ready";
+"da internet" = "from the internet";
+"file sull'iPhone" = "file on the iPhone";
+"I tempi di avvio vanno dal tocco su un brano alla prima nota, sugli ultimi 20 avvii, e restano sull'iPhone." = "Start times run from tapping a song to its first note, over the last 20 starts, and stay on the iPhone.";

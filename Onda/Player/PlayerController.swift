@@ -191,6 +191,10 @@ final class PlayerController: ObservableObject {
     private var retriedCurrentItem = false
     /// Set once the current song has ended (or started fading out), so it is never finished twice.
     private var finishedCurrent = false
+    /// The song whose preparation (local copy, next song, karaoke) waits for its first note, so
+    /// nothing competes with the start of its stream for the connection.
+    private var deferredPreparation: (generation: UUID, track: Track)?
+    private let startupMetrics = PlaybackStartupMetrics.shared
     private var lastTick: TimeInterval = 0
 
     private init() {
@@ -334,12 +338,14 @@ final class PlayerController: ObservableObject {
         guard current != nil else { return play([track], source: String(localized: "Coda")) }
         queue.insert(track, at: index + 1)
         unshuffledUpcoming.insert(track, at: 0)
+        offerUpcoming()
     }
 
     func addToQueue(_ track: Track) {
         guard current != nil else { return play([track], source: String(localized: "Coda")) }
         queue.append(track)
         unshuffledUpcoming.append(track)
+        offerUpcoming()
     }
 
     func jump(to position: Int) {
@@ -365,16 +371,24 @@ final class PlayerController: ObservableObject {
             queue.replaceSubrange((index + 1)..., with: upcomingTracks.shuffled())
         }
         shuffleEnabled.toggle()
+        offerUpcoming()
     }
 
     func removeUpcoming(atOffsets offsets: IndexSet) {
         let removed = offsets.map { queue[$0 + index + 1] }
         queue.remove(atOffsets: IndexSet(offsets.map { $0 + index + 1 }))
         unshuffledUpcoming = PlaybackQueueOrder.removing(removed, from: unshuffledUpcoming, id: { $0.id })
+        offerUpcoming()
     }
 
     func moveUpcoming(fromOffsets source: IndexSet, toOffset destination: Int) {
         queue.move(fromOffsets: IndexSet(source.map { $0 + index + 1 }), toOffset: destination + index + 1)
+        offerUpcoming()
+    }
+
+    /// Tells `PreparedPlayback` which song comes next, so "next" can start it at once.
+    private func offerUpcoming() {
+        PreparedPlayback.shared.offerUpcoming(index + 1 < queue.count ? queue[index + 1] : nil)
     }
 
     // MARK: Transport
@@ -403,13 +417,15 @@ final class PlayerController: ObservableObject {
         if player.currentItem != nil {
             activateSession()
             player.play()
+            // Prepared right here, so the first note doesn't start it again.
+            deferredPreparation = nil
             if let track = current {
                 if karaokeMode != .off, !isPlayingStems { startKaraoke() }
                 else { prepareCurrentAudio(for: track) }
                 prefetchNext()
             }
         } else if !isLoading {
-            loadCurrent()
+            loadCurrent(reason: .resume)
             // After a restored session: carry on where the song was left.
             if let point = resumePoint, point.track.id == current?.id {
                 pendingStartTime = Self.startTime(of: point)
@@ -418,7 +434,7 @@ final class PlayerController: ObservableObject {
     }
 
     func next() {
-        advance()
+        advance(reason: .skip)
     }
 
     func previous() {
@@ -426,7 +442,7 @@ final class PlayerController: ObservableObject {
             seek(to: 0)
         } else {
             index -= 1
-            loadCurrent()
+            loadCurrent(reason: .skip)
         }
     }
 
@@ -599,9 +615,12 @@ final class PlayerController: ObservableObject {
     // MARK: Loading
 
     /// Loads the song at `index`. As part of a crossfade the previous song keeps playing on `outgoingPlayer`.
-    private func loadCurrent(crossfading: Bool = false) {
+    /// `reason` only sorts the startup timings shown in Settings → Diagnostica.
+    private func loadCurrent(crossfading: Bool = false, reason: StartupReason = .selection) {
         if !crossfading { endCrossfade() }
         let generation = requests.beginLoad()
+        startupMetrics.begin(generation, reason: crossfading ? .automatic : reason)
+        deferredPreparation = nil
         loadTask?.cancel()
         retryTask?.cancel()
         upgradeTask?.cancel()
@@ -614,6 +633,8 @@ final class PlayerController: ObservableObject {
         pendingStartTime = nil
         isRestoredSession = false
         guard let track = current else { return }
+        // The requested song comes first: speculative preparation waits until it plays.
+        PreparedPlayback.shared.suspendForStartup(keeping: track.videoId)
         let position = index
         playWhenReady = true
         retriedCurrentItem = false
@@ -644,16 +665,36 @@ final class PlayerController: ObservableObject {
                     self.queue[position] = playable
                     self.loadArtwork(for: playable)
                 }
+                // A player prepared while the song was on screen or next in the queue already
+                // has audio buffered: play that one (not during a crossfade, which has its own).
+                if !crossfading, let videoId = playable.videoId,
+                   let prepared = PreparedPlayback.shared.take(for: videoId, quality: Preferences.initialStreamQuality) {
+                    self.startupMetrics.resolved(generation, source: .prepared)
+                    self.streamInfo = prepared.label
+                    self.start(adopting: prepared.player, track: playable)
+                    return
+                }
+                let source = await self.startupSource(for: playable)
                 let stream = try await self.stream(for: playable)
                 guard !Task.isCancelled, self.requests.isCurrentLoad(generation), self.index == position else { return }
+                self.startupMetrics.resolved(generation, source: source)
                 self.streamInfo = stream.label
                 self.start(url: stream.url, track: playable)
             } catch {
                 guard !Task.isCancelled, self.requests.isCurrentLoad(generation), self.index == position else { return }
+                self.startupMetrics.fail(generation)
                 self.fail(error.localizedDescription)
             }
         }
         extendQueueIfNeeded()
+    }
+
+    /// Where the song's audio will come from, for the startup timings in Settings.
+    private func startupSource(for track: Track) async -> StartupSource {
+        if Storage.localAudio(for: track) != nil { return .localFile }
+        guard let videoId = track.videoId else { return .network }
+        if OpusPipeline.cachedFile(videoId: videoId) != nil { return .localFile }
+        return await StreamResolver.shared.isCached(videoId) ? .resolvedURL : .network
     }
 
     /// Downloaded or cached file when there is one; otherwise the plain AAC stream, which starts at once.
@@ -772,13 +813,32 @@ final class PlayerController: ObservableObject {
     private func start(url: URL, track: Track, isRetry: Bool = false) {
         let item = AVPlayerItem(url: url)
         item.allowedAudioSpatializationFormats = Self.spatializationFormats
+        player.replaceCurrentItem(with: item)
+        begin(item, track: track, isRetry: isRetry)
+    }
+
+    /// Plays a player prepared in advance (see `PreparedPlayback`): its item already has audio
+    /// buffered, so the song starts almost at once. It takes the place of the current, idle player.
+    private func start(adopting prepared: AVPlayer, track: Track) {
+        guard let item = prepared.currentItem else { return }
+        // It buffered only a couple of seconds while waiting; playing, AVPlayer decides again.
+        item.preferredForwardBufferDuration = 0
+        player.pause()
+        player.replaceCurrentItem(with: nil)
+        player = prepared
+        attach(prepared)
+        begin(item, track: track, isRetry: false)
+    }
+
+    /// Everything once the song's item is on the player. Work that downloads or decodes waits
+    /// for the first note (see `startDeferredPreparation`).
+    private func begin(_ item: AVPlayerItem, track: Track, isRetry: Bool) {
         itemStatus = item.publisher(for: \.status)
             .receive(on: DispatchQueue.main)
             .sink { [weak item] status in
                 guard let item else { return }
                 self.itemStatusChanged(status, item: item, track: track)
             }
-        player.replaceCurrentItem(with: item)
         applyAudioEffects(to: item, track: track)
 
         if pendingFadeIn != nil {
@@ -794,15 +854,26 @@ final class PlayerController: ObservableObject {
             // later stalls are still handled by AVPlayer's normal waiting.
             player.playImmediately(atRate: 1)
         }
-        prepareCurrentAudio(for: track)
+        deferredPreparation = (requests.loadGeneration, track)
         guard !isRetry else { return }
         scrobbler.begin(track)
         Library.shared.recordPlay(track)
         loadLyrics(for: track)
-        prefetchNext()
         updateNowPlayingInfo()
+    }
+
+    /// Runs once the song is audible: its local copy (and Opus), the next song, karaoke and the
+    /// prepared player, which would otherwise compete with the stream's first seconds.
+    private func startDeferredPreparation() {
+        guard let pending = deferredPreparation, requests.isCurrentLoad(pending.generation),
+              current?.id == pending.track.id else { return }
+        deferredPreparation = nil
+        prepareCurrentAudio(for: pending.track)
+        prefetchNext()
         // Karaoke stays on from song to song, preparing only the current song.
         if karaokeMode != .off { startKaraoke() }
+        PreparedPlayback.shared.resumeAfterStartup()
+        offerUpcoming()
     }
 
     /// Prepare the requested song only. Upcoming songs never run the Opus decoder.
@@ -865,6 +936,7 @@ final class PlayerController: ObservableObject {
         case .readyToPlay:
             isLoading = false
             failuresInARow = 0
+            startupMetrics.itemReady(requests.loadGeneration)
             if let start = pendingStartTime {
                 pendingStartTime = nil
                 seek(to: start)
@@ -882,6 +954,7 @@ final class PlayerController: ObservableObject {
             retryTask?.cancel()
             retryTask = Task {
                 // Retry with plain AAC: the most reliable rendition.
+                PreparedPlayback.shared.invalidate(videoId)
                 await StreamResolver.shared.invalidate(videoId)
                 let stream = try? await StreamResolver.shared.stream(for: videoId, quality: .high)
                 guard !Task.isCancelled, self.requests.isCurrentLoad(generation),
@@ -911,18 +984,18 @@ final class PlayerController: ObservableObject {
             guard self.requests.isCurrentLoad(generation), self.index == failedIndex,
                   self.errorMessage == message else { return }
             self.index += 1
-            self.loadCurrent()
+            self.loadCurrent(reason: .automatic)
         }
     }
 
-    private func advance() {
+    private func advance(reason: StartupReason = .automatic) {
         advanceTask?.cancel()
         if index + 1 < queue.count {
             index += 1
-            loadCurrent()
+            loadCurrent(reason: reason)
         } else if repeatMode == .all, !queue.isEmpty {
             index = 0
-            loadCurrent()
+            loadCurrent(reason: reason)
         } else {
             let generation = requests.loadGeneration
             advanceTask = Task {
@@ -930,7 +1003,7 @@ final class PlayerController: ObservableObject {
                 guard !Task.isCancelled, self.requests.isCurrentLoad(generation) else { return }
                 if self.index + 1 < self.queue.count {
                     self.index += 1
-                    self.loadCurrent()
+                    self.loadCurrent(reason: reason)
                 } else {
                     self.player.pause()
                     self.seek(to: 0)
@@ -1051,6 +1124,7 @@ final class PlayerController: ObservableObject {
             let added = Array(fresh.prefix(30))
             self.unshuffledUpcoming.append(contentsOf: added)
             self.queue.append(contentsOf: self.shuffleEnabled ? added.shuffled() : added)
+            self.offerUpcoming()
             return true
         }
     }
@@ -1179,6 +1253,8 @@ final class PlayerController: ObservableObject {
                 if status == .playing {
                     self.isLoading = false
                     self.startPendingFades()
+                    self.startupMetrics.playing(self.requests.loadGeneration)
+                    self.startDeferredPreparation()
                 }
                 self.updateNowPlayingInfo()
             }

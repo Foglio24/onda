@@ -20,6 +20,11 @@ actor Loudness {
         return value
     }
 
+    /// Keeps a value that came with another answer (see `DirectStreams`), so no request is needed.
+    func remember(_ decibels: Double, for videoId: String) {
+        known[videoId] = .some(decibels)
+    }
+
     /// The volume that brings a song down to the reference level. Quieter songs stay as they are:
     /// raising them could clip.
     static func gain(forDecibels decibels: Double?) -> Float {

@@ -43,6 +43,8 @@ jobs:
           bash Tools/SongDetailsCheck/run.sh
           bash Tools/EnergyCheck/run.sh
           bash Tools/AudioWorkCheck/run.sh
+          bash Tools/StartupMetricsCheck/run.sh
+          bash Tools/StreamCheck/run.sh
 
       # Talks to the real YouTube Music: a failure means YouTube changed something (or is down),
       # so it is reported without blocking the build.

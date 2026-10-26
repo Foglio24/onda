@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.10.0 (2026-10-26)
+
+### Improved
+- **Songs start much sooner.** Onda now asks YouTube for a song's audio links the way YouTube's visionOS app does: one request of about a third of a second, answered with direct links to every quality. Before, YouTubeKit downloaded the video's web page (over 1 MB) for every song, often YouTube's player script too (about 3 MB), and decoded the links, which took 1.5–3 seconds; it is still used whenever the quick way fails.
+  - The quick way needs a visitor ID from YouTube, which is the same for every song: Onda keeps it between launches.
+  - The same answer tells how loud the song is, so Volume uniforme no longer makes a request of its own.
+- **One lookup per song.** All the qualities of a song come from a single lookup, instead of one for the quality that starts playing and another for the local copy or Opus.
+- **Nothing competes with the first note.** The local copy, Opus, the next song and karaoke now start only once the song is audible, instead of downloading alongside its first seconds.
+- **A song ready in advance.** On Wi-Fi, when the iPhone is cool and not in Low Power Mode, Onda keeps one paused player ready for the most likely next song (the next one in the queue, or the song you are looking at), with its first seconds already loaded, so it starts almost at once. It is dropped after two minutes, or as soon as it is no longer the likely one.
+- Songs on screen are prepared only while they are actually visible, most likely first, and a row that scrolls away withdraws its request.
+
+### Added
+- **Start times** in Settings → Diagnostica: how long songs you pick take from the tap to the first note (median of the last 20), how long automatic changes take, and where the last one came from (already prepared, link ready, from the internet, file on the iPhone). The times stay on the iPhone.
+
+### For development
+- CI checks how direct links are read from YouTube's answer (no dubbed tracks, no compressed copies, no ciphered links), the start-time statistics, and, against the live service when YouTube answers CI, the quick way itself.
+- Most of the prepared player, the start-time measurements and their check were written by ChatGPT, which ran out of usage before connecting them to the player.
+
 ## 1.9.2 (2026-10-26)
 
 ### Fixed

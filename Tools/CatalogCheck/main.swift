@@ -34,6 +34,17 @@ do {
     expect(album.tracks.allSatisfy { $0.artist != "300 Mln riproduzioni" && !$0.artist.isEmpty }, "album tracks have artists, not play counts: \(album.tracks.first?.artist ?? "")")
     expect(album.tracks.contains { $0.duration != nil }, "album tracks have durations")
 
+    // The quick way to audio links: one visionOS player request with a visitor ID.
+    if let song = songs.first, let videoId = song.videoId {
+        do {
+            let direct = try await DirectStreams.fetch(videoId)
+            let found = direct.renditions.map { "\($0.format) \($0.bitrate / 1000)k" }
+            expect(direct.renditions.contains { $0.format == .aac && $0.isNative }, "direct links for \(song.title): \(found)")
+        } catch {
+            print("skip direct links of \(song.title): YouTube refused them here (\(error))")
+        }
+    }
+
     // YouTube often refuses this request from data centres (like CI's), as it does audio:
     // that is reported, not counted as a failure. The parsing itself is checked offline by
     // Tools/SongDetailsCheck.

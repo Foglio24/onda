@@ -1,150 +1,166 @@
 import Foundation
 import YouTubeKit
 
-enum StreamError: LocalizedError {
-    case noPlayableStream
-
-    var errorDescription: String? { String(localized: "Nessuno stream audio riproducibile per questo brano.") }
-}
-
-enum StreamFormat: Sendable {
-    case aac, opus, dolby
-}
-
-struct ResolvedStream: Sendable {
-    let url: URL
-    let format: StreamFormat
-    /// Bits per second, when YouTube reports it.
-    let bitrate: Int?
-
-    /// "Opus · 160 kbps", "AAC · 128 kbps", "Dolby Digital Plus · 384 kbps"
-    var label: String {
-        let name: String
-        switch format {
-        case .aac: name = "AAC"
-        case .opus: name = "Opus"
-        case .dolby: name = "Dolby Digital Plus"
-        }
-        guard let bitrate, bitrate > 0 else { return name }
-        return "\(name) · \(Int((Double(bitrate) / 1000).rounded())) kbps"
-    }
-}
-
 /// Turns a YouTube video ID into a direct audio URL, picking the rendition for the chosen quality.
+/// A video's renditions are looked up once and shared by every quality: first with one direct
+/// request (`DirectStreams`), otherwise with YouTubeKit, which loads the video's web page and
+/// YouTube's player script.
 actor StreamResolver {
     static let shared = StreamResolver()
 
     private struct Entry {
-        let stream: ResolvedStream
+        let renditions: [AudioRendition]
         let expires: Date
     }
 
     private var cache: [String: Entry] = [:]
-    /// Resolutions in progress, so a tap on a song being pre-resolved waits for the same work.
-    private var inFlight: [String: Task<ResolvedStream, Error>] = [:]
+    /// Lookups in progress, so a tap on a song being pre-resolved waits for the same work.
+    private var inFlight: [String: Task<Entry, Error>] = [:]
+    /// Videos whose direct links failed to play: YouTubeKit looks them up from now on.
+    private var avoidDirect: Set<String> = []
 
     func stream(for videoId: String, quality: AudioQuality) async throws -> ResolvedStream {
         try Task.checkCancellation()
-        let key = "\(videoId)|\(quality.rawValue)|\(Preferences.prefersDolby)"
-        if let entry = cache[key], entry.expires > .now { return entry.stream }
-        if let running = inFlight[key] {
-            let stream = try await running.value
-            try Task.checkCancellation()
-            return stream
-        }
-        let task = Task { try await self.resolve(videoId, quality: quality, key: key) }
-        inFlight[key] = task
-        defer { inFlight[key] = nil }
-        let stream = try await task.value
+        let entry = try await renditions(for: videoId)
         try Task.checkCancellation()
+        guard let stream = Self.choose(from: entry.renditions, quality: quality,
+                                       prefersDolby: Preferences.prefersDolby) else {
+            throw StreamError.noPlayableStream
+        }
         return stream
     }
 
-    func isCached(_ videoId: String, quality: AudioQuality) -> Bool {
-        let key = "\(videoId)|\(quality.rawValue)|\(Preferences.prefersDolby)"
-        return (cache[key]?.expires ?? .distantPast) > .now
+    /// Whether the video's links are already known, so playing it needs no request.
+    func isCached(_ videoId: String) -> Bool {
+        (cache[videoId]?.expires ?? .distantPast) > .now
     }
 
-    private func resolve(_ videoId: String, quality: AudioQuality, key: String) async throws -> ResolvedStream {
+    /// Forgets the video's links (they expired or failed). After a failure the next lookup goes
+    /// through YouTubeKit, in case the direct links were the problem.
+    func invalidate(_ videoId: String) {
+        cache[videoId] = nil
+        avoidDirect.insert(videoId)
+    }
+
+    private func renditions(for videoId: String) async throws -> Entry {
+        if let entry = cache[videoId], entry.expires > .now { return entry }
+        if let running = inFlight[videoId] { return try await running.value }
+        let direct = !avoidDirect.contains(videoId)
+        let task = Task { try await Self.load(videoId, direct: direct) }
+        inFlight[videoId] = task
+        defer { inFlight[videoId] = nil }
+        let entry = try await task.value
+        if cache.count > 300 { cache = cache.filter { $0.value.expires > .now } }
+        cache[videoId] = entry
+        return entry
+    }
+
+    private static func load(_ videoId: String, direct: Bool) async throws -> Entry {
+        if direct, let result = try? await DirectStreams.fetch(videoId) {
+            // The same answer tells how loud the song is: "Volume uniforme" needs no request of its own.
+            if let loudness = result.loudness { await Loudness.shared.remember(loudness, for: videoId) }
+            return Entry(renditions: result.renditions, expires: result.expires)
+        }
         // Local extraction first; the remote fallback keeps working when YouTube changes its player.
         let streams = try await YouTube(videoID: videoId, methods: [.local, .remote]).streams
-        let audio = streams.filterAudioOnly()
-        let aac = audio.filter { $0.fileExtension == .m4a && $0.audioCodec != .ec3 && $0.audioCodec != .ac3 }
-        let opus = audio.filter { $0.fileExtension == .webm }
-        let dolby = audio.filter { $0.audioCodec == .ec3 || $0.audioCodec == .ac3 }
+        let renditions = streams.filterAudioOnly().map { stream -> AudioRendition in
+            let format: StreamFormat
+            if stream.audioCodec == .ec3 || stream.audioCodec == .ac3 {
+                format = .dolby
+            } else if stream.fileExtension == .webm {
+                format = .opus
+            } else {
+                format = .aac
+            }
+            return AudioRendition(url: stream.url, format: format,
+                                  bitrate: stream.averageBitrate ?? stream.bitrate ?? 0,
+                                  isNative: stream.isNativelyPlayable)
+        }
+        // Stream URLs are signed for roughly six hours.
+        return Entry(renditions: renditions, expires: .now.addingTimeInterval(4 * 3600))
+    }
 
-        var chosen: ResolvedStream?
+    /// The rendition for a quality: Dolby, 256 kbps AAC or Opus at the top, Opus near 70 kbps for
+    /// Media, the smallest AAC for Risparmio dati, otherwise the best AAC.
+    static func choose(from renditions: [AudioRendition], quality: AudioQuality, prefersDolby: Bool) -> ResolvedStream? {
+        let aac = renditions.filter { $0.format == .aac && $0.isNative }
+        let opus = renditions.filter { $0.format == .opus }
+        let dolby = renditions.filter { $0.format == .dolby && $0.isNative }
+
+        var chosen: AudioRendition?
         switch quality {
         case .max:
-            if Preferences.prefersDolby, let best = dolby.highestAudioBitrateStream() {
-                chosen = Self.resolved(best, .dolby)
-            } else if let best = aac.highestAudioBitrateStream(), Self.bitrate(of: best) >= 190_000 {
+            if prefersDolby, let best = dolby.max(by: { $0.bitrate < $1.bitrate }) {
+                chosen = best
+            } else if let best = aac.max(by: { $0.bitrate < $1.bitrate }), best.bitrate >= 190_000 {
                 // 256 kbps AAC, when YouTube offers it.
-                chosen = Self.resolved(best, .aac)
-            } else if let best = opus.highestAudioBitrateStream() {
-                chosen = Self.resolved(best, .opus)
+                chosen = best
+            } else {
+                chosen = opus.max(by: { $0.bitrate < $1.bitrate })
             }
         case .high:
             break
         case .medium:
-            // The Opus rendition closest to 70 kbps.
-            if let best = opus.min(by: { abs(Self.bitrate(of: $0) - 70_000) < abs(Self.bitrate(of: $1) - 70_000) }) {
-                chosen = Self.resolved(best, .opus)
-            }
+            chosen = opus.min(by: { abs($0.bitrate - 70_000) < abs($1.bitrate - 70_000) })
         case .low:
-            if let lowest = aac.lowestAudioBitrateStream() { chosen = Self.resolved(lowest, .aac) }
+            chosen = aac.min(by: { $0.bitrate < $1.bitrate })
         }
-        if chosen == nil, let best = aac.highestAudioBitrateStream() {
-            chosen = Self.resolved(best, .aac)
-        }
-        if chosen == nil, let any = audio.filter(\.isNativelyPlayable).highestAudioBitrateStream() {
-            chosen = Self.resolved(any, .aac)
-        }
-        guard let stream = chosen else { throw StreamError.noPlayableStream }
-        // Stream URLs are signed for roughly six hours.
-        cache[key] = Entry(stream: stream, expires: .now.addingTimeInterval(4 * 3600))
-        return stream
-    }
-
-    func invalidate(_ videoId: String) {
-        cache = cache.filter { !$0.key.hasPrefix("\(videoId)|") }
-    }
-
-    private static func bitrate(of stream: YouTubeKit.Stream) -> Int {
-        stream.averageBitrate ?? stream.bitrate ?? 0
-    }
-
-    private static func resolved(_ stream: YouTubeKit.Stream, _ format: StreamFormat) -> ResolvedStream {
-        ResolvedStream(url: stream.url, format: format, bitrate: bitrate(of: stream))
+        if chosen == nil { chosen = aac.max(by: { $0.bitrate < $1.bitrate }) }
+        if chosen == nil { chosen = renditions.filter(\.isNative).max(by: { $0.bitrate < $1.bitrate }) }
+        guard let chosen else { return nil }
+        return ResolvedStream(url: chosen.url, format: chosen.format, bitrate: chosen.bitrate)
     }
 }
 
 /// Unlocks the stream links of songs shown on screen before they are tapped, like Spotify does,
-/// so playback can start right away. Most recently shown songs go first, one at a time.
+/// so playback can start right away. Higher priority first, then the most recently shown,
+/// one at a time. A row that scrolls away withdraws its request (see `playbackWarmup`).
 actor StreamPrewarmer {
     static let shared = StreamPrewarmer()
 
-    private static let maxQueued = 4
-    private static let maxRunning = 1
-    private var queue: [String] = []
-    private var running = 0
-
-    nonisolated func request(_ track: Track) {
-        guard EnergyPolicy.current.allowsSpeculativeWork, let videoId = track.videoId else { return }
-        Task { await self.enqueue(videoId) }
+    private struct Request {
+        let videoId: String
+        let token: UUID?
+        let priority: Int
+        let order: UInt64
     }
 
-    private func enqueue(_ videoId: String) {
+    private static let maxQueued = 4
+    private static let maxRunning = 1
+    private var queue: [Request] = []
+    private var order: UInt64 = 0
+    private var running = 0
+
+    nonisolated func request(_ track: Track, token: UUID? = nil, priority: Int = 0) {
+        guard EnergyPolicy.current.allowsSpeculativeWork, let videoId = track.videoId else { return }
+        Task { await self.enqueue(videoId, token: token, priority: priority) }
+    }
+
+    nonisolated func release(_ token: UUID) {
+        Task { await self.withdraw(token) }
+    }
+
+    private func enqueue(_ videoId: String, token: UUID?, priority: Int) {
         guard EnergyPolicy.current.allowsSpeculativeWork else { queue.removeAll(); return }
-        queue.removeAll { $0 == videoId }
-        queue.append(videoId)
-        if queue.count > Self.maxQueued { queue.removeFirst(queue.count - Self.maxQueued) }
+        order &+= 1
+        queue.removeAll { $0.videoId == videoId }
+        queue.append(Request(videoId: videoId, token: token, priority: priority, order: order))
+        if queue.count > Self.maxQueued {
+            queue.sort { ($0.priority, $0.order) < ($1.priority, $1.order) }
+            queue.removeFirst(queue.count - Self.maxQueued)
+        }
         pump()
+    }
+
+    private func withdraw(_ token: UUID) {
+        queue.removeAll { $0.token == token }
     }
 
     private func pump() {
         guard EnergyPolicy.current.allowsSpeculativeWork else { queue.removeAll(); return }
-        while running < Self.maxRunning, let videoId = queue.popLast() {
+        while running < Self.maxRunning,
+              let next = queue.indices.max(by: { (queue[$0].priority, queue[$0].order) < (queue[$1].priority, queue[$1].order) }) {
+            let videoId = queue.remove(at: next).videoId
             running += 1
             Task(priority: .utility) {
                 await Self.resolve(videoId)
@@ -160,11 +176,10 @@ actor StreamPrewarmer {
 
     private static func resolve(_ videoId: String) async {
         guard !Task.isCancelled, EnergyPolicy.current.allowsSpeculativeWork else { return }
-        let quality = Preferences.initialStreamQuality
         guard Storage.audioFileExists(videoId: videoId) == false,
               OpusPipeline.cachedFile(videoId: videoId) == nil,
-              await StreamResolver.shared.isCached(videoId, quality: quality) == false else { return }
+              await StreamResolver.shared.isCached(videoId) == false else { return }
         guard !Task.isCancelled, EnergyPolicy.current.allowsSpeculativeWork else { return }
-        _ = try? await StreamResolver.shared.stream(for: videoId, quality: quality)
+        _ = try? await StreamResolver.shared.stream(for: videoId, quality: Preferences.initialStreamQuality)
     }
 }
