@@ -308,9 +308,9 @@ final class DownloadManager: ObservableObject {
     }
 
     nonisolated private static func decode(webm: URL, to destination: URL) async throws {
-        try await Task.detached(priority: .utility) {
+        try await AudioWorker.run {
             try OpusPipeline.transcode(webm: webm, to: destination)
-        }.value
+        }
     }
 
     /// Downloads `url` to `destination`, reporting progress along the way.

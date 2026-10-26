@@ -33,6 +33,41 @@ private final class ConcurrentProbe: @unchecked Sendable {
     }
 }
 
+private final class WorkerProbe: @unchecked Sendable {
+    private let lock = NSLock()
+    private var began = false
+    private var stopped = false
+    private var finished = false
+
+    var state: (started: Bool, cancelled: Bool, completed: Bool) {
+        lock.lock()
+        defer { lock.unlock() }
+        return (began, stopped, finished)
+    }
+
+    func convert() throws -> Int {
+        lock.lock()
+        began = true
+        lock.unlock()
+        do {
+            let limit = ProcessInfo.processInfo.systemUptime + 5
+            while ProcessInfo.processInfo.systemUptime < limit {
+                try Task.checkCancellation()
+                Thread.sleep(forTimeInterval: 0.005)
+            }
+            lock.lock()
+            finished = true
+            lock.unlock()
+            return 42
+        } catch {
+            lock.lock()
+            stopped = error is CancellationError
+            lock.unlock()
+            throw error
+        }
+    }
+}
+
 @main
 private struct AudioWorkCheck {
     static func expect(_ condition: Bool, _ message: String) {
@@ -85,6 +120,28 @@ private struct AudioWorkCheck {
         let probe = ConcurrentProbe()
         DispatchQueue.concurrentPerform(iterations: 8) { _ in probe.run() }
         expect(probe.maximum == 1 && probe.completed == 8, "Audio conversions must be serialized across callers")
-        print("Shared audio checks passed (shared cancellation, orphan cancellation, serial conversion).")
+
+        let workerProbe = WorkerProbe()
+        let parent = Task { try await AudioWorker.run { try workerProbe.convert() } }
+        while !workerProbe.state.started { await Task.yield() }
+        parent.cancel()
+        do { _ = try await parent.value; fatalError("A cancelled download must not return a conversion result") }
+        catch is CancellationError {}
+        expect(workerProbe.state.cancelled && !workerProbe.state.completed,
+               "Cancelling the download parent must stop its detached conversion worker before completion")
+
+        let startGate = Gate()
+        let neverStarted = WorkerProbe()
+        let alreadyCancelled = Task {
+            await startGate.wait()
+            return try await AudioWorker.run { try neverStarted.convert() }
+        }
+        alreadyCancelled.cancel()
+        await startGate.open()
+        do { _ = try await alreadyCancelled.value; fatalError("An already cancelled parent must reject the work") }
+        catch is CancellationError {}
+        expect(!neverStarted.state.started, "Do not start a worker for an already cancelled download")
+        expect(try await AudioWorker.run { 17 } == 17, "A successful worker must return its result unchanged")
+        print("Shared audio checks passed (shared cancellation, orphan cancellation, serial conversion, parent-worker cancellation).")
     }
 }
