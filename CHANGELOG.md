@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.8.0 (beta)
+## 1.8.0 (2026-10-26)
 
 ### Improved
 - **Cooler iPhone.** Onda does less work in the background and redraws less on screen:
