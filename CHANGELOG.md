@@ -10,6 +10,10 @@
   - **Moods** are now tinted glass tiles, ordered by time of day: energy in the morning, focus in the afternoon, calm in the evening.
   - **Recently played** has smaller covers, so more fit on screen.
 
+### Improved
+- **Smoother pages.** Covers are kept in memory once decoded, so pages you go back to show them at once instead of loading them again, and small rows decode a small copy instead of the full-size cover (downloaded songs used to decode a 1080-pixel image for every row).
+- **Lighter player.** Its blurred background is made once per song instead of being blurred live, which slowed down opening and closing the player.
+
 ## 1.4.1 (2026-10-26)
 
 ### Fixed

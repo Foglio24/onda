@@ -57,6 +57,8 @@ final class PlayerController: ObservableObject {
     @Published private(set) var source = ""
     @Published private(set) var lyrics: LyricsState = .idle
     @Published private(set) var artworkColor = PlayerController.defaultTint
+    /// Blurred cover for the full-screen player's background (see `ArtworkLoader`).
+    @Published private(set) var backdrop: UIImage?
     /// "AAC · 129 kbps", "Opus · 160 kbps", or "… · offline" for downloaded songs.
     @Published private(set) var streamInfo: String? = nil
     @Published private(set) var shuffleEnabled = false
@@ -927,6 +929,7 @@ final class PlayerController: ObservableObject {
                   !Task.isCancelled, self.current?.id == track.id else { return }
             self.nowPlayingArtwork = Self.makeArtwork(artwork.image)
             self.currentArtworkData = artwork.image.jpegData(compressionQuality: 0.85)
+            self.backdrop = artwork.backdrop
             if Preferences.dynamicColorsEnabled, let tint = artwork.tint {
                 self.artworkColor = Color(uiColor: tint)
             } else {

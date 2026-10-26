@@ -102,15 +102,28 @@ struct HomeView: View {
 
     private func shortcutsSection(_ shortcuts: [HomeShortcut]) -> some View {
         section("Accesso rapido") {
-            GlassEffectContainer(spacing: 10) {
-                LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)],
-                          spacing: 10) {
-                    ForEach(shortcuts) { shortcut in
-                        shortcutTile(shortcut)
+            tileGrid(shortcuts, columns: 2) { shortcutTile($0) }
+                .padding(.horizontal)
+        }
+    }
+
+    /// A plain grid of glass tiles. A LazyVGrid inside a GlassEffectContainer left some tiles
+    /// undrawn on iOS 26, so these few tiles go in ordinary rows, each glass on its own.
+    private func tileGrid<Item: Identifiable, Tile: View>(_ items: [Item], columns: Int,
+                                                          @ViewBuilder tile: @escaping (Item) -> Tile) -> some View {
+        let rows = stride(from: 0, to: items.count, by: columns).map {
+            Array(items[$0..<min($0 + columns, items.count)])
+        }
+        return VStack(spacing: 10) {
+            ForEach(rows.indices, id: \.self) { row in
+                HStack(spacing: 10) {
+                    ForEach(rows[row]) { item in tile(item) }
+                    // Keeps the last row's tiles as wide as the others.
+                    ForEach(rows[row].count..<columns, id: \.self) { _ in
+                        Color.clear.frame(maxWidth: .infinity, maxHeight: 0)
                     }
                 }
             }
-            .padding(.horizontal)
         }
     }
 
@@ -192,33 +205,29 @@ struct HomeView: View {
 
     private var moodsSection: some View {
         section("Mood") {
-            GlassEffectContainer(spacing: 10) {
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 3), spacing: 10) {
-                    ForEach(orderedMoods) { mood in
-                        Button { playMood(mood) } label: {
-                            VStack(alignment: .leading, spacing: 8) {
-                                if busyItem == mood.id {
-                                    ProgressView().controlSize(.small)
-                                        .frame(height: 22)
-                                } else {
-                                    Image(systemName: mood.symbol)
-                                        .font(.title3)
-                                        .frame(height: 22)
-                                }
-                                Text(mood.title)
-                                    .font(.footnote.weight(.semibold))
-                                    .lineLimit(1)
-                                    .minimumScaleFactor(0.75)
-                            }
-                            .padding(12)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .contentShape(.rect(cornerRadius: 18))
-                            .glassEffect(.regular.tint(mood.tint.opacity(0.3)).interactive(),
-                                         in: .rect(cornerRadius: 18))
+            tileGrid(orderedMoods, columns: 3) { mood in
+                Button { playMood(mood) } label: {
+                    VStack(alignment: .leading, spacing: 8) {
+                        if busyItem == mood.id {
+                            ProgressView().controlSize(.small)
+                                .frame(height: 22)
+                        } else {
+                            Image(systemName: mood.symbol)
+                                .font(.title3)
+                                .frame(height: 22)
                         }
-                        .buttonStyle(.plain)
+                        Text(mood.title)
+                            .font(.footnote.weight(.semibold))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.75)
                     }
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(.rect(cornerRadius: 18))
+                    .glassEffect(.regular.tint(mood.tint.opacity(0.3)).interactive(),
+                                 in: .rect(cornerRadius: 18))
                 }
+                .buttonStyle(.plain)
             }
             .padding(.horizontal)
         }

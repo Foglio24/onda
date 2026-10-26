@@ -5,6 +5,8 @@ struct LoadedArtwork {
     let image: UIImage
     /// A lively version of the cover's average colour, used to tint the player.
     let tint: UIColor?
+    /// A tiny, already blurred copy for the player's background, so no blur is drawn live.
+    let backdrop: UIImage?
 }
 
 /// Loads the full-size cover of the current track for the lock screen and the player background.
@@ -21,7 +23,16 @@ actor ArtworkLoader {
             data = try? await URLSession.shared.data(from: remote).0
         }
         guard let data, let image = UIImage(data: data) else { return nil }
-        return LoadedArtwork(image: image, tint: tint(of: image))
+        return LoadedArtwork(image: image, tint: tint(of: image), backdrop: backdrop(of: image))
+    }
+
+    private func backdrop(of image: UIImage) -> UIImage? {
+        guard let input = CIImage(image: image), input.extent.width > 0 else { return nil }
+        let scale = 64 / max(input.extent.width, input.extent.height)
+        let small = input.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
+        let blurred = small.clampedToExtent().applyingGaussianBlur(sigma: 4).cropped(to: small.extent)
+        guard let cgImage = context.createCGImage(blurred, from: small.extent) else { return nil }
+        return UIImage(cgImage: cgImage)
     }
 
     private func tint(of image: UIImage) -> UIColor? {

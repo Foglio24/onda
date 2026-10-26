@@ -14,7 +14,7 @@ settings:
     SWIFT_VERSION: "5.0"
     SWIFT_STRICT_CONCURRENCY: minimal
     MARKETING_VERSION: "1.5.0"
-    CURRENT_PROJECT_VERSION: "14"
+    CURRENT_PROJECT_VERSION: "15"
     # Lists the localizable strings of each Swift file, for Tools/check_localization.py.
     SWIFT_EMIT_LOC_STRINGS: YES
 

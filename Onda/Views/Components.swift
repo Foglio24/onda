@@ -24,18 +24,14 @@ struct ArtworkView: View {
         return highRes ? track.largeArtworkURL : track.mediumArtworkURL
     }
 
-    @ViewBuilder private var image: some View {
-        if let url {
-            AsyncImage(url: url, transaction: Transaction(animation: .easeOut(duration: 0.25))) { phase in
-                if let image = phase.image {
-                    image.resizable().scaledToFill()
-                } else {
-                    placeholder
-                }
-            }
-        } else {
-            placeholder
-        }
+    private var image: some View {
+        CachedImage(url: url, pixels: pixels) { placeholder }
+    }
+
+    /// Three pixels per point, the iPhone's screen scale; sizeless covers fill most of the width.
+    private var pixels: Int {
+        if let size { return Int(size * 3) }
+        return highRes ? 1080 : 600
     }
 
     private var placeholder: some View {
@@ -58,9 +54,7 @@ struct PlaylistArtwork: View {
             .fill(LinearGradient(colors: [.purple, .pink], startPoint: .topLeading, endPoint: .bottomTrailing))
             .overlay {
                 if let custom = playlist.customCoverURL {
-                    AsyncImage(url: custom) { phase in
-                        if let image = phase.image { image.resizable().scaledToFill() }
-                    }
+                    CachedImage(url: custom, pixels: Int((size ?? 300) * 3)) { Color.clear }
                 } else if covers.count == 4 {
                     Grid(horizontalSpacing: 0, verticalSpacing: 0) {
                         GridRow {

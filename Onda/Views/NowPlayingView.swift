@@ -59,10 +59,13 @@ struct NowPlayingView: View {
     private var background: some View {
         ZStack {
             Color.black
-            ArtworkView(track: player.current, cornerRadius: 0)
-                .scaleEffect(1.6)
-                .blur(radius: 70)
-                .opacity(0.55)
+            // Blurred once per song by ArtworkLoader: a live blur this size slowed down opening and closing.
+            if let backdrop = player.backdrop {
+                Image(uiImage: backdrop)
+                    .resizable()
+                    .scaledToFill()
+                    .opacity(0.55)
+            }
             LinearGradient(colors: [player.artworkColor.opacity(0.85), player.artworkColor.opacity(0.4), .black.opacity(0.9)],
                            startPoint: .top, endPoint: .bottom)
         }
