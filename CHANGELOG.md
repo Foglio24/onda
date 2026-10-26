@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.9.2 (2026-10-26)
+
+### Fixed
+- Cancelling a running download now also cancels its detached Opus conversion worker between chunks, instead of continuing to use CPU until the whole song is converted. Cleanup finishes before the download removes its temporary files.
+- Regression checks cover cancellation during conversion, cancellation before the worker starts and normal completion.
+
 ## 1.9.1 (2026-10-26)
 
 ### Improved

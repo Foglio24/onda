@@ -1,5 +1,24 @@
 import Foundation
 
+/// Own a utility worker for a single operation, forwarding cancellation to its synchronous
+/// decoder and waiting for cleanup before the caller removes any input or output files.
+enum AudioWorker {
+    static func run<Result: Sendable>(_ operation: @escaping @Sendable () throws -> Result) async throws -> Result {
+        try Task.checkCancellation()
+        let worker = Task.detached(priority: .utility) {
+            try Task.checkCancellation()
+            return try operation()
+        }
+        return try await withTaskCancellationHandler {
+            let result = try await worker.value
+            try Task.checkCancellation()
+            return result
+        } onCancel: {
+            worker.cancel()
+        }
+    }
+}
+
 /// Share one file preparation without allowing one cancelled caller to cancel another's audio.
 actor SharedAudioFiles {
     private struct Work: Sendable {
