@@ -274,8 +274,36 @@
 "Cancella ricerche recenti" = "Clear recent searches";
 "Cancella cronologia ascolti" = "Clear listening history";
 
+/* Settings: updates */
+"Aggiornamenti" = "Updates";
+"Nuove versioni" = "New versions";
+"Avvisami" = "Notify me";
+"Scarica in automatico" = "Download automatically";
+"Cerca aggiornamenti" = "Check for updates";
+"Aggiornata" = "Up to date";
+"Nuova versione" = "New version";
+"Non riuscito" = "Failed";
+"Novità della %@" = "What's new in %@";
+"Onda controlla le nuove versioni su GitHub a ogni avvio, oppure quando tocchi Cerca aggiornamenti. Con «Scarica in automatico» il file IPA viene salvato nell'app File, in Sul mio iPhone › Onda › %@: da lì lo installi con Sideloadly, AltStore o SideStore, perché iOS non permette a un'app installata così di aggiornarsi da sola." = "Onda checks GitHub for new versions at every launch, or when you tap Check for updates. With “Download automatically” the IPA file is saved in the Files app, in On My iPhone › Onda › %@: install it from there with Sideloadly, AltStore or SideStore, because iOS doesn't let an app installed this way update itself.";
+"GitHub non ha risposto correttamente (%lld)." = "GitHub didn't respond correctly (%lld).";
+"Questa versione non ha un file IPA da scaricare." = "This version has no IPA file to download.";
+
+/* Update sheet */
+"Aggiornamento" = "Update";
+"Più tardi" = "Later";
+"Novità" = "What's new";
+"Onda %@" = "Onda %@";
+"Hai la versione %@" = "You have version %@";
+"Scaricata in File › Sul mio iPhone › Onda › %@" = "Saved in Files › On My iPhone › Onda › %@";
+"Condividi l'IPA" = "Share the IPA";
+"Download in corso…" = "Downloading…";
+"Apri su GitHub" = "Open on GitHub";
+
 /* Settings: about */
 "Informazioni" = "About";
+"Copyright" = "Copyright";
+"Licenza e crediti" = "License and credits";
+"Codice sorgente su GitHub" = "Source code on GitHub";
 "Versione" = "Version";
 "Bundle ID" = "Bundle ID";
 "Player di sistema" = "System player";

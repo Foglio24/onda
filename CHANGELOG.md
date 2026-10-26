@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.6.0 (beta)
+
+### Added
+- **Updates from GitHub.** At every launch, or with Settings → Aggiornamenti → Cerca aggiornamenti, Onda asks GitHub for the latest release. You choose what happens when there is a new one:
+  - **Avvisami:** a sheet shows the new version and its changelog, with buttons to download the IPA, share it or open the release.
+  - **Scarica in automatico:** the IPA is saved straight away in the Files app (On My iPhone → Onda → Aggiornamenti), then the same sheet appears.
+  - At launch the sheet appears at most once a day for the same version. IPAs of versions already installed are deleted.
+  - Installing stays manual (Sideloadly, AltStore or SideStore): iOS doesn't let a sideloaded app replace itself.
+- **Copyright, license and credits** in Settings → Informazioni, with links to the license and the source code.
+
+### Changed
+- Downloaded songs moved from the app's Documents folder, which is now visible in the Files app, to its private storage. The move happens once at launch, as an instant rename; if it fails the old folder keeps being used.
+- The repository is public, under an all-rights-reserved license (see LICENSE). Work by others is listed in THIRD_PARTY_NOTICES.md.
+
 ## 1.5.0 (2026-10-26)
 
 ### Changed

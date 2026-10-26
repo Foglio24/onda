@@ -69,6 +69,15 @@ Pushing a tag like `v1.2.0` also attaches the IPA to a release.
 With a free Apple ID the app expires after **7 days**. Re-sign it with Sideloadly; your data is kept.
 [SideStore](https://sidestore.io) can refresh it from the iPhone itself.
 
+### Updates
+
+At every launch, or with **Impostazioni → Aggiornamenti → Cerca aggiornamenti**, Onda asks GitHub for the latest release. Choose what happens when there is a new one:
+
+- **Avvisami:** a sheet shows the new version and its changelog, with buttons to download the IPA or open the release.
+- **Scarica in automatico:** the IPA is saved straight away in the Files app, in **On My iPhone → Onda → Aggiornamenti**, then the same sheet appears.
+
+Installing stays manual (Sideloadly, AltStore or SideStore): iOS doesn't let a sideloaded app replace itself.
+
 ### Connect Last.fm (optional)
 
 1. Create an API application at <https://www.last.fm/api/account/create>.

@@ -33,11 +33,12 @@ jobs:
           xcodebuild -version
           xcrun --sdk iphoneos --show-sdk-version
 
-      - name: Check playback, library and scrobble regressions
+      - name: Check playback, library, scrobble and update logic
         run: |
           bash Tools/PlaybackCheck/run.sh
           bash Tools/LibraryCheck/run.sh
           bash Tools/ScrobbleCheck/run.sh
+          bash Tools/UpdateCheck/run.sh
 
       - name: Install XcodeGen
         run: brew install xcodegen

@@ -4,8 +4,25 @@ import Foundation
 enum Storage {
     static let support: URL = makeDirectory(
         URL.applicationSupportDirectory.appending(path: "Onda", directoryHint: .isDirectory))
-    static let downloads: URL = makeDirectory(
-        URL.documentsDirectory.appending(path: "Downloads", directoryHint: .isDirectory))
+    /// Downloaded songs. Up to 1.5.0 they were in Documents, which is now shown in the Files app
+    /// (for app updates), so they move here once; if the move fails, the old folder is kept.
+    static let downloads: URL = {
+        let current = support.appending(path: "Downloads", directoryHint: .isDirectory)
+        let old = URL.documentsDirectory.appending(path: "Downloads", directoryHint: .isDirectory)
+        let manager = FileManager.default
+        if manager.fileExists(atPath: old.path), !manager.fileExists(atPath: current.path) {
+            do {
+                try manager.moveItem(at: old, to: current)
+            } catch {
+                return makeDirectory(old)
+            }
+        }
+        return makeDirectory(current)
+    }()
+    /// App updates downloaded from GitHub; Documents is visible in Files (Sul mio iPhone › Onda).
+    static let updates: URL = makeDirectory(
+        URL.documentsDirectory.appending(path: updatesFolderName, directoryHint: .isDirectory))
+    static let updatesFolderName = String(localized: "Aggiornamenti")
     static let covers: URL = makeDirectory(support.appending(path: "Covers", directoryHint: .isDirectory))
     /// AI models downloaded on demand (karaoke).
     static let models: URL = makeDirectory(support.appending(path: "Models", directoryHint: .isDirectory))

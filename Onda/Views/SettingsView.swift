@@ -6,6 +6,7 @@ struct SettingsView: View {
     @EnvironmentObject private var player: PlayerController
     @EnvironmentObject private var downloads: DownloadManager
     @EnvironmentObject private var library: Library
+    @EnvironmentObject private var updater: AppUpdater
 
     @AppStorage(Preferences.wifiQuality) private var wifiQuality = Preferences.defaultWifiQuality
     @AppStorage(Preferences.cellularQuality) private var cellularQuality = Preferences.defaultCellularQuality
@@ -25,6 +26,7 @@ struct SettingsView: View {
     @AppStorage(Preferences.lyricsStyle) private var lyricsStyle: LyricsStyle = .focus
     @AppStorage(Preferences.lyricsSize) private var lyricsSize: LyricsSize = .medium
     @AppStorage(Preferences.recentSearches) private var recentSearches = ""
+    @AppStorage(Preferences.updateMode) private var updateMode: UpdateMode = .notify
 
     @State private var keyDraft = ""
     @State private var secretDraft = ""
@@ -48,6 +50,7 @@ struct SettingsView: View {
                 languageSection
                 lastfmSection
                 storageSection
+                updatesSection
                 aboutSection
             }
             .scrollContentBackground(.hidden)
@@ -329,6 +332,58 @@ struct SettingsView: View {
         }
     }
 
+    private var updatesSection: some View {
+        Section {
+            Picker(selection: $updateMode) {
+                ForEach(UpdateMode.allCases) { Text($0.title).tag($0) }
+            } label: {
+                Label("Nuove versioni", systemImage: "arrow.down.app")
+            }
+            Button {
+                Task { await updater.check(userInitiated: true) }
+            } label: {
+                LabeledContent {
+                    updateStatus
+                } label: {
+                    Label("Cerca aggiornamenti", systemImage: "arrow.clockwise")
+                        .foregroundStyle(.primary)
+                }
+            }
+            .disabled(updater.status == .checking)
+            if updater.status == .available, let latest = updater.latest {
+                Button {
+                    updater.showsNotice = true
+                } label: {
+                    Label("Novità della \(latest.version)", systemImage: "sparkles")
+                }
+            }
+            if case .failed(let message) = updater.status {
+                Text(message)
+                    .font(.footnote)
+                    .foregroundStyle(.orange)
+            }
+        } header: {
+            Text("Aggiornamenti")
+        } footer: {
+            Text("Onda controlla le nuove versioni su GitHub a ogni avvio, oppure quando tocchi Cerca aggiornamenti. Con «Scarica in automatico» il file IPA viene salvato nell'app File, in Sul mio iPhone › Onda › \(Storage.updatesFolderName): da lì lo installi con Sideloadly, AltStore o SideStore, perché iOS non permette a un'app installata così di aggiornarsi da sola.")
+        }
+    }
+
+    @ViewBuilder private var updateStatus: some View {
+        switch updater.status {
+        case .checking:
+            ProgressView()
+        case .upToDate:
+            Text("Aggiornata").foregroundStyle(.secondary)
+        case .available:
+            Text("Nuova versione").foregroundStyle(.tint)
+        case .failed:
+            Text("Non riuscito").foregroundStyle(.secondary)
+        case .idle:
+            EmptyView()
+        }
+    }
+
     private var aboutSection: some View {
         Section {
             LabeledContent("Versione", value: Bundle.main.appVersion)
@@ -338,6 +393,9 @@ struct SettingsView: View {
             LabeledContent("Sistema usato", value: nowPlayingBackend.isEmpty ? "—" : nowPlayingBackend)
             Text("Catalogo: YouTube Music · Testi: LRCLIB · Scrobbling: Last.fm")
             Text("Progetto personale, non affiliato a Google, YouTube o Last.fm.")
+            LabeledContent("Copyright", value: "© 2026 Foglio24")
+            Link("Licenza e crediti", destination: AppUpdater.licenseURL)
+            Link("Codice sorgente su GitHub", destination: AppUpdater.repositoryURL)
         } header: {
             Text("Informazioni")
         }

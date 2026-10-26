@@ -130,6 +130,11 @@ enum Preferences {
     static let nowPlayingBackend = "diagnostics.nowPlayingBackend"
     static let interactiveArtwork = "player.interactiveArtwork"
     static let lyricsTranslate = "lyrics.translate"
+    static let updateMode = "updates.mode"
+
+    static var updateModeSetting: UpdateMode {
+        UserDefaults.standard.string(forKey: updateMode).flatMap(UpdateMode.init(rawValue:)) ?? .notify
+    }
     static let lyricsTranslationTarget = "lyrics.translationTarget"
 
     /// The phone's language, used as the default translation target.

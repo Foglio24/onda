@@ -13,8 +13,8 @@ settings:
   base:
     SWIFT_VERSION: "5.0"
     SWIFT_STRICT_CONCURRENCY: minimal
-    MARKETING_VERSION: "1.5.0"
-    CURRENT_PROJECT_VERSION: "15"
+    MARKETING_VERSION: "1.6.0"
+    CURRENT_PROJECT_VERSION: "16"
     # Lists the localizable strings of each Swift file, for Tools/check_localization.py.
     SWIFT_EMIT_LOC_STRINGS: YES
 
@@ -52,6 +52,9 @@ targets:
         UILaunchScreen: {}
         UIBackgroundModes:
           - audio
+        # Shows Documents in the Files app (Sul mio iPhone › Onda), where app updates are saved.
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
         UISupportedInterfaceOrientations:
