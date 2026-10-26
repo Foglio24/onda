@@ -69,6 +69,7 @@ struct PlaylistDetailView: View {
         }
         .background { AmbientBackground() }
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear { PlaylistUsage.noteOpened(playlistID) }
         .photosPicker(isPresented: $showPhotoPicker, selection: $photoItem, matching: .images)
         .onChange(of: photoItem) { _, item in
             guard let item else { return }

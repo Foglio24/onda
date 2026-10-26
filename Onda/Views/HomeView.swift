@@ -4,6 +4,7 @@ struct HomeView: View {
     @EnvironmentObject private var player: PlayerController
     @EnvironmentObject private var library: Library
     @EnvironmentObject private var lastfm: LastFM
+    @AppStorage(Preferences.accent) private var accent: AccentChoice = .pink
 
     @State private var quickPicks: [Track] = []
     /// The song the quick picks were built from; nil when they came from the generic fallback.
@@ -16,35 +17,40 @@ struct HomeView: View {
         let title: String
         let query: String
         let symbol: String
-        var id: String { title }
+        let tint: Color
+        var id: String { query }
     }
 
     private let moods = [
-        Mood(title: String(localized: "Relax"), query: "chill relax songs", symbol: "leaf.fill"),
-        Mood(title: String(localized: "Concentrazione"), query: "lofi focus study", symbol: "brain.head.profile"),
-        Mood(title: String(localized: "Allenamento"), query: "workout gym motivation songs", symbol: "figure.run"),
-        Mood(title: String(localized: "Festa"), query: "party dance hits", symbol: "party.popper.fill"),
-        Mood(title: String(localized: "Malinconia"), query: "sad songs", symbol: "cloud.rain.fill"),
-        Mood(title: String(localized: "Energia"), query: "upbeat energetic songs", symbol: "bolt.fill"),
-        Mood(title: String(localized: "Italiana"), query: "hit italiane", symbol: "music.mic"),
-        Mood(title: String(localized: "Anni '80"), query: "80s hits", symbol: "radio.fill"),
+        Mood(title: String(localized: "Relax"), query: "chill relax songs", symbol: "leaf.fill", tint: .mint),
+        Mood(title: String(localized: "Concentrazione"), query: "lofi focus study", symbol: "brain.head.profile",
+             tint: .indigo),
+        Mood(title: String(localized: "Allenamento"), query: "workout gym motivation songs", symbol: "figure.run",
+             tint: .orange),
+        Mood(title: String(localized: "Festa"), query: "party dance hits", symbol: "party.popper.fill", tint: .pink),
+        Mood(title: String(localized: "Malinconia"), query: "sad songs", symbol: "cloud.rain.fill", tint: .blue),
+        Mood(title: String(localized: "Energia"), query: "upbeat energetic songs", symbol: "bolt.fill", tint: .yellow),
+        Mood(title: String(localized: "Italiana"), query: "hit italiane", symbol: "music.mic", tint: .green),
+        Mood(title: String(localized: "Anni '80"), query: "80s hits", symbol: "radio.fill", tint: .purple),
     ]
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 30) {
-                    moodChips
-                    if lastfm.isConnected { mixCards }
+                    if player.current == nil, let point = player.resumePoint {
+                        section("Riprendi da dove eri") {
+                            ResumeCard(point: point, accent: accent.color) { player.continueListening(point) }
+                                .padding(.horizontal)
+                        }
+                    }
+                    let shortcuts = self.shortcuts
+                    if !shortcuts.isEmpty { shortcutsSection(shortcuts) }
+                    let mixes = DailyMix.make(history: library.history, liked: library.liked, day: Self.today)
+                    if !mixes.isEmpty { dailyMixesSection(mixes) }
+                    moodsSection
                     if !quickPicks.isEmpty { quickPicksShelf }
-                    if !library.playlists.isEmpty { playlistsShelf }
-                    if !library.history.isEmpty {
-                        trackShelf("Ascoltati di recente", tracks: Array(library.history.prefix(20)))
-                    }
-                    if !library.liked.isEmpty {
-                        trackShelf("I tuoi preferiti", tracks: Array(library.liked.prefix(20)))
-                    }
-                    if !topTracks.isEmpty { topTracksList }
+                    if !library.history.isEmpty { recentShelf }
                 }
                 .padding(.vertical, 8)
             }
@@ -70,78 +76,168 @@ struct HomeView: View {
 
     // MARK: Sections
 
-    private var moodChips: some View {
-        ScrollView(.horizontal) {
+    private func section<Content: View>(_ title: LocalizedStringKey,
+                                        @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(title)
+                .font(.title2.bold())
+                .padding(.horizontal)
+            content()
+        }
+    }
+
+    /// Favourites, mixes, the playlists in use and downloads, up to six.
+    private var shortcuts: [HomeShortcut] {
+        let playlists = PlaylistUsage.sorted(library.playlists).map(HomeShortcut.playlist)
+        var items: [HomeShortcut] = []
+        if !library.liked.isEmpty { items.append(.liked) }
+        if lastfm.isConnected { items.append(.tasteMix) }
+        items += playlists.prefix(2)
+        if lastfm.isConnected { items.append(.rediscover) }
+        if !topTracks.isEmpty { items.append(.topMonth) }
+        if !library.downloads.isEmpty { items.append(.downloads) }
+        items += playlists.dropFirst(2)
+        return Array(items.prefix(6))
+    }
+
+    private func shortcutsSection(_ shortcuts: [HomeShortcut]) -> some View {
+        section("Accesso rapido") {
             GlassEffectContainer(spacing: 10) {
-                HStack(spacing: 10) {
-                    ForEach(moods) { mood in
-                        Button { playMood(mood) } label: {
-                            HStack(spacing: 6) {
-                                if busyItem == mood.id {
-                                    ProgressView().controlSize(.small)
-                                } else {
-                                    Image(systemName: mood.symbol)
-                                }
-                                Text(mood.title).fontWeight(.semibold)
-                            }
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 10)
-                            .glassEffect(.regular.interactive(), in: .capsule)
+                LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)],
+                          spacing: 10) {
+                    ForEach(shortcuts) { shortcut in
+                        shortcutTile(shortcut)
+                    }
+                }
+            }
+            .padding(.horizontal)
+        }
+    }
+
+    @ViewBuilder private func shortcutTile(_ shortcut: HomeShortcut) -> some View {
+        switch shortcut {
+        case .liked:
+            NavigationLink { TrackCollectionView(collection: .liked) } label: {
+                ShortcutTile(title: String(localized: "Preferiti")) {
+                    SymbolArtwork(symbol: "heart.fill", tint: .pink)
+                }
+            }
+            .buttonStyle(.plain)
+        case .downloads:
+            NavigationLink { TrackCollectionView(collection: .downloads) } label: {
+                ShortcutTile(title: String(localized: "Download")) {
+                    SymbolArtwork(symbol: "arrow.down.circle.fill", tint: .blue)
+                }
+            }
+            .buttonStyle(.plain)
+        case .playlist(let playlist):
+            NavigationLink { PlaylistDetailView(playlistID: playlist.id) } label: {
+                ShortcutTile(title: playlist.name) {
+                    PlaylistArtwork(playlist: playlist, cornerRadius: 0)
+                }
+            }
+            .buttonStyle(.plain)
+        case .tasteMix:
+            Button {
+                perform(shortcut.id) {
+                    let tracks = try await lastfm.tasteMix()
+                    player.play(tracks, source: "Taste Mix")
+                }
+            } label: {
+                ShortcutTile(title: "Taste Mix", busy: busyItem == shortcut.id) {
+                    SymbolArtwork(symbol: "sparkles", tint: .purple)
+                }
+            }
+            .buttonStyle(.plain)
+        case .rediscover:
+            Button {
+                perform(shortcut.id) {
+                    let tracks = try await lastfm.rediscoverMix()
+                    player.play(tracks, source: String(localized: "Riscopri"))
+                }
+            } label: {
+                ShortcutTile(title: String(localized: "Riscopri"), busy: busyItem == shortcut.id) {
+                    SymbolArtwork(symbol: "arrow.counterclockwise", tint: .orange)
+                }
+            }
+            .buttonStyle(.plain)
+        case .topMonth:
+            Button {
+                player.play(topTracks, source: "Top Last.fm")
+            } label: {
+                ShortcutTile(title: String(localized: "Top del mese")) {
+                    SymbolArtwork(symbol: "chart.bar.fill", tint: .red)
+                }
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private func dailyMixesSection(_ mixes: [DailyMix]) -> some View {
+        section("I tuoi mix del giorno") {
+            ScrollView(.horizontal) {
+                LazyHStack(spacing: 14) {
+                    ForEach(mixes) { mix in
+                        Button { playMix(mix) } label: {
+                            DailyMixCard(mix: mix, busy: busyItem == mix.id)
                         }
                         .buttonStyle(.plain)
                     }
                 }
                 .padding(.horizontal)
             }
+            .scrollIndicators(.hidden)
         }
-        .scrollIndicators(.hidden)
     }
 
-    private var mixCards: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            sectionTitle("I tuoi mix")
-            HStack(spacing: 12) {
-                mixCard(id: "taste", title: "Taste Mix", subtitle: String(localized: "Brani simili a quelli che ami"),
-                        symbol: "sparkles", tint: .purple) { try await lastfm.tasteMix() }
-                mixCard(id: "rediscover", title: String(localized: "Riscopri"),
-                        subtitle: String(localized: "I tuoi più ascoltati dell'anno"),
-                        symbol: "arrow.counterclockwise", tint: .orange) { try await lastfm.rediscoverMix() }
+    private var moodsSection: some View {
+        section("Mood") {
+            GlassEffectContainer(spacing: 10) {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 3), spacing: 10) {
+                    ForEach(orderedMoods) { mood in
+                        Button { playMood(mood) } label: {
+                            VStack(alignment: .leading, spacing: 8) {
+                                if busyItem == mood.id {
+                                    ProgressView().controlSize(.small)
+                                        .frame(height: 22)
+                                } else {
+                                    Image(systemName: mood.symbol)
+                                        .font(.title3)
+                                        .frame(height: 22)
+                                }
+                                Text(mood.title)
+                                    .font(.footnote.weight(.semibold))
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.75)
+                            }
+                            .padding(12)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .contentShape(.rect(cornerRadius: 18))
+                            .glassEffect(.regular.tint(mood.tint.opacity(0.3)).interactive(),
+                                         in: .rect(cornerRadius: 18))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
             }
             .padding(.horizontal)
         }
     }
 
-    private func mixCard(id: String, title: String, subtitle: String, symbol: String, tint: Color,
-                         build: @escaping () async throws -> [Track]) -> some View {
-        Button {
-            perform(id) {
-                let tracks = try await build()
-                player.play(tracks, source: title)
-            }
-        } label: {
-            VStack(alignment: .leading, spacing: 6) {
-                HStack {
-                    Image(systemName: symbol).font(.title2)
-                    Spacer()
-                    if busyItem == id { ProgressView() }
-                }
-                Spacer(minLength: 16)
-                Text(title).font(.headline)
-                Text(subtitle)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-            }
-            .padding(16)
-            .frame(maxWidth: .infinity, minHeight: 130, alignment: .leading)
-            .glassEffect(.regular.tint(tint.opacity(0.35)).interactive(), in: .rect(cornerRadius: 24))
+    /// The moods that suit the time of day come first: energy in the morning, calm in the evening.
+    private var orderedMoods: [Mood] {
+        let first: [String]
+        switch Calendar.current.component(.hour, from: .now) {
+        case 5..<12: first = ["upbeat energetic songs", "workout gym motivation songs", "lofi focus study"]
+        case 12..<18: first = ["lofi focus study", "party dance hits"]
+        default: first = ["chill relax songs", "sad songs"]
         }
-        .buttonStyle(.plain)
+        let preferred = first.compactMap { query in moods.first { $0.query == query } }
+        return preferred + moods.filter { !first.contains($0.query) }
     }
 
     private var quickPicksShelf: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            sectionTitle("Scelti per te")
+        section("Scelti per te") {
             ScrollView(.horizontal) {
                 LazyHGrid(rows: Array(repeating: GridItem(.fixed(58), spacing: 8), count: 4), spacing: 20) {
                     ForEach(Array(quickPicks.enumerated()), id: \.element.id) { position, track in
@@ -159,31 +255,12 @@ struct HomeView: View {
         }
     }
 
-    private var playlistsShelf: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            sectionTitle("Le tue playlist")
+    private var recentShelf: some View {
+        section("Ascoltati di recente") {
             ScrollView(.horizontal) {
-                LazyHStack(spacing: 14) {
-                    ForEach(library.playlists) { playlist in
-                        NavigationLink { PlaylistDetailView(playlistID: playlist.id) } label: {
-                            PlaylistCard(playlist: playlist)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .padding(.horizontal)
-            }
-            .scrollIndicators(.hidden)
-        }
-    }
-
-    private func trackShelf(_ title: LocalizedStringKey, tracks: [Track]) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            sectionTitle(title)
-            ScrollView(.horizontal) {
-                LazyHStack(spacing: 14) {
-                    ForEach(tracks) { track in
-                        Button { player.playRadio(from: track) } label: { TrackCard(track: track) }
+                LazyHStack(spacing: 12) {
+                    ForEach(library.history.prefix(20)) { track in
+                        Button { player.playRadio(from: track) } label: { TrackCard(track: track, size: 112) }
                             .buttonStyle(.plain)
                     }
                 }
@@ -191,32 +268,6 @@ struct HomeView: View {
             }
             .scrollIndicators(.hidden)
         }
-    }
-
-    private var topTracksList: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            sectionTitle("I tuoi top del mese su Last.fm")
-            VStack(spacing: 10) {
-                ForEach(Array(topTracks.prefix(10).enumerated()), id: \.element.id) { position, track in
-                    HStack(spacing: 12) {
-                        Text("\(position + 1)")
-                            .font(.headline.monospacedDigit())
-                            .foregroundStyle(.secondary)
-                            .frame(width: 24)
-                        TrackRow(track: track) {
-                            player.play(topTracks, startAt: position, source: "Top Last.fm")
-                        }
-                    }
-                }
-            }
-            .padding(.horizontal)
-        }
-    }
-
-    private func sectionTitle(_ title: LocalizedStringKey) -> some View {
-        Text(title)
-            .font(.title2.bold())
-            .padding(.horizontal)
     }
 
     private var greeting: String {
@@ -227,6 +278,11 @@ struct HomeView: View {
         }
     }
 
+    /// Changes once a day, so the daily mixes start from a different song.
+    private static var today: Int {
+        Calendar.current.ordinality(of: .day, in: .era, for: .now) ?? 0
+    }
+
     // MARK: Actions
 
     private func playMood(_ mood: Mood) {
@@ -235,6 +291,16 @@ struct HomeView: View {
             let tracks = withoutLongMixes(found)
             guard !tracks.isEmpty else { throw InnerTubeError.notFound }
             player.play(tracks.shuffled(), source: mood.title)
+        }
+    }
+
+    private func playMix(_ mix: DailyMix) {
+        guard let seedID = mix.seed.videoId else { return }
+        perform(mix.id) {
+            let radio = try await InnerTube.shared.radio(for: seedID)
+            var tracks = withoutLongMixes(radio)
+            if !tracks.contains(where: { $0.videoId == seedID }) { tracks.insert(mix.seed, at: 0) }
+            player.play(tracks, source: String(localized: "Mix del giorno · \(mix.artist)"))
         }
     }
 

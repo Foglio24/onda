@@ -203,10 +203,11 @@ struct TrackRow: View {
 /// Large artwork card used in horizontal shelves.
 struct TrackCard: View {
     let track: Track
+    var size: CGFloat = 150
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            ArtworkView(track: track, size: 150, cornerRadius: 14)
+            ArtworkView(track: track, size: size, cornerRadius: 14)
             Text(track.title)
                 .font(.subheadline.weight(.semibold))
                 .lineLimit(1)
@@ -215,7 +216,7 @@ struct TrackCard: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
         }
-        .frame(width: 150, alignment: .leading)
+        .frame(width: size, alignment: .leading)
         .contentShape(.rect)
         .contextMenu { TrackMenu(track: track) }
         .onAppear { StreamPrewarmer.shared.request(track) }

@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.5.0 (beta)
+
+### Changed
+- **A new Home**, all on Liquid Glass:
+  - **Pick up where you left off.** When nothing is playing, a card at the top shows the last song and where it stopped; one tap carries on from there, followed by its radio. The position is saved every few seconds and on pause.
+  - **Quick access.** Up to six compact tiles: favourites, Taste Mix, Rediscover and the month's top songs (with Last.fm), downloads, and the playlists you opened most recently. They replace the playlist, favourites and mix shelves and the Last.fm top list.
+  - **Daily mixes.** Up to four mixes, one per artist you play most (history and favourites), each starting from a different song of theirs every day and continuing with YouTube Music's radio. Covers are a mosaic of your songs by that artist.
+  - **Moods** are now tinted glass tiles, ordered by time of day: energy in the morning, focus in the afternoon, calm in the evening.
+  - **Recently played** has smaller covers, so more fit on screen.
+
 ## 1.4.1 (2026-10-26)
 
 ### Fixed

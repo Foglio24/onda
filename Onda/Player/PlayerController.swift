@@ -71,6 +71,18 @@ final class PlayerController: ObservableObject {
 
     let progress = PlaybackProgress()
 
+    /// Where the last song stopped, for the Home's "Riprendi" card.
+    struct ResumePoint: Codable {
+        let track: Track
+        let time: TimeInterval
+    }
+
+    /// Saved every few seconds of playback and on pause; not published, so saving re-renders nothing.
+    private(set) var resumePoint: ResumePoint?
+    private static let resumeKey = "player.resumePoint"
+    /// Where to jump once the song being loaded is ready (see `continueListening`).
+    private var pendingStartTime: TimeInterval?
+
     var current: Track? { queue.indices.contains(index) ? queue[index] : nil }
 
     var upcoming: [QueueEntry] {
@@ -130,6 +142,8 @@ final class PlayerController: ObservableObject {
 
     private init() {
         autoRadio = UserDefaults.standard.object(forKey: "player.autoRadio") as? Bool ?? true
+        resumePoint = UserDefaults.standard.data(forKey: Self.resumeKey)
+            .flatMap { try? JSONDecoder().decode(ResumePoint.self, from: $0) }
         let session = AVAudioSession.sharedInstance()
         try? session.setCategory(.playback, mode: .default)
         try? session.setSupportsMultichannelContent(true)
@@ -195,6 +209,14 @@ final class PlayerController: ObservableObject {
         play([track], source: "Radio · \(track.title)", startRadio: true)
     }
 
+    /// Plays the last song again from where it stopped (from the start when it had almost ended),
+    /// followed by its radio.
+    func continueListening(_ point: ResumePoint) {
+        playRadio(from: point.track)
+        let length = point.track.duration ?? 0
+        if point.time > 5, length == 0 || point.time < length - 15 { pendingStartTime = point.time }
+    }
+
     func playNext(_ track: Track) {
         guard current != nil else { return play([track], source: String(localized: "Coda")) }
         queue.insert(track, at: index + 1)
@@ -257,6 +279,7 @@ final class PlayerController: ObservableObject {
         playWhenReady = false
         requestedSeek?.setPlaying(false, now: ProcessInfo.processInfo.systemUptime)
         player.pause()
+        rememberPosition(progress.currentTime)
         updateNowPlayingInfo()
     }
 
@@ -467,6 +490,7 @@ final class PlayerController: ObservableObject {
         karaokeTask?.cancel()
         karaokeTrackID = nil
         requestedSeek = nil
+        pendingStartTime = nil
         guard let track = current else { return }
         let position = index
         playWhenReady = true
@@ -649,6 +673,10 @@ final class PlayerController: ObservableObject {
         case .readyToPlay:
             isLoading = false
             failuresInARow = 0
+            if let start = pendingStartTime {
+                pendingStartTime = nil
+                seek(to: start)
+            }
             updateNowPlayingInfo()
         case .failed:
             let message = player.currentItem?.error?.localizedDescription
@@ -992,6 +1020,9 @@ final class PlayerController: ObservableObject {
         let delta = seconds - lastTick
         lastTick = seconds
         progress.currentTime = seconds
+        if abs(seconds - (resumePoint?.time ?? 0)) >= 5 || resumePoint?.track.id != current?.id {
+            rememberPosition(seconds)
+        }
 
         // YouTube's audio files often report a wrong (even doubled) length to AVPlayer,
         // so the catalogue length wins; the file's own length is only a fallback.
@@ -1014,6 +1045,14 @@ final class PlayerController: ObservableObject {
             // The file keeps "playing" silence past the real end.
             itemFinished()
         }
+    }
+
+    /// Saves the current song and position for the Home's "Riprendi" card.
+    private func rememberPosition(_ seconds: TimeInterval) {
+        guard let track = current, track.videoId != nil, seconds.isFinite, seconds >= 0 else { return }
+        let point = ResumePoint(track: track, time: seconds)
+        resumePoint = point
+        UserDefaults.standard.set(try? JSONEncoder().encode(point), forKey: Self.resumeKey)
     }
 
     private func handleInterruption(_ note: Notification) {

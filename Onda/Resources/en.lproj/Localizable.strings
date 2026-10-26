@@ -39,15 +39,20 @@
 "Energia" = "Energy";
 "Italiana" = "Italian";
 "Anni '80" = "80s";
-"I tuoi mix" = "Your mixes";
-"Brani simili a quelli che ami" = "Songs like the ones you love";
+"Mood" = "Moods";
+"Riprendi da dove eri" = "Pick up where you left off";
+"%@ · fermo a %@" = "%@ · stopped at %@";
+"Riprendi %@" = "Resume %@";
+"Accesso rapido" = "Quick access";
 "Riscopri" = "Rediscover";
-"I tuoi più ascoltati dell'anno" = "Your most played this year";
+"Top del mese" = "Top of the month";
+"I tuoi mix del giorno" = "Your daily mixes";
+"Mix %lld" = "Mix %lld";
+"%@ e simili" = "%@ and similar";
+"Mix del giorno · %@" = "Daily mix · %@";
 "Scelti per te" = "Picked for you";
 "Le tue playlist" = "Your playlists";
 "Ascoltati di recente" = "Recently played";
-"I tuoi preferiti" = "Your favorites";
-"I tuoi top del mese su Last.fm" = "Your top songs this month on Last.fm";
 
 /* Library */
 "Preferiti" = "Favorites";
