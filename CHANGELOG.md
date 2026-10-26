@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.7.0 (beta)
+## 1.7.0 (2026-10-26)
 
 ### Added
 - **Artist and album pages.** An artist page has the picture, Play, Shuffle and the artist's radio, the top songs (with all songs a tap away), albums, singles, videos, playlists, similar artists and the biography. An album page has its songs, Play and Shuffle, and buttons to download the album or save it as a playlist. Public YouTube Music playlists open the same way, without importing them.

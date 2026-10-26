@@ -12,6 +12,8 @@ See [CHANGELOG.md](CHANGELOG.md) for what changed in each version.
 | LastWave (Android) | Onda (iOS) |
 |---|---|
 | Streams the YouTube Music catalogue, in the background and ad-free | ✅ |
+| Search, artists and albums | ✅ Top result, artists, albums and songs; artist pages (top songs, albums, singles, videos, similar artists) and album pages |
+| Volume normalization | ✅ Louder songs are turned down to YouTube's -14 LUFS reference, using YouTube's own loudness data |
 | Quality and codecs | ✅ Four levels, set separately for Wi-Fi, cellular and downloads (details below) |
 | Dolby Atmos | ✅ Dolby Digital Plus when YouTube offers it, plus Apple's Spatial Audio with AirPods/Beats |
 | Crossfade | ✅ 0–12 seconds, like Spotify |
@@ -26,7 +28,7 @@ See [CHANGELOG.md](CHANGELOG.md) for what changed in each version.
 | Dynamic colours from the artwork | ✅ Every screen and the player are tinted with the album's colours |
 | Theme colour | ✅ 11 preset accent colours |
 | Instant start | ✅ Links of songs on screen are unlocked in the background, and playback starts with the first audio |
-| Library | ✅ Favourites, playlists, downloads, history, and an editable queue (drag, delete, shuffle) |
+| Library | ✅ Favourites, playlists, downloads, history, and an editable queue (drag, delete, shuffle) that comes back after a restart |
 
 The quality levels are:
 - **Maximum:** Opus ~160 kbps, decoded on the iPhone into Apple Lossless. Dolby Digital Plus or 256 kbps AAC is used instead when the video has it.
