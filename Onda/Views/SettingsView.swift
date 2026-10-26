@@ -123,7 +123,7 @@ struct SettingsView: View {
         } footer: {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Volume uniforme abbassa i brani più forti al livello di riferimento di YouTube (-14 LUFS), come la normalizzazione di Spotify, così passando da un brano all'altro il volume resta simile.")
-                Text("Massima usa Opus 160 kbps, il formato migliore che YouTube dà senza Premium: Onda lo decodifica sull'iPhone e lo riproduce senza perdite. Il brano parte subito in AAC e passa a Opus appena è pronto; i due brani successivi vengono preparati in anticipo. Se un video ha l'audio Dolby Digital Plus o AAC 256 kbps, viene usato quello. L'Audio spaziale funziona con AirPods e cuffie Beats compatibili.")
+                Text("Massima usa Opus 160 kbps, il formato migliore che YouTube dà senza Premium: Onda lo decodifica sull'iPhone e lo riproduce senza perdite. Il brano parte subito in AAC e lo tiene fino alla fine, senza salti: Opus viene preparato intanto e suona dal riascolto successivo (o da quando sposti la barra). Se un video ha l'audio Dolby Digital Plus o AAC 256 kbps, viene usato quello. L'Audio spaziale funziona con AirPods e cuffie Beats compatibili.")
                 if !opusLastError.isEmpty {
                     Text("Ultimo errore Opus: \(opusLastError)")
                         .foregroundStyle(.orange)

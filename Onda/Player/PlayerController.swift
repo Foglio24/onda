@@ -168,13 +168,16 @@ final class PlayerController: ObservableObject {
     private var sleepTask: Task<Void, Never>?
     private var fadeOutTask: Task<Void, Never>?
     private var fadeInTask: Task<Void, Never>?
-    /// Prepares the local copy of the streaming song (see `switchToLocal`).
+    /// Prepares the local copy of the streaming song (see `offerLocal`).
     private var upgradeTask: Task<Void, Never>?
     /// At most one upcoming AAC copy; never a speculative Opus conversion.
     private var prefetchTask: Task<Void, Never>?
     private var lyricsPrefetchTask: Task<Void, Never>?
     /// A seek made while streaming, applied when the local copy takes over.
     private var requestedSeek: StreamingSeekPosition?
+    /// A local file of the playing song (its copy, or decoded Opus), ready for the next seek.
+    /// Swapping files while the song plays is heard as a gap, so the song keeps its stream.
+    private var localFile: (trackID: String, url: URL, label: String)?
     /// Separates the current song for karaoke.
     private var karaokeTask: Task<Void, Never>?
     /// The song whose karaoke stems are playing right now.
@@ -447,14 +450,23 @@ final class PlayerController: ObservableObject {
     }
 
     func seek(to seconds: TimeInterval) {
+        var switched = false
         if let asset = player.currentItem?.asset as? AVURLAsset, !asset.url.isFileURL {
             // Seeking in YouTube's streams is unreliable: remember it for when the local copy takes over.
             requestedSeek = StreamingSeekPosition(time: seconds,
                                                    isPlaying: player.timeControlStatus == .playing,
                                                    now: ProcessInfo.processInfo.systemUptime)
+            // A seek pauses the sound anyway: the moment to move to the local file, if it is ready.
+            if let local = localFile, let track = current, local.trackID == track.id {
+                localFile = nil
+                switchItem(to: AVPlayerItem(url: local.url), label: local.label, track: track)
+                switched = true
+            }
         }
-        player.seek(to: CMTime(seconds: seconds, preferredTimescale: 600),
-                    toleranceBefore: .zero, toleranceAfter: .zero)
+        if !switched {
+            player.seek(to: CMTime(seconds: seconds, preferredTimescale: 600),
+                        toleranceBefore: .zero, toleranceAfter: .zero)
+        }
         progress.currentTime = seconds
         lastTick = seconds
         if seconds < progress.duration - 1 { finishedCurrent = false }
@@ -630,6 +642,7 @@ final class PlayerController: ObservableObject {
         StemSeparator.focus(on: [])
         karaokeTrackID = nil
         requestedSeek = nil
+        localFile = nil
         pendingStartTime = nil
         isRestoredSession = false
         guard let track = current else { return }
@@ -697,8 +710,9 @@ final class PlayerController: ObservableObject {
         return await StreamResolver.shared.isCached(videoId) ? .resolvedURL : .network
     }
 
-    /// Downloaded or cached file when there is one; otherwise the plain AAC stream, which starts at once.
-    /// `start` then prepares a local copy in the chosen quality and switches to it.
+    /// Downloaded or cached file when there is one; otherwise the best stream AVPlayer plays as it is,
+    /// which starts at once and plays to the end. The local copy (and Opus) made meanwhile serve
+    /// seeks and the next listen.
     private func stream(for track: Track) async throws -> (url: URL, label: String) {
         if let local = Storage.localAudio(for: track) {
             return (local, "\(DownloadManager.formatLabel(for: track) ?? "AAC") · offline")
@@ -706,7 +720,7 @@ final class PlayerController: ObservableObject {
         guard let videoId = track.videoId else { throw PlayerError.unavailable }
         if let cached = OpusPipeline.cachedFile(videoId: videoId) { return cached }
         // Usually already resolved by StreamPrewarmer while the song was on screen.
-        let stream = try await StreamResolver.shared.stream(for: videoId, quality: Preferences.initialStreamQuality)
+        let stream = try await StreamResolver.shared.nativeStream(for: videoId, quality: Preferences.streamingQuality)
         return (stream.url, stream.label)
     }
 
@@ -747,12 +761,18 @@ final class PlayerController: ObservableObject {
         }
     }
 
-    /// Replaces the current item with a better local file at the same position
-    /// (not while karaoke stems are playing).
-    private func switchToLocal(_ url: URL, label: String, track: Track) {
+    /// A local file of the playing song is ready. It waits for a seek (see `seek`), unless the
+    /// user already seeked in the stream: then it takes over at once, where seeking is reliable.
+    /// Not while karaoke stems are playing.
+    private func offerLocal(_ url: URL, label: String, track: Track) {
         guard current?.id == track.id, let item = player.currentItem,
               (item.asset as? AVURLAsset)?.url != url, !isPlayingStems else { return }
-        switchItem(to: AVPlayerItem(url: url), label: label, track: track)
+        if requestedSeek != nil {
+            localFile = nil
+            switchItem(to: AVPlayerItem(url: url), label: label, track: track)
+        } else {
+            localFile = (track.id, url, label)
+        }
     }
 
     /// Swaps the current item (local copy, karaoke stems, or back to the original) at the same position.
@@ -786,17 +806,45 @@ final class PlayerController: ObservableObject {
     /// volume stays free for crossfades. "Volume uniforme" lowers songs louder than YouTube's
     /// reference level.
     private func applyAudioEffects(to item: AVPlayerItem, track: Track) {
-        let videoId = Preferences.normalizesVolume ? track.videoId : nil
-        guard videoId != nil || EqualizerParameters.shared.isOn else {
-            item.audioMix = nil
-            return
-        }
         Task {
-            var gain: Float = 1
-            if let videoId { gain = Loudness.gain(forDecibels: await Loudness.shared.decibels(for: videoId)) }
-            let mix = await AudioEffects.mix(for: item, gain: gain)
+            let mix = await self.audioMix(for: item, track: track)
             guard self.player.currentItem === item else { return }
             item.audioMix = mix
+        }
+    }
+
+    private func audioMix(for item: AVPlayerItem, track: Track) async -> AVAudioMix? {
+        let videoId = Preferences.normalizesVolume ? track.videoId : nil
+        guard videoId != nil || EqualizerParameters.shared.isOn else { return nil }
+        var gain: Float = 1
+        if let videoId { gain = Loudness.gain(forDecibels: await Loudness.shared.decibels(for: videoId)) }
+        return await AudioEffects.mix(for: item, gain: gain)
+    }
+
+    /// Starts the item once its mix ("Volume uniforme", equalizer) is on: putting a mix on an item
+    /// that already plays is heard as a gap. The mix is nearly always ready at once (the loudness
+    /// comes with the audio links); if it takes longer than `limit`, the song starts and the mix follows.
+    private func startWithEffects(_ item: AVPlayerItem, track: Track, limit: Duration = .milliseconds(600)) {
+        let generation = requests.loadGeneration
+        var started = false
+        let start = {
+            guard !started, self.requests.isCurrentLoad(generation), self.player.currentItem === item,
+                  self.playWhenReady else { return }
+            started = true
+            self.activateSession()
+            // Start as soon as the first audio arrives instead of waiting for a "safe" buffer;
+            // later stalls are still handled by AVPlayer's normal waiting.
+            self.player.playImmediately(atRate: 1)
+        }
+        Task {
+            let mix = await self.audioMix(for: item, track: track)
+            guard self.player.currentItem === item else { return }
+            item.audioMix = mix
+            start()
+        }
+        Task {
+            try? await Task.sleep(for: limit)
+            start()
         }
     }
 
@@ -839,7 +887,6 @@ final class PlayerController: ObservableObject {
                 guard let item else { return }
                 self.itemStatusChanged(status, item: item, track: track)
             }
-        applyAudioEffects(to: item, track: track)
 
         if pendingFadeIn != nil {
             // Crossfading in: stay silent until the song really plays (see `startPendingFades`).
@@ -849,10 +896,9 @@ final class PlayerController: ObservableObject {
             player.volume = 1
         }
         if playWhenReady {
-            activateSession()
-            // Start as soon as the first audio arrives instead of waiting for a "safe" buffer;
-            // later stalls are still handled by AVPlayer's normal waiting.
-            player.playImmediately(atRate: 1)
+            startWithEffects(item, track: track)
+        } else {
+            applyAudioEffects(to: item, track: track)
         }
         deferredPreparation = (requests.loadGeneration, track)
         guard !isRetry else { return }
@@ -890,16 +936,15 @@ final class PlayerController: ObservableObject {
             guard !Task.isCancelled, self.requests.isCurrentLoad(generation), self.playWhenReady else { return }
             if isStreaming, let copy = try? await Self.prepareCopy(videoId: videoId, quality: quality),
                !Task.isCancelled, self.requests.isCurrentLoad(generation), self.playWhenReady {
-                self.switchToLocal(copy.url, label: copy.label, track: track)
+                self.offerLocal(copy.url, label: copy.label, track: track)
             }
             guard !Task.isCancelled, self.requests.isCurrentLoad(generation), self.playWhenReady,
                   UIApplication.shared.applicationState != .background,
                   quality.usesOpus, EnergyPolicy.current.allowsAudioConversion else { return }
-            // Switching a decoded rendition mid-song is audible, so only switch near the start.
+            // Decoded Opus plays from the next listen, or from the next seek.
             if let opus = await Self.prepareOpus(videoId: videoId, quality: quality, duration: track.duration),
-               !Task.isCancelled, self.requests.isCurrentLoad(generation), self.playWhenReady,
-               self.player.currentTime().seconds < 20 {
-                self.switchToLocal(opus.url, label: opus.label, track: track)
+               !Task.isCancelled, self.requests.isCurrentLoad(generation), self.playWhenReady {
+                self.offerLocal(opus.url, label: opus.label, track: track)
             }
         }
     }

@@ -30,6 +30,14 @@ actor StreamResolver {
         return stream
     }
 
+    /// The best rendition AVPlayer plays as it is: at Massima, Dolby or 256 kbps AAC when the video
+    /// has them, otherwise AAC. A song starts with it and keeps it, so nothing changes mid-song.
+    func nativeStream(for videoId: String, quality: AudioQuality) async throws -> ResolvedStream {
+        let stream = try await stream(for: videoId, quality: quality)
+        guard stream.format == .opus else { return stream }
+        return try await self.stream(for: videoId, quality: quality == .medium ? .low : .high)
+    }
+
     /// Whether the video's links are already known, so playing it needs no request.
     func isCached(_ videoId: String) -> Bool {
         (cache[videoId]?.expires ?? .distantPast) > .now

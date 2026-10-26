@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.10.1 (2026-10-27)
+
+### Fixed
+- **No more gaps at the start of songs.** Since songs began loading quickly, the sound broke two or three times in their first seconds: Onda moved the playing song from the stream to its local copy as soon as the copy arrived, then to decoded Opus at Massima, and put the Volume uniforme / equalizer mix on after the song had started.
+  - A song now keeps the stream it started with to the end. The local copy and Opus are still prepared meanwhile: they play from the next listen, or from the moment you move the progress bar, when a pause is expected anyway.
+  - At Massima a song starts in the best format the iPhone plays directly: Dolby or AAC 256 kbps when YouTube has them, otherwise AAC; Opus plays from the next listen.
+  - The Volume uniforme and equalizer mix is put on before the first note (it is nearly always ready at once, since the loudness comes with the audio links; after 0.6 s the song starts anyway).
+
 ## 1.10.0 (2026-10-26)
 
 ### Improved
