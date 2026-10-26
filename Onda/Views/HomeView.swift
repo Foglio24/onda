@@ -1,7 +1,9 @@
 import SwiftUI
 
 struct HomeView: View {
-    @EnvironmentObject private var player: PlayerController
+    /// Which song plays, not the whole player: the Home doesn't redraw for every player change.
+    @EnvironmentObject private var nowPlaying: NowPlayingState
+    private var player: PlayerController { .shared }
     @EnvironmentObject private var library: Library
     @EnvironmentObject private var lastfm: LastFM
     @AppStorage(Preferences.accent) private var accent: AccentChoice = .pink
@@ -38,7 +40,7 @@ struct HomeView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 30) {
-                    if player.current == nil || player.isRestoredSession, let point = player.resumePoint {
+                    if nowPlaying.isIdle, let point = player.resumePoint {
                         section("Riprendi da dove eri") {
                             ResumeCard(point: point, accent: accent.color) { player.continueListening(point) }
                                 .padding(.horizontal)

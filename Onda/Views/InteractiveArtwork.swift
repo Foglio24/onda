@@ -140,10 +140,10 @@ struct InteractiveArtwork: View {
                 DragGesture(minimumDistance: 4)
                     .onChanged { value in
                         guard enabled else { return }
-                        // Mostly downwards: that drag closes the player (see NowPlayingView), so the
-                        // cover stays flat instead of tilting along.
+                        // Mostly up or down: that drag closes the player or opens the song's details
+                        // (see NowPlayingView), so the cover stays flat instead of tilting along.
                         let translation = value.translation
-                        if translation.height > 0, translation.height > abs(translation.width) {
+                        if abs(translation.height) > abs(translation.width) {
                             if drag != .zero { withAnimation(.spring(duration: 0.3)) { drag = .zero } }
                             return
                         }

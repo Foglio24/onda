@@ -593,9 +593,13 @@ enum KaraokeMixer {
     static func mix(for composition: AVMutableComposition, mode: KaraokeMode, amount: Float) -> AVAudioMix {
         let gains = mode.gains(amount: amount)
         var parameters: [AVMutableAudioMixInputParameters] = []
+        let equalizer = EqualizerParameters.shared.isOn
         for (index, track) in composition.tracks.enumerated() {
             let parameter = AVMutableAudioMixInputParameters(track: track)
             parameter.setVolume(index == 0 ? gains.vocals : gains.instrumental, at: .zero)
+            // Each stem gets its own equalizer: equalizing both and mixing them sounds the same
+            // as equalizing the mix.
+            if equalizer { parameter.audioTapProcessor = EqualizerTap.make() }
             parameters.append(parameter)
         }
         let mix = AVMutableAudioMix()

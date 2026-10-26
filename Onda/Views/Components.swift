@@ -104,12 +104,14 @@ struct TrackRow: View {
     var showsMenu = true
     let action: () -> Void
 
-    @EnvironmentObject private var player: PlayerController
+    @EnvironmentObject private var nowPlaying: NowPlayingState
     @EnvironmentObject private var library: Library
     @EnvironmentObject private var downloads: DownloadManager
-    @EnvironmentObject private var router: AppRouter
+    // Only for actions. Observing them would redraw every row on screen for each player change
+    // (loading, karaoke progress, lyrics…); `NowPlayingState` says just which song plays.
+    private var router: AppRouter { .shared }
 
-    private var isCurrent: Bool { player.current?.id == track.id }
+    private var isCurrent: Bool { nowPlaying.currentID == track.id }
 
     var body: some View {
         HStack(spacing: 4) {
@@ -171,7 +173,7 @@ struct TrackRow: View {
                     Image(systemName: "waveform")
                         .font(.headline)
                         .foregroundStyle(.white)
-                        .symbolEffect(.variableColor.iterative, isActive: player.isPlaying)
+                        .symbolEffect(.variableColor.iterative, isActive: nowPlaying.isPlaying)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .background(.black.opacity(0.45), in: .rect(cornerRadius: 6))
                 }
@@ -236,7 +238,7 @@ struct PlaylistCard: View {
 struct PlayShuffleButtons: View {
     let tracks: [Track]
     let source: String
-    @EnvironmentObject private var player: PlayerController
+    private var player: PlayerController { .shared }
     @AppStorage(Preferences.accent) private var accent: AccentChoice = .pink
 
     var body: some View {
@@ -273,10 +275,11 @@ struct PlayShuffleButtons: View {
 struct TrackMenu: View {
     let track: Track
     var inPlayer = false
-    @EnvironmentObject private var player: PlayerController
     @EnvironmentObject private var library: Library
     @EnvironmentObject private var downloads: DownloadManager
-    @EnvironmentObject private var router: AppRouter
+    // Only for actions, so the menus of rows on screen don't redraw with every player change.
+    private var player: PlayerController { .shared }
+    private var router: AppRouter { .shared }
 
     var body: some View {
         if !inPlayer {
@@ -299,6 +302,9 @@ struct TrackMenu: View {
             Button { router.page = .album(id: albumID) } label: {
                 Label("Vai all'album", systemImage: "square.stack")
             }
+        }
+        Button { router.page = .song(track) } label: {
+            Label("Informazioni sul brano", systemImage: "info.circle")
         }
         Divider()
         Button { library.toggleLike(track) } label: {

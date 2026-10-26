@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.9.0 (2026-10-26)
+
+### Added
+- **Song details.** Swipe up on the player, or choose **Informazioni sul brano** in any song's ··· menu, to see the song's general data on a card that opens at half height:
+  - Artist and album (tap them to open their pages), release date, length and plays on YouTube.
+  - The label that delivered the song and its ℗ line, and the credits (composers, lyricists, producers, engineers, performers…), as the label sent them to YouTube Music.
+  - The audio: the format playing now, the downloaded copy's format and size, and the song's loudness compared with YouTube's reference, with what Volume uniforme does to it.
+  - Videos that aren't catalogue songs show their description instead. Buttons open the song in YouTube Music or share it.
+- **Equalizer** (Settings → Audio → Equalizzatore, or the player's ··· menu), with Spotify's presets: Acoustic, Bass Booster, Bass Reducer, Classical, Dance, Deep, Electronic, Hip-Hop, Jazz, Latin, Loudness, Lounge, Piano, Pop, R&B, Rock, Small Speakers, Spoken Word, Treble Booster, Treble Reducer, Vocal Booster and Flat.
+  - Six bands (60 Hz to 15 kHz) drawn as a curve: drag a point up or down to make your own.
+  - It works on every song, streamed or downloaded, karaoke included, and changes are heard at once.
+  - When a preset raises some frequencies, the overall volume goes down by as much, so the sound doesn't distort.
+
+### Improved
+- **Lighter lists.** Song rows, the Home and the album, artist, playlist, search and download pages no longer redraw for every change of the player (loading, karaoke progress, lyrics, colours): only when the song that plays, or play and pause, change.
+
+### For development
+- CI checks the equalizer's filters (gains, stability, no clipping for any preset) and, against the live service, the parsing of song details. Screenshots include the song details, in Italian and English, and the equalizer.
+
 ## 1.8.1 (2026-10-26)
 
 ### Fixed

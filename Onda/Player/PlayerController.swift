@@ -43,6 +43,24 @@ final class PlaybackProgress: ObservableObject {
     @Published var duration: TimeInterval = 0
 }
 
+/// What song lists and the Home show about playback: the current song, whether it plays, and
+/// whether a session is going. Kept apart from `PlayerController`, and changed only when a value
+/// really changes, so lists don't redraw for the player's other updates (loading, karaoke
+/// progress, lyrics, colours…).
+@MainActor
+final class NowPlayingState: ObservableObject {
+    @Published private(set) var currentID: String?
+    @Published private(set) var isPlaying = false
+    /// Nothing loaded, or only the queue restored at launch: the Home offers "Riprendi".
+    @Published private(set) var isIdle = true
+
+    fileprivate func update(currentID: String?, isPlaying: Bool, isIdle: Bool) {
+        if self.currentID != currentID { self.currentID = currentID }
+        if self.isPlaying != isPlaying { self.isPlaying = isPlaying }
+        if self.isIdle != isIdle { self.isIdle = isIdle }
+    }
+}
+
 /// The queue and the audio engine: AVPlayer, crossfade, background audio, lock screen and Control Center.
 @MainActor
 final class PlayerController: ObservableObject {
@@ -50,15 +68,25 @@ final class PlayerController: ObservableObject {
     static let defaultTint = Color(red: 0.24, green: 0.18, blue: 0.42)
 
     @Published private(set) var queue: [Track] = [] {
-        didSet { scheduleQueueSave() }
+        didSet {
+            scheduleQueueSave()
+            syncNowPlaying()
+        }
     }
     @Published private(set) var index = 0 {
-        didSet { scheduleQueueSave() }
+        didSet {
+            scheduleQueueSave()
+            syncNowPlaying()
+        }
     }
     /// The queue was restored at launch and nothing has been loaded yet: the Home's "Riprendi"
     /// card carries on from the saved position.
-    @Published private(set) var isRestoredSession = false
-    @Published private(set) var isPlaying = false
+    @Published private(set) var isRestoredSession = false {
+        didSet { syncNowPlaying() }
+    }
+    @Published private(set) var isPlaying = false {
+        didSet { syncNowPlaying() }
+    }
     @Published private(set) var isLoading = false
     @Published private(set) var errorMessage: String? = nil
     @Published private(set) var source = ""
@@ -79,6 +107,7 @@ final class PlayerController: ObservableObject {
     }
 
     let progress = PlaybackProgress()
+    let nowPlaying = NowPlayingState()
 
     /// Where the last song stopped, for the Home's "Riprendi" card.
     struct ResumePoint: Codable {
@@ -191,6 +220,12 @@ final class PlayerController: ObservableObject {
         attach(player)
         observeNotifications()
         restoreQueue()
+        syncNowPlaying()
+    }
+
+    private func syncNowPlaying() {
+        nowPlaying.update(currentID: current?.id, isPlaying: isPlaying,
+                          isIdle: current == nil || isRestoredSession)
     }
 
     // MARK: Queue
@@ -693,28 +728,36 @@ final class PlayerController: ObservableObject {
         }
         if wasPlaying || playWhenReady { player.play() }
         streamInfo = label
-        // Karaoke stems carry their own mix of vocal and instrumental volumes.
-        if !(newItem.asset is AVMutableComposition) { applyNormalization(to: newItem, track: track) }
+        // Karaoke stems carry their own mix of vocal and instrumental volumes (and the equalizer).
+        if !(newItem.asset is AVMutableComposition) { applyAudioEffects(to: newItem, track: track) }
     }
 
-    /// "Volume uniforme": lowers songs louder than YouTube's reference level, through the item's
-    /// audio mix, so the player's own volume stays free for crossfades.
-    private func applyNormalization(to item: AVPlayerItem, track: Track) {
-        guard Preferences.normalizesVolume, let videoId = track.videoId else {
+    /// "Volume uniforme" and the equalizer, through the item's audio mix, so the player's own
+    /// volume stays free for crossfades. "Volume uniforme" lowers songs louder than YouTube's
+    /// reference level.
+    private func applyAudioEffects(to item: AVPlayerItem, track: Track) {
+        let videoId = Preferences.normalizesVolume ? track.videoId : nil
+        guard videoId != nil || EqualizerParameters.shared.isOn else {
             item.audioMix = nil
             return
         }
         Task {
-            let gain = Loudness.gain(forDecibels: await Loudness.shared.decibels(for: videoId))
-            guard let mix = await Loudness.mix(for: item, gain: gain), self.player.currentItem === item else { return }
+            var gain: Float = 1
+            if let videoId { gain = Loudness.gain(forDecibels: await Loudness.shared.decibels(for: videoId)) }
+            let mix = await AudioEffects.mix(for: item, gain: gain)
+            guard self.player.currentItem === item else { return }
             item.audioMix = mix
         }
     }
 
-    /// Applies the "Volume uniforme" setting to the song that is playing.
-    func applyNormalizationPreference() {
-        guard let item = player.currentItem, let track = current, !isPlayingStems else { return }
-        applyNormalization(to: item, track: track)
+    /// Applies the "Volume uniforme" and equalizer settings to the song that is playing.
+    func applyAudioEffectsPreference() {
+        guard let item = player.currentItem, let track = current else { return }
+        if isPlayingStems {
+            updateKaraokeMix()
+        } else {
+            applyAudioEffects(to: item, track: track)
+        }
     }
 
     private func start(url: URL, track: Track, isRetry: Bool = false) {
@@ -727,7 +770,7 @@ final class PlayerController: ObservableObject {
                 self.itemStatusChanged(status, item: item, track: track)
             }
         player.replaceCurrentItem(with: item)
-        applyNormalization(to: item, track: track)
+        applyAudioEffects(to: item, track: track)
 
         if pendingFadeIn != nil {
             // Crossfading in: stay silent until the song really plays (see `startPendingFades`).

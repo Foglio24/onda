@@ -137,7 +137,7 @@ enum DownloadSort: String, CaseIterable, Identifiable {
 /// space it takes, the songs still downloading with their progress, and a choice of order.
 struct DownloadsView: View {
     @EnvironmentObject private var library: Library
-    @EnvironmentObject private var player: PlayerController
+    private var player: PlayerController { .shared }
     @EnvironmentObject private var downloads: DownloadManager
     @AppStorage("downloads.sort") private var sort: DownloadSort = .recent
     @State private var totalSize: Int64 = 0

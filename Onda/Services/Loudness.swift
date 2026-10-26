@@ -1,15 +1,9 @@
-import AVFoundation
 import Foundation
 
 /// How much louder than YouTube's reference level (-14 LUFS) each song is, as YouTube itself
-/// measures it. Read from the player data of YouTube's iOS client, which (unlike the YouTube Music
-/// web client) includes it.
+/// measures it (see `YouTubePlayerData`). The audio mix that applies it is `AudioEffects`.
 actor Loudness {
     static let shared = Loudness()
-
-    private static let endpoint = URL(string: "https://www.youtube.com/youtubei/v1/player?prettyPrint=false")!
-    private static let clientVersion = "20.10.4"
-    private static let userAgent = "com.google.ios.youtube/20.10.4 (iPhone16,2; U; CPU iOS 18_3_2 like Mac OS X;)"
 
     /// Decibels above the reference, by video ID; nil once a lookup failed, so it isn't repeated.
     private var known: [String: Double?] = [:]
@@ -34,47 +28,7 @@ actor Loudness {
     }
 
     private static func fetch(_ videoId: String) async throws -> Double? {
-        var request = URLRequest(url: endpoint)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
-        request.setValue("5", forHTTPHeaderField: "X-YouTube-Client-Name")
-        request.setValue(clientVersion, forHTTPHeaderField: "X-YouTube-Client-Version")
-        let body: [String: Any] = [
-            "videoId": videoId,
-            "contentCheckOk": true,
-            "racyCheckOk": true,
-            "context": [
-                "client": [
-                    "clientName": "IOS",
-                    "clientVersion": clientVersion,
-                    "deviceMake": "Apple",
-                    "deviceModel": "iPhone16,2",
-                    "osName": "iPhone",
-                    "osVersion": "18.3.2.22D82",
-                    "hl": Locale.current.language.languageCode?.identifier ?? "en",
-                ],
-            ],
-        ]
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
-        let (data, _) = try await URLSession.shared.data(for: request)
-        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-        let config = J.dict(J.value(json, "playerConfig", "audioConfig"))
-        if let decibels = config?["loudnessDb"] as? Double { return decibels }
-        if let absolute = config?["trackAbsoluteLoudnessLkfs"] as? Double {
-            return absolute - (config?["loudnessTargetLkfs"] as? Double ?? -14)
-        }
-        return nil
-    }
-
-    /// An audio mix that plays the item's audio at `gain`, or nil when nothing needs changing.
-    static func mix(for item: AVPlayerItem, gain: Float) async -> AVAudioMix? {
-        guard gain < 0.999,
-              let track = try? await item.asset.loadTracks(withMediaType: .audio).first else { return nil }
-        let parameters = AVMutableAudioMixInputParameters(track: track)
-        parameters.setVolume(gain, at: .zero)
-        let mix = AVMutableAudioMix()
-        mix.inputParameters = [parameters]
-        return mix
+        guard let json = try await YouTubePlayerData.response(for: videoId) else { return nil }
+        return SongDetails.loudness(in: json)
     }
 }

@@ -25,6 +25,7 @@ struct OndaApp: App {
             RootView()
                 .environmentObject(player)
                 .environmentObject(player.progress)
+                .environmentObject(player.nowPlaying)
                 .environmentObject(library)
                 .environmentObject(downloads)
                 .environmentObject(lastfm)

@@ -8,6 +8,7 @@ struct SettingsView: View {
     @EnvironmentObject private var library: Library
     @EnvironmentObject private var updater: AppUpdater
     @ObservedObject private var diagnostics = Diagnostics.shared
+    @ObservedObject private var equalizer = Equalizer.shared
 
     @AppStorage(Preferences.wifiQuality) private var wifiQuality = Preferences.defaultWifiQuality
     @AppStorage(Preferences.cellularQuality) private var cellularQuality = Preferences.defaultCellularQuality
@@ -38,6 +39,7 @@ struct SettingsView: View {
     @State private var alertText: String?
     @State private var confirmDeleteDownloads = false
     @State private var cacheCleared = false
+    @State private var showEqualizer = false
     /// Bumped after deleting files, so sizes and statuses read from disk refresh.
     @State private var storageRevision = 0
 
@@ -59,6 +61,9 @@ struct SettingsView: View {
             .scrollContentBackground(.hidden)
             .background { AmbientBackground() }
             .navigationTitle("Impostazioni")
+            // Opened directly only by the CI screenshots (see `LaunchScene`).
+            .navigationDestination(isPresented: $showEqualizer) { EqualizerView() }
+            .task { if LaunchScene.opensEqualizer { showEqualizer = true } }
             .sheet(item: $authURL, onDismiss: finishAuth) { item in
                 SafariView(url: item.url).ignoresSafeArea()
             }
@@ -72,7 +77,7 @@ struct SettingsView: View {
                 Button("Elimina", role: .destructive) { downloads.removeAll() }
             }
             .onChange(of: spatialAudio) { _, _ in player.applySpatialAudioPreference() }
-            .onChange(of: normalizeVolume) { _, _ in player.applyNormalizationPreference() }
+            .onChange(of: normalizeVolume) { _, _ in player.applyAudioEffectsPreference() }
             .onChange(of: dynamicColors) { _, _ in player.applyThemePreference() }
         }
     }
@@ -104,6 +109,13 @@ struct SettingsView: View {
             }
             Toggle(isOn: $normalizeVolume) {
                 Label("Volume uniforme", systemImage: "speaker.wave.2")
+            }
+            NavigationLink { EqualizerView() } label: {
+                LabeledContent {
+                    Text(equalizer.isOn ? equalizer.preset.title : String(localized: "Disattivato"))
+                } label: {
+                    Label("Equalizzatore", systemImage: "slider.vertical.3")
+                }
             }
         } header: {
             Text("Audio")

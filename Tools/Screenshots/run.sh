@@ -46,4 +46,8 @@ xcrun simctl io "$device" screenshot "$out/10-downloaded.png" >/dev/null && echo
 shot 11-storage it 6 storage
 shot 12-album-downloads it 8 "album:MPREb_ePmUY37w4pZ"
 
+shot 13-song-info it 14 "info:MPREb_ePmUY37w4pZ"
+shot 14-equalizer it 6 equalizer
+shot 15-song-info-english en 14 "info:MPREb_ePmUY37w4pZ"
+
 xcrun simctl shutdown "$device" || true

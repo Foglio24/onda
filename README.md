@@ -14,6 +14,8 @@ See [CHANGELOG.md](CHANGELOG.md) for what changed in each version.
 | Streams the YouTube Music catalogue, in the background and ad-free | ✅ |
 | Search, artists and albums | ✅ Top result, artists, albums and songs; artist pages (top songs, albums, singles, videos, similar artists) and album pages |
 | Volume normalization | ✅ Louder songs are turned down to YouTube's -14 LUFS reference, using YouTube's own loudness data |
+| Equalizer | ✅ Spotify's presets on a six-band curve you can drag, on every song |
+| Song details | ✅ Release date, label, ℗ and credits from YouTube Music's catalogue, plus format and loudness |
 | Quality and codecs | ✅ Four levels, set separately for Wi-Fi, cellular and downloads (details below) |
 | Dolby Atmos | ✅ Dolby Digital Plus when YouTube offers it, plus Apple's Spatial Audio with AirPods/Beats |
 | Crossfade | ✅ 0–12 seconds, like Spotify |

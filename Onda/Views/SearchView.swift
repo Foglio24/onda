@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct SearchView: View {
-    @EnvironmentObject private var player: PlayerController
+    private var player: PlayerController { .shared }
     @EnvironmentObject private var router: AppRouter
     @AppStorage(Preferences.recentSearches) private var recentRaw = ""
     @State private var query = ""

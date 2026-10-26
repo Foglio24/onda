@@ -1,4 +1,4 @@
-// Live check of YouTube Music parsing (search, artist and album pages, loudness) against the real
+// Live check of YouTube Music parsing (search, artist and album pages, song details, loudness) against the real
 // service, so a change on YouTube's side shows up in CI. Needs network access.
 // Run from the repository root: bash Tools/CatalogCheck/run.sh
 import Foundation
@@ -33,6 +33,15 @@ do {
     expect(!album.tracks.isEmpty, "album \(album.title): \(album.tracks.count) tracks")
     expect(album.tracks.allSatisfy { $0.artist != "300 Mln riproduzioni" && !$0.artist.isEmpty }, "album tracks have artists, not play counts: \(album.tracks.first?.artist ?? "")")
     expect(album.tracks.contains { $0.duration != nil }, "album tracks have durations")
+
+    if let song = songs.first, let videoId = song.videoId {
+        let details = try await SongDetails.load(videoId: videoId)
+        let released = details.releaseDate.map { String(describing: $0) } ?? "none"
+        let credits = details.credits.map { credit in credit.role + ": " + credit.names.joined(separator: ", ") }
+        expect(details.label != nil, "song details of \(song.title): label \(details.label ?? "none"), album \(details.album ?? "none"), released \(released), \(details.copyright ?? "no copyright")")
+        expect(!credits.isEmpty, "song credits: \(credits)")
+        expect(details.views != nil, "song plays: \(details.views.map(String.init) ?? "none")")
+    }
 
     let decibels = await Loudness.shared.decibels(for: "dQw4w9WgXcQ")
     expect(decibels != nil, "loudness from YouTube: \(decibels.map { String(format: "%.2f dB", $0) } ?? "none")")

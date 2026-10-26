@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// An artist, album or playlist page, opened as a sheet from anywhere (see `AppRouter.page`).
+/// An artist, album or playlist page, or a song's details, opened as a sheet from anywhere
+/// (see `AppRouter.page`).
 struct MusicPageSheet: View {
     let page: MusicPage
     @EnvironmentObject private var router: AppRouter
@@ -14,9 +15,16 @@ struct MusicPageSheet: View {
                     }
                 }
         }
+        .presentationDetents(detents)
         .sheet(item: router.addToPlaylistBinding(for: .page)) { track in
             AddToPlaylistSheet(track: track)
         }
+    }
+
+    /// A song's details start at half height, like a card pulled up from the player.
+    private var detents: Set<PresentationDetent> {
+        if case .song = page { return [.medium, .large] }
+        return [.large]
     }
 }
 
@@ -28,6 +36,7 @@ struct MusicPageView: View {
         case .artist(let id, let name): ArtistView(id: id, name: name)
         case .album(let id): AlbumView(id: id)
         case .playlist(let id, let title): RemotePlaylistView(id: id, title: title)
+        case .song(let track): SongInfoView(track: track)
         }
     }
 }
@@ -36,7 +45,7 @@ struct MusicPageView: View {
 struct MusicLink<Label: View>: View {
     let item: MusicItem
     @ViewBuilder let label: Label
-    @EnvironmentObject private var player: PlayerController
+    private var player: PlayerController { .shared }
 
     var body: some View {
         if case .song(let track) = item.kind {
@@ -151,7 +160,7 @@ struct ArtistView: View {
     let id: String?
     let name: String
 
-    @EnvironmentObject private var player: PlayerController
+    private var player: PlayerController { .shared }
     @State private var page: ArtistPage?
     @State private var failure: String?
 
@@ -249,7 +258,7 @@ struct ArtistView: View {
 struct AlbumView: View {
     let id: String
 
-    @EnvironmentObject private var player: PlayerController
+    private var player: PlayerController { .shared }
     @EnvironmentObject private var library: Library
     @State private var page: AlbumPage?
     @State private var failure: String?
@@ -342,7 +351,7 @@ struct RemotePlaylistView: View {
     let id: String
     let title: String
 
-    @EnvironmentObject private var player: PlayerController
+    private var player: PlayerController { .shared }
     @EnvironmentObject private var library: Library
     @State private var tracks: [Track]?
     @State private var loadedTitle: String?

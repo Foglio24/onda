@@ -15,11 +15,13 @@ struct NowPlayingView: View {
     @State private var panel: Panel = .artwork
     /// How far the player has been dragged down towards closing.
     @State private var dismissOffset: CGFloat = 0
+    @State private var showEqualizer = false
 
     var body: some View {
         VStack(spacing: 16) {
-            // Dragging down here closes the player, like the Music app. With the lyrics or the
-            // queue open only the header does, so their lists keep scrolling normally.
+            // Dragging down here closes the player, like the Music app, and dragging up opens the
+            // song's details. With the lyrics or the queue open only the header does, so their
+            // lists keep scrolling normally.
             VStack(spacing: 16) {
                 topBar
                 if panel == .artwork {
@@ -65,11 +67,22 @@ struct NowPlayingView: View {
         .sheet(item: router.pageBinding(fromPlayer: true)) { page in
             MusicPageSheet(page: page)
         }
+        .sheet(isPresented: $showEqualizer) {
+            NavigationStack {
+                EqualizerView()
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Fine") { showEqualizer = false }
+                        }
+                    }
+            }
+        }
         .downloadErrorAlert(isActive: router.showPlayer)
     }
 
     /// A drag mostly downwards moves the player with the finger; letting go far enough down, or
-    /// with a flick, closes it, and it shrinks back into the mini player. Sideways drags are left
+    /// with a flick, closes it, and it shrinks back into the mini player. A drag mostly upwards
+    /// opens the song's details, like scrolling down in Spotify's player. Sideways drags are left
     /// to the cover, which tilts with them.
     private var dismissDrag: some Gesture {
         // Global coordinates: the content moves with the finger, so local ones would shift.
@@ -80,7 +93,14 @@ struct NowPlayingView: View {
                 dismissOffset = down
             }
             .onEnded { value in
-                guard dismissOffset > 0 else { return }
+                guard dismissOffset > 0 else {
+                    let up = -value.translation.height
+                    if up > abs(value.translation.width), up > 60 || value.predictedEndTranslation.height < -200,
+                       let track = player.current {
+                        router.page = .song(track)
+                    }
+                    return
+                }
                 if dismissOffset > 120 || value.predictedEndTranslation.height > 260 {
                     dismiss()
                 } else {
@@ -129,6 +149,9 @@ struct NowPlayingView: View {
                 if let track = player.current { TrackMenu(track: track, inPlayer: true) }
                 Divider()
                 sleepTimerMenu
+                Button { showEqualizer = true } label: {
+                    Label("Equalizzatore", systemImage: "slider.vertical.3")
+                }
             } label: {
                 Image(systemName: "ellipsis")
                     .font(.title3.weight(.semibold))

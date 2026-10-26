@@ -23,7 +23,7 @@ struct PlaylistDetailView: View {
     let playlistID: UUID
 
     @EnvironmentObject private var library: Library
-    @EnvironmentObject private var player: PlayerController
+    private var player: PlayerController { .shared }
     @EnvironmentObject private var downloads: DownloadManager
     @Environment(\.dismiss) private var dismiss
     @State private var showRename = false

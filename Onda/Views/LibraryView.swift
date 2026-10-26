@@ -163,7 +163,7 @@ struct TrackCollectionView: View {
     let collection: TrackCollection
 
     @EnvironmentObject private var library: Library
-    @EnvironmentObject private var player: PlayerController
+    private var player: PlayerController { .shared }
     @EnvironmentObject private var downloads: DownloadManager
 
     private var tracks: [Track] {

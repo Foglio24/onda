@@ -7,6 +7,8 @@ enum MusicPage: Identifiable, Hashable {
     case artist(id: String?, name: String)
     case album(id: String)
     case playlist(id: String, title: String)
+    /// "Informazioni sul brano": a song's release date, label, credits and so on.
+    case song(Track)
 
     init?(_ item: MusicItem) {
         switch item.kind {
@@ -22,6 +24,7 @@ enum MusicPage: Identifiable, Hashable {
         case .artist(let id, let name): return "artist-\(id ?? name)"
         case .album(let id): return "album-\(id)"
         case .playlist(let id, _): return "playlist-\(id)"
+        case .song(let track): return "song-\(track.id)"
         }
     }
 }
