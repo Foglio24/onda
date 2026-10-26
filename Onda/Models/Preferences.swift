@@ -166,7 +166,9 @@ enum Preferences {
     static let opusLengthLimit: TimeInterval = 20 * 60
 
     /// Defaults used both here and by `@AppStorage` in the settings screen.
-    static let defaultWifiQuality = AudioQuality.max
+    // Native AAC avoids decoding and re-encoding every streamed song on the phone.
+    // Explicit Maximum quality selections remain available and are preserved.
+    static let defaultWifiQuality = AudioQuality.high
     static let defaultCellularQuality = AudioQuality.high
     static let defaultDownloadQuality = AudioQuality.max
 

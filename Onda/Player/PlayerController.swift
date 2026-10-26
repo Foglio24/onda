@@ -170,6 +170,9 @@ final class PlayerController: ObservableObject {
     private var fadeInTask: Task<Void, Never>?
     /// Prepares the local copy of the streaming song (see `switchToLocal`).
     private var upgradeTask: Task<Void, Never>?
+    /// At most one upcoming AAC copy; never a speculative Opus conversion.
+    private var prefetchTask: Task<Void, Never>?
+    private var lyricsPrefetchTask: Task<Void, Never>?
     /// A seek made while streaming, applied when the local copy takes over.
     private var requestedSeek: StreamingSeekPosition?
     /// Separates the current song for karaoke.
@@ -387,6 +390,7 @@ final class PlayerController: ObservableObject {
     func pause() {
         endCrossfade()
         playWhenReady = false
+        stopPreparationWork()
         requestedSeek?.setPlaying(false, now: ProcessInfo.processInfo.systemUptime)
         player.pause()
         rememberPosition(progress.currentTime)
@@ -399,6 +403,11 @@ final class PlayerController: ObservableObject {
         if player.currentItem != nil {
             activateSession()
             player.play()
+            if let track = current {
+                if karaokeMode != .off, !isPlayingStems { startKaraoke() }
+                else { prepareCurrentAudio(for: track) }
+                prefetchNext()
+            }
         } else if !isLoading {
             loadCurrent()
             // After a restored session: carry on where the song was left.
@@ -490,24 +499,36 @@ final class PlayerController: ObservableObject {
     }
 
     private func startKaraoke() {
-        guard karaokeMode != .off, let track = current, let videoId = track.videoId else { return }
+        guard playWhenReady, UIApplication.shared.applicationState != .background,
+              karaokeMode != .off, let track = current, let videoId = track.videoId else { return }
+        guard EnergyPolicy.current.allowsKaraoke || StemSeparator.cachedStems(for: videoId) != nil else {
+            karaokeStatus = .failed(KaraokeError.energyLimited.localizedDescription)
+            return
+        }
         guard StemSeparator.isAvailable else {
             karaokeStatus = .failed(KaraokeError.engineUnavailable.localizedDescription)
             return
         }
         karaokeTask?.cancel()
+        upgradeTask?.cancel()
         karaokeStatus = .preparing(0, remaining: nil)
-        StemSeparator.focus(on: [videoId, upNextVideoId].compactMap { $0 })
+        StemSeparator.focus(on: [videoId])
         let clock = KaraokeClock()
         karaokeTask = Task {
             do {
-                let source = try await Self.karaokeSource(for: track, videoId: videoId)
-                let stems = try await StemSeparator.shared.stems(for: videoId, source: source,
-                                                                 duration: track.duration) { value in
-                    Task { @MainActor in
-                        let controller = PlayerController.shared
-                        if case .preparing = controller.karaokeStatus, controller.current?.id == track.id {
-                            controller.karaokeStatus = .preparing(value, remaining: clock.remaining(at: value))
+                let stems: StemFiles
+                if let cached = StemSeparator.cachedStems(for: videoId) {
+                    stems = cached
+                } else {
+                    let source = try await Self.karaokeSource(for: track, videoId: videoId)
+                    try Task.checkCancellation()
+                    stems = try await StemSeparator.shared.stems(for: videoId, source: source,
+                                                                  duration: track.duration) { value in
+                        Task { @MainActor in
+                            let controller = PlayerController.shared
+                            if case .preparing = controller.karaokeStatus, controller.current?.id == track.id {
+                                controller.karaokeStatus = .preparing(value, remaining: clock.remaining(at: value))
+                            }
                         }
                     }
                 }
@@ -518,7 +539,6 @@ final class PlayerController: ObservableObject {
                 self.karaokeTrackID = track.id
                 self.switchItem(to: item, label: String(localized: "Karaoke AI"), track: track)
                 self.karaokeStatus = .ready
-                self.prepareNextKaraoke()
             } catch {
                 guard !Task.isCancelled else { return }
                 self.karaokeStatus = .failed(error.localizedDescription)
@@ -547,23 +567,6 @@ final class PlayerController: ObservableObject {
         guard isPlayingStems, let item = player.currentItem,
               let composition = item.asset as? AVMutableComposition else { return }
         item.audioMix = KaraokeMixer.mix(for: composition, mode: karaokeMode, amount: karaokeAmount)
-    }
-
-    /// Separates the next song while this one plays, so its karaoke is ready when it starts.
-    /// Not while the iPhone is warm: the next song is then separated when it starts.
-    private func prepareNextKaraoke() {
-        guard index + 1 < queue.count, !PowerState.isConstrained else { return }
-        let upNext = queue[index + 1]
-        guard let videoId = upNext.videoId, StemSeparator.cachedStems(for: videoId) == nil else { return }
-        StemSeparator.focus(on: [current?.videoId, videoId].compactMap { $0 })
-        Task.detached(priority: .utility) {
-            guard let source = try? await PlayerController.karaokeSource(for: upNext, videoId: videoId) else { return }
-            _ = try? await StemSeparator.shared.stems(for: videoId, source: source, duration: upNext.duration)
-        }
-    }
-
-    private var upNextVideoId: String? {
-        index + 1 < queue.count ? queue[index + 1].videoId : nil
     }
 
     /// A local file to separate: the download, the cached copy, or a fresh AAC copy.
@@ -602,7 +605,10 @@ final class PlayerController: ObservableObject {
         loadTask?.cancel()
         retryTask?.cancel()
         upgradeTask?.cancel()
+        prefetchTask?.cancel()
+        lyricsPrefetchTask?.cancel()
         karaokeTask?.cancel()
+        StemSeparator.focus(on: [])
         karaokeTrackID = nil
         requestedSeek = nil
         pendingStartTime = nil
@@ -666,10 +672,13 @@ final class PlayerController: ObservableObject {
     /// A local copy of the plain stream (Dolby, AAC 256 or AAC 128/48): quick to fetch,
     /// so the song can seek and crossfade early.
     nonisolated static func prepareCopy(videoId: String, quality: AudioQuality) async throws -> (url: URL, label: String) {
+        try Task.checkCancellation()
         var stream = try await StreamResolver.shared.stream(for: videoId, quality: quality)
+        try Task.checkCancellation()
         if stream.format == .opus {
             stream = try await StreamResolver.shared.stream(for: videoId, quality: quality == .medium ? .low : .high)
         }
+        try Task.checkCancellation()
         let copy = try await OpusPipeline.shared.localCopy(videoId: videoId, stream: stream)
         return (copy, stream.label)
     }
@@ -677,24 +686,24 @@ final class PlayerController: ObservableObject {
     /// The decoded Opus file for the top qualities, when YouTube's best stream is Opus. Nil otherwise.
     nonisolated static func prepareOpus(videoId: String, quality: AudioQuality,
                                         duration: TimeInterval?) async -> (url: URL, label: String)? {
-        guard quality.usesOpus, (duration ?? 0) <= Preferences.opusLengthLimit,
+        guard !Task.isCancelled, EnergyPolicy.current.allowsAudioConversion,
+              quality.usesOpus, (duration ?? 0) <= Preferences.opusLengthLimit,
               let stream = try? await StreamResolver.shared.stream(for: videoId, quality: quality),
+              !Task.isCancelled, EnergyPolicy.current.allowsAudioConversion,
               stream.format == .opus else { return nil }
         do {
             let file = try await OpusPipeline.shared.playableFile(videoId: videoId, stream: stream)
             UserDefaults.standard.removeObject(forKey: Preferences.opusLastError)
             return (file, stream.label)
+        } catch is CancellationError {
+            return nil
+        } catch OpusError.energyBudget {
+            return nil
         } catch {
             // Shown in Settings, to understand why Opus isn't used.
             UserDefaults.standard.set(error.localizedDescription, forKey: Preferences.opusLastError)
             return nil
         }
-    }
-
-    /// Caches a song ahead of time: the quick copy first, then the Opus decode.
-    nonisolated static func prepare(videoId: String, quality: AudioQuality, duration: TimeInterval?) async {
-        _ = try? await prepareCopy(videoId: videoId, quality: quality)
-        _ = await prepareOpus(videoId: videoId, quality: quality, duration: duration)
     }
 
     /// Replaces the current item with a better local file at the same position
@@ -785,33 +794,69 @@ final class PlayerController: ObservableObject {
             // later stalls are still handled by AVPlayer's normal waiting.
             player.playImmediately(atRate: 1)
         }
-        if Storage.localAudio(for: track) == nil, let videoId = track.videoId {
-            let quality = Preferences.streamingQuality
-            let duration = track.duration
-            let isStreaming = !url.isFileURL
-            upgradeTask?.cancel()
-            upgradeTask = Task {
-                // 1. A quick local copy, so seeking and crossfade work.
-                if isStreaming, let copy = try? await Self.prepareCopy(videoId: videoId, quality: quality),
-                   !Task.isCancelled {
-                    self.switchToLocal(copy.url, label: copy.label, track: track)
-                }
-                // 2. Lossless Opus. Switching mid-song would be audible, so only near the start;
-                //    otherwise it is ready for the next time the song plays.
-                if let opus = await Self.prepareOpus(videoId: videoId, quality: quality, duration: duration),
-                   !Task.isCancelled, self.player.currentTime().seconds < 20 {
-                    self.switchToLocal(opus.url, label: opus.label, track: track)
-                }
-            }
-        }
+        prepareCurrentAudio(for: track)
         guard !isRetry else { return }
         scrobbler.begin(track)
         Library.shared.recordPlay(track)
         loadLyrics(for: track)
         prefetchNext()
         updateNowPlayingInfo()
-        // Karaoke stays on from song to song: separate this one too (often already done in advance).
+        // Karaoke stays on from song to song, preparing only the current song.
         if karaokeMode != .off { startKaraoke() }
+    }
+
+    /// Prepare the requested song only. Upcoming songs never run the Opus decoder.
+    private func prepareCurrentAudio(for track: Track) {
+        upgradeTask?.cancel()
+        guard playWhenReady, !isPlayingStems, Storage.localAudio(for: track) == nil,
+              let videoId = track.videoId, let asset = player.currentItem?.asset as? AVURLAsset else { return }
+        let quality = Preferences.streamingQuality
+        let isStreaming = !asset.url.isFileURL
+        let canConvert = UIApplication.shared.applicationState != .background && EnergyPolicy.current.allowsAudioConversion
+        guard isStreaming || (quality.usesOpus && canConvert) else { return }
+        let generation = requests.loadGeneration
+        upgradeTask = Task {
+            guard !Task.isCancelled, self.requests.isCurrentLoad(generation), self.playWhenReady else { return }
+            if isStreaming, let copy = try? await Self.prepareCopy(videoId: videoId, quality: quality),
+               !Task.isCancelled, self.requests.isCurrentLoad(generation), self.playWhenReady {
+                self.switchToLocal(copy.url, label: copy.label, track: track)
+            }
+            guard !Task.isCancelled, self.requests.isCurrentLoad(generation), self.playWhenReady,
+                  UIApplication.shared.applicationState != .background,
+                  quality.usesOpus, EnergyPolicy.current.allowsAudioConversion else { return }
+            // Switching a decoded rendition mid-song is audible, so only switch near the start.
+            if let opus = await Self.prepareOpus(videoId: videoId, quality: quality, duration: track.duration),
+               !Task.isCancelled, self.requests.isCurrentLoad(generation), self.playWhenReady,
+               self.player.currentTime().seconds < 20 {
+                self.switchToLocal(opus.url, label: opus.label, track: track)
+            }
+        }
+    }
+
+    private func stopPreparationWork() {
+        upgradeTask?.cancel()
+        prefetchTask?.cancel()
+        lyricsPrefetchTask?.cancel()
+        karaokeTask?.cancel()
+        StemSeparator.focus(on: [])
+        if case .preparing = karaokeStatus { karaokeStatus = .idle }
+    }
+
+    private func applyEnergyBudget() {
+        let budget = EnergyPolicy.current
+        if !budget.allowsSpeculativeWork {
+            prefetchTask?.cancel()
+            lyricsPrefetchTask?.cancel()
+        }
+        if !budget.allowsAudioConversion { upgradeTask?.cancel() }
+        if !budget.allowsKaraoke {
+            karaokeTask?.cancel()
+            StemSeparator.focus(on: [])
+            StemSeparator.releaseEngine()
+            if case .preparing = karaokeStatus {
+                karaokeStatus = .failed(KaraokeError.energyLimited.localizedDescription)
+            }
+        }
     }
 
     private func itemStatusChanged(_ status: AVPlayerItem.Status, item: AVPlayerItem, track: Track) {
@@ -1010,27 +1055,30 @@ final class PlayerController: ObservableObject {
         }
     }
 
-    /// Caches the next two songs while this one plays, so they start instantly and crossfade on time,
-    /// even with the screen locked. Only the next one while the iPhone is warm.
+    /// Cache at most one upcoming native AAC file when iOS has spare energy.
     private func prefetchNext() {
+        prefetchTask?.cancel()
+        guard playWhenReady, UIApplication.shared.applicationState != .background,
+              EnergyPolicy.current.allowsSpeculativeWork else { return }
         prefetchLyrics()
-        let quality = Preferences.streamingQuality
-        let ahead = PowerState.isConstrained ? 1 : 2
-        let upcoming = queue.indices.filter { $0 > index }.prefix(ahead).map { queue[$0] }
-        if Preferences.normalizesVolume {
-            let videoIds = upcoming.compactMap(\.videoId)
-            Task.detached(priority: .utility) {
-                for videoId in videoIds { _ = await Loudness.shared.decibels(for: videoId) }
+        guard index + 1 < queue.count else { return }
+        let track = queue[index + 1]
+        guard let videoId = track.videoId else { return }
+        let needsCopy = Storage.localAudio(for: track) == nil && OpusPipeline.cachedFile(videoId: videoId) == nil
+        let prefetchLoudness = Preferences.normalizesVolume
+        guard needsCopy || prefetchLoudness else { return }
+        let quality = Preferences.initialStreamQuality
+        let generation = requests.loadGeneration
+        prefetchTask = Task(priority: .utility) {
+            guard !Task.isCancelled, self.requests.isCurrentLoad(generation), self.playWhenReady,
+                  EnergyPolicy.current.allowsSpeculativeWork else { return }
+            if prefetchLoudness {
+                _ = await Loudness.shared.decibels(for: videoId)
             }
-        }
-        let songs = upcoming.compactMap { track -> (String, TimeInterval?)? in
-            guard let videoId = track.videoId, Storage.localAudio(for: track) == nil else { return nil }
-            return (videoId, track.duration)
-        }
-        guard !songs.isEmpty else { return }
-        Task.detached(priority: .utility) {
-            for (videoId, duration) in songs {
-                await PlayerController.prepare(videoId: videoId, quality: quality, duration: duration)
+            guard !Task.isCancelled, self.requests.isCurrentLoad(generation), self.playWhenReady,
+                  EnergyPolicy.current.allowsSpeculativeWork else { return }
+            if needsCopy {
+                _ = try? await Self.prepareCopy(videoId: videoId, quality: quality)
             }
         }
     }
@@ -1059,13 +1107,16 @@ final class PlayerController: ObservableObject {
 
     /// Fetches the next song's lyrics, and translates them, while this one plays.
     private func prefetchLyrics() {
-        guard index + 1 < queue.count else { return }
+        lyricsPrefetchTask?.cancel()
+        guard playWhenReady, EnergyPolicy.current.allowsSpeculativeWork, index + 1 < queue.count else { return }
         let upNext = queue[index + 1]
         guard prefetchedLyrics[upNext.id] == nil else { return }
-        Task {
+        let generation = requests.loadGeneration
+        lyricsPrefetchTask = Task {
             let result = await LyricsService.shared.lyrics(for: upNext)
             // A network error also reads as "unavailable": leave it to be fetched again.
-            guard result != .unavailable else { return }
+            guard !Task.isCancelled, self.requests.isCurrentLoad(generation), self.playWhenReady,
+                  EnergyPolicy.current.allowsSpeculativeWork, result != .unavailable else { return }
             if self.prefetchedLyrics.count >= 20 { self.prefetchedLyrics.removeAll() }
             self.prefetchedLyrics[upNext.id] = result
             if case .synced(let lines) = result { LyricsTranslator.shared.prefetch(lines) }
@@ -1163,6 +1214,31 @@ final class PlayerController: ObservableObject {
             .sink { note in self.handleInterruption(note) }
             .store(in: &cancellables)
 
+        // Reading thermalState enables its change notifications on iOS.
+        _ = EnergyPolicy.current
+        NotificationCenter.default.publisher(for: ProcessInfo.thermalStateDidChangeNotification)
+            .merge(with: NotificationCenter.default.publisher(for: .NSProcessInfoPowerStateDidChange))
+            .receive(on: DispatchQueue.main)
+            .sink { _ in self.applyEnergyBudget() }
+            .store(in: &cancellables)
+
+        NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)
+            .receive(on: DispatchQueue.main)
+            .sink { _ in
+                self.stopPreparationWork()
+                StemSeparator.releaseEngine()
+            }
+            .store(in: &cancellables)
+        NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)
+            .receive(on: DispatchQueue.main)
+            .sink { _ in
+                guard self.playWhenReady, let track = self.current, self.player.currentItem != nil else { return }
+                if self.karaokeMode != .off, !self.isPlayingStems { self.startKaraoke() }
+                else { self.prepareCurrentAudio(for: track) }
+                self.prefetchNext()
+            }
+            .store(in: &cancellables)
+
         // A separation the app was closed in the middle of shows up in Settings → Karaoke.
         StemSeparator.noteInterruptedRun()
         StemSeparator.removeLegacyModel()
@@ -1218,13 +1294,14 @@ final class PlayerController: ObservableObject {
               let type = AVAudioSession.InterruptionType(rawValue: rawType) else { return }
         if type == .began {
             requestedSeek?.setPlaying(false, now: ProcessInfo.processInfo.systemUptime)
+            stopPreparationWork()
             endCrossfade()
             return
         }
         guard let rawOptions = note.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt,
               AVAudioSession.InterruptionOptions(rawValue: rawOptions).contains(.shouldResume),
               playWhenReady else { return }
-        player.play()
+        resume()
     }
 
     private func configureRemoteCommands(_ center: MPRemoteCommandCenter) {

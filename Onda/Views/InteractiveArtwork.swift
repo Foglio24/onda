@@ -53,16 +53,14 @@ final class MotionTilt: ObservableObject {
     }
 
     private var shouldRun: Bool {
-        let info = ProcessInfo.processInfo
         return users > 0 && !inBackground && manager.isDeviceMotionAvailable
-            && !UIAccessibility.isReduceMotionEnabled && !info.isLowPowerModeEnabled
-            && info.thermalState.rawValue < ProcessInfo.ThermalState.serious.rawValue
+            && !UIAccessibility.isReduceMotionEnabled && EnergyPolicy.current.allowsMotionEffects
     }
 
     private func update() {
         if shouldRun, !isRunning {
             isRunning = true
-            manager.deviceMotionUpdateInterval = 1.0 / 30
+            manager.deviceMotionUpdateInterval = 1.0 / 20
             manager.startDeviceMotionUpdates(to: .main) { motion, _ in
                 guard let motion else { return }
                 // Measured from how a phone is usually held: tilted about 40° towards the face.

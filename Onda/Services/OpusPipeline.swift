@@ -1,16 +1,18 @@
 import AVFoundation
 import Foundation
 
-enum OpusError: LocalizedError {
+enum OpusError: LocalizedError, Equatable {
     case notWebM
     case noAudio
     case decoderUnavailable
+    case energyBudget
 
     var errorDescription: String? {
         switch self {
         case .notWebM: return String(localized: "File WebM non valido.")
         case .noAudio: return String(localized: "Nessun audio Opus nel file.")
         case .decoderUnavailable: return String(localized: "Decoder Opus non disponibile.")
+        case .energyBudget: return String(localized: "Conversione audio sospesa per ridurre il consumo energetico.")
         }
     }
 }
@@ -24,11 +26,13 @@ actor OpusPipeline {
     /// Decoded songs are kept for replays and prefetching, up to this size.
     private static let cacheLimit: Int64 = 600 << 20
 
-    private var inFlight: [String: Task<URL, Error>] = [:]
+    private let files = SharedAudioFiles()
+    private static let conversion = AudioConversionLock()
 
     /// A playable lossless file for an Opus stream, decoding it unless it is already cached.
     func playableFile(videoId: String, stream: ResolvedStream) async throws -> URL {
-        try await cached(Self.cacheFile(videoId: videoId, stream: stream)) { destination in
+        return try await cached(Self.cacheFile(videoId: videoId, stream: stream)) { destination in
+            try Self.checkConversionBudget()
             let webm = destination.deletingLastPathComponent().appending(path: ".\(UUID().uuidString).webm")
             defer { try? FileManager.default.removeItem(at: webm) }
             try await Self.download(stream.url, to: webm)
@@ -74,20 +78,27 @@ actor OpusPipeline {
     /// Runs `build` once per destination, sharing the result with concurrent callers.
     private func cached(_ destination: URL,
                         build: @escaping @Sendable (URL) async throws -> Void) async throws -> URL {
+        try Task.checkCancellation()
         if FileManager.default.fileExists(atPath: destination.path) {
             try? FileManager.default.setAttributes([.modificationDate: Date.now], ofItemAtPath: destination.path)
             return destination
         }
-        if let running = inFlight[destination.path] { return try await running.value }
-        // The caller's priority: urgent for the song that is playing, low for songs cached ahead,
-        // whose decoding then runs on the efficiency cores and slows down when the iPhone is warm.
-        let task = Task.detached(priority: Task.currentPriority) {
-            try await build(destination)
+        let file = try await files.value(for: destination.path) {
+            // Only complete files use the public cache name. Partial files remain hidden
+            // from cachedFile() and are removed when the last requesting task is cancelled.
+            let temporary = destination.deletingLastPathComponent()
+                .appending(path: ".\(UUID().uuidString).preparing.m4a")
+            defer { try? FileManager.default.removeItem(at: temporary) }
+            try Task.checkCancellation()
+            if FileManager.default.fileExists(atPath: destination.path) { return destination }
+            try await build(temporary)
+            try Task.checkCancellation()
+            if !FileManager.default.fileExists(atPath: destination.path) {
+                try FileManager.default.moveItem(at: temporary, to: destination)
+            }
             return destination
         }
-        inFlight[destination.path] = task
-        defer { inFlight[destination.path] = nil }
-        let file = try await task.value
+        try Task.checkCancellation()
         Self.pruneCache()
         return file
     }
@@ -98,12 +109,26 @@ actor OpusPipeline {
 
     /// Decodes a downloaded WebM/Opus file into an Apple Lossless .m4a at `destination`.
     nonisolated static func transcode(webm: URL, to destination: URL) throws {
+        try conversion.perform {
+            try transcodeSerial(webm: webm, to: destination)
+        }
+    }
+
+    private nonisolated static func checkConversionBudget() throws {
+        try Task.checkCancellation()
+        guard EnergyPolicy.current.allowsAudioConversion else { throw OpusError.energyBudget }
+    }
+
+    private nonisolated static func transcodeSerial(webm: URL, to destination: URL) throws {
+        try checkConversionBudget()
         let data = try Data(contentsOf: webm, options: .mappedIfSafe)
         let track = try WebMDemuxer.opusTrack(in: data)
+        try checkConversionBudget()
         let temporary = destination.deletingLastPathComponent()
             .appending(path: ".\(UUID().uuidString).m4a")
         do {
             try decode(track, to: temporary)
+            try checkConversionBudget()
             try? FileManager.default.removeItem(at: destination)
             try FileManager.default.moveItem(at: temporary, to: destination)
         } catch {
@@ -146,6 +171,7 @@ actor OpusPipeline {
         var emptyRounds = 0
 
         while true {
+            try checkConversionBudget()
             guard let output = AVAudioPCMBuffer(pcmFormat: pcmFormat, frameCapacity: 48_000) else {
                 throw OpusError.decoderUnavailable
             }
@@ -216,7 +242,8 @@ actor OpusPipeline {
         let keys: [URLResourceKey] = [.fileSizeKey, .contentModificationDateKey]
         guard let files = try? FileManager.default.contentsOfDirectory(at: cacheDirectory,
                                                                       includingPropertiesForKeys: keys) else { return }
-        let entries = files.compactMap { url -> (url: URL, size: Int64, date: Date)? in
+        let entries = files.filter { !$0.lastPathComponent.hasPrefix(".") }
+            .compactMap { url -> (url: URL, size: Int64, date: Date)? in
             guard let values = try? url.resourceValues(forKeys: Set(keys)) else { return nil }
             return (url, Int64(values.fileSize ?? 0), values.contentModificationDate ?? .distantPast)
         }
@@ -283,6 +310,7 @@ enum WebMDemuxer {
         var track = OpusTrack()
         var isOpus = false
         while position < bytes.count {
+            try Task.checkCancellation()
             guard let id = readID(bytes, &position), let size = readSize(bytes, &position) else { break }
             if masters.contains(id) { continue } // children follow directly
             guard let length = size.length, position + length <= bytes.count else { break }

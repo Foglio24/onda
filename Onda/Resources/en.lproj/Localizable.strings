@@ -14,6 +14,8 @@
 /* Common */
 "OK" = "OK";
 "Download non riuscito" = "Download failed";
+"Conversione audio sospesa per ridurre il consumo energetico." = "Audio conversion paused to reduce energy use.";
+"Karaoke AI temporaneamente non disponibile: Risparmio energetico attivo o temperatura dell'iPhone elevata." = "AI karaoke is temporarily unavailable: Low Power Mode is on or your iPhone's temperature is elevated.";
 "Ops" = "Oops";
 "Annulla" = "Cancel";
 "Crea" = "Create";
