@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.8.1 (2026-10-26)
+
+### Fixed
+- **Swipe down to close the player again.** Dragging down on the player now moves it with the finger, and letting go far enough down (or with a flick) shrinks it back into the mini player, like the Music app. It works on the cover, the title and the top bar; with the lyrics or the queue open, on the header, so their lists still scroll. The interactive cover's own drag had been taking these swipes since 1.4.0, so only the ⌄ button closed the player. Sideways drags still tilt the cover.
+
 ## 1.8.0 (2026-10-26)
 
 ### Improved

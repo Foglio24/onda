@@ -140,8 +140,15 @@ struct InteractiveArtwork: View {
                 DragGesture(minimumDistance: 4)
                     .onChanged { value in
                         guard enabled else { return }
-                        drag = CGSize(width: max(-120, min(120, value.translation.width)),
-                                      height: max(-120, min(120, value.translation.height)))
+                        // Mostly downwards: that drag closes the player (see NowPlayingView), so the
+                        // cover stays flat instead of tilting along.
+                        let translation = value.translation
+                        if translation.height > 0, translation.height > abs(translation.width) {
+                            if drag != .zero { withAnimation(.spring(duration: 0.3)) { drag = .zero } }
+                            return
+                        }
+                        drag = CGSize(width: max(-120, min(120, translation.width)),
+                                      height: max(-120, min(120, translation.height)))
                     }
                     .onEnded { _ in
                         withAnimation(.spring(duration: 0.6, bounce: 0.45)) { drag = .zero }

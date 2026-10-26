@@ -13,17 +13,27 @@ struct NowPlayingView: View {
     private enum Panel { case artwork, lyrics, queue }
 
     @State private var panel: Panel = .artwork
+    /// How far the player has been dragged down towards closing.
+    @State private var dismissOffset: CGFloat = 0
 
     var body: some View {
         VStack(spacing: 16) {
-            topBar
-            if panel == .artwork {
-                Spacer(minLength: 0)
-                artwork
-                Spacer(minLength: 0)
-                titleRow
-            } else {
-                compactHeader
+            // Dragging down here closes the player, like the Music app. With the lyrics or the
+            // queue open only the header does, so their lists keep scrolling normally.
+            VStack(spacing: 16) {
+                topBar
+                if panel == .artwork {
+                    Spacer(minLength: 0)
+                    artwork
+                    Spacer(minLength: 0)
+                    titleRow
+                } else {
+                    compactHeader
+                }
+            }
+            .contentShape(.rect)
+            .simultaneousGesture(dismissDrag)
+            if panel != .artwork {
                 Group {
                     if panel == .lyrics { LyricsView() } else { QueueView() }
                 }
@@ -42,6 +52,9 @@ struct NowPlayingView: View {
         }
         .padding(.horizontal, 24)
         .padding(.bottom, 8)
+        // The content follows the finger and shrinks a little; the background stays in place.
+        .offset(y: dismissOffset)
+        .scaleEffect(1 - min(dismissOffset, 400) / 400 * 0.08)
         .foregroundStyle(.white)
         .background { background }
         .environment(\.colorScheme, .dark)
@@ -53,6 +66,27 @@ struct NowPlayingView: View {
             MusicPageSheet(page: page)
         }
         .downloadErrorAlert(isActive: router.showPlayer)
+    }
+
+    /// A drag mostly downwards moves the player with the finger; letting go far enough down, or
+    /// with a flick, closes it, and it shrinks back into the mini player. Sideways drags are left
+    /// to the cover, which tilts with them.
+    private var dismissDrag: some Gesture {
+        // Global coordinates: the content moves with the finger, so local ones would shift.
+        DragGesture(minimumDistance: 12, coordinateSpace: .global)
+            .onChanged { value in
+                let down = value.translation.height
+                guard down > 0, dismissOffset > 0 || down > abs(value.translation.width) else { return }
+                dismissOffset = down
+            }
+            .onEnded { value in
+                guard dismissOffset > 0 else { return }
+                if dismissOffset > 120 || value.predictedEndTranslation.height > 260 {
+                    dismiss()
+                } else {
+                    withAnimation(.spring(duration: 0.35, bounce: 0.25)) { dismissOffset = 0 }
+                }
+            }
     }
 
     // MARK: Pieces
