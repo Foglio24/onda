@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.6.0 (beta)
+## 1.6.0 (2026-10-26)
 
 ### Added
 - **Updates from GitHub.** At every launch, or with Settings → Aggiornamenti → Cerca aggiornamenti, Onda asks GitHub for the latest release. You choose what happens when there is a new one:
