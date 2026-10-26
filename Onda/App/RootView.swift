@@ -41,6 +41,10 @@ struct RootView: View {
         .sheet(isPresented: $updater.showsNotice) {
             UpdateSheet()
         }
+        .sheet(item: router.pageBinding(fromPlayer: false)) { page in
+            MusicPageSheet(page: page)
+        }
+        .task { LaunchScene.apply(select: { selection = $0 }) }
         // Outermost, so the player and sheets presented above inherit it too.
         .tint(accent.color)
         .downloadErrorAlert(isActive: !router.showPlayer)

@@ -111,7 +111,24 @@
 "Artista sconosciuto" = "Unknown artist";
 
 /* Search */
-"Brani e artisti" = "Songs and artists";
+"Brani, artisti e album" = "Songs, artists and albums";
+"Risultato migliore" = "Top result";
+"Artisti" = "Artists";
+"Album" = "Albums";
+"Brani" = "Songs";
+
+/* Artist, album and playlist pages */
+"Vai all'artista" = "Go to artist";
+"Vai all'album" = "Go to album";
+"Artista non disponibile" = "Artist not available";
+"Album non disponibile" = "Album not available";
+"Playlist non disponibile" = "Playlist not available";
+"Radio dell'artista" = "Artist radio";
+"Brani più ascoltati" = "Top songs";
+"Tutti i brani" = "All songs";
+"%@: tutti i brani" = "%@: all songs";
+"Salva come playlist" = "Save as playlist";
+"Salvato" = "Saved";
 "Ricerche recenti" = "Recent searches";
 "Cerca su YouTube Music" = "Search YouTube Music";
 "Scegli un brano: parte una radio di canzoni simili." = "Pick a song to start a radio of similar songs.";
@@ -179,6 +196,8 @@
 "Streaming su rete cellulare" = "Streaming on cellular";
 "Dolby quando disponibile" = "Dolby when available";
 "Audio spaziale" = "Spatial Audio";
+"Volume uniforme" = "Normalize volume";
+"Volume uniforme abbassa i brani più forti al livello di riferimento di YouTube (-14 LUFS), come la normalizzazione di Spotify, così passando da un brano all'altro il volume resta simile." = "Normalize volume lowers louder songs to YouTube's reference level (-14 LUFS), like Spotify's normalization, so the volume stays similar from one song to the next.";
 "Massima usa Opus 160 kbps, il formato migliore che YouTube dà senza Premium: Onda lo decodifica sull'iPhone e lo riproduce senza perdite. Il brano parte subito in AAC e passa a Opus appena è pronto; i due brani successivi vengono preparati in anticipo. Se un video ha l'audio Dolby Digital Plus o AAC 256 kbps, viene usato quello. L'Audio spaziale funziona con AirPods e cuffie Beats compatibili." = "Maximum uses Opus 160 kbps, the best format YouTube gives without Premium: Onda decodes it on the iPhone and plays it losslessly. The song starts right away in AAC and switches to Opus as soon as it is ready; the next two songs are prepared in advance. If a video has Dolby Digital Plus or AAC 256 kbps audio, that is used instead. Spatial Audio works with compatible AirPods and Beats headphones.";
 "Ultimo errore Opus: %@" = "Last Opus error: %@";
 "Massima · Opus 160 kbps" = "Maximum · Opus 160 kbps";
@@ -298,6 +317,12 @@
 "Condividi l'IPA" = "Share the IPA";
 "Download in corso…" = "Downloading…";
 "Apri su GitHub" = "Open on GitHub";
+
+/* Settings: diagnostics */
+"Diagnostica" = "Diagnostics";
+"Nessun rapporto" = "No reports";
+"Elimina i rapporti" = "Delete reports";
+"Se Onda si chiude da sola o si blocca, iOS prepara un rapporto tecnico e lo consegna all'app a un avvio successivo, di solito entro un giorno. Toccalo per condividerlo: contiene solo dati tecnici dell'app, non la tua musica né i tuoi account." = "If Onda closes by itself or freezes, iOS prepares a technical report and hands it to the app at a later launch, usually within a day. Tap it to share it: it only contains technical data about the app, not your music or your accounts.";
 
 /* Settings: about */
 "Informazioni" = "About";

@@ -201,6 +201,8 @@ enum Preferences {
         UserDefaults.standard.object(forKey: crossfade) as? Double ?? defaultCrossfade
     }
 
+    static let normalizeVolume = "audio.normalizeVolume"
+    static var normalizesVolume: Bool { flag(normalizeVolume, default: true) }
     static var spatialAudioEnabled: Bool { flag(spatialAudio, default: true) }
     static var prefersDolby: Bool { flag(preferDolby, default: true) }
     static var skipsLongMixes: Bool { flag(skipLongMixes, default: true) }

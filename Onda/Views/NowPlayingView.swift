@@ -51,6 +51,9 @@ struct NowPlayingView: View {
         .sheet(item: router.addToPlaylistBinding(fromPlayer: true)) { track in
             AddToPlaylistSheet(track: track)
         }
+        .sheet(item: router.pageBinding(fromPlayer: true)) { page in
+            MusicPageSheet(page: page)
+        }
         .downloadErrorAlert(isActive: router.showPlayer)
     }
 
@@ -130,10 +133,17 @@ struct NowPlayingView: View {
                 Text(player.current?.title ?? "—")
                     .font(.title2.bold())
                     .lineLimit(1)
-                Text(player.current?.artist ?? "")
-                    .font(.title3)
-                    .foregroundStyle(Color.white.opacity(0.7))
-                    .lineLimit(1)
+                Button {
+                    if let track = player.current, !track.primaryArtist.isEmpty {
+                        router.page = .artist(id: track.artistID, name: track.primaryArtist)
+                    }
+                } label: {
+                    Text(player.current?.artist ?? "")
+                        .font(.title3)
+                        .foregroundStyle(Color.white.opacity(0.7))
+                        .lineLimit(1)
+                }
+                .buttonStyle(.plain)
             }
             Spacer()
             addToPlaylistButton

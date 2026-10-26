@@ -14,9 +14,12 @@ struct Track: Codable, Hashable, Identifiable {
     /// Original Last.fm identities, retained when YouTube uses a different title or artist.
     /// Optional so libraries saved by older versions still decode.
     var sourceIDs: [String]?
+    /// YouTube Music pages of the first artist and of the album, when known ("Vai all'artista").
+    var artistID: String?
+    var albumID: String?
 
     init(videoId: String?, title: String, artists: [String], album: String? = nil,
-         duration: TimeInterval? = nil, artworkURL: URL? = nil) {
+         duration: TimeInterval? = nil, artworkURL: URL? = nil, artistID: String? = nil, albumID: String? = nil) {
         let names = artists.map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
         self.videoId = videoId
         self.title = title
@@ -25,6 +28,8 @@ struct Track: Codable, Hashable, Identifiable {
         self.album = album
         self.duration = duration
         self.artworkURL = artworkURL
+        self.artistID = artistID
+        self.albumID = albumID
         self.id = videoId ?? "\(names.first?.lowercased() ?? "")|\(title.lowercased())"
     }
 

@@ -49,8 +49,15 @@ final class PlayerController: ObservableObject {
     static let shared = PlayerController()
     static let defaultTint = Color(red: 0.24, green: 0.18, blue: 0.42)
 
-    @Published private(set) var queue: [Track] = []
-    @Published private(set) var index = 0
+    @Published private(set) var queue: [Track] = [] {
+        didSet { scheduleQueueSave() }
+    }
+    @Published private(set) var index = 0 {
+        didSet { scheduleQueueSave() }
+    }
+    /// The queue was restored at launch and nothing has been loaded yet: the Home's "Riprendi"
+    /// card carries on from the saved position.
+    @Published private(set) var isRestoredSession = false
     @Published private(set) var isPlaying = false
     @Published private(set) var isLoading = false
     @Published private(set) var errorMessage: String? = nil
@@ -84,6 +91,18 @@ final class PlayerController: ObservableObject {
     private static let resumeKey = "player.resumePoint"
     /// Where to jump once the song being loaded is ready (see `continueListening`).
     private var pendingStartTime: TimeInterval?
+
+    /// The queue as saved for the next launch.
+    private struct SavedQueue: Codable {
+        let tracks: [Track]
+        let index: Int
+        let source: String
+        let shuffled: Bool
+        let unshuffled: [Track]
+    }
+
+    private static var queueFile: URL { Storage.support.appending(path: "queue.json") }
+    private var saveQueueTask: Task<Void, Never>?
 
     var current: Track? { queue.indices.contains(index) ? queue[index] : nil }
 
@@ -171,6 +190,7 @@ final class PlayerController: ObservableObject {
                                   forKey: Preferences.nowPlayingBackend)
         attach(player)
         observeNotifications()
+        restoreQueue()
     }
 
     // MARK: Queue
@@ -211,12 +231,65 @@ final class PlayerController: ObservableObject {
         play([track], source: "Radio · \(track.title)", startRadio: true)
     }
 
-    /// Plays the last song again from where it stopped (from the start when it had almost ended),
-    /// followed by its radio.
+    /// Plays the last song again from where it stopped (from the start when it had almost ended):
+    /// within the restored queue when there is one, otherwise followed by its radio.
     func continueListening(_ point: ResumePoint) {
+        if isRestoredSession, current?.id == point.track.id {
+            resume()
+            return
+        }
         playRadio(from: point.track)
+        pendingStartTime = Self.startTime(of: point)
+    }
+
+    /// Where a saved song should start again: nil (the start) near either end.
+    private static func startTime(of point: ResumePoint) -> TimeInterval? {
         let length = point.track.duration ?? 0
-        if point.time > 5, length == 0 || point.time < length - 15 { pendingStartTime = point.time }
+        return point.time > 5 && (length == 0 || point.time < length - 15) ? point.time : nil
+    }
+
+    /// Brings back the last session's queue, paused on its song, without loading anything:
+    /// pressing play carries on from the saved position.
+    private func restoreQueue() {
+        guard let data = try? Data(contentsOf: Self.queueFile),
+              let saved = try? JSONDecoder().decode(SavedQueue.self, from: data),
+              saved.tracks.indices.contains(saved.index) else { return }
+        queue = saved.tracks
+        index = saved.index
+        source = saved.source
+        shuffleEnabled = saved.shuffled
+        unshuffledUpcoming = saved.unshuffled
+        playWhenReady = false
+        isRestoredSession = true
+        let track = saved.tracks[saved.index]
+        progress.duration = track.duration ?? 0
+        if let point = resumePoint, point.track.id == track.id {
+            progress.currentTime = point.time
+            lastTick = point.time
+        }
+        loadArtwork(for: track)
+    }
+
+    private func scheduleQueueSave() {
+        saveQueueTask?.cancel()
+        saveQueueTask = Task {
+            try? await Task.sleep(for: .seconds(1))
+            guard !Task.isCancelled else { return }
+            self.saveQueue()
+        }
+    }
+
+    /// Up to 50 songs back and 200 ahead, so long radio sessions stay small.
+    private func saveQueue() {
+        guard queue.indices.contains(index) else {
+            try? FileManager.default.removeItem(at: Self.queueFile)
+            return
+        }
+        let range = max(0, index - 50)..<min(queue.count, index + 201)
+        let saved = SavedQueue(tracks: Array(queue[range]), index: index - range.lowerBound, source: source,
+                               shuffled: shuffleEnabled, unshuffled: Array(unshuffledUpcoming.prefix(200)))
+        guard let data = try? JSONEncoder().encode(saved) else { return }
+        try? data.write(to: Self.queueFile, options: .atomic)
     }
 
     func playNext(_ track: Track) {
@@ -293,6 +366,10 @@ final class PlayerController: ObservableObject {
             player.play()
         } else if !isLoading {
             loadCurrent()
+            // After a restored session: carry on where the song was left.
+            if let point = resumePoint, point.track.id == current?.id {
+                pendingStartTime = Self.startTime(of: point)
+            }
         }
     }
 
@@ -493,6 +570,7 @@ final class PlayerController: ObservableObject {
         karaokeTrackID = nil
         requestedSeek = nil
         pendingStartTime = nil
+        isRestoredSession = false
         guard let track = current else { return }
         let position = index
         playWhenReady = true
@@ -614,6 +692,28 @@ final class PlayerController: ObservableObject {
         }
         if wasPlaying || playWhenReady { player.play() }
         streamInfo = label
+        // Karaoke stems carry their own mix of vocal and instrumental volumes.
+        if !(newItem.asset is AVMutableComposition) { applyNormalization(to: newItem, track: track) }
+    }
+
+    /// "Volume uniforme": lowers songs louder than YouTube's reference level, through the item's
+    /// audio mix, so the player's own volume stays free for crossfades.
+    private func applyNormalization(to item: AVPlayerItem, track: Track) {
+        guard Preferences.normalizesVolume, let videoId = track.videoId else {
+            item.audioMix = nil
+            return
+        }
+        Task {
+            let gain = Loudness.gain(forDecibels: await Loudness.shared.decibels(for: videoId))
+            guard let mix = await Loudness.mix(for: item, gain: gain), self.player.currentItem === item else { return }
+            item.audioMix = mix
+        }
+    }
+
+    /// Applies the "Volume uniforme" setting to the song that is playing.
+    func applyNormalizationPreference() {
+        guard let item = player.currentItem, let track = current, !isPlayingStems else { return }
+        applyNormalization(to: item, track: track)
     }
 
     private func start(url: URL, track: Track, isRetry: Bool = false) {
@@ -626,6 +726,7 @@ final class PlayerController: ObservableObject {
                 self.itemStatusChanged(status, item: item, track: track)
             }
         player.replaceCurrentItem(with: item)
+        applyNormalization(to: item, track: track)
 
         if pendingFadeIn != nil {
             // Crossfading in: stay silent until the song really plays (see `startPendingFades`).
@@ -871,6 +972,12 @@ final class PlayerController: ObservableObject {
         prefetchLyrics()
         let quality = Preferences.streamingQuality
         let upcoming = queue.indices.filter { $0 > index }.prefix(2).map { queue[$0] }
+        if Preferences.normalizesVolume {
+            let videoIds = upcoming.compactMap(\.videoId)
+            Task.detached(priority: .utility) {
+                for videoId in videoIds { _ = await Loudness.shared.decibels(for: videoId) }
+            }
+        }
         let songs = upcoming.compactMap { track -> (String, TimeInterval?)? in
             guard let videoId = track.videoId, Storage.localAudio(for: track) == nil else { return nil }
             return (videoId, track.duration)

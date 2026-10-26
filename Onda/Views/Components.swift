@@ -293,6 +293,16 @@ struct TrackMenu: View {
         Button { player.playRadio(from: track) } label: {
             Label("Avvia radio", systemImage: "dot.radiowaves.left.and.right")
         }
+        if !track.primaryArtist.isEmpty {
+            Button { router.page = .artist(id: track.artistID, name: track.primaryArtist) } label: {
+                Label("Vai all'artista", systemImage: "music.mic")
+            }
+        }
+        if let albumID = track.albumID {
+            Button { router.page = .album(id: albumID) } label: {
+                Label("Vai all'album", systemImage: "square.stack")
+            }
+        }
         Divider()
         Button { library.toggleLike(track) } label: {
             if library.isLiked(track) {

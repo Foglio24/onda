@@ -168,7 +168,7 @@ struct InnerTube {
         return match
     }
 
-    private func post(_ endpoint: String, _ body: [String: Any]) async throws -> [String: Any] {
+    func post(_ endpoint: String, _ body: [String: Any]) async throws -> [String: Any] {
         var url = Self.base.appending(path: endpoint)
         url.append(queryItems: [URLQueryItem(name: "prettyPrint", value: "false")])
         var request = URLRequest(url: url)
@@ -191,16 +191,19 @@ struct InnerTube {
 
     // MARK: Parsing
 
-    private struct Byline {
+    struct Byline {
         var artists: [String] = []
         var album: String?
         var duration: TimeInterval?
+        /// Pages of the first linked artist and of the album.
+        var artistID: String?
+        var albumID: String?
     }
 
-    private static let kindLabels: Set<String> = ["Song", "Brano", "Canzone", "Video"]
+    static let kindLabels: Set<String> = ["Song", "Brano", "Canzone", "Video"]
 
     /// A row of search results.
-    private static func parseListItem(_ item: [String: Any]) -> Track? {
+    static func parseListItem(_ item: [String: Any]) -> Track? {
         let columns = J.array(item["flexColumns"]).compactMap {
             J.dict(J.value($0, "musicResponsiveListItemFlexColumnRenderer"))
         }
@@ -218,7 +221,8 @@ struct InnerTube {
         }
         let thumbnails = J.value(item, "thumbnail", "musicThumbnailRenderer", "thumbnail", "thumbnails")
         return Track(videoId: videoId, title: title, artists: byline.artists, album: byline.album,
-                     duration: byline.duration, artworkURL: lastThumbnail(thumbnails))
+                     duration: byline.duration, artworkURL: lastThumbnail(thumbnails),
+                     artistID: byline.artistID, albumID: byline.albumID)
     }
 
     /// A row of the "up next" panel returned by the `next` endpoint.
@@ -232,11 +236,12 @@ struct InnerTube {
         let length = J.string(J.value(item, "lengthText", "runs", 0, "text")).flatMap { parseDuration($0) }
         return Track(videoId: videoId, title: title, artists: byline.artists, album: byline.album,
                      duration: length ?? byline.duration,
-                     artworkURL: lastThumbnail(J.value(item, "thumbnail", "thumbnails")))
+                     artworkURL: lastThumbnail(J.value(item, "thumbnail", "thumbnails")),
+                     artistID: byline.artistID, albumID: byline.albumID)
     }
 
     /// Bylines look like "Artist • Album • 3:45": links tell artists and albums apart.
-    private static func parseByline(_ runs: [Any]) -> Byline {
+    static func parseByline(_ runs: [Any]) -> Byline {
         var byline = Byline()
         var plain: [String] = []
         for run in runs {
@@ -244,11 +249,14 @@ struct InnerTube {
             let pageType = J.string(J.value(run, "navigationEndpoint", "browseEndpoint",
                                             "browseEndpointContextSupportedConfigs",
                                             "browseEndpointContextMusicConfig", "pageType")) ?? ""
+            let browseId = J.string(J.value(run, "navigationEndpoint", "browseEndpoint", "browseId"))
             switch pageType {
             case "MUSIC_PAGE_TYPE_ARTIST", "MUSIC_PAGE_TYPE_USER_CHANNEL":
                 byline.artists.append(text)
+                if byline.artistID == nil, pageType == "MUSIC_PAGE_TYPE_ARTIST" { byline.artistID = browseId }
             case "MUSIC_PAGE_TYPE_ALBUM":
                 byline.album = text
+                byline.albumID = browseId
             default:
                 let trimmed = text.trimmingCharacters(in: .whitespaces)
                 if let duration = parseDuration(trimmed) {
@@ -265,7 +273,7 @@ struct InnerTube {
         return byline
     }
 
-    private static func lastThumbnail(_ thumbnails: Any?) -> URL? {
+    static func lastThumbnail(_ thumbnails: Any?) -> URL? {
         J.string(J.value(J.array(thumbnails).last, "url")).flatMap { URL(string: $0) }
     }
 

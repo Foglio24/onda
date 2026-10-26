@@ -7,11 +7,13 @@ struct SettingsView: View {
     @EnvironmentObject private var downloads: DownloadManager
     @EnvironmentObject private var library: Library
     @EnvironmentObject private var updater: AppUpdater
+    @ObservedObject private var diagnostics = Diagnostics.shared
 
     @AppStorage(Preferences.wifiQuality) private var wifiQuality = Preferences.defaultWifiQuality
     @AppStorage(Preferences.cellularQuality) private var cellularQuality = Preferences.defaultCellularQuality
     @AppStorage(Preferences.downloadQuality) private var downloadQuality = Preferences.defaultDownloadQuality
     @AppStorage(Preferences.spatialAudio) private var spatialAudio = true
+    @AppStorage(Preferences.normalizeVolume) private var normalizeVolume = true
     @AppStorage(Preferences.preferDolby) private var preferDolby = true
     @AppStorage(Preferences.crossfade) private var crossfade = Preferences.defaultCrossfade
     @AppStorage(Preferences.opusLastError) private var opusLastError = ""
@@ -51,6 +53,7 @@ struct SettingsView: View {
                 lastfmSection
                 storageSection
                 updatesSection
+                diagnosticsSection
                 aboutSection
             }
             .scrollContentBackground(.hidden)
@@ -69,6 +72,7 @@ struct SettingsView: View {
                 Button("Elimina", role: .destructive) { downloads.removeAll() }
             }
             .onChange(of: spatialAudio) { _, _ in player.applySpatialAudioPreference() }
+            .onChange(of: normalizeVolume) { _, _ in player.applyNormalizationPreference() }
             .onChange(of: dynamicColors) { _, _ in player.applyThemePreference() }
         }
     }
@@ -98,10 +102,14 @@ struct SettingsView: View {
             Toggle(isOn: $spatialAudio) {
                 Label("Audio spaziale", systemImage: "headphones")
             }
+            Toggle(isOn: $normalizeVolume) {
+                Label("Volume uniforme", systemImage: "speaker.wave.2")
+            }
         } header: {
             Text("Audio")
         } footer: {
             VStack(alignment: .leading, spacing: 6) {
+                Text("Volume uniforme abbassa i brani più forti al livello di riferimento di YouTube (-14 LUFS), come la normalizzazione di Spotify, così passando da un brano all'altro il volume resta simile.")
                 Text("Massima usa Opus 160 kbps, il formato migliore che YouTube dà senza Premium: Onda lo decodifica sull'iPhone e lo riproduce senza perdite. Il brano parte subito in AAC e passa a Opus appena è pronto; i due brani successivi vengono preparati in anticipo. Se un video ha l'audio Dolby Digital Plus o AAC 256 kbps, viene usato quello. L'Audio spaziale funziona con AirPods e cuffie Beats compatibili.")
                 if !opusLastError.isEmpty {
                     Text("Ultimo errore Opus: \(opusLastError)")
@@ -366,6 +374,36 @@ struct SettingsView: View {
             Text("Aggiornamenti")
         } footer: {
             Text("Onda controlla le nuove versioni su GitHub a ogni avvio, oppure quando tocchi Cerca aggiornamenti. Con «Scarica in automatico» il file IPA viene salvato nell'app File, in Sul mio iPhone › Onda › \(Storage.updatesFolderName): da lì lo installi con Sideloadly, AltStore o SideStore, perché iOS non permette a un'app installata così di aggiornarsi da sola.")
+        }
+    }
+
+    private var diagnosticsSection: some View {
+        Section {
+            if diagnostics.reports.isEmpty {
+                Text("Nessun rapporto")
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(diagnostics.reports) { report in
+                    ShareLink(item: report.file) {
+                        LabeledContent {
+                            Image(systemName: "square.and.arrow.up")
+                        } label: {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(report.summary)
+                                    .foregroundStyle(.primary)
+                                Text(report.date, format: .dateTime.day().month().year().hour().minute())
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+                Button("Elimina i rapporti", role: .destructive) { diagnostics.removeAll() }
+            }
+        } header: {
+            Text("Diagnostica")
+        } footer: {
+            Text("Se Onda si chiude da sola o si blocca, iOS prepara un rapporto tecnico e lo consegna all'app a un avvio successivo, di solito entro un giorno. Toccalo per condividerlo: contiene solo dati tecnici dell'app, non la tua musica né i tuoi account.")
         }
     }
 

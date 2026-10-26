@@ -38,7 +38,7 @@ struct HomeView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 30) {
-                    if player.current == nil, let point = player.resumePoint {
+                    if player.current == nil || player.isRestoredSession, let point = player.resumePoint {
                         section("Riprendi da dove eri") {
                             ResumeCard(point: point, accent: accent.color) { player.continueListening(point) }
                                 .padding(.horizontal)

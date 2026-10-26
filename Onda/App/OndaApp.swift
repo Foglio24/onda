@@ -14,6 +14,7 @@ struct OndaApp: App {
         // A bigger shared cache keeps cover art loaded by AsyncImage between screens.
         URLCache.shared = URLCache(memoryCapacity: 64 << 20, diskCapacity: 512 << 20, directory: nil)
         _ = NetworkMonitor.shared
+        Diagnostics.shared.start()
     }
 
     var body: some Scene {

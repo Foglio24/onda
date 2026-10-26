@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.7.0 (beta)
+
+### Added
+- **Artist and album pages.** An artist page has the picture, Play, Shuffle and the artist's radio, the top songs (with all songs a tap away), albums, singles, videos, playlists, similar artists and the biography. An album page has its songs, Play and Shuffle, and buttons to download the album or save it as a playlist. Public YouTube Music playlists open the same way, without importing them.
+  - Open them from search, from the new **Vai all'artista** / **Vai all'album** in every song's ··· menu, or by tapping the artist's name in the player.
+- **Richer search.** Results now show YouTube Music's top result, artists and albums as well as songs.
+- **Normalize volume** (Settings → Audio → Volume uniforme, on by default). Songs louder than YouTube's reference level (-14 LUFS), as YouTube measures them, are turned down, so the volume stays similar from song to song. Quieter songs are left as they are.
+- **The queue comes back after a restart.** Onda reopens on the song you were listening to, paused at the same point, with the rest of the queue; play carries on from there. The Home's "Riprendi da dove eri" card does the same.
+- **Diagnostics** (Settings → Diagnostica). When Onda crashes or freezes, iOS hands a technical report to the app at a later launch; it is listed there and can be shared with a tap.
+
+### For development
+- CI takes screenshots of the main screens on an iPhone simulator, in Italian and English, to check the interface before a beta.
+- CI checks the YouTube Music parsing (search, artist and album pages, loudness) against the live service, without blocking the build when YouTube is down.
+- Debug symbols are kept with each build and attached to releases, to read crash reports.
+
 ## 1.6.0 (2026-10-26)
 
 ### Added

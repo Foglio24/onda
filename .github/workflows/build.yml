@@ -40,6 +40,12 @@ jobs:
           bash Tools/ScrobbleCheck/run.sh
           bash Tools/UpdateCheck/run.sh
 
+      # Talks to the real YouTube Music: a failure means YouTube changed something (or is down),
+      # so it is reported without blocking the build.
+      - name: Check YouTube Music parsing (live)
+        continue-on-error: true
+        run: bash Tools/CatalogCheck/run.sh
+
       - name: Install XcodeGen
         run: brew install xcodegen
 
@@ -128,8 +134,62 @@ jobs:
           path: Onda.ipa
           retention-days: 30
 
-      - name: Attach IPA to the release
+      # Debug symbols, to read the crash reports shared from Settings → Diagnostica.
+      - name: Package debug symbols
+        run: |
+          cd build/Build/Products/Release-iphoneos
+          if [ -d Onda.app.dSYM ]; then
+            zip -qry "$GITHUB_WORKSPACE/Onda.app.dSYM.zip" Onda.app.dSYM
+          else
+            echo "::warning::No Onda.app.dSYM in the build products"
+          fi
+
+      - name: Upload debug symbols
+        uses: actions/upload-artifact@v4
+        with:
+          name: Onda-dSYM
+          path: Onda.app.dSYM.zip
+          if-no-files-found: ignore
+          retention-days: 90
+
+      - name: Attach IPA and debug symbols to the release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: Onda.ipa
+          files: |
+            Onda.ipa
+            Onda.app.dSYM.zip
+
+      # Screenshots of the main screens on an iPhone simulator, to check the UI without a device.
+      - name: Build for the simulator
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        continue-on-error: true
+        run: |
+          xcodebuild \
+            -project Onda.xcodeproj \
+            -scheme Onda \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build-sim \
+            -skipPackagePluginValidation \
+            -skipMacroValidation \
+            -quiet \
+            ARCHS=arm64 \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Take screenshots
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        continue-on-error: true
+        timeout-minutes: 10
+        run: bash Tools/Screenshots/run.sh build-sim/Build/Products/Debug-iphonesimulator/Onda.app screenshots
+
+      - name: Upload screenshots
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: Onda-screenshots
+          path: screenshots
+          retention-days: 14
