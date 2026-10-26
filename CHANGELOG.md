@@ -17,7 +17,7 @@
 - **Lighter lists.** Song rows, the Home and the album, artist, playlist, search and download pages no longer redraw for every change of the player (loading, karaoke progress, lyrics, colours): only when the song that plays, or play and pause, change.
 
 ### For development
-- CI checks the equalizer's filters (gains, stability, no clipping for any preset) and, against the live service, the parsing of song details. Screenshots include the song details, in Italian and English, and the equalizer.
+- CI checks the equalizer's filters (gains, stability, no clipping for any preset) and how song details are read from YouTube's descriptions (offline, and against the live service when YouTube answers CI). Screenshots include the song details, in Italian and English, and the equalizer.
 
 ## 1.8.1 (2026-10-26)
 

@@ -118,13 +118,14 @@ struct SongDetails: Sendable, Equatable {
             } else if !sawTitle, line.contains(" · ") {
                 // "One More Time · Daft Punk": the title and artists, already shown.
                 sawTitle = true
+            } else if sawTitle, album == nil, copyright == nil, credits.isEmpty {
+                // The line right after the title is the album, even with a colon in its name.
+                album = line
             } else if let colon = line.range(of: ": ") {
                 let role = line[..<colon.lowerBound].split(whereSeparator: \.isWhitespace).joined(separator: " ")
                 let name = line[colon.upperBound...].trimmingCharacters(in: .whitespaces)
                 guard !role.isEmpty, role.count <= 40, !name.isEmpty else { continue }
                 addCredit(role: role, name: name)
-            } else if sawTitle, album == nil, copyright == nil, credits.isEmpty {
-                album = line
             }
         }
     }
@@ -148,8 +149,16 @@ struct SongDetails: Sendable, Equatable {
 }
 
 extension SongDetails.Credit {
-    /// The role in the app's language, for the common ones; others as YouTube writes them.
+    /// The role in the app's language. Combined roles ("Producer, Synthesizer") are translated
+    /// part by part; uncommon ones stay as YouTube writes them.
     var title: String {
+        if let known = Self.translate(role) { return known }
+        let parts = role.components(separatedBy: ", ")
+        guard parts.count > 1 else { return role }
+        return parts.map { Self.translate($0) ?? $0 }.joined(separator: ", ")
+    }
+
+    private static func translate(_ role: String) -> String? {
         switch role.lowercased() {
         case "composer": return String(localized: "Compositore")
         case "lyricist": return String(localized: "Autore del testo")
@@ -161,20 +170,22 @@ extension SongDetails.Credit {
         case "executive producer": return String(localized: "Produttore esecutivo")
         case "arranger": return String(localized: "Arrangiatore")
         case "mixer", "mixing engineer": return String(localized: "Missaggio")
-        case "mastering engineer": return String(localized: "Mastering")
+        case "masterer", "mastering engineer": return String(localized: "Mastering")
         case "recording engineer", "engineer": return String(localized: "Tecnico del suono")
         case "associated performer", "performer": return String(localized: "Interprete")
         case "main artist", "primary artist": return String(localized: "Artista principale")
         case "featured artist": return String(localized: "Artista ospite")
         case "studio personnel": return String(localized: "Personale di studio")
         case "programmer", "programming": return String(localized: "Programmazione")
+        case "synthesizer", "synth": return String(localized: "Sintetizzatore")
         case "vocals", "vocalist", "lead vocalist", "background vocalist": return String(localized: "Voce")
         case "guitar", "guitarist": return String(localized: "Chitarra")
         case "bass", "bass guitar", "bassist": return String(localized: "Basso")
         case "drums", "drummer": return String(localized: "Batteria")
         case "keyboards", "keyboard": return String(localized: "Tastiere")
         case "piano", "pianist": return String(localized: "Pianoforte")
-        default: return role
+        case "unknown": return String(localized: "Altro")
+        default: return nil
         }
     }
 }

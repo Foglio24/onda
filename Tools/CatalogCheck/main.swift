@@ -34,13 +34,24 @@ do {
     expect(album.tracks.allSatisfy { $0.artist != "300 Mln riproduzioni" && !$0.artist.isEmpty }, "album tracks have artists, not play counts: \(album.tracks.first?.artist ?? "")")
     expect(album.tracks.contains { $0.duration != nil }, "album tracks have durations")
 
+    // YouTube often refuses this request from data centres (like CI's), as it does audio:
+    // that is reported, not counted as a failure. The parsing itself is checked offline by
+    // Tools/SongDetailsCheck.
     if let song = songs.first, let videoId = song.videoId {
-        let details = try await SongDetails.load(videoId: videoId)
-        let released = details.releaseDate.map { String(describing: $0) } ?? "none"
-        let credits = details.credits.map { credit in credit.role + ": " + credit.names.joined(separator: ", ") }
-        expect(details.label != nil, "song details of \(song.title): label \(details.label ?? "none"), album \(details.album ?? "none"), released \(released), \(details.copyright ?? "no copyright")")
-        expect(!credits.isEmpty, "song credits: \(credits)")
-        expect(details.views != nil, "song plays: \(details.views.map(String.init) ?? "none")")
+        let json = try await YouTubePlayerData.response(for: videoId) ?? [:]
+        let status = J.string(J.value(json, "playabilityStatus", "status")) ?? "nothing"
+        if status != "OK" {
+            print("skip song details of \(song.title): YouTube answered \(status) here")
+        } else {
+            let details = SongDetails(json: json)
+            let released = details.releaseDate.map { String(describing: $0) } ?? "none"
+            let credits = details.credits.map { credit in credit.role + ": " + credit.names.joined(separator: ", ") }
+            let label = details.label ?? "none", albumName = details.album ?? "none"
+            let copyright = details.copyright ?? "no copyright"
+            expect(details.label != nil, "song details of \(song.title): label \(label), album \(albumName), released \(released), \(copyright)")
+            expect(!credits.isEmpty, "song credits: \(credits)")
+            expect(details.views != nil, "song plays: \(details.views.map(String.init) ?? "none")")
+        }
     }
 
     let decibels = await Loudness.shared.decibels(for: "dQw4w9WgXcQ")
