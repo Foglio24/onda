@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.5.0 (beta)
+## 1.5.0 (2026-10-26)
 
 ### Changed
 - **A new Home**, all on Liquid Glass:
