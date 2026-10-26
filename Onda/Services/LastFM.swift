@@ -66,10 +66,11 @@ final class LastFM: ObservableObject {
         apiKey = defaults.string(forKey: Keys.apiKey) ?? ""
         apiSecret = Keychain.get(Keys.apiSecret) ?? ""
         sessionKey = Keychain.get(Keys.session)
-        username = defaults.string(forKey: Keys.username)
+        let savedUsername = defaults.string(forKey: Keys.username)
+        username = savedUsername
         scrobblingEnabled = defaults.object(forKey: Keys.scrobbling) as? Bool ?? true
         outbox = ScrobbleOutbox(data: defaults.data(forKey: Keys.accountPending),
-                               legacyData: defaults.data(forKey: Keys.pending), legacyOwner: username)
+                               legacyData: defaults.data(forKey: Keys.pending), legacyOwner: savedUsername)
         outbox.isEnabled = scrobblingEnabled
         if let username, let sessionKey { outbox.connect(username: username, key: sessionKey) }
         outbox.onChange = { [weak self] in self?.savePending() }
