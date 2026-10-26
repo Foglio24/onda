@@ -16,25 +16,76 @@ final class Library: ObservableObject {
     private static let historyLimit = 200
 
     private init() {
-        liked = Self.load("liked")
-        playlists = Self.load("playlists")
-        history = Self.load("history")
-        downloads = Self.load("downloads")
+        let savedLiked: [Track] = Self.load("liked")
+        let savedPlaylists: [Playlist] = Self.load("playlists")
+        let savedHistory: [Track] = Self.load("history")
+        let savedDownloads: [Track] = Self.load("downloads")
+        liked = savedLiked.uniqued()
+        playlists = savedPlaylists.map { playlist in
+            var copy = playlist
+            copy.tracks = copy.tracks.uniqued()
+            return copy
+        }
+        history = savedHistory.uniqued()
+        downloads = savedDownloads.uniqued()
+        if liked != savedLiked { Self.save(liked, as: "liked") }
+        if playlists != savedPlaylists { savePlaylists() }
+        if history != savedHistory { Self.save(history, as: "history") }
+        if downloads != savedDownloads { Self.save(downloads, as: "downloads") }
+    }
+
+    /// Updates every saved occurrence when a Last.fm song becomes playable.
+    @discardableResult
+    func reconcile(original: Track, resolved: Track) -> Track {
+        let canonical = resolved.retainingIdentity(of: original)
+        let updatedLiked = liked.reconciling(original: original, resolved: canonical)
+        let updatedHistory = history.reconciling(original: original, resolved: canonical)
+        let updatedDownloads = downloads.reconciling(original: original, resolved: canonical)
+        let updatedPlaylists = playlists.map { playlist in
+            var copy = playlist
+            copy.tracks = copy.tracks.reconciling(original: original, resolved: canonical)
+            return copy
+        }
+        if updatedLiked != liked {
+            liked = updatedLiked
+            Self.save(liked, as: "liked")
+        }
+        if updatedHistory != history {
+            history = updatedHistory
+            Self.save(history, as: "history")
+        }
+        if updatedDownloads != downloads {
+            downloads = updatedDownloads
+            Self.save(downloads, as: "downloads")
+        }
+        if updatedPlaylists != playlists {
+            playlists = updatedPlaylists
+            savePlaylists()
+        }
+        return canonical
+    }
+
+    /// Reuses a previously resolved identity for older Last.fm rows still on screen.
+    func resolvedTrack(matching track: Track) -> Track? {
+        if track.videoId != nil { return track }
+        return (liked + history + downloads + playlists.flatMap(\.tracks))
+            .first { $0.videoId != nil && $0.isSameRecording(as: track) }
     }
 
     // MARK: Liked
 
     func isLiked(_ track: Track) -> Bool {
-        liked.contains { $0.id == track.id }
+        liked.contains { $0.isSameRecording(as: track) }
     }
 
     func toggleLike(_ track: Track) {
         let nowLiked: Bool
-        if let position = liked.firstIndex(where: { $0.id == track.id }) {
-            liked.remove(at: position)
+        let target = resolvedTrack(matching: track) ?? track
+        if liked.contains(where: { $0.isSameRecording(as: target) }) {
+            liked.removeAll { $0.isSameRecording(as: target) }
             nowLiked = false
         } else {
-            liked.insert(track, at: 0)
+            liked.insert(target, at: 0)
             nowLiked = true
         }
         Self.save(liked, as: "liked")
@@ -111,16 +162,17 @@ final class Library: ObservableObject {
     }
 
     func contains(_ track: Track, in id: UUID) -> Bool {
-        playlist(id)?.tracks.contains { $0.id == track.id } ?? false
+        playlist(id)?.tracks.contains { $0.isSameRecording(as: track) } ?? false
     }
 
     /// Adds the song to the playlist, or removes it if it is already there.
     func toggle(_ track: Track, in id: UUID) {
+        let target = resolvedTrack(matching: track) ?? track
         updatePlaylist(id) { playlist in
-            if let position = playlist.tracks.firstIndex(where: { $0.id == track.id }) {
-                playlist.tracks.remove(at: position)
+            if playlist.tracks.contains(where: { $0.isSameRecording(as: target) }) {
+                playlist.tracks.removeAll { $0.isSameRecording(as: target) }
             } else {
-                playlist.tracks.append(track)
+                playlist.tracks.append(target)
             }
         }
     }
@@ -146,7 +198,7 @@ final class Library: ObservableObject {
     // MARK: History
 
     func recordPlay(_ track: Track) {
-        history.removeAll { $0.id == track.id }
+        history.removeAll { $0.isSameRecording(as: track) }
         history.insert(track, at: 0)
         if history.count > Self.historyLimit {
             history.removeLast(history.count - Self.historyLimit)
@@ -155,8 +207,7 @@ final class Library: ObservableObject {
     }
 
     func removeFromHistory(_ tracks: [Track]) {
-        let ids = Set(tracks.map(\.id))
-        history.removeAll { ids.contains($0.id) }
+        history.removeAll { item in tracks.contains { item.isSameRecording(as: $0) } }
         Self.save(history, as: "history")
     }
 
@@ -168,13 +219,13 @@ final class Library: ObservableObject {
     // MARK: Downloads
 
     func addDownload(_ track: Track) {
-        downloads.removeAll { $0.id == track.id }
+        downloads.removeAll { $0.isSameRecording(as: track) }
         downloads.insert(track, at: 0)
         Self.save(downloads, as: "downloads")
     }
 
     func removeDownload(_ track: Track) {
-        downloads.removeAll { $0.id == track.id }
+        downloads.removeAll { $0.isSameRecording(as: track) }
         Self.save(downloads, as: "downloads")
     }
 

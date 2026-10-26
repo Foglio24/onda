@@ -161,7 +161,8 @@ struct PlaylistDetailView: View {
 
     /// One tap saves the whole playlist; shows progress while it runs.
     @ViewBuilder private func downloadButton(_ playlist: Playlist) -> some View {
-        let downloadable = playlist.tracks.filter { $0.videoId != nil }
+        // Last.fm songs are resolved by the download queue, rather than silently skipped.
+        let downloadable = playlist.tracks
         let saved = downloadable.filter { downloads.isDownloaded($0) }.count
         let inProgress = downloadable.filter { downloads.isQueued($0) }.count
         Button {

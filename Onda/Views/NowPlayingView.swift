@@ -51,6 +51,7 @@ struct NowPlayingView: View {
         .sheet(item: router.addToPlaylistBinding(fromPlayer: true)) { track in
             AddToPlaylistSheet(track: track)
         }
+        .downloadErrorAlert(isActive: router.showPlayer)
     }
 
     // MARK: Pieces

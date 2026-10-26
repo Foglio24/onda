@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.4.1 (2026-10-26)
+
+### Fixed
+- A delayed retry can no longer replace a newly selected song with the previous song's audio.
+- Radio responses and queue advancement stay attached to the queue that requested them, even when songs change during a slow request.
+- Turning shuffle off preserves repeated songs in the queue; removing one occurrence keeps the others.
+- Switching from a stream to a local copy after seeking no longer counts pauses or buffering as listening time.
+- Last.fm tracks are reconciled with their YouTube versions in favourites and playlists instead of creating duplicate favourites after playback.
+- Playlist downloads resolve Last.fm tracks before saving them and no longer report an unresolved playlist as already downloaded.
+- Download failures are shown in the app with the affected song and the reason.
+- Offline scrobbles are kept separately for each Last.fm account, including when the account changes during a request.
+
+### Verification
+- Added executable Swift regression checks for playback state, library identity/download state and Last.fm account isolation, run in CI before the iOS build.
+- The existing karaoke reference comparison and English localization checks remain part of the IPA build.
+
 ## 1.4.0 (2026-10-25)
 
 ### Added

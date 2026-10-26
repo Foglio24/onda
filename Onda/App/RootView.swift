@@ -39,5 +39,29 @@ struct RootView: View {
         }
         // Outermost, so the player and sheets presented above inherit it too.
         .tint(accent.color)
+        .downloadErrorAlert(isActive: !router.showPlayer)
+    }
+}
+
+/// Attach to each top-level presenter so failures are visible with the player open too.
+private struct DownloadErrorAlert: ViewModifier {
+    @EnvironmentObject private var downloads: DownloadManager
+    let isActive: Bool
+
+    func body(content: Content) -> some View {
+        content.alert("Download non riuscito", isPresented: Binding(
+            get: { isActive && downloads.lastError != nil },
+            set: { if !$0 && isActive { downloads.dismissError() } }
+        )) {
+            Button("OK", role: .cancel) { downloads.dismissError() }
+        } message: {
+            Text(downloads.lastError ?? "")
+        }
+    }
+}
+
+extension View {
+    func downloadErrorAlert(isActive: Bool) -> some View {
+        modifier(DownloadErrorAlert(isActive: isActive))
     }
 }

@@ -95,7 +95,10 @@ final class PlayerController: ObservableObject {
     private var itemStatus: AnyCancellable?
 
     private let scrobbler = Scrobbler()
+    private let requests = PlaybackRequests()
     private var loadTask: Task<Void, Never>?
+    private var retryTask: Task<Void, Never>?
+    private var advanceTask: Task<Void, Never>?
     private var lyricsTask: Task<Void, Never>?
     /// The next songs' lyrics, fetched ahead of time, by track id.
     private var prefetchedLyrics: [String: LyricsState] = [:]
@@ -106,7 +109,7 @@ final class PlayerController: ObservableObject {
     /// Prepares the local copy of the streaming song (see `switchToLocal`).
     private var upgradeTask: Task<Void, Never>?
     /// A seek made while streaming, applied when the local copy takes over.
-    private var requestedSeek: (time: TimeInterval, at: Date)?
+    private var requestedSeek: StreamingSeekPosition?
     /// Separates the current song for karaoke.
     private var karaokeTask: Task<Void, Never>?
     /// The song whose karaoke stems are playing right now.
@@ -119,7 +122,6 @@ final class PlayerController: ObservableObject {
     /// The upcoming songs in their original order, to restore when shuffle is turned off.
     private var unshuffledUpcoming: [Track] = []
     private var playWhenReady = true
-    private var isExtendingQueue = false
     private var failuresInARow = 0
     private var retriedCurrentItem = false
     /// Set once the current song has ended (or started fading out), so it is never finished twice.
@@ -161,6 +163,8 @@ final class PlayerController: ObservableObject {
     func play(_ tracks: [Track], startAt start: Int = 0, source: String, startRadio: Bool = false,
               shuffled: Bool? = nil) {
         guard tracks.indices.contains(start) else { return }
+        requests.replaceQueue()
+        advanceTask?.cancel()
         if let shuffled { shuffleEnabled = shuffled }
         var list = tracks
         var first = start
@@ -177,7 +181,13 @@ final class PlayerController: ObservableObject {
         self.source = source
         failuresInARow = 0
         loadCurrent()
-        if startRadio { Task { await extendQueue() } }
+        if startRadio {
+            let generation = requests.queueGeneration
+            Task {
+                guard self.requests.isCurrentQueue(generation) else { return }
+                await self.extendQueue()
+            }
+        }
     }
 
     /// Plays a song followed by YouTube Music's radio of similar songs.
@@ -211,10 +221,8 @@ final class PlayerController: ObservableObject {
         let upcomingTracks = Array(queue[(index + 1)...])
         if shuffleEnabled {
             // Back to the original order; songs added while shuffled keep their place at the end.
-            let remaining = Set(upcomingTracks.map(\.id))
-            var restored = unshuffledUpcoming.filter { remaining.contains($0.id) }.uniqued()
-            let restoredIDs = Set(restored.map(\.id))
-            restored += upcomingTracks.filter { !restoredIDs.contains($0.id) }
+            let restored = PlaybackQueueOrder.restoring(original: unshuffledUpcoming,
+                                                        upcoming: upcomingTracks, id: { $0.id })
             queue.replaceSubrange((index + 1)..., with: restored)
             unshuffledUpcoming = []
         } else {
@@ -225,9 +233,9 @@ final class PlayerController: ObservableObject {
     }
 
     func removeUpcoming(atOffsets offsets: IndexSet) {
-        let removed = Set(offsets.map { queue[$0 + index + 1].id })
+        let removed = offsets.map { queue[$0 + index + 1] }
         queue.remove(atOffsets: IndexSet(offsets.map { $0 + index + 1 }))
-        unshuffledUpcoming.removeAll { removed.contains($0.id) }
+        unshuffledUpcoming = PlaybackQueueOrder.removing(removed, from: unshuffledUpcoming, id: { $0.id })
     }
 
     func moveUpcoming(fromOffsets source: IndexSet, toOffset destination: Int) {
@@ -247,6 +255,7 @@ final class PlayerController: ObservableObject {
     func pause() {
         endCrossfade()
         playWhenReady = false
+        requestedSeek?.setPlaying(false, now: ProcessInfo.processInfo.systemUptime)
         player.pause()
         updateNowPlayingInfo()
     }
@@ -278,7 +287,9 @@ final class PlayerController: ObservableObject {
     func seek(to seconds: TimeInterval) {
         if let asset = player.currentItem?.asset as? AVURLAsset, !asset.url.isFileURL {
             // Seeking in YouTube's streams is unreliable: remember it for when the local copy takes over.
-            requestedSeek = (seconds, Date.now)
+            requestedSeek = StreamingSeekPosition(time: seconds,
+                                                   isPlaying: player.timeControlStatus == .playing,
+                                                   now: ProcessInfo.processInfo.systemUptime)
         }
         player.seek(to: CMTime(seconds: seconds, preferredTimescale: 600),
                     toleranceBefore: .zero, toleranceAfter: .zero)
@@ -449,7 +460,9 @@ final class PlayerController: ObservableObject {
     /// Loads the song at `index`. As part of a crossfade the previous song keeps playing on `outgoingPlayer`.
     private func loadCurrent(crossfading: Bool = false) {
         if !crossfading { endCrossfade() }
+        let generation = requests.beginLoad()
         loadTask?.cancel()
+        retryTask?.cancel()
         upgradeTask?.cancel()
         karaokeTask?.cancel()
         karaokeTrackID = nil
@@ -473,20 +486,24 @@ final class PlayerController: ObservableObject {
 
         loadTask = Task {
             do {
-                var playable = track
+                guard !Task.isCancelled, self.requests.isCurrentLoad(generation) else { return }
+                var playable = Library.shared.resolvedTrack(matching: track) ?? track
                 if playable.videoId == nil {
                     // Last.fm tracks only know artist and title: find them on YouTube Music first.
                     playable = try await InnerTube.shared.resolve(track)
-                    guard !Task.isCancelled, self.index == position else { return }
+                    guard !Task.isCancelled, self.requests.isCurrentLoad(generation), self.index == position else { return }
+                    playable = Library.shared.reconcile(original: track, resolved: playable)
+                }
+                if playable != track {
                     self.queue[position] = playable
                     self.loadArtwork(for: playable)
                 }
                 let stream = try await self.stream(for: playable)
-                guard !Task.isCancelled, self.index == position else { return }
+                guard !Task.isCancelled, self.requests.isCurrentLoad(generation), self.index == position else { return }
                 self.streamInfo = stream.label
                 self.start(url: stream.url, track: playable)
             } catch {
-                guard !Task.isCancelled, self.index == position else { return }
+                guard !Task.isCancelled, self.requests.isCurrentLoad(generation), self.index == position else { return }
                 self.fail(error.localizedDescription)
             }
         }
@@ -553,15 +570,17 @@ final class PlayerController: ObservableObject {
         guard current?.id == track.id, player.currentItem != nil else { return }
         var position = player.currentTime().seconds
         if let requested = requestedSeek {
-            // The user scrubbed while streaming: honour it, counting the time played since.
-            position = requested.time + (player.timeControlStatus == .playing ? Date.now.timeIntervalSince(requested.at) : 0)
+            position = requested.position(at: ProcessInfo.processInfo.systemUptime)
         }
         requestedSeek = nil
         let wasPlaying = player.timeControlStatus != .paused
         newItem.allowedAudioSpatializationFormats = Self.spatializationFormats
         itemStatus = newItem.publisher(for: \.status)
             .receive(on: DispatchQueue.main)
-            .sink { status in self.itemStatusChanged(status, track: track) }
+            .sink { [weak newItem] status in
+                guard let newItem else { return }
+                self.itemStatusChanged(status, item: newItem, track: track)
+            }
         player.replaceCurrentItem(with: newItem)
         if position.isFinite, position > 0.5 {
             player.seek(to: CMTime(seconds: position, preferredTimescale: 600),
@@ -576,7 +595,10 @@ final class PlayerController: ObservableObject {
         item.allowedAudioSpatializationFormats = Self.spatializationFormats
         itemStatus = item.publisher(for: \.status)
             .receive(on: DispatchQueue.main)
-            .sink { status in self.itemStatusChanged(status, track: track) }
+            .sink { [weak item] status in
+                guard let item else { return }
+                self.itemStatusChanged(status, item: item, track: track)
+            }
         player.replaceCurrentItem(with: item)
 
         if pendingFadeIn != nil {
@@ -621,7 +643,8 @@ final class PlayerController: ObservableObject {
         if karaokeMode != .off { startKaraoke() }
     }
 
-    private func itemStatusChanged(_ status: AVPlayerItem.Status, track: Track) {
+    private func itemStatusChanged(_ status: AVPlayerItem.Status, item: AVPlayerItem, track: Track) {
+        guard item === player.currentItem else { return }
         switch status {
         case .readyToPlay:
             isLoading = false
@@ -635,12 +658,14 @@ final class PlayerController: ObservableObject {
             }
             // Stream URLs expire after a few hours: fetch a fresh one once before giving up.
             retriedCurrentItem = true
-            let position = index
-            Task {
+            let generation = requests.loadGeneration
+            retryTask?.cancel()
+            retryTask = Task {
                 // Retry with plain AAC: the most reliable rendition.
                 await StreamResolver.shared.invalidate(videoId)
                 let stream = try? await StreamResolver.shared.stream(for: videoId, quality: .high)
-                guard self.index == position else { return }
+                guard !Task.isCancelled, self.requests.isCurrentLoad(generation),
+                      self.player.currentItem === item else { return }
                 if let stream {
                     self.streamInfo = stream.label
                     self.start(url: stream.url, track: track, isRetry: true)
@@ -658,17 +683,20 @@ final class PlayerController: ObservableObject {
         errorMessage = message
         failuresInARow += 1
         let failedIndex = index
+        let generation = requests.loadGeneration
         // Skip unplayable songs, but don't spin through a whole broken queue.
         guard failuresInARow < 3, index + 1 < queue.count else { return }
         Task {
             try? await Task.sleep(for: .seconds(1.5))
-            guard self.index == failedIndex, self.errorMessage == message else { return }
+            guard self.requests.isCurrentLoad(generation), self.index == failedIndex,
+                  self.errorMessage == message else { return }
             self.index += 1
             self.loadCurrent()
         }
     }
 
     private func advance() {
+        advanceTask?.cancel()
         if index + 1 < queue.count {
             index += 1
             loadCurrent()
@@ -676,8 +704,11 @@ final class PlayerController: ObservableObject {
             index = 0
             loadCurrent()
         } else {
-            Task {
-                if self.autoRadio, await self.extendQueue() {
+            let generation = requests.loadGeneration
+            advanceTask = Task {
+                if self.autoRadio { await self.extendQueue() }
+                guard !Task.isCancelled, self.requests.isCurrentLoad(generation) else { return }
+                if self.index + 1 < self.queue.count {
                     self.index += 1
                     self.loadCurrent()
                 } else {
@@ -777,26 +808,31 @@ final class PlayerController: ObservableObject {
     /// Keeps the music going: when few songs are left, appends a radio based on the current one.
     private func extendQueueIfNeeded() {
         guard autoRadio, queue.count - index <= 3 else { return }
-        Task { await extendQueue() }
+        let generation = requests.queueGeneration
+        Task {
+            guard self.requests.isCurrentQueue(generation) else { return }
+            await self.extendQueue()
+        }
     }
 
     @discardableResult
     private func extendQueue() async -> Bool {
-        guard !isExtendingQueue,
-              let seed = current?.videoId ?? queue.last(where: { $0.videoId != nil })?.videoId else { return false }
-        isExtendingQueue = true
-        defer { isExtendingQueue = false }
-        guard let radio = try? await InnerTube.shared.radio(for: seed) else { return false }
-        let known = Set(queue.map(\.id))
-        let skipLong = Preferences.skipsLongMixes
-        let fresh = radio.filter { track in
-            !known.contains(track.id) && !(skipLong && (track.duration ?? 0) > Preferences.longMixThreshold)
+        guard let seed = current?.videoId ?? queue.last(where: { $0.videoId != nil })?.videoId else { return false }
+        return await requests.extendQueue { generation in
+            guard self.requests.isCurrentQueue(generation), !Task.isCancelled,
+                  let radio = try? await InnerTube.shared.radio(for: seed),
+                  self.requests.isCurrentQueue(generation), !Task.isCancelled else { return false }
+            let known = Set(self.queue.map(\.id))
+            let skipLong = Preferences.skipsLongMixes
+            let fresh = radio.filter { track in
+                !known.contains(track.id) && !(skipLong && (track.duration ?? 0) > Preferences.longMixThreshold)
+            }
+            guard !fresh.isEmpty else { return false }
+            let added = Array(fresh.prefix(30))
+            self.unshuffledUpcoming.append(contentsOf: added)
+            self.queue.append(contentsOf: self.shuffleEnabled ? added.shuffled() : added)
+            return true
         }
-        guard !fresh.isEmpty else { return false }
-        let added = Array(fresh.prefix(30))
-        unshuffledUpcoming.append(contentsOf: added)
-        queue.append(contentsOf: shuffleEnabled ? added.shuffled() : added)
-        return true
     }
 
     /// Caches the next two songs while this one plays, so they start instantly and crossfade on time,
@@ -898,7 +934,9 @@ final class PlayerController: ObservableObject {
         }
         newPlayer.publisher(for: \.timeControlStatus)
             .receive(on: DispatchQueue.main)
-            .sink { status in
+            .sink { [weak newPlayer] status in
+                guard let newPlayer, newPlayer === self.player else { return }
+                self.requestedSeek?.setPlaying(status == .playing, now: ProcessInfo.processInfo.systemUptime)
                 // While the next song loads during a crossfade, the previous one is still audible.
                 self.isPlaying = status != .paused || self.outgoingPlayer != nil
                 if status == .playing {
@@ -982,6 +1020,7 @@ final class PlayerController: ObservableObject {
         guard let rawType = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
               let type = AVAudioSession.InterruptionType(rawValue: rawType) else { return }
         if type == .began {
+            requestedSeek?.setPlaying(false, now: ProcessInfo.processInfo.systemUptime)
             endCrossfade()
             return
         }

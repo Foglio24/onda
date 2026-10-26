@@ -34,7 +34,10 @@ final class LastFM: ObservableObject {
     @Published private(set) var username: String?
     @Published private(set) var pendingCount = 0
     @Published var scrobblingEnabled: Bool {
-        didSet { UserDefaults.standard.set(scrobblingEnabled, forKey: Keys.scrobbling) }
+        didSet {
+            UserDefaults.standard.set(scrobblingEnabled, forKey: Keys.scrobbling)
+            outbox.isEnabled = scrobblingEnabled
+        }
     }
 
     var hasCredentials: Bool { !apiKey.isEmpty && !apiSecret.isEmpty }
@@ -44,8 +47,8 @@ final class LastFM: ObservableObject {
     private var apiSecret: String
     private var sessionKey: String?
     private var pendingToken: String?
-    private var pending: [PendingScrobble]
-    private var isFlushing = false
+    private var authGeneration = UUID()
+    private let outbox: ScrobbleOutbox
     private let endpoint = URL(string: "https://ws.audioscrobbler.com/2.0/")!
 
     private enum Keys {
@@ -55,15 +58,7 @@ final class LastFM: ObservableObject {
         static let username = "lastfm.username"
         static let scrobbling = "lastfm.scrobbling"
         static let pending = "lastfm.pending"
-    }
-
-    /// Scrobbles waiting to be sent, kept across launches so offline listening still counts.
-    private struct PendingScrobble: Codable {
-        let artist: String
-        let track: String
-        let album: String?
-        let duration: Int?
-        let timestamp: Int
+        static let accountPending = "lastfm.pendingByAccount.v1"
     }
 
     private init() {
@@ -73,9 +68,12 @@ final class LastFM: ObservableObject {
         sessionKey = Keychain.get(Keys.session)
         username = defaults.string(forKey: Keys.username)
         scrobblingEnabled = defaults.object(forKey: Keys.scrobbling) as? Bool ?? true
-        pending = defaults.data(forKey: Keys.pending)
-            .flatMap { try? JSONDecoder().decode([PendingScrobble].self, from: $0) } ?? []
-        pendingCount = pending.count
+        outbox = ScrobbleOutbox(data: defaults.data(forKey: Keys.accountPending),
+                               legacyData: defaults.data(forKey: Keys.pending), legacyOwner: username)
+        outbox.isEnabled = scrobblingEnabled
+        if let username, let sessionKey { outbox.connect(username: username, key: sessionKey) }
+        outbox.onChange = { [weak self] in self?.savePending() }
+        savePending()
     }
 
     // MARK: Account
@@ -92,7 +90,10 @@ final class LastFM: ObservableObject {
 
     /// Step 1 of the desktop auth flow: returns the page where the user grants access.
     func beginAuth() async throws -> URL {
+        let authorization = UUID()
+        authGeneration = authorization
         let json = try await call("auth.getToken", signed: true)
+        guard authGeneration == authorization else { throw CancellationError() }
         guard let token = json["token"] as? String else { throw LastFMError.badResponse }
         pendingToken = token
         return URL(string: "https://www.last.fm/api/auth/?api_key=\(apiKey)&token=\(token)")!
@@ -101,14 +102,17 @@ final class LastFM: ObservableObject {
     /// Step 2: once the user has allowed access, trade the token for a session key.
     func completeAuth() async throws {
         guard let token = pendingToken else { return }
-        pendingToken = nil
+        let authorization = authGeneration
         let json = try await call("auth.getSession", params: ["token": token], signed: true)
+        guard authGeneration == authorization, pendingToken == token else { throw CancellationError() }
         guard let key = J.string(J.value(json, "session", "key")),
               let name = J.string(J.value(json, "session", "name")) else { throw LastFMError.badResponse }
+        pendingToken = nil
         sessionKey = key
         Keychain.set(key, for: Keys.session)
         UserDefaults.standard.set(name, forKey: Keys.username)
         username = name
+        outbox.connect(username: name, key: key)
         await flushPending()
     }
 
@@ -117,6 +121,9 @@ final class LastFM: ObservableObject {
         Keychain.set(nil, for: Keys.session)
         UserDefaults.standard.removeObject(forKey: Keys.username)
         username = nil
+        pendingToken = nil
+        authGeneration = UUID()
+        outbox.disconnect()
     }
 
     // MARK: Scrobbling
@@ -131,22 +138,17 @@ final class LastFM: ObservableObject {
 
     func scrobble(_ track: Track, startedAt: Date) async {
         guard canScrobble else { return }
-        pending.append(PendingScrobble(artist: artistName(track), track: track.title, album: track.album,
-                                       duration: track.duration.map { Int($0) },
-                                       timestamp: Int(startedAt.timeIntervalSince1970)))
-        savePending()
+        outbox.append(ScrobbleOutbox.Item(artist: artistName(track), track: track.title, album: track.album,
+                                         duration: track.duration.map { Int($0) },
+                                         timestamp: Int(startedAt.timeIntervalSince1970)))
         await flushPending()
     }
 
     /// Sends queued scrobbles in batches of 50 (the API limit).
     func flushPending() async {
-        guard canScrobble, let sessionKey, !pending.isEmpty, !isFlushing else { return }
-        isFlushing = true
-        defer { isFlushing = false }
-
-        flush: while !pending.isEmpty {
-            let batch = Array(pending.prefix(50))
-            var params = ["sk": sessionKey]
+        guard canScrobble else { return }
+        await outbox.flush { session, batch in
+            var params = ["sk": session.key]
             for (i, item) in batch.enumerated() {
                 params["artist[\(i)]"] = item.artist
                 params["track[\(i)]"] = item.track
@@ -156,15 +158,14 @@ final class LastFM: ObservableObject {
             }
             do {
                 _ = try await call("track.scrobble", params: params, signed: true, post: true)
-                pending.removeFirst(batch.count)
+                return .accepted
             } catch LastFMError.api(let code, _) where ![9, 11, 16, 29].contains(code) {
                 // Rejected for good (bad data): drop it instead of retrying forever.
-                pending.removeFirst(batch.count)
+                return .rejected
             } catch {
-                break flush // offline, rate limited or session problem: retry later
+                return .retry // offline, rate limited or session problem: retry later
             }
         }
-        savePending()
     }
 
     func love(_ track: Track, loved: Bool) async {
@@ -216,6 +217,7 @@ final class LastFM: ObservableObject {
     private func call(_ method: String, params: [String: String] = [:], signed: Bool = false,
                       post: Bool = false) async throws -> [String: Any] {
         guard !apiKey.isEmpty, !signed || !apiSecret.isEmpty else { throw LastFMError.missingCredentials }
+        let requestingSession = outbox.session
         var all = params
         all["method"] = method
         all["api_key"] = apiKey
@@ -239,7 +241,9 @@ final class LastFM: ObservableObject {
             throw LastFMError.badResponse
         }
         if let code = json["error"] as? Int {
-            if code == 9 { signOut() } // session revoked from the Last.fm website
+            if code == 9, params["sk"] != nil, outbox.session == requestingSession {
+                signOut() // An old request must not disconnect a newly authorized account.
+            }
             throw LastFMError.api(code, json["message"] as? String ?? String(localized: "errore sconosciuto"))
         }
         return json
@@ -256,8 +260,11 @@ final class LastFM: ObservableObject {
     }
 
     private func savePending() {
-        UserDefaults.standard.set(try? JSONEncoder().encode(pending), forKey: Keys.pending)
-        pendingCount = pending.count
+        if let data = try? outbox.encoded() {
+            UserDefaults.standard.set(data, forKey: Keys.accountPending)
+            UserDefaults.standard.removeObject(forKey: Keys.pending)
+        }
+        pendingCount = outbox.pendingCount
     }
 
     private static let unreserved = CharacterSet(

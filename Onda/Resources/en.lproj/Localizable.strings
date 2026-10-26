@@ -13,6 +13,7 @@
 
 /* Common */
 "OK" = "OK";
+"Download non riuscito" = "Download failed";
 "Ops" = "Oops";
 "Annulla" = "Cancel";
 "Crea" = "Create";

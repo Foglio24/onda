@@ -188,7 +188,7 @@ struct TrackRow: View {
     }
 
     @ViewBuilder private var trailing: some View {
-        if let videoId = track.videoId, let value = downloads.progress[videoId] {
+        if let value = downloads.progress[track.videoId ?? track.id] {
             Text(value, format: .percent.precision(.fractionLength(0)))
                 .font(.caption.monospacedDigit())
                 .foregroundStyle(.secondary)
@@ -309,15 +309,13 @@ struct TrackMenu: View {
         Button { router.trackToAdd = track } label: {
             Label("Aggiungi a playlist…", systemImage: "text.badge.plus")
         }
-        if let videoId = track.videoId {
-            if downloads.isDownloaded(track) {
-                Button(role: .destructive) { downloads.remove(track) } label: {
-                    Label("Rimuovi download", systemImage: "trash")
-                }
-            } else if downloads.progress[videoId] == nil {
-                Button { downloads.download(track) } label: {
-                    Label("Scarica", systemImage: "arrow.down.circle")
-                }
+        if downloads.isDownloaded(track) {
+            Button(role: .destructive) { downloads.remove(track) } label: {
+                Label("Rimuovi download", systemImage: "trash")
+            }
+        } else if !downloads.isQueued(track) {
+            Button { downloads.download(track) } label: {
+                Label("Scarica", systemImage: "arrow.down.circle")
             }
         }
         if let url = track.shareURL {
