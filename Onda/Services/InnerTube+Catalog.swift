@@ -75,7 +75,29 @@ extension InnerTube {
             default: break
             }
         }
+        // The unfiltered results mix in singles that only mention the name: albums by the searched
+        // artist come first, then albums and EPs before singles, otherwise in YouTube's order.
+        let wanted = Self.folded(query)
+        results.albums = results.albums.enumerated().sorted { a, b in
+            let first = Self.albumScore(a.element, query: wanted)
+            let second = Self.albumScore(b.element, query: wanted)
+            return first != second ? first > second : a.offset < b.offset
+        }.map(\.element)
         return results
+    }
+
+    private static func folded(_ text: String) -> String {
+        text.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
+            .trimmingCharacters(in: .whitespaces)
+    }
+
+    /// "Album • Daft Punk • 2013" for "daft punk" scores 3; "Singolo • Someone else • 2021" scores 0.
+    private static func albumScore(_ album: MusicItem, query: String) -> Int {
+        let parts = album.subtitle.components(separatedBy: " • ")
+        var score = 0
+        if !query.isEmpty, parts.dropFirst().contains(where: { folded($0).contains(query) }) { score += 2 }
+        if let kind = parts.first.map(folded), ["album", "ep"].contains(kind) { score += 1 }
+        return score
     }
 
     /// The YouTube Music page of an artist known only by name (e.g. a song from Last.fm).

@@ -76,7 +76,7 @@ struct MusicItemCard: View {
     }
 }
 
-/// A list row for an artist, album or playlist (search's top result).
+/// A list row for an artist, album or playlist (search's top result). The list adds the chevron.
 struct MusicItemRow: View {
     let item: MusicItem
 
@@ -95,9 +95,6 @@ struct MusicItemRow: View {
                     .lineLimit(1)
             }
             Spacer(minLength: 0)
-            Image(systemName: "chevron.right")
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(.tertiary)
         }
         .contentShape(.rect)
     }
@@ -306,6 +303,8 @@ struct AlbumView: View {
                     } label: {
                         Label("Scarica", systemImage: "arrow.down.circle")
                             .font(.subheadline.weight(.semibold))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.75)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 4)
                     }
@@ -317,6 +316,8 @@ struct AlbumView: View {
                         Label(saved ? "Salvato" : "Salva come playlist",
                               systemImage: saved ? "checkmark" : "text.badge.plus")
                             .font(.subheadline.weight(.semibold))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.75)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 4)
                     }
