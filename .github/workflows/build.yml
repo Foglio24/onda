@@ -191,7 +191,7 @@ jobs:
       - name: Take screenshots
         if: ${{ !startsWith(github.ref, 'refs/tags/') }}
         continue-on-error: true
-        timeout-minutes: 10
+        timeout-minutes: 15
         run: bash Tools/Screenshots/run.sh build-sim/Build/Products/Debug-iphonesimulator/Onda.app screenshots
 
       - name: Upload screenshots
