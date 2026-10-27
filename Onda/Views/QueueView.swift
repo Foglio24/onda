@@ -49,7 +49,11 @@ struct QueueView: View {
             .listRowInsets(EdgeInsets(top: 10, leading: 4, bottom: 4, trailing: 0))
 
             ForEach(player.upcoming) { entry in
-                TrackRow(track: entry.track) { player.jump(to: entry.index) }
+                TrackRow(track: entry.track, queues: false, remove: {
+                    if let offset = player.upcoming.firstIndex(where: { $0.id == entry.id }) {
+                        player.removeUpcoming(atOffsets: IndexSet(integer: offset))
+                    }
+                }) { player.jump(to: entry.index) }
                     .padding(.horizontal, 10)
                     .listRowBackground(
                         RoundedRectangle(cornerRadius: 16, style: .continuous)

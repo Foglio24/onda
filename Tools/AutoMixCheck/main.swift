@@ -469,7 +469,13 @@ if let a = analyze(song(bpm: 124, seconds: 120).samples, "124 BPM, 2 minutes"),
     past.shift = 100 * bar
     past.incomingShift = -100 * barIn
     let kept = MixDesigner.normalized(past, from: a, to: b)
-    expect(kept.shift == 0 && kept.incomingShift == nil, "moving past the ends: the songs stay where they can")
+    let keptPlan = MixDesigner.plan(from: a, to: b, design: kept)
+    var further = kept
+    further.shift += bar
+    let beyond = MixDesigner.plan(from: a, to: b, design: further)
+    expect(kept.shift >= 0 && kept.shift < 4 * bar && kept.incomingShift == nil && keptPlan.bars == 8
+           && (keptPlan.alignment ?? 0) + 8 * bar <= a.duration && beyond.outEnd == keptPlan.outEnd,
+           "moving past the ends: the song leaving as late as the whole mix fits (\(format(kept.shift / bar, 0)) bars, ends at \(format(keptPlan.outEnd, 1)) of \(format(a.duration, 1)) s), the next from its first beat")
     var early = design
     early.shift = -100 * bar
     let earliest = MixDesigner.normalized(early, from: a, to: b)

@@ -50,8 +50,23 @@ final class AppRouter: ObservableObject {
     @Published var pendingSearch: String?
     /// A playlist's Mix opened from outside its page (used by `LaunchScene`).
     @Published var mixTarget: MixTarget?
+    /// The note after a swipe on a song (see `TrackRow`), for a few seconds.
+    @Published var toast: TrackToast?
 
     private init() {}
+
+    func show(_ toast: TrackToast) {
+        self.toast = toast
+        Task {
+            try? await Task.sleep(for: .seconds(3.5))
+            if self.toast?.id == toast.id { self.toast = nil }
+        }
+    }
+
+    /// The presenter on top shows sheets and notes.
+    func isOnTop(_ presenter: Presenter) -> Bool {
+        topPresenter == presenter
+    }
 
     /// Shows the player. The cover appears without the system's animation: `PlayerCard` grows
     /// out of the mini player itself.

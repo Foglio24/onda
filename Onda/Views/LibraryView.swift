@@ -182,7 +182,7 @@ struct TrackCollectionView: View {
                     .listRowSeparator(.hidden)
             }
             ForEach(Array(tracks.enumerated()), id: \.element.id) { position, track in
-                TrackRow(track: track) {
+                TrackRow(track: track, remove: { delete(IndexSet(integer: position)) }) {
                     player.play(tracks, startAt: position, source: collection.title)
                 }
                 .listRowBackground(Color.clear)

@@ -43,7 +43,7 @@ struct PlaylistDetailView: View {
                         .listRowSeparator(.hidden)
 
                     if playlist.tracks.isEmpty {
-                        Text("La playlist è vuota. Aggiungi brani con il tasto ··· accanto a ogni canzone, oppure scorrendo un brano verso destra.")
+                        Text("La playlist è vuota. Aggiungi brani con il tasto ··· accanto a ogni canzone, oppure scorrendo un brano verso sinistra e toccando «Cambia».")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
@@ -53,7 +53,9 @@ struct PlaylistDetailView: View {
                     }
 
                     ForEach(Array(playlist.tracks.enumerated()), id: \.element.id) { position, track in
-                        TrackRow(track: track) {
+                        TrackRow(track: track, remove: {
+                            library.removeTracks(atOffsets: IndexSet(integer: position), from: playlistID)
+                        }) {
                             player.play(playlist.tracks, startAt: position, source: playlist.name, playlist: playlist.id)
                         }
                         .listRowBackground(Color.clear)

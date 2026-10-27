@@ -103,7 +103,7 @@
 /* Playlists */
 "1 brano" = "1 song";
 "%lld brani" = "%lld songs";
-"La playlist è vuota. Aggiungi brani con il tasto ··· accanto a ogni canzone, oppure scorrendo un brano verso destra." = "This playlist is empty. Add songs with the ··· button next to any song, or by swiping a song to the right.";
+"La playlist è vuota. Aggiungi brani con il tasto ··· accanto a ogni canzone, oppure scorrendo un brano verso sinistra e toccando «Cambia»." = "This playlist is empty. Add songs with the ··· button next to any song, or by swiping a song to the left and tapping “Change”.";
 "Playlist eliminata" = "Playlist deleted";
 "Rinomina playlist" = "Rename playlist";
 "Eliminare questa playlist?" = "Delete this playlist?";
@@ -133,7 +133,6 @@
 "Scarica" = "Download";
 "Condividi" = "Share";
 "Mi piace" = "Like";
-"Non mi piace" = "Unlike";
 "Artista sconosciuto" = "Unknown artist";
 
 /* Search */
@@ -559,3 +558,11 @@
 "in pausa" = "paused";
 "in attesa" = "waiting";
 "ripresa" = "resumed";
+
+/* Swipes on songs */
+"In coda" = "Queue";
+"Rimuovi" = "Remove";
+"Aggiunto alla coda" = "Added to the queue";
+"Aggiunto ai preferiti" = "Added to your favourites";
+"Già nei preferiti" = "Already in your favourites";
+"Cambia" = "Change";

@@ -41,7 +41,7 @@ The quality levels are:
 
 Wi-Fi and cellular default to **High (native AAC)** to avoid converting every streamed song on the phone. Existing explicit quality choices are preserved. Maximum remains available; conversion and AI work stop when Low Power Mode is enabled or iOS reports a serious thermal state. Only the next song's AAC copy is prepared ahead, and karaoke prepares the current song on demand. These limits reduce avoidable work; temperature and battery improvements still need measurement on an iPhone.
 
-On every song, tap **···** for all actions, or swipe right for *Like* and *Add to playlist*.
+On every song, tap **···** for all actions, or swipe it like on Spotify: right to add it to the queue, left to add it to your favourites (tap the note that appears to pick a playlist instead).
 
 Not included:
 - **Universal scrobbler for other apps:** iOS doesn't let an app see what Spotify or Apple Music are playing.

@@ -77,6 +77,7 @@ struct NowPlayingView: View {
             }
         }
         .downloadErrorAlert(isActive: router.showPlayer)
+        .trackToasts(.player)
     }
 
     /// A drag mostly downwards shrinks the player card towards the mini player as the finger

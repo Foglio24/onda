@@ -19,6 +19,7 @@ struct MusicPageSheet: View {
         .sheet(item: router.addToPlaylistBinding(for: .page)) { track in
             AddToPlaylistSheet(track: track)
         }
+        .trackToasts(.page)
     }
 
     /// A song's details start at half height, like a card pulled up from the player.
@@ -217,7 +218,7 @@ struct ArtistView: View {
                     Text("Brani più ascoltati")
                         .font(.title3.bold())
                     ForEach(Array(page.topSongs.enumerated()), id: \.offset) { position, track in
-                        TrackRow(track: track) {
+                        TrackRow(track: track, swipe: .drag) {
                             player.play(page.topSongs, startAt: position, source: page.name)
                         }
                     }
@@ -333,7 +334,7 @@ struct AlbumView: View {
                             .font(.subheadline.monospacedDigit())
                             .foregroundStyle(.secondary)
                             .frame(width: 22)
-                        TrackRow(track: track) {
+                        TrackRow(track: track, swipe: .drag) {
                             player.play(page.tracks, startAt: position, source: page.title)
                         }
                     }
@@ -400,7 +401,7 @@ struct RemotePlaylistView: View {
             .buttonStyle(.glass)
             .disabled(saved)
             ForEach(Array(tracks.enumerated()), id: \.offset) { position, track in
-                TrackRow(track: track) {
+                TrackRow(track: track, swipe: .drag) {
                     player.play(tracks, startAt: position, source: name)
                 }
             }

@@ -9,6 +9,7 @@
   - The effect line is how much of the song leaving goes into its reverb or echo.
   - Choosing an option again replaces the lines drawn for that part.
 - The box shows the beats of the song leaving, a stronger line at each bar.
+- **Swipes on songs, like Spotify's.** Swipe a song to the right to add it to the queue, to the left to add it to your favourites; a note at the bottom of the screen says so, and tapping it ("Cambia") opens the playlists to put the song in instead. In lists you could remove songs from (a playlist, favourites, downloads, the queue), "Rimuovi" sits next to the heart. On album and artist pages the row itself slides under the finger, showing what letting go will do.
 
 ### Fixed
 - **AutoMix: no more cut when the mix takes over.** The playing song and the mix are two players, and two players never start on exactly the same sample: switched at once, the change was heard as a cut. Now the two (which play the same music at that moment) overlap for a quarter of a second, one fading out as the other fades in.
@@ -18,6 +19,7 @@
 ### For development
 - `Tools/AutoMixCheck`: every choice of bars over two-minute songs (on the beat), moving each song by whole bars (exactly that far, the same length, on the beat), moves past the ends kept where the mix can be made, lines traced from every option (sound like it, start and end right, no clicks, also over a 3.5-second overlap), the filter knob, fixed ends, and designs saved by 1.14 still read. `Tools/AutoMixRenderCheck` renders a mix with lines drawn by hand.
 - New screenshot: drawing the volume lines (`-OndaScene mix:edit`). The screenshot job has 20 minutes.
+- `HorizontalPan`: a sideways drag (a UIKit pan that only starts across) that leaves vertical scrolling alone.
 
 ## 1.14.0 (2026-10-27)
 

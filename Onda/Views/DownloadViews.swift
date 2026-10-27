@@ -188,7 +188,7 @@ struct DownloadsView: View {
 
             Section {
                 ForEach(Array(songs.enumerated()), id: \.element.id) { position, track in
-                    TrackRow(track: track) {
+                    TrackRow(track: track, remove: { downloads.remove(track) }) {
                         player.play(songs, startAt: position, source: String(localized: "Download"))
                     }
                     .listRowBackground(Color.clear)

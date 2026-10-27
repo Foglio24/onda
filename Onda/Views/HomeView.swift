@@ -266,7 +266,8 @@ struct HomeView: View {
             ScrollView(.horizontal) {
                 LazyHGrid(rows: Array(repeating: GridItem(.fixed(58), spacing: 8), count: 4), spacing: 20) {
                     ForEach(Array(quickPicks.enumerated()), id: \.element.id) { position, track in
-                        TrackRow(track: track) {
+                        // The shelf scrolls sideways: no swipes on its songs.
+                        TrackRow(track: track, swipe: .none) {
                             player.play(quickPicks, startAt: position, source: String(localized: "Scelti per te"))
                         }
                         .frame(width: 320)
