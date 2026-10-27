@@ -1,38 +1,43 @@
 import Foundation
 
-/// How AutoMix takes one song into the next, in the outgoing song's time.
+/// How AutoMix takes one song into the next. Times are in each song's own time; tempos in BPM.
+/// The mix itself is rendered ahead (see `MixSchedule` and `AutoMixRenderer`) and takes over from
+/// the playing song at `handover`.
 struct TransitionPlan: Equatable, Sendable {
     enum Style: String, Sendable {
-        /// Beats matched like a DJ: both songs change tempo to meet halfway, the next one comes in on
-        /// a downbeat (skipping a long intro), they play together for several bars and the bass
-        /// passes from one to the other.
+        /// Beats matched like a DJ: the playing song glides to a tempo between the two, the next one
+        /// comes in on a downbeat at that tempo (skipping a long intro), they play together for
+        /// several bars while the bass passes from one to the other, then the new song glides back
+        /// to its own tempo.
         case beatMatched
-        /// Two steady beats too far apart in tempo: this song thins out (bass cut, rising high-pass)
-        /// while the next one comes in on one of its downbeats, like a DJ cutting on the one.
-        case drop
-        /// No steady beat to follow: a crossfade on the song's ending, filtered when this song has a beat.
+        /// No beats to match (or tempos too far apart): a long crossfade on the song's ending,
+        /// filtered when the outgoing song has a beat.
         case blend
         /// The song fades out on its own: the next one comes in during the fade.
         case fade
     }
 
     var style: Style
+    /// Outgoing song's time where the mix takes over from normal playback (the song plays on alone
+    /// in the mix until `outStart`).
+    var handover: Double
     /// Outgoing song's time when the next song starts, and when it has faded out.
     var outStart: Double
     var outEnd: Double
-    /// Where the next song starts, and its playback rate while the two play together; it goes back
-    /// to its own tempo afterwards.
+    /// Where the next song starts, in its own time.
     var inStart: Double
-    var rate: Double
-    /// The outgoing song's rate while the two play together (reached before the next song starts).
-    var outgoingRate: Double
+    /// The outgoing song's tempo, the tempo both play at while together, and the next song's tempo.
+    /// All equal when the beats aren't matched (nothing changes speed).
+    var tempoOut: Double
+    var tempoMeet: Double
+    var tempoIn: Double
     /// The outgoing song's downbeat the next song's first downbeat lands on.
     var alignment: Double?
     /// Progress (0…1) at which the bass starts and ends passing from one song to the other; nil
     /// when it doesn't.
     var swapStart: Double?
     var swapEnd: Double?
-    /// Progress at which the next song has come in.
+    /// Progress at which the next song has fully come in.
     var fadeIn: Double
     /// Progress from which a high-pass filter sweeps up through the outgoing song; nil for none.
     var filterOut: Double?
@@ -40,6 +45,9 @@ struct TransitionPlan: Equatable, Sendable {
     var bars: Int?
 
     var overlap: Double { outEnd - outStart }
+    /// The playback rates while the two play together.
+    var outgoingRate: Double { tempoMeet / tempoOut }
+    var incomingRate: Double { tempoMeet / tempoIn }
 
     func progress(atOutgoingTime time: Double) -> Double {
         guard overlap > 0 else { return time >= outStart ? 1 : 0 }
@@ -47,7 +55,7 @@ struct TransitionPlan: Equatable, Sendable {
     }
 
     /// Volumes (0…1), bass cuts (0 none … 1 all) and the outgoing song's high-pass (0 none … 1
-    /// fully up) at a point of the transition.
+    /// fully up) at a point of the overlap.
     func levels(at progress: Double) -> TransitionLevels {
         let p = max(0, min(1, progress))
         let comeIn = fadeIn > 0 ? min(1, p / fadeIn) : 1
@@ -98,17 +106,16 @@ struct TransitionLevels: Equatable, Sendable {
 }
 
 /// Mixes any two analysed songs, the way Apple Music's AutoMix does: matched beats when both are
-/// made to a steady grid (both tempos meeting halfway, up to 20 % apart), a cut on the one when
-/// their tempos are further apart, otherwise a crossfade on the song's ending.
+/// made to a steady grid and their tempos are within 30 % (both gliding to meet halfway), otherwise
+/// a long crossfade on the song's ending. There is never a cut: every mix lasts several seconds.
 enum TransitionPlanner {
     /// How far apart two tempos may be for their beats to be matched; each song changes by half of it.
-    static let maximumTempoChange = 0.2
+    static let maximumTempoChange = 0.3
     /// The longest beat-matched overlap, in seconds.
     static let longestOverlap = 48.0
 
     static func plan(from outgoing: TrackAnalysis, to incoming: TrackAnalysis) -> TransitionPlan {
         if let matched = beatMatched(outgoing, incoming) { return matched }
-        if let dropped = drop(outgoing, incoming) { return dropped }
         return blend(outgoing, incoming)
     }
 
@@ -125,8 +132,6 @@ enum TransitionPlanner {
 
     private static func beatMatched(_ a: TrackAnalysis, _ b: TrackAnalysis) -> TransitionPlan? {
         guard a.isGridLocked, b.isGridLocked, let match = tempoMatch(a, b) else { return nil }
-        // The two meet halfway: the next song slows down or speeds up by as much as this one.
-        let incomingRate = match.ratio.squareRoot()
         let end = a.audibleEnd
         let outBeats = a.beat(atOrAfter: end - 32 * a.beatLength)..<a.beat(atOrAfter: end)
         let inBeats = b.beat(atOrAfter: b.soundStart)..<b.beat(atOrAfter: b.soundStart + 32 * b.beatLength)
@@ -135,19 +140,19 @@ enum TransitionPlanner {
         // Sixteen bars when both ends have a beat and the songs are close; fewer otherwise, or when
         // the song is too short for them.
         for bars in rhythmic && close ? [16, 8, 4] : [8, 4] {
-            if let plan = beatMatched(a, b, bars: bars, octave: match.octave, incomingRate: incomingRate) {
-                return plan
-            }
+            if let plan = beatMatched(a, b, bars: bars, octave: match.octave) { return plan }
         }
         return nil
     }
 
-    private static func beatMatched(_ a: TrackAnalysis, _ b: TrackAnalysis, bars: Int, octave: Double,
-                                    incomingRate: Double) -> TransitionPlan? {
-        let outgoingRate = 1 / incomingRate
+    private static func beatMatched(_ a: TrackAnalysis, _ b: TrackAnalysis, bars: Int, octave: Double) -> TransitionPlan? {
+        let tempoOut = a.tempo
+        let tempoIn = b.tempo * octave
+        // The two meet halfway (in ratio): each changes speed by as little as possible.
+        let tempoMeet = (tempoOut * tempoIn).squareRoot()
         let beat = a.beatLength
         let length = Double(bars * 4) * beat
-        guard length / outgoingRate <= longestOverlap else { return nil }
+        guard length * tempoOut / tempoMeet <= longestOverlap else { return nil }
         // The next song: the overlap ends where its main part starts, so a long intro is skipped.
         let first = b.firstDownbeat
         let incomingBeats = Int((Double(bars * 4) / octave).rounded())
@@ -157,21 +162,26 @@ enum TransitionPlanner {
             downbeatIn = main - incomingBeats
             inStart = max(0, b.beatTime(downbeatIn) - 0.05)
         }
-        let lead = (b.beatTime(downbeatIn) - inStart) / incomingRate
+        // While the next song plays up to its first downbeat, this one moves on by as many of its
+        // own beats (both at the meeting tempo).
+        let leadOut = (b.beatTime(downbeatIn) - inStart) * tempoIn / tempoOut
         // This song: the overlap ends as its sound does, starting on a downbeat (at a new section
         // when there is one nearby).
-        guard lead >= 0, lead < 8 * beat,
+        guard leadOut >= 0, leadOut < 8 * beat,
               let downbeatOut = a.downbeat(startingOverlapOf: length, endingBy: a.audibleEnd) else { return nil }
         let alignment = a.beatTime(downbeatOut)
-        let outStart = alignment - lead * outgoingRate
+        let outStart = alignment - leadOut
         let outEnd = min(alignment + length, a.duration - 0.05)
-        guard outStart >= max(30, a.duration * 0.5), outEnd > outStart + 2 else { return nil }
+        // Four bars before the next song comes in, this song starts gliding to the meeting tempo.
+        let handover = outStart - 16 * beat
+        guard handover >= max(30, a.duration * 0.45), outEnd > outStart + 2 else { return nil }
         let overlap = outEnd - outStart
         let swapStart = (alignment + Double(bars * 2) * beat - outStart) / overlap
         let swapEnd = min(1, swapStart + beat / overlap)
-        return TransitionPlan(style: .beatMatched, outStart: outStart, outEnd: outEnd, inStart: inStart,
-                              rate: incomingRate, outgoingRate: outgoingRate, alignment: alignment,
-                              swapStart: swapStart, swapEnd: swapEnd, fadeIn: swapStart, filterOut: 0.75, bars: bars)
+        return TransitionPlan(style: .beatMatched, handover: handover, outStart: outStart, outEnd: outEnd,
+                              inStart: inStart, tempoOut: tempoOut, tempoMeet: tempoMeet, tempoIn: tempoIn,
+                              alignment: alignment, swapStart: swapStart, swapEnd: swapEnd, fadeIn: swapStart,
+                              filterOut: 0.75, bars: bars)
     }
 
     /// Keys that sound well together: the same, relative major and minor, or a fifth apart
@@ -187,36 +197,6 @@ enum TransitionPlanner {
     private static func fifths(_ analysis: TrackAnalysis) -> Int {
         let major = analysis.minor ? (analysis.key + 3) % 12 : analysis.key
         return (major * 7) % 12
-    }
-
-    // MARK: Cut on the one
-
-    private static func drop(_ a: TrackAnalysis, _ b: TrackAnalysis) -> TransitionPlan? {
-        guard a.isGridLocked, b.isGridLocked else { return nil }
-        let beat = a.beatLength
-        // Straight into the next song's main part (a bar before it), or from its start.
-        let first = b.firstDownbeat
-        var downbeatIn = first
-        var inStart = max(0, b.soundStart - 0.01)
-        if let main = b.mainStart(), main - 4 > first {
-            downbeatIn = main - 4
-            inStart = max(0, b.beatTime(downbeatIn) - 0.05)
-        }
-        let lead = b.beatTime(downbeatIn) - inStart
-        let length = 4 * beat
-        guard lead < 4 * b.beatLength,
-              let downbeatOut = a.downbeat(startingOverlapOf: length, endingBy: a.audibleEnd) else { return nil }
-        let alignment = a.beatTime(downbeatOut)
-        let outStart = alignment - lead
-        let outEnd = min(alignment + length, a.duration - 0.05)
-        guard outStart >= max(20, a.duration * 0.5), outEnd > outStart + 1 else { return nil }
-        let overlap = outEnd - outStart
-        let landing = (alignment - outStart) / overlap
-        let swapStart = (alignment + 2 * beat - outStart) / overlap
-        return TransitionPlan(style: .drop, outStart: outStart, outEnd: outEnd, inStart: inStart, rate: 1,
-                              outgoingRate: 1, alignment: alignment, swapStart: swapStart,
-                              swapEnd: min(1, swapStart + beat / overlap), fadeIn: max(0.15, landing),
-                              filterOut: 0, bars: 1)
     }
 
     // MARK: Crossfades
@@ -245,7 +225,7 @@ enum TransitionPlanner {
             && a.pulse(a.beat(atOrAfter: end - 8 * a.beatLength)..<a.beat(atOrAfter: end)) >= 0.45
 
         let style: TransitionPlan.Style = fade >= 4 ? .fade : .blend
-        var overlap = style == .fade ? min(12, max(5, fade)) : min(10, 6 + softIntro)
+        var overlap = style == .fade ? min(12, max(6, fade)) : min(12, 8 + softIntro)
         // Short songs keep at least their first ten seconds and half.
         overlap = min(overlap, max(1, end - max(a.soundStart + 10, a.duration * 0.5)))
         var outStart = end - overlap
@@ -256,11 +236,115 @@ enum TransitionPlanner {
             outStart = a.beatTime(downbeat)
             alignment = outStart
         }
-        return TransitionPlan(style: style, outStart: outStart, outEnd: end, inStart: inStart, rate: 1,
-                              outgoingRate: 1, alignment: alignment,
-                              swapStart: rhythmic ? 0.45 : nil, swapEnd: rhythmic ? 0.55 : nil,
+        let tempo = a.tempo
+        return TransitionPlan(style: style, handover: max(0, outStart - 0.5), outStart: outStart, outEnd: end,
+                              inStart: inStart, tempoOut: tempo, tempoMeet: tempo, tempoIn: tempo,
+                              alignment: alignment, swapStart: rhythmic ? 0.45 : nil, swapEnd: rhythmic ? 0.55 : nil,
                               fadeIn: style == .fade ? min(1, 3 / (end - outStart)) : 0.5,
                               filterOut: rhythmic ? 0.4 : nil, bars: nil)
+    }
+}
+
+/// The mix as the renderer plays it, block by block (512 frames at 44.1 kHz): both songs' playback
+/// rates, volumes and filters. The tempo glides smoothly: from the playing song's to the meeting
+/// tempo before the next song comes in, then from the meeting tempo to the next song's own once the
+/// first has gone. Both songs always share the tempo, so their beats stay together.
+struct MixSchedule: Sendable {
+    static let sampleRate = 44_100.0
+    static let blockFrames = 512
+
+    struct Step: Equatable, Sendable {
+        var outgoingRate: Double
+        var incomingRate: Double
+        var levels: TransitionLevels
+    }
+
+    let plan: TransitionPlan
+    private(set) var steps: [Step] = []
+    /// Mix time (seconds) when the next song starts, and how much of its player's time has gone by
+    /// then (its rate applies from the start of the mix, on silence).
+    private(set) var entry = 0.0
+    private(set) var incomingClockAtEntry = 0.0
+    /// The next song's own time when the mix ends, where its normal playback carries on.
+    private(set) var join = 0.0
+
+    var length: Double { Double(steps.count * Self.blockFrames) / Self.sampleRate }
+
+    init(plan: TransitionPlan) {
+        self.plan = plan
+        let dt = Double(Self.blockFrames) / Self.sampleRate
+        // The next song takes 16 of its beats to get back to its own tempo (when it changed at all).
+        let glideBack = plan.tempoMeet == plan.tempoIn ? 0 : 16 * 60 / plan.tempoIn
+        let preGlide = max(1e-6, plan.outStart - plan.handover)
+        var outgoing = plan.handover
+        var incoming: Double?
+        var incomingClock = 0.0
+        var aloneFrom: Double?
+        var time = 0.0
+        let limit = Int(180 / dt)
+        while steps.count < limit {
+            let tempo: Double
+            if let from = aloneFrom, let position = incoming {
+                let progress = glideBack > 0 ? (position - from) / glideBack : 1
+                tempo = plan.tempoMeet + (plan.tempoIn - plan.tempoMeet) * Self.smooth(progress)
+            } else {
+                tempo = plan.tempoOut + (plan.tempoMeet - plan.tempoOut) * Self.smooth((outgoing - plan.handover) / preGlide)
+            }
+            let outgoingRate = tempo / plan.tempoOut, incomingRate = tempo / plan.tempoIn
+            steps.append(Step(outgoingRate: outgoingRate, incomingRate: incomingRate,
+                              levels: plan.levels(at: plan.progress(atOutgoingTime: outgoing))))
+            let next = outgoing + outgoingRate * dt
+            if let position = incoming {
+                incoming = position + incomingRate * dt
+            } else if next >= plan.outStart {
+                // The next song starts inside this block, exactly when this one reaches `outStart`.
+                let fraction = max(0, min(1, (plan.outStart - outgoing) / (outgoingRate * dt)))
+                entry = time + fraction * dt
+                incomingClockAtEntry = incomingClock + fraction * incomingRate * dt
+                incoming = plan.inStart + (1 - fraction) * incomingRate * dt
+            }
+            incomingClock += incomingRate * dt
+            outgoing = next
+            time += dt
+            if aloneFrom == nil, outgoing >= plan.outEnd, let position = incoming { aloneFrom = position }
+            // The mix ends a second after the new song is back at its own tempo.
+            if let from = aloneFrom, let position = incoming, position - from >= glideBack + 1 {
+                join = position
+                break
+            }
+        }
+    }
+
+    /// The step in force at a mix time (the last one past the end).
+    func step(at time: Double) -> Step {
+        let index = Int(time * Self.sampleRate) / Self.blockFrames
+        return steps[max(0, min(steps.count - 1, index))]
+    }
+
+    /// Where each song is at a mix time: the outgoing song's time, and the next song's (nil before it starts).
+    func positions(at time: Double) -> (outgoing: Double, incoming: Double?) {
+        let dt = Double(Self.blockFrames) / Self.sampleRate
+        var outgoing = plan.handover
+        var incoming: Double?
+        var clock = 0.0
+        for step in steps {
+            let span = min(dt, time - clock)
+            guard span > 0 else { break }
+            if let position = incoming {
+                incoming = position + step.incomingRate * span
+            } else if clock + span >= entry {
+                let before = max(0, entry - clock)
+                incoming = plan.inStart + step.incomingRate * (span - before)
+            }
+            outgoing += step.outgoingRate * span
+            clock += span
+        }
+        return (outgoing, incoming)
+    }
+
+    private static func smooth(_ x: Double) -> Double {
+        let t = max(0, min(1, x))
+        return t * t * (3 - 2 * t)
     }
 }
 

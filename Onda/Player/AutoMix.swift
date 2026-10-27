@@ -1,6 +1,5 @@
 import AVFoundation
 import Foundation
-import os
 
 /// AutoMix's analyses of songs (`TrackAnalyzer`), made from their local files and kept on disk, so
 /// each file is analysed once.
@@ -56,12 +55,27 @@ actor AutoMixLibrary {
     /// Keeps the most recently made analyses.
     private static func prune() {
         let manager = FileManager.default
-        guard let files = try? manager.contentsOfDirectory(at: directory, includingPropertiesForKeys: [.contentModificationDateKey]),
+        guard let files = try? manager.contentsOfDirectory(at: directory, includingPropertiesForKeys: [.contentModificationDateKey])
+            .filter({ $0.pathExtension == "json" }),
               files.count > fileLimit else { return }
         let dated = files.map { ($0, (try? $0.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? .distantPast) }
         for (file, _) in dated.sorted(by: { $0.1 > $1.1 }).dropFirst(fileLimit) {
             try? manager.removeItem(at: file)
         }
+    }
+
+    /// A new file for a rendered mix. Mixes older than a quarter of an hour are deleted: by then
+    /// they have played (or never will).
+    static func newMixFile() -> URL {
+        let folder = directory.appending(path: "Mixes", directoryHint: .isDirectory)
+        let manager = FileManager.default
+        try? manager.createDirectory(at: folder, withIntermediateDirectories: true)
+        let old = Date.now.addingTimeInterval(-15 * 60)
+        for file in (try? manager.contentsOfDirectory(at: folder, includingPropertiesForKeys: [.creationDateKey])) ?? [] {
+            let created = (try? file.resourceValues(forKeys: [.creationDateKey]))?.creationDate ?? .distantPast
+            if created < old { try? manager.removeItem(at: file) }
+        }
+        return folder.appending(path: "\(UUID().uuidString).caf")
     }
 
     static func clearCache() {
@@ -125,37 +139,5 @@ enum AutoMixDecoder {
         }
         guard reader.status == .completed else { throw reader.error ?? DecodeError.unreadable }
         return samples
-    }
-}
-
-/// The filters AutoMix moves while two songs play together, read by the song's audio tap (see
-/// `EqualizerProcessor`): the bass cut (0 leaves the bass alone, 1 takes it out) and the high-pass
-/// (0 off, 1 up to 1.2 kHz).
-final class TransitionFilter: @unchecked Sendable {
-    struct Values: Sendable {
-        var bassCut: Float = 0
-        var highPass: Float = 0
-    }
-
-    private let values = OSAllocatedUnfairLock(initialState: Values())
-
-    func set(bassCut: Float, highPass: Float = 0) {
-        let new = Values(bassCut: max(0, min(1, bassCut)), highPass: max(0, min(1, highPass)))
-        values.withLock { $0 = new }
-    }
-
-    /// Nil while they are being changed: the audio thread keeps the previous values instead of waiting.
-    func valuesIfAvailable() -> Values? {
-        values.withLockIfAvailable { $0 }
-    }
-}
-
-extension AVPlayerItem {
-    private static var transitionFilterKey: UInt8 = 0
-
-    /// The bass cut on this item's audio, when its mix has one (AutoMix on).
-    var transitionFilter: TransitionFilter? {
-        get { objc_getAssociatedObject(self, &Self.transitionFilterKey) as? TransitionFilter }
-        set { objc_setAssociatedObject(self, &Self.transitionFilterKey, newValue, .OBJC_ASSOCIATION_RETAIN_NONATOMIC) }
     }
 }

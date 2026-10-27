@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.13.0 (2026-10-27)
+
+### Improved
+- **AutoMix is now a real mix, prepared ahead like a DJ's.** Until 1.12.1 the iPhone's player changed the two songs' speed and volume while they played, which was imprecise, and songs far apart in tempo got a two-second cut. Now Onda builds the whole mix in advance, while the song plays, with a proper audio engine, offline and faster than real time:
+  - Both songs go through their own time stretch (the pitch doesn't change), bass cut and high-pass filter, with volumes and filters automated every 12 milliseconds, and a peak limiter so two songs at once never distort.
+  - **Tempos up to 30 % apart are matched** (half and double time count): the playing song glides to a tempo between the two over four bars, the next one comes in on the first beat of a bar at that tempo, and the two stay on the same beat (within a few milliseconds) while they play together for up to 16 bars and the bass passes from one to the other; then the new song glides back to its own tempo.
+  - Long intros of the next song are skipped, so its main part arrives as the previous song leaves.
+  - Tempos further apart, and songs without a steady beat, get a long crossfade (6–12 seconds) on the song's ending, filtered when the song has a beat. **There is never a cut.**
+  - At the right moment the player hands over to the prepared mix, started on the exact sample of the system clock where the song is, and the mix carries straight on into the rest of the next song (joined with a 30 ms crossfade), so there is no jump on either side. While the mix plays, the player shows "AutoMix" where the audio format usually is, like Apple Music's "Mixing".
+  - Seeking back into the start of a song that came in through a mix plays it from its own file.
+- The queue tells when the mix is being prepared ("Preparazione del mix…") and why it falls back to a plain crossfade if it can't be made.
+
+### Fixed
+- **A crash with AutoMix:** analysing a song whose sound starts at its very first sample could crash the app (the first beat of its grid fell before the start of the file).
+
+### For development
+- New `Tools/AutoMixRenderCheck` (run in CI on macOS) renders real mixes between songs made by the check and measures them: the mix starts within a millisecond of where the song is at the handover and ends within a millisecond of where the next song carries on, it never goes silent, and the two songs' kicks land together through the overlap, also while the tempos glide (124 → 126 and 124 → 100 BPM). `Tools/AutoMixCheck` checks the mix schedule (on the same beat all through the overlap, back to the next song's own tempo at the end) and a song with sound from its first sample.
+
 ## 1.12.1 (2026-10-27)
 
 ### Improved

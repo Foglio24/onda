@@ -91,25 +91,33 @@ enum TrackAnalyzer {
         // Without a beat to follow, a grid at 120 BPM that nothing fits: crossfades still use the
         // song's silences and loudness.
         let period = tempoPeriod(onset, sound: sound, frameRate: frameRate) ?? frameRate / 2
-        let grid = trackBeats(onset, period: period, sound: sound, frameRate: frameRate).flatMap {
+        var grid = trackBeats(onset, period: period, sound: sound, frameRate: frameRate).flatMap {
             fitGrid(beats: $0, onset: onset, period: period, sound: sound, frameRate: frameRate)
         } ?? Grid(start: Double(first), period: period, fit: 0)
+        // A grid outside 40–260 BPM (or not a number) can only be a failed fit.
+        let shortest = 60 * frameRate / 260, longest = 60 * frameRate / 40
+        if !grid.period.isFinite || !grid.start.isFinite || grid.period < shortest || grid.period > longest {
+            grid = Grid(start: Double(first), period: frameRate / 2, fit: 0)
+        }
 
         // Seconds from onset frames: an onset frame stands for the middle of its window.
-        let toSeconds = { (frame: Double) in (frame * Double(hop) + Double(frameLength / 2)) / sampleRate }
+        let toSeconds = { (frame: Double) -> Double in (frame * Double(hop) + Double(frameLength / 2)) / sampleRate }
         let beatLength = grid.period * Double(hop) / sampleRate
         let anchor = toSeconds(grid.start)
         let shift = ((level.soundStart - 0.25 * beatLength - anchor) / beatLength).rounded(.up)
         let gridStart = anchor + shift * beatLength
-        var beatCount = 0
-        while gridStart + Double(beatCount) * beatLength < level.soundEnd { beatCount += 1 }
+        let beatCount = max(0, Int(((level.soundEnd - gridStart) / beatLength).rounded(.up)))
         guard beatCount >= 16 else { return nil }
 
-        let frameOf = { (time: Double) in Int(((time * sampleRate - Double(frameLength / 2)) / Double(hop)).rounded()) }
+        let frameOf = { (time: Double) -> Int in
+            Int(((time * sampleRate - Double(frameLength / 2)) / Double(hop)).rounded())
+        }
+        // The first beat can fall a little before the file starts: only frames inside it count.
         func peak(_ curve: [Float], near time: Double) -> Float {
             let centre = frameOf(time)
-            let range = max(0, centre - 2)..<min(curve.count, centre + 3)
-            return range.isEmpty ? 0 : curve[range].max() ?? 0
+            let lower = max(0, centre - 2), upper = min(curve.count, centre + 3)
+            guard lower < upper else { return 0 }
+            return curve[lower..<upper].max() ?? 0
         }
         let rawPulse = (0..<beatCount).map { peak(onset, near: gridStart + Double($0) * beatLength) }
         let reference = max(percentile(rawPulse, 0.75), 1e-6)
@@ -401,9 +409,10 @@ enum TrackAnalyzer {
     private static func fitGrid(beats: [Double], onset: [Float], period: Double, sound: Range<Int>,
                                 frameRate: Double) -> Grid? {
         let strength = beats.map { frame -> Float in
-            let index = Int(frame)
-            let range = max(0, index - 1)..<min(onset.count, index + 2)
-            return range.isEmpty ? 0 : onset[range].max() ?? 0
+            let index = Int(frame.rounded(.down))
+            let lower = max(0, index - 1), upper = min(onset.count, index + 2)
+            guard lower < upper else { return 0 }
+            return onset[lower..<upper].max() ?? 0
         }
         let middle = median(strength.map(Double.init))
         let strong = strength.map { Double($0) >= middle }
