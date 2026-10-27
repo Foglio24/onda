@@ -177,7 +177,9 @@ enum TransitionPlanner {
             softIntro += TrackAnalysis.loudnessStep
             probe += TrackAnalysis.loudnessStep
         }
-        let bothRhythmic = a.pulse(a.beat(atOrAfter: end - 8 * a.beatLength)..<a.beat(atOrAfter: end)) >= 0.45
+        // Pulses are relative to each song's own beats: only a steady grid makes them a beat.
+        let bothRhythmic = a.isGridLocked && b.isGridLocked
+            && a.pulse(a.beat(atOrAfter: end - 8 * a.beatLength)..<a.beat(atOrAfter: end)) >= 0.45
             && b.pulse(b.beat(atOrAfter: b.soundStart)..<b.beat(atOrAfter: b.soundStart + 8 * b.beatLength)) >= 0.45
 
         let plan: TransitionPlan
