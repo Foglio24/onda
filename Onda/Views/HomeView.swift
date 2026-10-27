@@ -9,31 +9,45 @@ struct HomeView: View {
     @AppStorage(Preferences.accent) private var accent: AccentChoice = .pink
 
     @State private var quickPicks: [Track] = []
-    /// The song the quick picks were built from; nil when they came from the generic fallback.
-    @State private var quickPicksSeed: String?
     @State private var topTracks: [Track] = []
     @State private var busyItem: String?
     @State private var errorText: String?
 
     private struct Mood: Identifiable {
         let title: String
-        let query: String
+        /// YouTube Music searches for the mood, one a day (see `Recommendations.moodTracks`).
+        let queries: [String]
         let symbol: String
         let tint: Color
+        var query: String { queries[0] }
         var id: String { query }
     }
 
     private let moods = [
-        Mood(title: String(localized: "Relax"), query: "chill relax songs", symbol: "leaf.fill", tint: .mint),
-        Mood(title: String(localized: "Concentrazione"), query: "lofi focus study", symbol: "brain.head.profile",
-             tint: .indigo),
-        Mood(title: String(localized: "Allenamento"), query: "workout gym motivation songs", symbol: "figure.run",
-             tint: .orange),
-        Mood(title: String(localized: "Festa"), query: "party dance hits", symbol: "party.popper.fill", tint: .pink),
-        Mood(title: String(localized: "Malinconia"), query: "sad songs", symbol: "cloud.rain.fill", tint: .blue),
-        Mood(title: String(localized: "Energia"), query: "upbeat energetic songs", symbol: "bolt.fill", tint: .yellow),
-        Mood(title: String(localized: "Italiana"), query: "hit italiane", symbol: "music.mic", tint: .green),
-        Mood(title: String(localized: "Anni '80"), query: "80s hits", symbol: "radio.fill", tint: .purple),
+        Mood(title: String(localized: "Relax"),
+             queries: ["chill relax songs", "acoustic chill", "chill pop", "soft rock chill", "lofi chill beats"],
+             symbol: "leaf.fill", tint: .mint),
+        Mood(title: String(localized: "Concentrazione"),
+             queries: ["lofi focus study", "deep focus instrumental", "piano focus", "ambient study music", "chillhop study"],
+             symbol: "brain.head.profile", tint: .indigo),
+        Mood(title: String(localized: "Allenamento"),
+             queries: ["workout gym motivation songs", "running songs", "hip hop workout", "edm workout", "rock workout"],
+             symbol: "figure.run", tint: .orange),
+        Mood(title: String(localized: "Festa"),
+             queries: ["party dance hits", "dance pop party", "reggaeton party", "house party hits", "2000s party songs"],
+             symbol: "party.popper.fill", tint: .pink),
+        Mood(title: String(localized: "Malinconia"),
+             queries: ["sad songs", "sad pop ballads", "heartbreak songs", "sad indie", "acoustic sad songs"],
+             symbol: "cloud.rain.fill", tint: .blue),
+        Mood(title: String(localized: "Energia"),
+             queries: ["upbeat energetic songs", "feel good songs", "happy upbeat pop", "good vibes songs", "summer hits"],
+             symbol: "bolt.fill", tint: .yellow),
+        Mood(title: String(localized: "Italiana"),
+             queries: ["hit italiane", "pop italiano", "rap italiano", "cantautori italiani", "indie italiano"],
+             symbol: "music.mic", tint: .green),
+        Mood(title: String(localized: "Anni '80"),
+             queries: ["80s hits", "80s synthpop", "80s rock anthems", "italo disco", "80s dance hits"],
+             symbol: "radio.fill", tint: .purple),
     ]
 
     var body: some View {
@@ -48,7 +62,7 @@ struct HomeView: View {
                     }
                     let shortcuts = self.shortcuts
                     if !shortcuts.isEmpty { shortcutsSection(shortcuts) }
-                    let mixes = DailyMix.make(history: library.history, liked: library.liked, day: Self.today)
+                    let mixes = Recommendations.dailyMixes()
                     if !mixes.isEmpty { dailyMixesSection(mixes) }
                     moodsSection
                     if !quickPicks.isEmpty { quickPicksShelf }
@@ -58,14 +72,14 @@ struct HomeView: View {
             }
             .background { AmbientBackground() }
             .navigationTitle(greeting)
-            .task(id: library.history.first?.videoId) {
-                // Replace the generic picks with personal ones as soon as there is something to go on.
-                let canPersonalize = quickPicksSeed == nil && library.history.first?.videoId != nil
-                if quickPicks.isEmpty || canPersonalize { await loadQuickPicks() }
+            // Once a day, and as soon as there is a first song to go on.
+            .task(id: "\(Recommendations.today)|\(library.history.isEmpty)") {
+                quickPicks = await Recommendations.quickPicks(refresh: false)
             }
             .task(id: lastfm.username) { await loadTopTracks() }
             .refreshable {
-                await loadQuickPicks()
+                // New "Scelti per te"; the daily mixes stay the day's.
+                quickPicks = await Recommendations.quickPicks(refresh: true)
                 await loadTopTracks()
             }
             .alert("Ops", isPresented: Binding(get: { errorText != nil }, set: { if !$0 { errorText = nil } })) {
@@ -289,28 +303,19 @@ struct HomeView: View {
         }
     }
 
-    /// Changes once a day, so the daily mixes start from a different song.
-    private static var today: Int {
-        Calendar.current.ordinality(of: .day, in: .era, for: .now) ?? 0
-    }
-
     // MARK: Actions
 
     private func playMood(_ mood: Mood) {
         perform(mood.id) {
-            let found = try await InnerTube.shared.searchSongs(mood.query)
-            let tracks = withoutLongMixes(found)
-            guard !tracks.isEmpty else { throw InnerTubeError.notFound }
-            player.play(tracks.shuffled(), source: mood.title)
+            let tracks = try await Recommendations.moodTracks(queries: mood.queries)
+            player.play(tracks, source: mood.title)
         }
     }
 
     private func playMix(_ mix: DailyMix) {
-        guard let seedID = mix.seed.videoId else { return }
         perform(mix.id) {
-            let radio = try await InnerTube.shared.radio(for: seedID)
-            var tracks = withoutLongMixes(radio)
-            if !tracks.contains(where: { $0.videoId == seedID }) { tracks.insert(mix.seed, at: 0) }
+            let tracks = try await Recommendations.tracks(for: mix)
+            guard !tracks.isEmpty else { throw InnerTubeError.notFound }
             player.play(tracks, source: String(localized: "Mix del giorno · \(mix.artist)"))
         }
     }
@@ -327,28 +332,6 @@ struct HomeView: View {
             }
             busyItem = nil
         }
-    }
-
-    private func loadQuickPicks() async {
-        do {
-            if let seed = library.history.first?.videoId {
-                let radio = try await InnerTube.shared.radio(for: seed)
-                quickPicks = Array(withoutLongMixes(Array(radio.dropFirst())).prefix(20))
-                quickPicksSeed = seed
-            } else {
-                let hits = try await InnerTube.shared.searchSongs("top hits")
-                quickPicks = Array(withoutLongMixes(hits).prefix(20))
-                quickPicksSeed = nil
-            }
-        } catch {
-            // Keep whatever was shown before; the shelf simply stays hidden when empty.
-        }
-    }
-
-    /// Drops hour-long compilations uploaded as "songs", unless the user turned the filter off.
-    private func withoutLongMixes(_ tracks: [Track]) -> [Track] {
-        guard Preferences.skipsLongMixes else { return tracks }
-        return tracks.filter { ($0.duration ?? 0) <= Preferences.longMixThreshold }
     }
 
     private func loadTopTracks() async {

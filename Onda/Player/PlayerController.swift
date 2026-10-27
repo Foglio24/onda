@@ -437,6 +437,8 @@ final class PlayerController: ObservableObject {
     }
 
     func next() {
+        // Counts as a skip for the recommendations if the song played less than 30 seconds.
+        ListeningLog.shared.noteSkip()
         advance(reason: .skip)
     }
 
@@ -903,6 +905,7 @@ final class PlayerController: ObservableObject {
         deferredPreparation = (requests.loadGeneration, track)
         guard !isRetry else { return }
         scrobbler.begin(track)
+        ListeningLog.shared.start(track)
         Library.shared.recordPlay(track)
         loadLyrics(for: track)
         updateNowPlayingInfo()
@@ -1389,6 +1392,7 @@ final class PlayerController: ObservableObject {
         }
         if player.timeControlStatus == .playing, delta > 0, delta < 1.5 {
             scrobbler.addListeningTime(delta, trackLength: progress.duration)
+            ListeningLog.shared.addListened(delta)
         }
 
         guard length > 0, !finishedCurrent, player.timeControlStatus == .playing else { return }

@@ -40,40 +40,6 @@ enum HomeShortcut: Identifiable {
 
 /// A mix built from the user's own listening: one per most-played artist, starting each day
 /// from a different song of theirs, followed by YouTube Music's radio of similar songs.
-struct DailyMix: Identifiable {
-    let number: Int
-    let artist: String
-    let seed: Track
-    /// The artist's songs the user knows, for the cover mosaic.
-    let covers: [Track]
-
-    var id: String { "mix-\(number)" }
-
-    static func make(history: [Track], liked: [Track], day: Int) -> [DailyMix] {
-        var artists: [String: (name: String, score: Int, tracks: [Track])] = [:]
-        func add(_ track: Track, weight: Int) {
-            guard let videoId = track.videoId else { return }
-            let name = track.primaryArtist.trimmingCharacters(in: .whitespaces)
-            guard !name.isEmpty else { return }
-            let key = name.lowercased()
-            var entry = artists[key] ?? (name: name, score: 0, tracks: [])
-            entry.score += weight
-            if !entry.tracks.contains(where: { $0.videoId == videoId }) { entry.tracks.append(track) }
-            artists[key] = entry
-        }
-        history.forEach { add($0, weight: 1) }
-        liked.forEach { add($0, weight: 2) }
-        let ranked = artists.values
-            .filter { $0.tracks.count >= 2 }
-            .sorted { $0.score != $1.score ? $0.score > $1.score : $0.name < $1.name }
-        return ranked.prefix(4).enumerated().map { position, entry in
-            DailyMix(number: position + 1, artist: entry.name,
-                     seed: entry.tracks[(day + position) % entry.tracks.count],
-                     covers: Array(entry.tracks.prefix(4)))
-        }
-    }
-}
-
 /// Compact quick access tile: artwork on the left, title on the right, on Liquid Glass.
 struct ShortcutTile<Artwork: View>: View {
     let title: String

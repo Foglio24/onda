@@ -212,11 +212,14 @@ final class Library: ObservableObject {
     func removeFromHistory(_ tracks: [Track]) {
         history.removeAll { item in tracks.contains { item.isSameRecording(as: $0) } }
         Self.save(history, as: "history")
+        // What the recommendations learned from these songs goes too.
+        ListeningLog.shared.remove(Set(tracks.compactMap(\.videoId)))
     }
 
     func clearHistory() {
         history = []
         Self.save(history, as: "history")
+        ListeningLog.shared.remove()
     }
 
     // MARK: Downloads
