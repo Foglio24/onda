@@ -523,6 +523,23 @@ struct MixOptionsSheet: View {
     @State private var page: MixCategory = .volume
 
     var body: some View {
+        VStack(spacing: 0) {
+            pages
+            // The page dots, under the list (not over its last option).
+            HStack(spacing: 8) {
+                ForEach(MixCategory.allCases) { category in
+                    Circle()
+                        .fill(category == page ? Color.primary : Color.secondary.opacity(0.4))
+                        .frame(width: 7, height: 7)
+                }
+            }
+            .padding(.vertical, 12)
+        }
+        .presentationBackground(.regularMaterial)
+        .onAppear { page = start }
+    }
+
+    private var pages: some View {
         TabView(selection: $page) {
             ForEach(MixCategory.allCases) { category in
                 VStack(spacing: 0) {
@@ -558,16 +575,11 @@ struct MixOptionsSheet: View {
                     }
                     .listStyle(.plain)
                     .scrollContentBackground(.hidden)
-                    // Room for the page dots under the last option.
-                    .contentMargins(.bottom, 44, for: .scrollContent)
                 }
                 .tag(category)
             }
         }
-        .tabViewStyle(.page(indexDisplayMode: .always))
-        .indexViewStyle(.page(backgroundDisplayMode: .interactive))
-        .presentationBackground(.regularMaterial)
-        .onAppear { page = start }
+        .tabViewStyle(.page(indexDisplayMode: .never))
     }
 
     private struct Row {
