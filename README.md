@@ -19,7 +19,7 @@ See [CHANGELOG.md](CHANGELOG.md) for what changed in each version.
 | Quality and codecs | ✅ Four levels, set separately for Wi-Fi, cellular and downloads (details below) |
 | Dolby Atmos | ✅ Dolby Digital Plus when YouTube offers it, plus Apple's Spatial Audio with AirPods/Beats |
 | Crossfade | ✅ 0–12 seconds, like Spotify |
-| Smart radios and mixes | ✅ A radio from any song, auto-radio when the queue ends, moods, daily mixes of your most played artists, and *Taste Mix* / *Rediscover* from Last.fm |
+| Smart radios and mixes | ✅ A radio from any song, auto-radio when the queue ends, and recommendations that change every day from what you play, skip and like: six daily mixes, *Scelti per te* and moods; plus *Taste Mix* / *Rediscover* from Last.fm |
 | Playlists | ✅ Create, rename, reorder, set a custom cover from Photos, download a whole playlist in one tap |
 | Playlist import | ✅ From Spotify (up to 100 songs), Apple Music, YouTube and YouTube Music links; each song is matched on YouTube Music |
 | Shuffle and repeat | ✅ A real shuffle mode (radios and mixes too), repeat all / repeat one, sleep timer |

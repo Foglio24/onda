@@ -9,7 +9,6 @@ struct RootView: View {
     @EnvironmentObject private var updater: AppUpdater
     @AppStorage(Preferences.accent) private var accent: AccentChoice = .pink
     @State private var selection: AppTab = .home
-    @Namespace private var transition
 
     var body: some View {
         TabView(selection: $selection) {
@@ -28,12 +27,16 @@ struct RootView: View {
         }
         .tabBarMinimizeBehavior(.onScrollDown)
         .tabViewBottomAccessory {
-            MiniPlayer { router.showPlayer = true }
-                .matchedTransitionSource(id: "now-playing", in: transition)
+            MiniPlayer { router.openPlayer() }
+                .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
+                    router.miniPlayerFrame = frame
+                }
         }
+        // The cover is see-through: `PlayerCard` draws the player as a card that grows out of the
+        // mini player, with the app still visible behind it.
         .fullScreenCover(isPresented: $router.showPlayer) {
-            NowPlayingView()
-                .navigationTransition(.zoom(sourceID: "now-playing", in: transition))
+            PlayerCard()
+                .presentationBackground(.clear)
         }
         .sheet(item: router.addToPlaylistBinding(fromPlayer: false)) { track in
             AddToPlaylistSheet(track: track)

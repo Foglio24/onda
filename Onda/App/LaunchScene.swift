@@ -22,6 +22,13 @@ enum LaunchScene {
     /// Settings → Equalizzatore is opened at launch.
     static var opensEqualizer: Bool { scene == "equalizer" }
 
+    /// `-OndaCardProgress 0.55`: the player card stops part of the way, to see it over the app.
+    static var playerCardProgress: CGFloat? {
+        guard scene != nil, let value = UserDefaults.standard.object(forKey: "OndaCardProgress") as? Double
+                ?? UserDefaults.standard.string(forKey: "OndaCardProgress").flatMap({ Double($0) }) else { return nil }
+        return CGFloat(max(0, min(1, value)))
+    }
+
     static func apply(select: (AppTab) -> Void) {
         guard let scene = Self.scene else { return }
         let parts = scene.split(separator: ":", maxSplits: 1).map(String.init)
@@ -42,7 +49,7 @@ enum LaunchScene {
             Task {
                 guard let album = try? await InnerTube.shared.album(value), let first = album.tracks.first else { return }
                 PlayerController.shared.play(album.tracks, source: album.title)
-                router.showPlayer = true
+                router.openPlayer()
                 try? await Task.sleep(for: .seconds(1.5))
                 router.page = .song(first)
             }
@@ -57,7 +64,7 @@ enum LaunchScene {
             Task {
                 guard let tracks = try? await InnerTube.shared.radio(for: value), !tracks.isEmpty else { return }
                 PlayerController.shared.play(tracks, source: "Radio")
-                router.showPlayer = true
+                router.openPlayer()
             }
         default:
             select(.home)

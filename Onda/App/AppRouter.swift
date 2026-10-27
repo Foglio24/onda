@@ -41,12 +41,30 @@ final class AppRouter: ObservableObject {
     }
 
     @Published var showPlayer = false
+    /// Where the mini player is on screen, for the player card to grow out of (see `PlayerCard`).
+    /// Not published: it changes with every layout and nothing needs to redraw for it.
+    var miniPlayerFrame: CGRect = .zero
     @Published var trackToAdd: Track?
     @Published var page: MusicPage?
     /// A search to run when the Search tab appears (used by `LaunchScene`).
     @Published var pendingSearch: String?
 
     private init() {}
+
+    /// Shows the player. The cover appears without the system's animation: `PlayerCard` grows
+    /// out of the mini player itself.
+    func openPlayer() {
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) { showPlayer = true }
+    }
+
+    /// Removes the player at once, after `PlayerCard` has shrunk it into the mini player.
+    func closePlayerNow() {
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) { showPlayer = false }
+    }
 
     private var topPresenter: Presenter {
         if page != nil { return .page }

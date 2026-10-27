@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.11.0 (2026-10-27)
+
+### Added
+- **Recommendations that change every day.** The daily mixes, "Scelti per te" and the moods used to stay the same: the mixes were always the four most played artists, "Scelti per te" was the radio of the last song played, and each mood was always the same search. Now:
+  - Onda learns your taste on the iPhone: what you play to the end, what you skip with "next" in the first 30 seconds, what you like, keep in playlists or download. Recent listening counts most, and the log stays on the iPhone (the last 3000 plays; clearing the history clears it too).
+  - **Daily mixes:** six a day, drawn from your 16 favourite artists, the most loved more often and those featured the day before less often, so they rotate. Each mix starts from three of the artist's songs (different every day), mixes their radios together with your favourites by that artist, and leaves out songs you skipped twice lately or heard in the last day.
+  - **Scelti per te:** from four songs you like, drawn every day, mostly songs you haven't played in the last week, plus a few favourites you haven't heard for two weeks. They stay the same all day; pull the Home down for new ones.
+  - **Moods:** each has five searches, a different one every day, with the radios of the top results, so they last longer and change.
+- **The player opens and closes like Spotify's.** It grows out of the mini player as a card that fills the screen, with the app visible behind it, and shrinks back into the mini player when closed. Dragging it down, the card follows the finger and gets smaller as it nears the mini player.
+- **Pause when headphones come off.** Taking both AirPods out of your ears (or putting them in their case), switching off Bluetooth headphones or unplugging wired ones pauses the music instead of moving it to the speaker, and it carries on when they come back within half an hour. Taking out a single AirPod, or Beats with ear detection, pauses and resumes through the headphones' own commands.
+
+### For development
+- CI checks the recommendations without the network: the taste profile, that mixes stay the same all day and change from day to day, that favourites come up more often without taking every mix, and how mixes and picks are put together. A new screenshot shows the player card half way.
+
 ## 1.10.1 (2026-10-27)
 
 ### Fixed

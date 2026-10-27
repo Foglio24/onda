@@ -7,14 +7,16 @@ struct NowPlayingView: View {
     @EnvironmentObject private var library: Library
     @EnvironmentObject private var router: AppRouter
     @Environment(\.dismiss) private var dismiss
+    /// The card the player sits on (see `PlayerCard`): it follows drags and animates closing.
+    @Environment(\.playerCard) private var card
     @AppStorage(Preferences.spatialAudio) private var spatialAudio = true
     @AppStorage(Preferences.accent) private var accent: AccentChoice = .pink
 
     private enum Panel { case artwork, lyrics, queue }
 
     @State private var panel: Panel = .artwork
-    /// How far the player has been dragged down towards closing.
-    @State private var dismissOffset: CGFloat = 0
+    /// A drag down is under way (the card follows it).
+    @State private var draggingDown = false
     @State private var showEqualizer = false
 
     var body: some View {
@@ -54,9 +56,6 @@ struct NowPlayingView: View {
         }
         .padding(.horizontal, 24)
         .padding(.bottom, 8)
-        // The content follows the finger and shrinks a little; the background stays in place.
-        .offset(y: dismissOffset)
-        .scaleEffect(1 - min(dismissOffset, 400) / 400 * 0.08)
         .foregroundStyle(.white)
         .background { background }
         .environment(\.colorScheme, .dark)
@@ -80,20 +79,21 @@ struct NowPlayingView: View {
         .downloadErrorAlert(isActive: router.showPlayer)
     }
 
-    /// A drag mostly downwards moves the player with the finger; letting go far enough down, or
-    /// with a flick, closes it, and it shrinks back into the mini player. A drag mostly upwards
-    /// opens the song's details, like scrolling down in Spotify's player. Sideways drags are left
-    /// to the cover, which tilts with them.
+    /// A drag mostly downwards shrinks the player card towards the mini player as the finger
+    /// moves; letting go far enough down, or with a flick, closes it. A drag mostly upwards opens
+    /// the song's details, like scrolling down in Spotify's player. Sideways drags are left to the
+    /// cover, which tilts with them.
     private var dismissDrag: some Gesture {
-        // Global coordinates: the content moves with the finger, so local ones would shift.
+        // Global coordinates: the card moves and shrinks with the finger, so local ones would shift.
         DragGesture(minimumDistance: 12, coordinateSpace: .global)
             .onChanged { value in
                 let down = value.translation.height
-                guard down > 0, dismissOffset > 0 || down > abs(value.translation.width) else { return }
-                dismissOffset = down
+                guard draggingDown || (down > 0 && down > abs(value.translation.width)) else { return }
+                draggingDown = true
+                card?.drag(down)
             }
             .onEnded { value in
-                guard dismissOffset > 0 else {
+                guard draggingDown else {
                     let up = -value.translation.height
                     if up > abs(value.translation.width), up > 60 || value.predictedEndTranslation.height < -200,
                        let track = player.current {
@@ -101,12 +101,19 @@ struct NowPlayingView: View {
                     }
                     return
                 }
-                if dismissOffset > 120 || value.predictedEndTranslation.height > 260 {
+                draggingDown = false
+                let down = value.translation.height, predicted = value.predictedEndTranslation.height
+                if let card {
+                    card.release(down, predicted)
+                } else if down > 120 || predicted > 260 {
                     dismiss()
-                } else {
-                    withAnimation(.spring(duration: 0.35, bounce: 0.25)) { dismissOffset = 0 }
                 }
             }
+    }
+
+    /// The chevron button: the card shrinks back into the mini player.
+    private func close() {
+        if let card { card.close() } else { dismiss() }
     }
 
     // MARK: Pieces
@@ -130,7 +137,7 @@ struct NowPlayingView: View {
 
     private var topBar: some View {
         HStack {
-            Button { dismiss() } label: {
+            Button { close() } label: {
                 Image(systemName: "chevron.down")
                     .font(.title3.weight(.semibold))
                     .frame(width: 44, height: 44)

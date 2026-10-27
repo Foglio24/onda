@@ -50,4 +50,10 @@ shot 13-song-info it 14 "info:MPREb_ePmUY37w4pZ"
 shot 14-equalizer it 6 equalizer
 shot 15-song-info-english en 14 "info:MPREb_ePmUY37w4pZ"
 
+# The player card stopped half way between the mini player and the full screen.
+xcrun simctl launch --terminate-running-process "$device" com.onda.player \
+  -AppleLanguages "(it)" -OndaScene "player:K0HSD_i2DvA" -OndaCardProgress 0.55 >/dev/null
+sleep 12
+xcrun simctl io "$device" screenshot "$out/16-player-card.png" >/dev/null && echo "Saved 16-player-card"
+
 xcrun simctl shutdown "$device" || true

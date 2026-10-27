@@ -199,6 +199,8 @@ final class PlayerController: ObservableObject {
     private var deferredPreparation: (generation: UUID, track: Track)?
     private let startupMetrics = PlaybackStartupMetrics.shared
     private var lastTick: TimeInterval = 0
+    /// When the music paused because the headphones went away (see `handleRouteChange`).
+    private var pausedForHeadphones: Date?
 
     private init() {
         autoRadio = UserDefaults.standard.object(forKey: "player.autoRadio") as? Bool ?? true
@@ -416,6 +418,7 @@ final class PlayerController: ObservableObject {
 
     func resume() {
         guard current != nil else { return }
+        pausedForHeadphones = nil
         playWhenReady = true
         if player.currentItem != nil {
             activateSession()
@@ -1338,6 +1341,11 @@ final class PlayerController: ObservableObject {
             .sink { note in self.handleInterruption(note) }
             .store(in: &cancellables)
 
+        NotificationCenter.default.publisher(for: AVAudioSession.routeChangeNotification)
+            .receive(on: DispatchQueue.main)
+            .sink { note in self.handleRouteChange(note) }
+            .store(in: &cancellables)
+
         // Reading thermalState enables its change notifications on iOS.
         _ = EnergyPolicy.current
         NotificationCenter.default.publisher(for: ProcessInfo.thermalStateDidChangeNotification)
@@ -1412,6 +1420,34 @@ final class PlayerController: ObservableObject {
         let point = ResumePoint(track: track, time: seconds)
         resumePoint = point
         UserDefaults.standard.set(try? JSONEncoder().encode(point), forKey: Self.resumeKey)
+    }
+
+    /// Headphones going away (both AirPods out of the ears or in their case, Bluetooth headphones
+    /// switched off or out of range, a wired pair unplugged) pause the music instead of moving it
+    /// to the speaker; when they come back within half an hour, it carries on. Taking out a single
+    /// AirPod, or Beats with ear detection, sends pause and play as remote commands instead
+    /// (see `configureRemoteCommands`).
+    private func handleRouteChange(_ note: Notification) {
+        guard let raw = note.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt,
+              let reason = AVAudioSession.RouteChangeReason(rawValue: raw) else { return }
+        switch reason {
+        case .oldDeviceUnavailable:
+            guard let previous = note.userInfo?[AVAudioSessionRouteChangePreviousRouteKey] as? AVAudioSessionRouteDescription,
+                  Self.hasHeadphones(previous), playWhenReady else { return }
+            pause()
+            pausedForHeadphones = .now
+        case .newDeviceAvailable:
+            guard let paused = pausedForHeadphones, Date.now.timeIntervalSince(paused) < 30 * 60, !playWhenReady,
+                  Self.hasHeadphones(AVAudioSession.sharedInstance().currentRoute) else { return }
+            resume()
+        default:
+            break
+        }
+    }
+
+    private static func hasHeadphones(_ route: AVAudioSessionRouteDescription) -> Bool {
+        let kinds: Set<AVAudioSession.Port> = [.headphones, .bluetoothA2DP, .bluetoothHFP, .bluetoothLE]
+        return route.outputs.contains { kinds.contains($0.portType) }
     }
 
     private func handleInterruption(_ note: Notification) {
