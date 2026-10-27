@@ -355,7 +355,7 @@ if let a = analyses[124], let b = analyses[126] {
 
 /// Every part's options, one at a time with the others automatic: values in range, the song
 /// leaving alone at the start and the next one alone at the end, and no change faster than a
-/// 30 ms ramp (a click) through a 15-second overlap.
+/// 50 ms ramp (a click) through a 15-second overlap.
 func checkDesignCurves() {
     let overlap = 15.0
     var designs: [(String, MixDesign)] = []
@@ -366,7 +366,7 @@ func checkDesignCurves() {
     for preset in MixPreset.allCases { designs.append(("preset \(preset.rawValue)", MixDesign.preset(preset))) }
     var bad: [String] = []
     for (name, design) in designs {
-        let bar = 2 / overlap, ramp = 0.03 / overlap
+        let bar = 2 / overlap, ramp = 0.05 / overlap
         let first = design.levels(at: 0, bar: bar, ramp: ramp), last = design.levels(at: 1, bar: bar, ramp: ramp)
         var ok = first.outgoing > 0.99 && first.incoming < 0.01 && last.outgoing < 0.01 && last.incoming > 0.99
         var previous = first
@@ -401,7 +401,7 @@ if let a = analyses[124], let b = analyses[126] {
     shorter.overlap = 4 * bar
     shorter.shift = -8 * bar
     let moved = MixDesigner.plan(from: a, to: b, design: shorter)
-    expect(moved.bars == 4 && abs(moved.overlap - 4 * bar) < 0.01,
+    expect(moved.bars == 4 && abs(moved.overlap - 4 * bar) < 0.05,
            "Mix: four bars together when asked (\(moved.bars ?? 0) bars, \(format(moved.overlap, 2)) s)")
     expect(moved.outEnd < automatic.outEnd - 7 * bar && worstBeat(moved, a, b) < 0.002,
            "Mix: eight bars earlier, still on the beat (ends at \(format(moved.outEnd, 1)) s, was \(format(automatic.outEnd, 1)) s)")

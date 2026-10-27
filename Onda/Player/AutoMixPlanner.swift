@@ -68,7 +68,7 @@ struct TransitionPlan: Equatable, Sendable {
     func levels(at progress: Double) -> TransitionLevels {
         if let design {
             let span = max(0.001, overlap)
-            return design.levels(at: progress, bar: barLength / span, ramp: 0.03 / span)
+            return design.levels(at: progress, bar: barLength / span, ramp: 0.05 / span)
         }
         let p = max(0, min(1, progress))
         let comeIn = fadeIn > 0 ? min(1, p / fadeIn) : 1

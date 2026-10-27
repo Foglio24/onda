@@ -192,7 +192,7 @@ struct MixDesign: Codable, Hashable, Sendable {
     }
 
     /// Volumes, bands, filters and effects at a point of the overlap (0…1). `bar` is one bar of
-    /// the song leaving, and `ramp` the shortest change (about 30 ms), both in the same units.
+    /// the song leaving, and `ramp` the shortest change (50 ms), both in the same units.
     func levels(at progress: Double, bar: Double, ramp: Double) -> TransitionLevels {
         let p = max(0, min(1, progress))
         let edge = max(0.001, ramp)

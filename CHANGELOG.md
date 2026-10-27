@@ -18,7 +18,7 @@
 - Mixes are rendered with the same engine as AutoMix, now with a five-band EQ, reverb, echo, a noise generator and beat loops for each song, and each song through its own mixer.
 
 ### For development
-- `Tools/AutoMixCheck` checks every option of every part and every preset (in range, the first song alone at the start and the next alone at the end, no change faster than a 30 ms ramp), the timing the designer gives (presets keep the automatic timing, four bars eight bars earlier stay on the beat, beatmatching off, loops and echoes) and Camelot codes. `Tools/AutoMixRenderCheck` renders three designed mixes with reverb, loops, echo and noise (they start where the song is and join the next one within a millisecond) and checks that a muted song isn't heard.
+- `Tools/AutoMixCheck` checks every option of every part and every preset (in range, the first song alone at the start and the next alone at the end, no change faster than a 50 ms ramp), the timing the designer gives (presets keep the automatic timing, four bars eight bars earlier stay on the beat, beatmatching off, loops and echoes) and Camelot codes. `Tools/AutoMixRenderCheck` renders three designed mixes with reverb, loops, echo and noise (they start where the song is and join the next one within a millisecond) and checks that a muted song isn't heard.
 - New screenshots: the Mix editor and its options sheet, on two songs the app makes for the occasion (`-OndaScene mix`).
 
 ## 1.13.0 (2026-10-27)
