@@ -54,9 +54,10 @@ enum AutoMixRenderer {
         defer { engine.stop() }
 
         // The next song's player starts when, by its own clock, the mix reaches the entry.
-        decks[0].player.scheduleBuffer(outgoingAudio, at: nil)
+        decks[0].player.scheduleBuffer(outgoingAudio, at: nil, options: [], completionHandler: nil)
         let entry = AVAudioFramePosition((schedule.incomingClockAtEntry * rate).rounded())
-        decks[1].player.scheduleBuffer(incomingAudio, at: AVAudioTime(sampleTime: entry, atRate: rate))
+        decks[1].player.scheduleBuffer(incomingAudio, at: AVAudioTime(sampleTime: entry, atRate: rate), options: [],
+                                       completionHandler: nil)
         decks[0].player.play()
         decks[1].player.play()
 
