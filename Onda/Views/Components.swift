@@ -238,13 +238,15 @@ struct PlaylistCard: View {
 struct PlayShuffleButtons: View {
     let tracks: [Track]
     let source: String
+    /// The playlist they come from, whose Mix then plays.
+    var playlist: UUID? = nil
     private var player: PlayerController { .shared }
     @AppStorage(Preferences.accent) private var accent: AccentChoice = .pink
 
     var body: some View {
         HStack(spacing: 12) {
             Button {
-                player.play(tracks, source: source, shuffled: false)
+                player.play(tracks, source: source, shuffled: false, playlist: playlist)
             } label: {
                 Label("Riproduci", systemImage: "play.fill")
                     .font(.headline)
@@ -256,7 +258,8 @@ struct PlayShuffleButtons: View {
             .glassEffect(.regular.tint(accent.color.opacity(0.55)).interactive(), in: .capsule)
 
             Button {
-                player.play(tracks, startAt: Int.random(in: tracks.indices), source: source, shuffled: true)
+                player.play(tracks, startAt: Int.random(in: tracks.indices), source: source, shuffled: true,
+                            playlist: playlist)
             } label: {
                 Label("Casuale", systemImage: "shuffle")
                     .font(.headline)

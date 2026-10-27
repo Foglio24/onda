@@ -26,7 +26,8 @@ enum AutoMixRenderer {
     static func render(_ schedule: MixSchedule, outgoing: URL, incoming: URL, outgoingGain: Float,
                        incomingGain: Float, to destination: URL, effects: Bool = true) async throws -> Mix {
         let plan = schedule.plan
-        let outgoingAudio = try await decode(outgoing, from: plan.handover, duration: plan.outEnd - plan.handover + 2)
+        var outgoingAudio = try await decode(outgoing, from: plan.handover, duration: plan.outEnd - plan.handover + 2)
+        if let loop = plan.loop { outgoingAudio = looped(outgoingAudio, from: plan.handover, loop: loop) }
         let incomingAudio = try await decode(incoming, from: plan.inStart, duration: schedule.join - plan.inStart + 2)
         try Task.checkCancellation()
         // The time stretch moves each song by a few milliseconds, depending on how its tempo moved.
@@ -119,19 +120,11 @@ enum AutoMixRenderer {
                                    effects: Bool, fullVolume: Bool, capture: Range<Double>?,
                                    to destination: URL?) throws -> (length: Double, tail: [Float], captured: [Float]) {
         let rate = MixSchedule.sampleRate
+        let plan = schedule.plan
         guard let format = AVAudioFormat(standardFormatWithSampleRate: rate, channels: 2) else { throw RenderError.engine }
         let engine = AVAudioEngine()
         let block = MixSchedule.blockFrames
         try engine.enableManualRenderingMode(.offline, format: format, maximumFrameCount: AVAudioFrameCount(block))
-        let decks = [Deck(), Deck()]
-        for deck in decks {
-            engine.attach(deck.player)
-            engine.attach(deck.pitch)
-            engine.attach(deck.eq)
-            engine.connect(deck.player, to: deck.pitch, format: format)
-            engine.connect(deck.pitch, to: deck.eq, format: format)
-            engine.connect(deck.eq, to: engine.mainMixerNode, format: format)
-        }
         // Two songs at once can go over full scale: a peak limiter keeps them from clipping.
         let limiter = AVAudioUnitEffect(audioComponentDescription: AudioComponentDescription(
             componentType: kAudioUnitType_Effect, componentSubType: kAudioUnitSubType_PeakLimiter,
@@ -139,6 +132,32 @@ enum AutoMixRenderer {
         engine.attach(limiter)
         engine.connect(engine.mainMixerNode, to: limiter, format: format)
         engine.connect(limiter, to: engine.outputNode, format: format)
+        let decks = [Deck(), Deck()]
+        for (deck, gain) in zip(decks, [gains.0, gains.1]) {
+            deck.attach(to: engine, format: format, gain: gain)
+        }
+        decks[0].delay.delayTime = max(0.05, min(2, plan.echoTime))
+        decks[0].delay.feedback = Float(plan.echoFeedback * 100)
+        // The noise sweep ("Rumore in uscita"): white noise through a rising high-pass.
+        let noise = NoiseSource()
+        let noiseNode = AVAudioSourceNode(format: format) { _, _, frameCount, bufferList -> OSStatus in
+            let level = noise.level
+            for buffer in UnsafeMutableAudioBufferListPointer(bufferList) {
+                guard let data = buffer.mData?.assumingMemoryBound(to: Float.self) else { continue }
+                for frame in 0..<Int(frameCount) {
+                    noise.state = noise.state &* 1_664_525 &+ 1_013_904_223
+                    data[frame] = (Float(noise.state >> 8) / Float(1 << 24) * 2 - 1) * level * 0.2
+                }
+            }
+            return noErr
+        }
+        let noiseFilter = AVAudioUnitEQ(numberOfBands: 1)
+        noiseFilter.bands[0].filterType = .highPass
+        noiseFilter.bands[0].bypass = false
+        engine.attach(noiseNode)
+        engine.attach(noiseFilter)
+        engine.connect(noiseNode, to: noiseFilter, format: format)
+        engine.connect(noiseFilter, to: engine.mainMixerNode, format: format)
         try engine.start()
         defer { engine.stop() }
 
@@ -151,9 +170,9 @@ enum AutoMixRenderer {
         decks[1].player.play()
 
         // The stretchers hold back a little audio: that much is rendered extra at the start and left
-        // out, so the file begins exactly at the handover. Rates follow the mix clock; volumes and
-        // filters follow what is being heard.
-        let latency = decks[0].pitch.latency + decks[0].eq.latency + limiter.latency
+        // out, so the file begins exactly at the handover. Rates follow the mix clock; volumes,
+        // filters and effects follow what is being heard.
+        let latency = decks[0].latency + limiter.latency
         let latencyFrames = max(0, Int((latency * rate).rounded()))
         let total = schedule.steps.count * block + latencyFrames
         guard let output = AVAudioPCMBuffer(pcmFormat: engine.manualRenderingFormat,
@@ -183,11 +202,15 @@ enum AutoMixRenderer {
             let time = Double(rendered) / rate
             let pace = schedule.step(at: time)
             let heard = schedule.step(at: max(0, time - latency)).levels
-            let volumes = fullVolume ? (gains.0, gains.1) : (heard.outgoing * gains.0, heard.incoming * gains.1)
-            decks[0].set(rate: pace.outgoingRate, volume: volumes.0, bassCut: heard.outgoingBassCut,
-                         highPass: heard.outgoingHighPass, effects: effects)
-            decks[1].set(rate: pace.incomingRate, volume: volumes.1, bassCut: heard.incomingBassCut,
-                         highPass: 0, effects: effects)
+            let dry = fullVolume ? (Float(1), Float(1)) : (heard.outgoing, heard.incoming)
+            decks[0].set(rate: pace.outgoingRate, dry: dry.0, bass: heard.outgoingBassCut, mid: heard.outgoingMidCut,
+                         high: heard.outgoingHighCut, lowPass: heard.outgoingLowPass, highPass: heard.outgoingHighPass,
+                         reverb: heard.reverb, echo: heard.echo, effects: effects)
+            decks[1].set(rate: pace.incomingRate, dry: dry.1, bass: heard.incomingBassCut, mid: heard.incomingMidCut,
+                         high: heard.incomingHighCut, lowPass: heard.incomingLowPass, highPass: heard.incomingHighPass,
+                         reverb: 0, echo: 0, effects: effects)
+            noise.level = effects && !fullVolume ? heard.noise : 0
+            noiseFilter.bands[0].frequency = Float(400 * pow(20, Double(heard.noise)))
             let frames = min(block, total - rendered)
             let status = try engine.renderOffline(AVAudioFrameCount(frames), to: output)
             guard status == .success, let channels = output.floatChannelData else { throw RenderError.engine }
@@ -246,32 +269,110 @@ enum AutoMixRenderer {
         return bestScore > 0.5 ? Double(bestLag) / rate : 0
     }
 
-    /// One song's chain in the mix.
+    /// One song's chain in the mix: time stretch, a five-band EQ (bass, mids and treble cuts, low-
+    /// and high-pass), reverb and echo, then its own mixer for its volume.
     private final class Deck {
         let player = AVAudioPlayerNode()
         let pitch = AVAudioUnitTimePitch()
-        let eq = AVAudioUnitEQ(numberOfBands: 2)
+        let eq = AVAudioUnitEQ(numberOfBands: 5)
+        let reverb = AVAudioUnitReverb()
+        let delay = AVAudioUnitDelay()
+        let mixer = AVAudioMixerNode()
 
         init() {
-            let shelf = eq.bands[0]
-            shelf.filterType = .lowShelf
-            shelf.frequency = 150
-            shelf.gain = 0
-            shelf.bypass = false
-            let highPass = eq.bands[1]
-            highPass.filterType = .highPass
-            highPass.frequency = 20
-            highPass.bypass = true
+            let bands = eq.bands
+            bands[0].filterType = .lowShelf
+            bands[0].frequency = 150
+            bands[1].filterType = .parametric
+            bands[1].frequency = 1_000
+            bands[1].bandwidth = 2
+            bands[2].filterType = .highShelf
+            bands[2].frequency = 4_000
+            bands[3].filterType = .lowPass
+            bands[3].frequency = 20_000
+            bands[4].filterType = .highPass
+            bands[4].frequency = 20
+            for (index, band) in bands.enumerated() {
+                band.gain = 0
+                band.bypass = index >= 3
+            }
+            reverb.loadFactoryPreset(.largeHall)
+            reverb.wetDryMix = 0
+            delay.wetDryMix = 0
+            delay.feedback = 0
+            delay.lowPassCutoff = 8_000
         }
 
-        func set(rate: Double, volume: Float, bassCut: Float, highPass: Float, effects: Bool) {
-            pitch.rate = Float(rate)
-            player.volume = volume
-            eq.bands[0].gain = effects ? -30 * bassCut : 0
-            eq.bands[1].bypass = !effects || highPass <= 0.001
-            // 20 Hz to 1.2 kHz, evenly in pitch.
-            eq.bands[1].frequency = Float(20 * pow(60, Double(highPass)))
+        var latency: TimeInterval { pitch.latency + eq.latency + reverb.latency + delay.latency }
+
+        func attach(to engine: AVAudioEngine, format: AVAudioFormat, gain: Float) {
+            for node in [player, pitch, eq, reverb, delay, mixer] as [AVAudioNode] { engine.attach(node) }
+            engine.connect(player, to: pitch, format: format)
+            engine.connect(pitch, to: eq, format: format)
+            engine.connect(eq, to: reverb, format: format)
+            engine.connect(reverb, to: delay, format: format)
+            engine.connect(delay, to: mixer, format: format)
+            engine.connect(mixer, to: engine.mainMixerNode, format: format)
+            mixer.outputVolume = gain
         }
+
+        /// `dry` is the song's own volume, before the effects (so their tails carry on after it).
+        func set(rate: Double, dry: Float, bass: Float, mid: Float, high: Float, lowPass: Float, highPass: Float,
+                 reverb wet: Float, echo: Float, effects: Bool) {
+            pitch.rate = Float(rate)
+            eq.globalGain = dry > 0.000_02 ? max(-96, 20 * log10(dry)) : -96
+            let bands = eq.bands
+            bands[0].gain = effects ? -30 * bass : 0
+            bands[1].gain = effects ? -24 * mid : 0
+            bands[2].gain = effects ? -30 * high : 0
+            bands[3].bypass = !effects || lowPass <= 0.001
+            // 20 kHz down to 300 Hz, evenly in pitch.
+            bands[3].frequency = Float(20_000 * pow(300.0 / 20_000, Double(lowPass)))
+            bands[4].bypass = !effects || highPass <= 0.001
+            // 20 Hz up to 1.2 kHz.
+            bands[4].frequency = Float(20 * pow(60, Double(highPass)))
+            reverb.wetDryMix = effects ? 100 * wet : 0
+            delay.wetDryMix = effects ? 50 * echo : 0
+        }
+    }
+
+    /// The noise sweep's state, read by its render block (on the rendering thread only).
+    private final class NoiseSource {
+        var level: Float = 0
+        var state: UInt32 = 0x1234_5678
+    }
+
+    /// The song leaving with a stretch of beats repeated from `loop.start` (its own time) to the
+    /// end of the buffer, each repeat joined with a 3 ms crossfade.
+    private static func looped(_ buffer: AVAudioPCMBuffer, from handover: Double, loop: MixLoopPlan) -> AVAudioPCMBuffer {
+        let rate = MixSchedule.sampleRate
+        let total = Int(buffer.frameLength)
+        let end = Int(((loop.start - handover) * rate).rounded())
+        let length = Int((loop.length * rate).rounded())
+        let fade = Int(0.003 * rate)
+        guard length > 4 * fade, end - length > 0, end < total,
+              let out = AVAudioPCMBuffer(pcmFormat: buffer.format, frameCapacity: buffer.frameCapacity),
+              let source = buffer.floatChannelData, let target = out.floatChannelData else { return buffer }
+        out.frameLength = buffer.frameLength
+        for channel in 0..<Int(buffer.format.channelCount) {
+            let from = source[channel], to = target[channel]
+            to.update(from: from, count: end)
+            var position = end
+            while position < total {
+                let count = min(length, total - position)
+                for frame in 0..<count {
+                    var value = from[end - length + frame]
+                    // Into each repeat: fade in over 3 ms from where the previous one would carry on.
+                    if frame < fade {
+                        let weight = Float(frame) / Float(fade)
+                        value = value * weight + from[min(total - 1, end + frame)] * (1 - weight)
+                    }
+                    to[position + frame] = value
+                }
+                position += count
+            }
+        }
+        return out
     }
 
     private static func write(_ buffer: AVAudioPCMBuffer, from start: Int, count: Int, to file: AVAudioFile) throws {

@@ -351,6 +351,78 @@ if let a = analyses[124], let b = analyses[126] {
     expect(false, "planner: the songs were analysed")
 }
 
+// MARK: Playlist Mix
+
+/// Every part's options, one at a time with the others automatic: values in range, the song
+/// leaving alone at the start and the next one alone at the end, and no change faster than a
+/// 30 ms ramp (a click) through a 15-second overlap.
+func checkDesignCurves() {
+    let overlap = 15.0
+    var designs: [(String, MixDesign)] = []
+    for option in MixVolume.allCases { designs.append(("volume \(option.rawValue)", MixDesign(volume: option))) }
+    for option in MixEQ.allCases { designs.append(("EQ \(option.rawValue)", MixDesign(eq: option))) }
+    for option in MixFilter.allCases { designs.append(("filter \(option.rawValue)", MixDesign(filter: option))) }
+    for option in MixEffect.allCases { designs.append(("effect \(option.rawValue)", MixDesign(effect: option))) }
+    for preset in MixPreset.allCases { designs.append(("preset \(preset.rawValue)", MixDesign.preset(preset))) }
+    var bad: [String] = []
+    for (name, design) in designs {
+        let bar = 2 / overlap, ramp = 0.03 / overlap
+        let first = design.levels(at: 0, bar: bar, ramp: ramp), last = design.levels(at: 1, bar: bar, ramp: ramp)
+        var ok = first.outgoing > 0.99 && first.incoming < 0.01 && last.outgoing < 0.01 && last.incoming > 0.99
+        var previous = first
+        let steps = Int(overlap * 44_100 / 512)
+        for step in 1...steps {
+            let levels = design.levels(at: Double(step) / Double(steps), bar: bar, ramp: ramp)
+            let values = [levels.outgoing, levels.incoming, levels.outgoingBassCut, levels.incomingBassCut,
+                          levels.outgoingMidCut, levels.outgoingHighCut, levels.incomingMidCut, levels.incomingHighCut,
+                          levels.outgoingLowPass, levels.outgoingHighPass, levels.incomingLowPass, levels.incomingHighPass,
+                          levels.reverb, levels.echo, levels.noise]
+            if values.contains(where: { !$0.isFinite || $0 < -1e-4 || $0 > 1 + 1e-4 }) { ok = false }
+            if abs(levels.outgoing - previous.outgoing) > 0.5 || abs(levels.incoming - previous.incoming) > 0.5 { ok = false }
+            previous = levels
+        }
+        if !ok { bad.append(name) }
+    }
+    expect(bad.isEmpty, "Mix: \(designs.count) options start and end right, in range, without clicks\(bad.isEmpty ? "" : " (not: \(bad.joined(separator: ", ")))")")
+}
+checkDesignCurves()
+
+expect(Camelot.code(key: 0, minor: false) == "8B" && Camelot.code(key: 9, minor: true) == "8A"
+       && Camelot.code(key: 5, minor: true) == "4A" && Camelot.code(key: 4, minor: false) == "12B",
+       "Camelot: C 8B, Am 8A, Fm 4A, E 12B")
+
+if let a = analyses[124], let b = analyses[126] {
+    let bar = 4 * a.beatLength
+    let automatic = TransitionPlanner.plan(from: a, to: b)
+    let fade = MixDesigner.plan(from: a, to: b, design: .preset(.fade))
+    expect(fade.design?.volume == .crossfade && fade.style == .beatMatched && abs(fade.outEnd - automatic.outEnd) < 0.01,
+           "Mix: a preset keeps the automatic timing, with its own curves")
+    var shorter = MixDesign.preset(.blend)
+    shorter.overlap = 4 * bar
+    shorter.shift = -8 * bar
+    let moved = MixDesigner.plan(from: a, to: b, design: shorter)
+    expect(moved.bars == 4 && abs(moved.overlap - 4 * bar) < 0.01,
+           "Mix: four bars together when asked (\(moved.bars ?? 0) bars, \(format(moved.overlap, 2)) s)")
+    expect(moved.outEnd < automatic.outEnd - 7 * bar && worstBeat(moved, a, b) < 0.002,
+           "Mix: eight bars earlier, still on the beat (ends at \(format(moved.outEnd, 1)) s, was \(format(automatic.outEnd, 1)) s)")
+    checkSchedule(moved, a, b, "Mix moved")
+    var free = MixDesign.preset(.wave)
+    free.beatmatch = false
+    free.overlap = 9
+    let unmatched = MixDesigner.plan(from: a, to: b, design: free)
+    expect(unmatched.style == .blend && unmatched.incomingRate == 1 && unmatched.outgoingRate == 1
+           && abs(unmatched.overlap - 9) < 0.01, "Mix: beatmatching off, nine seconds without tempo changes")
+    var looped = MixDesign.preset(.peak)
+    looped.effect = .echoCutHalf
+    let peak = MixDesigner.plan(from: a, to: b, design: looped)
+    expect(peak.loop.map { abs($0.length - 4 * a.beatLength) < 0.001 && $0.start > peak.outStart && $0.start < peak.outEnd } == true,
+           "Mix: a four-beat loop inside the overlap")
+    expect(abs(peak.echoTime - a.beatLength / 2) < 0.001 && peak.echoFeedback > 0, "Mix: half-beat echo")
+    let schedule = MixSchedule(plan: peak)
+    expect(schedule.join > peak.inStart && schedule.length > MixSchedule(plan: automatic).length - 30,
+           "Mix: an effect's tail stays inside the mix (\(format(schedule.length, 1)) s)")
+}
+
 // Progress follows the outgoing song's time, clamped.
 let sample = TransitionPlan(style: .fade, handover: 99.5, outStart: 100, outEnd: 110, inStart: 0, tempoOut: 120,
                             tempoMeet: 120, tempoIn: 120, alignment: nil, swapStart: nil, swapEnd: nil, fadeIn: 0.5,

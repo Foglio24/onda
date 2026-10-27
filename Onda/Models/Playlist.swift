@@ -7,6 +7,8 @@ struct Playlist: Codable, Hashable, Identifiable {
     var createdAt: Date
     /// File name of a cover picked from Photos, inside `Storage.covers`.
     var coverFile: String?
+    /// The playlist's Mix: its designed transitions (see `PlaylistMixView`); nil until one is made.
+    var mix: PlaylistMix?
 
     var countLabel: String {
         tracks.count == 1 ? String(localized: "1 brano") : String(localized: "\(tracks.count) brani")

@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.14.0 (2026-10-27)
+
+### Added
+- **Mix for playlists, like Spotify's.** Downloaded playlists get a Mix button: turn the Mix on and design the transition between each pair of songs in an editor like Spotify's (in Liquid Glass):
+  - Both songs' waveforms, overlapping in a box that stands for the time they play together, with the volume (blue), bass (yellow), filter (pink) and effect (white) curves drawn over them. Drag the lower song to make the mix longer or shorter, the upper one to move where the first song ends; with beatmatching on, in whole bars.
+  - Each song's tempo (in orange when the beats can't be matched) and key in Camelot notation (8B is C major).
+  - Presets: Auto, Dissolvenza, Ascendente, Sfumatura, Onda, Fusione, Passaggio brusco, Eco, Picco, Fusione calda.
+  - **Volume:** smooth crossfade, overlap, fade in/fade out, cut in, cut out, center cut, plain crossfade, quick fade, one-bar fade in or overlap with a cut out.
+  - **EQ:** bass swap in the middle, at the end or at the start, three-band fade, quick or long bass cut, bass fade out.
+  - **Filtra:** low-pass and high-pass sweeps on the song leaving, on the song coming in or both, a half high-pass, and a noise sweep at the end.
+  - **Effetti:** reverb in the middle or at the end (with a cut or fading), echo with half-beat, three-quarter or full-beat repeats (cut or fading), and a shorter delay.
+  - **Looping:** the song leaving repeats its last 1, 2, 4, 8 or 16 beats while it goes.
+  - **Beatmatching** on or off (not available when the tempos are more than 30 percent apart).
+  - The play button renders the mix as it will sound and plays it from a few seconds before the next song comes in, with a green line following it.
+  - The transitions play whenever you play the playlist (in order or shuffled, where two songs with a designed transition meet); between the others, AutoMix decides. The queue shows the playlist's mix coming up.
+- Mixes are rendered with the same engine as AutoMix, now with a five-band EQ, reverb, echo, a noise generator and beat loops for each song, and each song through its own mixer.
+
+### For development
+- `Tools/AutoMixCheck` checks every option of every part and every preset (in range, the first song alone at the start and the next alone at the end, no change faster than a 30 ms ramp), the timing the designer gives (presets keep the automatic timing, four bars eight bars earlier stay on the beat, beatmatching off, loops and echoes) and Camelot codes. `Tools/AutoMixRenderCheck` renders three designed mixes with reverb, loops, echo and noise (they start where the song is and join the next one within a millisecond) and checks that a muted song isn't heard.
+- New screenshots: the Mix editor and its options sheet, on two songs the app makes for the occasion (`-OndaScene mix`).
+
 ## 1.13.0 (2026-10-27)
 
 ### Improved

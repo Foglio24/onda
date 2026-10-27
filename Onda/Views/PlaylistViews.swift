@@ -32,6 +32,7 @@ struct PlaylistDetailView: View {
     @State private var confirmRemoveDownloads = false
     @State private var showPhotoPicker = false
     @State private var photoItem: PhotosPickerItem?
+    @State private var showMix = false
 
     var body: some View {
         Group {
@@ -53,7 +54,7 @@ struct PlaylistDetailView: View {
 
                     ForEach(Array(playlist.tracks.enumerated()), id: \.element.id) { position, track in
                         TrackRow(track: track) {
-                            player.play(playlist.tracks, startAt: position, source: playlist.name)
+                            player.play(playlist.tracks, startAt: position, source: playlist.name, playlist: playlist.id)
                         }
                         .listRowBackground(Color.clear)
                     }
@@ -62,7 +63,16 @@ struct PlaylistDetailView: View {
                 }
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
-                .toolbar { toolbarMenu(playlist) }
+                .toolbar {
+                    if playlist.tracks.count >= 2 {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button { showMix = true } label: {
+                                Label("Mix", systemImage: "slider.horizontal.3")
+                            }
+                        }
+                    }
+                    ToolbarItem(placement: .topBarTrailing) { toolbarMenu(playlist) }
+                }
             } else {
                 ContentUnavailableView("Playlist eliminata", systemImage: "music.note.list")
             }
@@ -71,6 +81,7 @@ struct PlaylistDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { PlaylistUsage.noteOpened(playlistID) }
         .photosPicker(isPresented: $showPhotoPicker, selection: $photoItem, matching: .images)
+        .sheet(isPresented: $showMix) { PlaylistMixView(playlistID: playlistID) }
         .onChange(of: photoItem) { _, item in
             guard let item else { return }
             Task {
@@ -152,7 +163,7 @@ struct PlaylistDetailView: View {
                     .foregroundStyle(.secondary)
             }
             if !playlist.tracks.isEmpty {
-                PlayShuffleButtons(tracks: playlist.tracks, source: playlist.name)
+                PlayShuffleButtons(tracks: playlist.tracks, source: playlist.name, playlist: playlist.id)
                 downloadButton(playlist)
             }
         }

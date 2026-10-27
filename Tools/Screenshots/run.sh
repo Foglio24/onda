@@ -56,4 +56,8 @@ xcrun simctl launch --terminate-running-process "$device" com.onda.player \
 sleep 12
 xcrun simctl io "$device" screenshot "$out/16-player-card.png" >/dev/null && echo "Saved 16-player-card"
 
+# The Mix editor, on two songs it makes itself (YouTube's audio isn't available to CI).
+shot 17-mix it 25 mix
+shot 18-mix-options it 25 "mix:options"
+
 xcrun simctl shutdown "$device" || true

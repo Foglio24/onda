@@ -188,6 +188,25 @@ final class Library: ObservableObject {
         updatePlaylist(id) { $0.tracks.move(fromOffsets: source, toOffset: destination) }
     }
 
+    // MARK: Mix
+
+    func setMixEnabled(_ enabled: Bool, for id: UUID) {
+        updatePlaylist(id) { playlist in
+            var mix = playlist.mix ?? PlaylistMix()
+            mix.enabled = enabled
+            playlist.mix = mix
+        }
+    }
+
+    /// Saves a transition of the playlist's Mix (nil goes back to automatic).
+    func setMixDesign(_ design: MixDesign?, from: Track, to: Track, in id: UUID) {
+        updatePlaylist(id) { playlist in
+            var mix = playlist.mix ?? PlaylistMix()
+            mix.transitions[PlaylistMix.key(from: from.id, to: to.id)] = design
+            playlist.mix = mix
+        }
+    }
+
     private func updatePlaylist(_ id: UUID, _ change: (inout Playlist) -> Void) {
         guard let position = playlists.firstIndex(where: { $0.id == id }) else { return }
         change(&playlists[position])

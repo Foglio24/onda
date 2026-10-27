@@ -218,6 +218,8 @@ final class PlayerController: ObservableObject {
     private var itemOffset: TimeInterval = 0
     /// Between the start of a mix and the end of the song it takes over from.
     private var mixHandover = false
+    /// The playlist the queue was started from, whose Mix then plays (see `playlistMix`).
+    private var playlistContext: UUID?
 
     private init() {
         autoRadio = UserDefaults.standard.object(forKey: "player.autoRadio") as? Bool ?? true
@@ -261,8 +263,9 @@ final class PlayerController: ObservableObject {
 
     /// Replaces the queue. With shuffle on, the chosen song plays first and the rest follow in random order.
     func play(_ tracks: [Track], startAt start: Int = 0, source: String, startRadio: Bool = false,
-              shuffled: Bool? = nil) {
+              shuffled: Bool? = nil, playlist: UUID? = nil) {
         guard tracks.indices.contains(start) else { return }
+        playlistContext = playlist
         requests.replaceQueue()
         advanceTask?.cancel()
         if let shuffled { shuffleEnabled = shuffled }
@@ -1222,9 +1225,21 @@ final class PlayerController: ObservableObject {
 
     // MARK: AutoMix
 
+    /// The Mix of the playlist playing, when it is on: its transitions play, whatever the setting.
+    private var playlistMix: PlaylistMix? {
+        guard let id = playlistContext, let mix = Library.shared.playlist(id)?.mix, mix.enabled else { return nil }
+        return mix
+    }
+
+    /// AutoMix (the setting) or a playlist's Mix makes the transitions.
+    private var mixesTransitions: Bool {
+        Preferences.songTransitionSetting == .autoMix || playlistMix != nil
+    }
+
     /// Seconds of plain crossfade at the end of a song: the setting's with "Dissolvenza incrociata";
     /// with AutoMix, a short one while no plan is ready.
     private var plainCrossfadeSeconds: Double {
+        if playlistMix != nil { return 5 }
         switch Preferences.songTransitionSetting {
         case .off:
             return 0
@@ -1247,7 +1262,7 @@ final class PlayerController: ObservableObject {
     /// takes over from the playing song at the plan's handover. Until it is ready the song ends with
     /// a short plain crossfade.
     private func prepareAutoMix() {
-        guard Preferences.songTransitionSetting == .autoMix, karaokeMode == .off, playWhenReady,
+        guard mixesTransitions, karaokeMode == .off, playWhenReady,
               let track = current, index + 1 < queue.count else {
             resetAutoMix()
             return
@@ -1267,6 +1282,8 @@ final class PlayerController: ObservableObject {
         }
         autoMixNote = String(localized: "Analisi dei brani in corso…")
         let generation = requests.loadGeneration
+        // A transition designed in the playlist's Mix, when there is one for these two songs.
+        let design = playlistMix?.transitions[PlaylistMix.key(from: track.id, to: next.id)]
         autoMixTask = Task {
             let outgoingFile = await self.analysisFile(for: track, videoId: videoId)
             let incomingFile = await self.analysisFile(for: next, videoId: nextVideoId)
@@ -1283,7 +1300,8 @@ final class PlayerController: ObservableObject {
                 self.autoMixNote = String(localized: "Analisi non riuscita: dissolvenza semplice")
                 return
             }
-            let plan = TransitionPlanner.plan(from: outgoing, to: incoming)
+            let plan = design.map { MixDesigner.plan(from: outgoing, to: incoming, design: $0) }
+                ?? TransitionPlanner.plan(from: outgoing, to: incoming)
             self.autoMixNote = String(localized: "Preparazione del mix…")
             let outgoingGain = await self.volumeGain(for: track)
             let incomingGain = await self.volumeGain(for: next)
@@ -1312,6 +1330,9 @@ final class PlayerController: ObservableObject {
         let before = Int((outgoing.duration - plan.outStart).rounded())
         let tempoOut = Int(plan.tempoOut.rounded()), tempoIn = Int(plan.tempoIn.rounded())
         let seconds = Int(plan.overlap.rounded())
+        if let design = plan.design {
+            return String(localized: "Mix della playlist: \(design.preset.title), \(before) s prima della fine")
+        }
         var text: String
         switch plan.style {
         case .beatMatched:
@@ -1344,7 +1365,7 @@ final class PlayerController: ObservableObject {
 
     /// The AutoMix plan from the current song into the next, unless its moment was missed.
     private func plannedTransition() -> PlannedTransition? {
-        guard let autoMix, !autoMix.missed, Preferences.songTransitionSetting == .autoMix, karaokeMode == .off,
+        guard let autoMix, !autoMix.missed, mixesTransitions, karaokeMode == .off,
               autoMix.trackID == current?.id, index + 1 < queue.count, queue[index + 1].id == autoMix.nextID
         else { return nil }
         return autoMix
@@ -1566,7 +1587,7 @@ final class PlayerController: ObservableObject {
         guard let videoId = track.videoId else { return }
         // With AutoMix the next song's copy is made by `prepareAutoMix`, at the quality it will play.
         let needsCopy = Storage.localAudio(for: track) == nil && OpusPipeline.cachedFile(videoId: videoId) == nil
-            && Preferences.songTransitionSetting != .autoMix
+            && !mixesTransitions
         let prefetchLoudness = Preferences.normalizesVolume
         guard needsCopy || prefetchLoudness else { return }
         let quality = Preferences.initialStreamQuality

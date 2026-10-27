@@ -48,6 +48,8 @@ final class AppRouter: ObservableObject {
     @Published var page: MusicPage?
     /// A search to run when the Search tab appears (used by `LaunchScene`).
     @Published var pendingSearch: String?
+    /// A playlist's Mix opened from outside its page (used by `LaunchScene`).
+    @Published var mixTarget: MixTarget?
 
     private init() {}
 

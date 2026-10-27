@@ -209,6 +209,49 @@ struct AutoMixRenderCheck {
                    "\(name): \(distances.count) kicks together (median \(format(median * 1000, 1)) ms, 90 % within \(format(most * 1000, 1)) ms)")
         }
 
+        // A song muted in the mix isn't heard: the end of the mix, where only the next song
+        // plays, is silent when it is muted.
+        if let a = songs[124.0], let b = songs[126.0] {
+            let schedule = MixSchedule(plan: TransitionPlanner.plan(from: a.analysis, to: b.analysis))
+            let url = folder.appending(path: "muted.caf")
+            if let _ = try? await AutoMixRenderer.render(schedule, outgoing: a.url, incoming: b.url, outgoingGain: 1,
+                                                       incomingGain: 0, to: url),
+               let samples = try? await AutoMixDecoder.samples(of: url) {
+                let end = samples.suffix(Int(rate))
+                let level = (end.reduce(0) { $0 + Double($1 * $1) } / Double(max(1, end.count))).squareRoot()
+                expect(level < 0.001, "a muted song isn't heard (\(format(20 * log10(max(level, 1e-9)), 0)) dB)")
+            } else {
+                expect(false, "muted mix rendered")
+            }
+
+            // Designed mixes with effects: they render, start where the song is, stay in range and join.
+            for (name, preset) in [("blur: reverb, low-pass, 3 bands", MixPreset.blur), ("peak: loop, high-pass", .peak),
+                                   ("wave: echo, filters", .wave)] {
+                var design = MixDesign.preset(preset)
+                if preset == .peak { design.filter = .noiseOut }
+                let plan = MixDesigner.plan(from: a.analysis, to: b.analysis, design: design)
+                let schedule = MixSchedule(plan: plan)
+                let url = folder.appending(path: "\(preset.rawValue).caf")
+                do {
+                    let mix = try await AutoMixRenderer.render(schedule, outgoing: a.url, incoming: b.url,
+                                                               outgoingGain: 1, incomingGain: 1, to: url)
+                    let samples = try await AutoMixDecoder.samples(of: url)
+                    let peak = samples.map { abs($0) }.max() ?? 0
+                    let handover = Int(plan.handover * rate)
+                    let head = alignment(samples[0..<Int(0.6 * rate)], a.samples[handover..<(handover + Int(0.6 * rate))],
+                                         range: 0.02)
+                    let joinIndex = Int(mix.join * rate)
+                    let tail = alignment(samples[(samples.count - Int(rate))..<samples.count],
+                                         b.samples[(joinIndex - Int(rate))..<joinIndex], range: 0.02)
+                    expect(samples.allSatisfy { $0.isFinite } && peak <= 1.0 && abs(head.lag) <= 0.0012 && head.correlation > 0.9
+                           && abs(tail.lag) <= 0.0012 && tail.correlation > 0.9,
+                           "\(name): \(format(mix.length, 1)) s, peak \(format(Double(peak))), joins on both sides")
+                } catch {
+                    expect(false, "\(name): rendered (\(error))")
+                }
+            }
+        }
+
         print(failures == 0 ? "AutoMixRenderCheck: all checks passed" : "AutoMixRenderCheck: \(failures) failed")
         exit(failures == 0 ? 0 : 1)
     }

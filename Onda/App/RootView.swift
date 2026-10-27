@@ -47,6 +47,9 @@ struct RootView: View {
         .sheet(item: router.pageBinding(fromPlayer: false)) { page in
             MusicPageSheet(page: page)
         }
+        .sheet(item: $router.mixTarget) { target in
+            PlaylistMixView(playlistID: target.playlistID, opensFirst: target.opensFirst, opensOptions: target.options)
+        }
         .task { LaunchScene.apply(select: { selection = $0 }) }
         // Outermost, so the player and sheets presented above inherit it too.
         .tint(accent.color)
