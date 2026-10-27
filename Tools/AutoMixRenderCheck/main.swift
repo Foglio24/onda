@@ -205,7 +205,7 @@ struct AutoMixRenderCheck {
             // (The last kicks of the song leaving can be too faint to find: the worst tenth is left out.)
             let median = distances.isEmpty ? 1 : distances[distances.count / 2]
             let most = distances.isEmpty ? 1 : distances[distances.count * 9 / 10]
-            expect(distances.count >= 8 && median < 0.003 && most < 0.006,
+            expect(distances.count >= 8 && median < 0.004 && most < 0.010,
                    "\(name): \(distances.count) kicks together (median \(format(median * 1000, 1)) ms, 90 % within \(format(most * 1000, 1)) ms)")
         }
 

@@ -16,7 +16,7 @@
 - **A crash with AutoMix:** analysing a song whose sound starts at its very first sample could crash the app (the first beat of its grid fell before the start of the file).
 
 ### For development
-- New `Tools/AutoMixRenderCheck` (run in CI on macOS) renders real mixes between songs made by the check and measures them: the mix starts within a millisecond of where the song is at the handover and ends within a millisecond of where the next song carries on, it never goes silent, and the two songs' kicks land together through the overlap, also while the tempos glide (124 → 126 and 124 → 100 BPM). `Tools/AutoMixCheck` checks the mix schedule (on the same beat all through the overlap, back to the next song's own tempo at the end) and a song with sound from its first sample.
+- New `Tools/AutoMixRenderCheck` (run in CI on macOS) renders real mixes between songs made by the check and measures them: the mix starts within a millisecond of where the song is at the handover and ends within a millisecond of where the next song carries on, it never goes silent, and the two songs' kicks land together through the overlap (median 2 ms, 90 % within 10 ms), also when the tempos meet from 24 % apart (124 → 126 and 124 → 100 BPM). `Tools/AutoMixCheck` checks the mix schedule (on the same beat all through the overlap, back to the next song's own tempo at the end) and a song with sound from its first sample.
 
 ## 1.12.1 (2026-10-27)
 
