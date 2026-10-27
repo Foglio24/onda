@@ -18,7 +18,7 @@ See [CHANGELOG.md](CHANGELOG.md) for what changed in each version.
 | Song details | ✅ Release date, label, ℗ and credits from YouTube Music's catalogue, plus format and loudness |
 | Quality and codecs | ✅ Four levels, set separately for Wi-Fi, cellular and downloads (details below) |
 | Dolby Atmos | ✅ Dolby Digital Plus when YouTube offers it, plus Apple's Spatial Audio with AirPods/Beats |
-| Crossfade | ✅ 0–12 seconds, like Spotify |
+| Song transitions | ✅ AutoMix like Apple Music (beat-matched DJ transitions, silence left out, albums as they are), or a 1–12 s crossfade |
 | Smart radios and mixes | ✅ A radio from any song, auto-radio when the queue ends, and recommendations that change every day from what you play, skip and like: six daily mixes, *Scelti per te* and moods; plus *Taste Mix* / *Rediscover* from Last.fm |
 | Playlists | ✅ Create, rename, reorder, set a custom cover from Photos, download a whole playlist in one tap |
 | Playlist import | ✅ From Spotify (up to 100 songs), Apple Music, YouTube and YouTube Music links; each song is matched on YouTube Music |
@@ -101,7 +101,7 @@ Installing stays manual (Sideloadly, AltStore or SideStore): iOS doesn't let a s
 ```
 Onda/
   App/        app entry, tab bar, mini player, presentation routing
-  Player/     AVPlayer engine, queue, crossfade, radio, lock screen, scrobbling
+  Player/     AVPlayer engine, queue, AutoMix and crossfade, radio, lock screen, scrobbling
   Services/   YouTube Music (InnerTube), streams (YouTubeKit), Opus decoding,
               chunked downloads, LRCLIB, Last.fm, playlist import, library
   Views/      SwiftUI screens

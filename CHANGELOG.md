@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.12.0 (2026-10-27)
+
+### Added
+- **AutoMix, like Apple Music.** Songs now flow into each other like a DJ set. Onda analyses each song on the iPhone (tempo, beat grid, bars, key, where the sound starts and ends, how it fades out) and picks the transition that suits the two songs:
+  - **Matched beats:** when both songs are made to a steady beat at tempos within 6 % (half and double time count), the next song comes in on the first beat of a bar, sped up or slowed down to this song's tempo without changing its pitch. They play together for eight bars (four at slow tempos or with clashing keys): the next song without its bass at first, then the bass passes from one to the other on a beat and the first song fades out. Afterwards the new song glides back to its own tempo over eight seconds. The next song is started at an exact moment of the system clock, so the beats land together.
+  - **Otherwise a crossfade fitted to the songs:** the silence at the end and at the start is left out; a song that fades out gets the next one during its fade; two beats that don't match get a short blend that passes the bass over halfway; a song that ends abruptly is followed right away; a quiet intro comes in under the end of the previous song.
+  - Songs of the same album, one after the other in order, play as they are.
+  - AutoMix works from the copy of the next song that Onda downloads ahead anyway, and the song then plays from that copy: no extra data. Each song is analysed once (about a second) and the analysis is kept.
+  - Until a transition is planned, or when it can't be (karaoke on, a seek past it, a song over 15 minutes), the song ends with a short crossfade.
+- **Settings → Playback → Song transitions:** AutoMix (the default), Crossfade (1–12 seconds, the old setting) or None. A crossfade set to 0 before this version becomes None. AutoMix can also be switched on and off at the top of the queue, as in Apple Music.
+
+### For development
+- `Tools/AutoMixCheck` (run in CI) checks the analysis and the planner on songs made by the check itself, whose beats, bars, key and silences are known: tempo, the grid within a few milliseconds of the kicks, downbeats, key (C major and A minor), silence at both ends, a song without a beat, and that matched beats land on each other within 2 ms, that tempos too far apart, fades and songs without a beat get crossfades, that albums play as they are and that volumes and bass cuts move the right way.
+- The beat grid was tuned on real songs: for Daft Punk, Avicii, David Guetta, The Weeknd and Ed Sheeran, 77–99 % of the strong onsets fall within 15 ms of the grid, and the tempos come out exact (121.29, 122.88, 126.00, 126.00, 96/192 BPM); Queen's "Bohemian Rhapsody" and Adele's "Someone Like You", played freely, are recognised as not matchable.
+
 ## 1.11.0 (2026-10-27)
 
 ### Added

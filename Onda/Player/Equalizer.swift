@@ -111,11 +111,14 @@ final class EqualizerParameters: @unchecked Sendable {
     }
 }
 
-/// Runs the equalizer on one track's audio, inside the player's audio processing: nothing here
-/// waits or allocates while audio flows.
+/// Runs the equalizer on one track's audio, inside the player's audio processing, and AutoMix's
+/// bass cut while two songs play together: nothing here waits or allocates while audio flows.
 final class EqualizerProcessor {
     private static let maxChannels = 8
+    /// Frames between updates of the bass cut's filter.
+    private static let block = 64
     private let parameters: EqualizerParameters
+    private let transition: TransitionFilter?
     private let sections = UnsafeMutablePointer<Biquad>.allocate(capacity: EqualizerBands.count)
     /// Two values of filter memory per section and channel.
     private let memory = UnsafeMutablePointer<Double>.allocate(capacity: maxChannels * EqualizerBands.count * 2)
@@ -125,16 +128,24 @@ final class EqualizerProcessor {
     private var version = -1
     private var isActive = false
     private var preamp: Float = 1
+    /// The bass cut as heard, moving towards `target` within a few milliseconds.
+    private var cut: Float = 0
+    private var target: Float = 0
+    private var bass = Biquad.identity
+    private let bassMemory = UnsafeMutablePointer<Double>.allocate(capacity: maxChannels * 2)
 
-    init(parameters: EqualizerParameters) {
+    init(parameters: EqualizerParameters, transition: TransitionFilter? = nil) {
         self.parameters = parameters
+        self.transition = transition
         sections.initialize(repeating: .identity, count: EqualizerBands.count)
         memory.initialize(repeating: 0, count: Self.maxChannels * EqualizerBands.count * 2)
+        bassMemory.initialize(repeating: 0, count: Self.maxChannels * 2)
     }
 
     deinit {
         sections.deallocate()
         memory.deallocate()
+        bassMemory.deallocate()
     }
 
     func prepare(format: AudioStreamBasicDescription) {
@@ -143,6 +154,9 @@ final class EqualizerProcessor {
         sampleRate = format.mSampleRate > 0 ? format.mSampleRate : 44_100
         version = -1
         memory.update(repeating: 0, count: memoryCount)
+        cut = 0
+        bass = .identity
+        bassMemory.update(repeating: 0, count: Self.maxChannels * 2)
     }
 
     func process(_ buffers: UnsafeMutableAudioBufferListPointer, frames: Int) {
@@ -155,7 +169,11 @@ final class EqualizerProcessor {
             preamp = EqualizerDesign.preamp(snapshot.gains)
             if !wasActive { memory.update(repeating: 0, count: memoryCount) }
         }
-        guard isActive else { return }
+        if isActive { equalize(buffers, frames: frames) }
+        if transition != nil { cutBass(buffers, frames: frames) }
+    }
+
+    private func equalize(_ buffers: UnsafeMutableAudioBufferListPointer, frames: Int) {
         var channel = 0
         for buffer in buffers {
             guard let data = buffer.mData?.assumingMemoryBound(to: Float.self) else { continue }
@@ -167,6 +185,58 @@ final class EqualizerProcessor {
                 channel += 1
             }
         }
+    }
+
+    /// AutoMix's bass cut: a low shelf at 150 Hz down to -30 dB, its depth following the
+    /// transition (updated every 64 frames, so it moves smoothly).
+    private func cutBass(_ buffers: UnsafeMutableAudioBufferListPointer, frames: Int) {
+        if let value = transition?.valueIfAvailable() { target = value }
+        guard target > 0 || cut > 0 else { return }
+        let step = Float(Double(Self.block) / (sampleRate * 0.03))
+        var start = 0
+        while start < frames {
+            let count = min(Self.block, frames - start)
+            let previous = cut
+            cut += max(-step, min(step, target - cut))
+            if cut < 0.001 { cut = 0 }
+            if cut != previous || (cut > 0 && bass == .identity) {
+                bass = cut > 0 ? .shelf(high: false, frequency: 150, gain: Double(-30 * cut), sampleRate: sampleRate) : .identity
+            }
+            if cut > 0 {
+                var channel = 0
+                for buffer in buffers {
+                    guard let data = buffer.mData?.assumingMemoryBound(to: Float.self) else { continue }
+                    let interleaved = max(1, Int(buffer.mNumberChannels))
+                    let available = Int(buffer.mDataByteSize) / (MemoryLayout<Float>.size * interleaved)
+                    let length = min(count, available - start)
+                    for offset in 0..<interleaved where channel < Self.maxChannels {
+                        if length > 0 {
+                            filter(data + start * interleaved + offset, count: length, stride: interleaved,
+                                   memory: bassMemory + channel * 2)
+                        }
+                        channel += 1
+                    }
+                }
+            }
+            start += count
+        }
+        if cut == 0 { bassMemory.update(repeating: 0, count: Self.maxChannels * 2) }
+    }
+
+    private func filter(_ samples: UnsafeMutablePointer<Float>, count: Int, stride: Int,
+                        memory: UnsafeMutablePointer<Double>) {
+        var z1 = memory[0], z2 = memory[1]
+        var index = 0
+        while index < count {
+            let x = Double(samples[index * stride])
+            let y = bass.b0 * x + z1
+            z1 = bass.b1 * x - bass.a1 * y + z2
+            z2 = bass.b2 * x - bass.a2 * y
+            samples[index * stride] = Float(y)
+            index += 1
+        }
+        memory[0] = z1
+        memory[1] = z2
     }
 
     /// Transposed direct form II, one section after the other, in place.
@@ -200,8 +270,8 @@ final class EqualizerProcessor {
 
 /// An audio processing tap that runs an `EqualizerProcessor` on a track of an AVPlayerItem.
 enum EqualizerTap {
-    static func make() -> MTAudioProcessingTap? {
-        let processor = EqualizerProcessor(parameters: .shared)
+    static func make(transition: TransitionFilter? = nil) -> MTAudioProcessingTap? {
+        let processor = EqualizerProcessor(parameters: .shared, transition: transition)
         let context = Unmanaged.passRetained(processor).toOpaque()
         var callbacks = MTAudioProcessingTapCallbacks(
             version: kMTAudioProcessingTapCallbacksVersion_0,
@@ -233,18 +303,21 @@ enum EqualizerTap {
     }
 }
 
-/// A song's audio mix: the "Volume uniforme" gain and the equalizer.
+/// A song's audio mix: the "Volume uniforme" gain, the equalizer and, with AutoMix, the bass cut
+/// used in transitions (kept on the item as `transitionFilter`).
 enum AudioEffects {
-    /// Nil when neither changes anything.
-    static func mix(for item: AVPlayerItem, gain: Float) async -> AVAudioMix? {
+    /// Nil when none of them is needed.
+    static func mix(for item: AVPlayerItem, gain: Float, bassCut: Bool = false) async -> AVAudioMix? {
         let equalizer = EqualizerParameters.shared.isOn
-        guard gain < 0.999 || equalizer,
+        guard gain < 0.999 || equalizer || bassCut,
               let tracks = try? await item.asset.loadTracks(withMediaType: .audio), !tracks.isEmpty else { return nil }
+        let filter = bassCut ? TransitionFilter() : nil
+        item.transitionFilter = filter
         let mix = AVMutableAudioMix()
         mix.inputParameters = tracks.map { track in
             let parameters = AVMutableAudioMixInputParameters(track: track)
             if gain < 0.999 { parameters.setVolume(gain, at: .zero) }
-            if equalizer { parameters.audioTapProcessor = EqualizerTap.make() }
+            if equalizer || filter != nil { parameters.audioTapProcessor = EqualizerTap.make(transition: filter) }
             return parameters
         }
         return mix

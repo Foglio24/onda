@@ -18,6 +18,7 @@ struct SettingsView: View {
     @AppStorage(Preferences.normalizeVolume) private var normalizeVolume = true
     @AppStorage(Preferences.preferDolby) private var preferDolby = true
     @AppStorage(Preferences.crossfade) private var crossfade = Preferences.defaultCrossfade
+    @AppStorage(Preferences.songTransition) private var transition: SongTransition = Preferences.songTransitionSetting
     @AppStorage(Preferences.opusLastError) private var opusLastError = ""
     @AppStorage(Preferences.accent) private var accent: AccentChoice = .pink
     @AppStorage(Preferences.nowPlayingAccepted) private var nowPlayingAccepted = -1
@@ -134,15 +135,28 @@ struct SettingsView: View {
 
     private var playbackSection: some View {
         Section {
-            VStack(alignment: .leading, spacing: 6) {
-                HStack {
-                    Label("Dissolvenza tra brani", systemImage: "waveform.path")
-                    Spacer()
-                    Text(crossfade == 0 ? "No" : "\(Int(crossfade)) s")
-                        .foregroundStyle(.secondary)
-                        .monospacedDigit()
+            Picker(selection: $transition) {
+                ForEach(SongTransition.allCases) { option in
+                    Text(option.title).tag(option)
                 }
-                Slider(value: $crossfade, in: 0...12, step: 1)
+            } label: {
+                Label("Transizioni tra brani", systemImage: "waveform.path")
+            }
+            .onChange(of: transition) { _, value in
+                if value == .crossfade, crossfade < 1 { crossfade = Preferences.defaultCrossfade }
+                player.applyTransitionPreference()
+            }
+            if transition == .crossfade {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Label("Durata della dissolvenza", systemImage: "timer")
+                        Spacer()
+                        Text("\(Int(crossfade)) s")
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                    }
+                    Slider(value: $crossfade, in: 1...12, step: 1)
+                }
             }
             Toggle(isOn: $player.autoRadio) {
                 Label("Radio automatica", systemImage: "infinity")
@@ -153,7 +167,7 @@ struct SettingsView: View {
         } header: {
             Text("Riproduzione")
         } footer: {
-            Text("La dissolvenza sovrappone la fine di un brano all'inizio del successivo, come su Spotify. La radio automatica continua con brani simili quando la coda finisce. Le compilation da più di 15 minuti vengono escluse da radio, mood e \"Scelti per te\". Il timer di spegnimento è nel menu ··· del player.")
+            Text("AutoMix passa da un brano all'altro come un DJ, come su Apple Music: se i due brani hanno un ritmo regolare e un tempo simile, il successivo entra a tempo sul primo battito di una battuta, suonano insieme per qualche battuta e i bassi passano dall'uno all'altro; altrimenti c'è una dissolvenza che toglie i silenzi e segue il finale del brano. I brani dello stesso album, in ordine, suonano senza transizioni. Il brano successivo viene analizzato dalla copia che Onda scarica comunque, senza dati in più. La radio automatica continua con brani simili quando la coda finisce. Le compilation da più di 15 minuti vengono escluse da radio, mood e \"Scelti per te\". Il timer di spegnimento è nel menu ··· del player.")
         }
     }
 

@@ -201,6 +201,16 @@ final class PlayerController: ObservableObject {
     private var lastTick: TimeInterval = 0
     /// When the music paused because the headphones went away (see `handleRouteChange`).
     private var pausedForHeadphones: Date?
+    /// AutoMix (see `prepareAutoMix`): the transition into the next song, planned while this one plays.
+    private var autoMix: PlannedTransition?
+    private var autoMixTask: Task<Void, Never>?
+    /// The pair of songs being planned for, "current>next".
+    private var autoMixPair: String?
+    /// The next song's player, loaded and waiting for its moment (see `armTransition`).
+    private var armed: ArmedTransition?
+    private var armTask: Task<Void, Never>?
+    /// The AutoMix transition playing now: volumes, bass and tempo follow the outgoing song's time.
+    private var transitionTask: Task<Void, Never>?
 
     private init() {
         autoRadio = UserDefaults.standard.object(forKey: "player.autoRadio") as? Bool ?? true
@@ -391,9 +401,11 @@ final class PlayerController: ObservableObject {
         offerUpcoming()
     }
 
-    /// Tells `PreparedPlayback` which song comes next, so "next" can start it at once.
+    /// Tells `PreparedPlayback` which song comes next, so "next" can start it at once, and AutoMix,
+    /// so the transition into it is planned.
     private func offerUpcoming() {
         PreparedPlayback.shared.offerUpcoming(index + 1 < queue.count ? queue[index + 1] : nil)
+        prepareAutoMix()
     }
 
     // MARK: Transport
@@ -429,6 +441,7 @@ final class PlayerController: ObservableObject {
                 if karaokeMode != .off, !isPlayingStems { startKaraoke() }
                 else { prepareCurrentAudio(for: track) }
                 prefetchNext()
+                prepareAutoMix()
             }
         } else if !isLoading {
             loadCurrent(reason: .resume)
@@ -455,6 +468,8 @@ final class PlayerController: ObservableObject {
     }
 
     func seek(to seconds: TimeInterval) {
+        // Moving within the song ends a transition into it: it goes on alone.
+        if outgoingPlayer != nil { endCrossfade() }
         var switched = false
         if let asset = player.currentItem?.asset as? AVURLAsset, !asset.url.isFileURL {
             // Seeking in YouTube's streams is unreliable: remember it for when the local copy takes over.
@@ -518,6 +533,8 @@ final class PlayerController: ObservableObject {
         } else {
             startKaraoke()
         }
+        // Karaoke plays the separated parts of one song: AutoMix waits until it is off.
+        if mode == .off { prepareAutoMix() } else { resetAutoMix() }
     }
 
     /// How much of the other part is removed: 1 removes it completely.
@@ -631,9 +648,11 @@ final class PlayerController: ObservableObject {
 
     // MARK: Loading
 
-    /// Loads the song at `index`. As part of a crossfade the previous song keeps playing on `outgoingPlayer`.
+    /// Loads the song at `index`. As part of a crossfade the previous song keeps playing on `outgoingPlayer`;
+    /// an AutoMix transition hands over the next song already playing (`adopting`).
     /// `reason` only sorts the startup timings shown in Settings → Diagnostica.
-    private func loadCurrent(crossfading: Bool = false, reason: StartupReason = .selection) {
+    private func loadCurrent(crossfading: Bool = false, reason: StartupReason = .selection,
+                             adopting transition: ArmedTransition? = nil) {
         if !crossfading { endCrossfade() }
         let generation = requests.beginLoad()
         startupMetrics.begin(generation, reason: crossfading ? .automatic : reason)
@@ -650,6 +669,7 @@ final class PlayerController: ObservableObject {
         localFile = nil
         pendingStartTime = nil
         isRestoredSession = false
+        resetAutoMix()
         guard let track = current else { return }
         // The requested song comes first: speculative preparation waits until it plays.
         PreparedPlayback.shared.suspendForStartup(keeping: track.videoId)
@@ -661,13 +681,22 @@ final class PlayerController: ObservableObject {
         errorMessage = nil
         streamInfo = nil
         itemStatus = nil
-        player.replaceCurrentItem(with: nil)
+        if transition == nil { player.replaceCurrentItem(with: nil) }
         progress.currentTime = 0
         progress.duration = track.duration ?? 0
         lastTick = 0
         lyrics = .loading
         loadArtwork(for: track)
         updateNowPlayingInfo()
+
+        if let transition {
+            // AutoMix already started the song (see `startOnTime`), from its local file.
+            startupMetrics.resolved(generation, source: .localFile)
+            streamInfo = transition.label
+            begin(transition.item, track: track, isRetry: false, alreadyStarted: true)
+            extendQueueIfNeeded()
+            return
+        }
 
         loadTask = Task {
             do {
@@ -820,10 +849,12 @@ final class PlayerController: ObservableObject {
 
     private func audioMix(for item: AVPlayerItem, track: Track) async -> AVAudioMix? {
         let videoId = Preferences.normalizesVolume ? track.videoId : nil
-        guard videoId != nil || EqualizerParameters.shared.isOn else { return nil }
+        // With AutoMix every song carries the bass cut its transitions use.
+        let bassCut = Preferences.songTransitionSetting == .autoMix
+        guard videoId != nil || EqualizerParameters.shared.isOn || bassCut else { return nil }
         var gain: Float = 1
         if let videoId { gain = Loudness.gain(forDecibels: await Loudness.shared.decibels(for: videoId)) }
-        return await AudioEffects.mix(for: item, gain: gain)
+        return await AudioEffects.mix(for: item, gain: gain, bassCut: bassCut)
     }
 
     /// Starts the item once its mix ("Volume uniforme", equalizer) is on: putting a mix on an item
@@ -884,8 +915,9 @@ final class PlayerController: ObservableObject {
     }
 
     /// Everything once the song's item is on the player. Work that downloads or decodes waits
-    /// for the first note (see `startDeferredPreparation`).
-    private func begin(_ item: AVPlayerItem, track: Track, isRetry: Bool) {
+    /// for the first note (see `startDeferredPreparation`). An AutoMix transition has already
+    /// started the song, with its volume and mix (`alreadyStarted`).
+    private func begin(_ item: AVPlayerItem, track: Track, isRetry: Bool, alreadyStarted: Bool = false) {
         itemStatus = item.publisher(for: \.status)
             .receive(on: DispatchQueue.main)
             .sink { [weak item] status in
@@ -893,17 +925,19 @@ final class PlayerController: ObservableObject {
                 self.itemStatusChanged(status, item: item, track: track)
             }
 
-        if pendingFadeIn != nil {
-            // Crossfading in: stay silent until the song really plays (see `startPendingFades`).
-            player.volume = 0
-        } else if !isRetry {
-            fadeInTask?.cancel()
-            player.volume = 1
-        }
-        if playWhenReady {
-            startWithEffects(item, track: track)
-        } else {
-            applyAudioEffects(to: item, track: track)
+        if !alreadyStarted {
+            if pendingFadeIn != nil {
+                // Crossfading in: stay silent until the song really plays (see `startPendingFades`).
+                player.volume = 0
+            } else if !isRetry {
+                fadeInTask?.cancel()
+                player.volume = 1
+            }
+            if playWhenReady {
+                startWithEffects(item, track: track)
+            } else {
+                applyAudioEffects(to: item, track: track)
+            }
         }
         deferredPreparation = (requests.loadGeneration, track)
         guard !isRetry else { return }
@@ -1094,7 +1128,7 @@ final class PlayerController: ObservableObject {
         let incoming = AVPlayer()
         player = incoming
         attach(incoming)
-        pendingFadeIn = min(remaining, Preferences.crossfadeSeconds)
+        pendingFadeIn = min(remaining, plainCrossfadeSeconds)
         index += 1
         loadCurrent(crossfading: true)
     }
@@ -1102,6 +1136,8 @@ final class PlayerController: ObservableObject {
     /// Called when the new song starts playing: fades it in and the previous one out over
     /// whatever is left of the previous song.
     private func startPendingFades() {
+        // An AutoMix transition sets its own volumes.
+        guard transitionTask == nil else { return }
         let left = outgoingPlayer.map { max(0.5, outgoingLength - $0.currentTime().seconds) }
         if let fadeIn = pendingFadeIn {
             pendingFadeIn = nil
@@ -1123,6 +1159,7 @@ final class PlayerController: ObservableObject {
     private func endCrossfade(interrupted: Bool = true) {
         fadeOutTask?.cancel()
         fadeOutTask = nil
+        if interrupted { stopTransition() }
         guard let outgoing = outgoingPlayer else { return }
         outgoing.pause()
         outgoing.replaceCurrentItem(with: nil)
@@ -1145,6 +1182,272 @@ final class PlayerController: ObservableObject {
             let progress = Float(step) / Float(steps)
             target.volume = fadingIn ? sin(progress * .pi / 2) : start * cos(progress * .pi / 2)
         }
+    }
+
+    // MARK: AutoMix
+
+    /// Seconds of plain crossfade at the end of a song: the setting's with "Dissolvenza incrociata";
+    /// with AutoMix, a short one while no plan is ready (none between songs of the same album).
+    private var plainCrossfadeSeconds: Double {
+        switch Preferences.songTransitionSetting {
+        case .off:
+            return 0
+        case .crossfade:
+            return max(1, Preferences.crossfadeSeconds)
+        case .autoMix:
+            if let track = current, index + 1 < queue.count, !shuffleEnabled, Self.sameAlbum(track, queue[index + 1]) {
+                return 0
+            }
+            return 5
+        }
+    }
+
+    /// Applies a change of "Transizioni tra brani".
+    func applyTransitionPreference() {
+        resetAutoMix()
+        prepareAutoMix()
+    }
+
+    /// Plans AutoMix's transition into the next song: both songs' files are analysed (the next
+    /// song's is the copy it then plays from, so nothing is downloaded twice) and
+    /// `TransitionPlanner` picks the transition. Until a plan is ready the song ends with a short
+    /// plain crossfade; songs of the same album, in order, play as they are.
+    private func prepareAutoMix() {
+        guard Preferences.songTransitionSetting == .autoMix, karaokeMode == .off, playWhenReady,
+              let track = current, index + 1 < queue.count else {
+            resetAutoMix()
+            return
+        }
+        let next = queue[index + 1]
+        let pair = "\(track.id)>\(next.id)"
+        if let autoMix, "\(autoMix.trackID)>\(autoMix.nextID)" == pair { return }
+        if autoMixPair == pair { return }
+        resetAutoMix()
+        autoMixPair = pair
+        if !shuffleEnabled, Self.sameAlbum(track, next) {
+            autoMix = PlannedTransition(trackID: track.id, nextID: next.id, plan: nil, file: nil, label: "")
+            return
+        }
+        let thermal = ProcessInfo.processInfo.thermalState
+        guard let videoId = track.videoId, let nextVideoId = next.videoId,
+              (track.duration ?? 0) <= AutoMixLibrary.lengthLimit, (next.duration ?? 0) <= AutoMixLibrary.lengthLimit,
+              thermal != .serious, thermal != .critical else { return }
+        let generation = requests.loadGeneration
+        autoMixTask = Task {
+            guard let outgoingFile = await self.analysisFile(for: track, videoId: videoId),
+                  let incomingFile = await self.analysisFile(for: next, videoId: nextVideoId),
+                  !Task.isCancelled else { return }
+            async let outgoingAnalysis = AutoMixLibrary.shared.analysis(of: outgoingFile.url)
+            async let incomingAnalysis = AutoMixLibrary.shared.analysis(of: incomingFile.url)
+            let analyses = await (outgoingAnalysis, incomingAnalysis)
+            guard !Task.isCancelled, self.requests.isCurrentLoad(generation), self.autoMixPair == pair,
+                  let outgoing = analyses.0, let incoming = analyses.1 else { return }
+            self.autoMix = PlannedTransition(trackID: track.id, nextID: next.id,
+                                             plan: TransitionPlanner.plan(from: outgoing, to: incoming, sameAlbum: false),
+                                             file: incomingFile.url, label: incomingFile.label)
+            self.autoMixTask = nil
+        }
+    }
+
+    /// The file a song is analysed from (and, for the next song, played from): its download, its
+    /// cached file, or a fresh copy.
+    private func analysisFile(for track: Track, videoId: String) async -> (url: URL, label: String)? {
+        if let local = Storage.localAudio(for: track) {
+            return (local, "\(DownloadManager.formatLabel(for: track) ?? "AAC") · offline")
+        }
+        if let cached = OpusPipeline.cachedFile(videoId: videoId) { return cached }
+        return try? await Self.prepareCopy(videoId: videoId, quality: Preferences.streamingQuality)
+    }
+
+    /// Songs of the same album: one after the other in order, they play as they are.
+    private static func sameAlbum(_ a: Track, _ b: Track) -> Bool {
+        if let first = a.albumID, let second = b.albumID { return first == second }
+        guard let first = a.album, let second = b.album, !first.isEmpty else { return false }
+        return first.caseInsensitiveCompare(second) == .orderedSame && a.primaryArtist == b.primaryArtist
+    }
+
+    /// The AutoMix plan from the current song into the next, unless its moment was missed.
+    private func plannedTransition() -> PlannedTransition? {
+        guard let autoMix, !autoMix.missed, Preferences.songTransitionSetting == .autoMix, karaokeMode == .off,
+              autoMix.trackID == current?.id, index + 1 < queue.count, queue[index + 1].id == autoMix.nextID
+        else { return nil }
+        return autoMix
+    }
+
+    /// Loads the next song shortly before the planned transition. A transition whose moment
+    /// passed (a seek beyond it) becomes a plain crossfade.
+    private func followPlan(_ planned: PlannedTransition, at seconds: TimeInterval) {
+        guard let plan = planned.plan, outgoingPlayer == nil else { return }
+        if armed == nil, seconds >= plan.outStart - 12, seconds < plan.outStart - 1.5 {
+            armTransition(planned, plan: plan)
+        } else if seconds > plan.outStart + 0.5, armed?.scheduled != true {
+            disarm()
+            autoMix?.missed = true
+        }
+    }
+
+    /// Prepares the next song's player at the plan's starting point, with its audio mix on and
+    /// its first audio decoded, then starts it on time.
+    private func armTransition(_ planned: PlannedTransition, plan: TransitionPlan) {
+        guard armed == nil, let file = planned.file, let track = current, index + 1 < queue.count,
+              queue[index + 1].id == planned.nextID else { return }
+        let next = queue[index + 1]
+        let incoming = AVPlayer()
+        // AVPlayer starts at an exact moment (see `startOnTime`) only without its own waiting.
+        incoming.automaticallyWaitsToMinimizeStalling = false
+        incoming.volume = 0
+        let item = AVPlayerItem(url: file)
+        // Keeps the pitch when the tempo is matched.
+        item.audioTimePitchAlgorithm = .spectral
+        item.allowedAudioSpatializationFormats = Self.spatializationFormats
+        incoming.replaceCurrentItem(with: item)
+        let transition = ArmedTransition(plan: plan, player: incoming, item: item, track: next,
+                                         label: planned.label, outgoingTrackID: track.id)
+        armed = transition
+        armTask = Task {
+            item.audioMix = await self.audioMix(for: item, track: next)
+            var waited = 0
+            while item.status == .unknown, waited < 50, !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(100))
+                waited += 1
+            }
+            guard !Task.isCancelled, self.armed === transition else { return }
+            guard item.status == .readyToPlay, incoming.status == .readyToPlay else { return self.abandon(transition) }
+            _ = await incoming.seek(to: CMTime(seconds: plan.inStart, preferredTimescale: 48_000),
+                                    toleranceBefore: .zero, toleranceAfter: .zero)
+            guard !Task.isCancelled, self.armed === transition, incoming.status == .readyToPlay else { return }
+            _ = await incoming.preroll(atRate: Float(plan.rate))
+            guard !Task.isCancelled, self.armed === transition else { return }
+            await self.startOnTime(transition)
+        }
+    }
+
+    /// Waits until the playing song is about to reach the plan's start, then has AVPlayer start
+    /// the next song at that exact moment of the system clock, so its beats land on this song's.
+    private func startOnTime(_ transition: ArmedTransition) async {
+        let plan = transition.plan
+        let outgoing = player
+        while true {
+            guard !Task.isCancelled, armed === transition, player === outgoing,
+                  current?.id == transition.outgoingTrackID, karaokeMode == .off else { return abandon(transition) }
+            guard outgoing.timeControlStatus == .playing, let item = outgoing.currentItem else {
+                // Paused or waiting for the stream: try again shortly.
+                try? await Task.sleep(for: .milliseconds(250))
+                continue
+            }
+            let wait = plan.outStart - item.currentTime().seconds
+            if wait <= 0.4 { break }
+            try? await Task.sleep(for: .seconds(min(wait - 0.35, 1)))
+        }
+        guard let timebase = outgoing.currentItem?.timebase else { return abandon(transition) }
+        let rate = CMTimebaseGetRate(timebase)
+        let now = CMTimebaseGetTime(timebase).seconds
+        guard rate > 0, now.isFinite, now <= plan.outStart + 0.05 else { return abandon(transition) }
+        let start = CMTimeAdd(CMClockGetTime(CMClockGetHostTimeClock()),
+                              CMTime(seconds: (plan.outStart - now) / rate, preferredTimescale: 1_000_000_000))
+        transition.player.setRate(Float(plan.rate), time: CMTime(seconds: plan.inStart, preferredTimescale: 48_000),
+                                  atHostTime: start)
+        transition.scheduled = true
+        beginTransition(transition)
+    }
+
+    /// The next song is starting: it becomes the current song while this one plays out under it
+    /// (as `outgoingPlayer`), following the plan.
+    private func beginTransition(_ transition: ArmedTransition) {
+        armed = nil
+        armTask = nil
+        let outgoing = player
+        finishedCurrent = true
+        fadeOutTask?.cancel()
+        fadeOutTask = nil
+        fadeInTask?.cancel()
+        pendingFadeIn = nil
+        outgoingPlayer = outgoing
+        outgoingLength = current?.duration ?? 0
+        player = transition.player
+        attach(transition.player)
+        runTransition(transition.plan, outgoing: outgoing, incoming: transition.player)
+        index += 1
+        loadCurrent(crossfading: true, reason: .automatic, adopting: transition)
+    }
+
+    /// Follows the outgoing song's time through the transition: both volumes and bass cuts, then
+    /// the end of the outgoing song, then the new song's own tempo, brought back over 8 seconds.
+    private func runTransition(_ plan: TransitionPlan, outgoing: AVPlayer, incoming: AVPlayer) {
+        transitionTask?.cancel()
+        let outgoingFilter = outgoing.currentItem?.transitionFilter
+        let incomingFilter = incoming.currentItem?.transitionFilter
+        let started = ProcessInfo.processInfo.systemUptime
+        transitionTask = Task {
+            while !Task.isCancelled {
+                var progress = 1.0
+                if self.outgoingPlayer === outgoing {
+                    progress = plan.progress(atOutgoingTime: outgoing.currentTime().seconds)
+                }
+                // A stalled stream mustn't hold both songs: the transition ends on time anyway.
+                if ProcessInfo.processInfo.systemUptime - started > plan.overlap + 3 { progress = 1 }
+                let levels = plan.levels(at: progress)
+                if self.outgoingPlayer === outgoing {
+                    outgoing.volume = levels.outgoing
+                    outgoingFilter?.set(levels.outgoingBassCut)
+                }
+                incoming.volume = levels.incoming
+                incomingFilter?.set(levels.incomingBassCut)
+                if progress >= 1 { break }
+                try? await Task.sleep(for: .milliseconds(30))
+            }
+            guard !Task.isCancelled else { return }
+            if self.outgoingPlayer === outgoing { self.endCrossfade(interrupted: false) }
+            incoming.volume = 1
+            incomingFilter?.set(0)
+            if plan.rate != 1 {
+                let steps = 40
+                for step in 1...steps {
+                    try? await Task.sleep(for: .milliseconds(200))
+                    guard !Task.isCancelled, self.player === incoming, incoming.timeControlStatus == .playing else { break }
+                    incoming.rate = Float(plan.rate + (1 - plan.rate) * Double(step) / Double(steps))
+                }
+            }
+            guard !Task.isCancelled else { return }
+            if self.player === incoming { incoming.automaticallyWaitsToMinimizeStalling = true }
+            self.transitionTask = nil
+        }
+    }
+
+    /// Ends an AutoMix transition early (pause, skip, seek): the new song goes on alone, at full
+    /// volume and its own tempo.
+    private func stopTransition() {
+        guard let task = transitionTask else { return }
+        task.cancel()
+        transitionTask = nil
+        player.currentItem?.transitionFilter?.set(0)
+        if player.rate > 0, player.rate != 1 { player.rate = 1 }
+        player.automaticallyWaitsToMinimizeStalling = true
+    }
+
+    private func resetAutoMix() {
+        autoMixTask?.cancel()
+        autoMixTask = nil
+        autoMixPair = nil
+        autoMix = nil
+        disarm()
+    }
+
+    private func disarm() {
+        armTask?.cancel()
+        armTask = nil
+        guard let armed else { return }
+        armed.player.pause()
+        armed.player.replaceCurrentItem(with: nil)
+        self.armed = nil
+    }
+
+    /// The armed transition can't happen (paused or moved past it, the song changed): the song
+    /// ends with a plain crossfade instead.
+    private func abandon(_ transition: ArmedTransition) {
+        guard armed === transition else { return }
+        disarm()
+        autoMix?.missed = true
     }
 
     // MARK: Queue upkeep
@@ -1189,7 +1492,9 @@ final class PlayerController: ObservableObject {
         guard index + 1 < queue.count else { return }
         let track = queue[index + 1]
         guard let videoId = track.videoId else { return }
+        // With AutoMix the next song's copy is made by `prepareAutoMix`, at the quality it will play.
         let needsCopy = Storage.localAudio(for: track) == nil && OpusPipeline.cachedFile(videoId: videoId) == nil
+            && Preferences.songTransitionSetting != .autoMix
         let prefetchLoudness = Preferences.normalizesVolume
         guard needsCopy || prefetchLoudness else { return }
         let quality = Preferences.initialStreamQuality
@@ -1368,6 +1673,7 @@ final class PlayerController: ObservableObject {
                 if self.karaokeMode != .off, !self.isPlayingStems { self.startKaraoke() }
                 else { self.prepareCurrentAudio(for: track) }
                 self.prefetchNext()
+                self.prepareAutoMix()
             }
             .store(in: &cancellables)
 
@@ -1405,10 +1711,16 @@ final class PlayerController: ObservableObject {
 
         guard length > 0, !finishedCurrent, player.timeControlStatus == .playing else { return }
         let remaining = length - seconds
-        let crossfade = Preferences.crossfadeSeconds
-        if crossfade > 0, outgoingPlayer == nil, canCrossfade, length > crossfade * 3, remaining <= crossfade {
-            beginCrossfade(remaining: max(0.5, remaining), length: length)
-        } else if remaining < -1.5 {
+        if let planned = plannedTransition(), canCrossfade {
+            followPlan(planned, at: seconds)
+        } else {
+            let crossfade = plainCrossfadeSeconds
+            if crossfade > 0, outgoingPlayer == nil, canCrossfade, length > crossfade * 3, remaining <= crossfade {
+                beginCrossfade(remaining: max(0.5, remaining), length: length)
+                return
+            }
+        }
+        if remaining < -1.5 {
             // The file keeps "playing" silence past the real end.
             itemFinished()
         }
@@ -1534,5 +1846,39 @@ final class PlayerController: ObservableObject {
     /// Built outside the main actor: the system calls the handler on a background queue.
     nonisolated private static func makeArtwork(_ image: UIImage) -> MPMediaItemArtwork {
         MPMediaItemArtwork(boundsSize: image.size) { _ in image }
+    }
+}
+
+/// AutoMix's plan for one pair of songs (see `PlayerController.prepareAutoMix`).
+private struct PlannedTransition {
+    let trackID: String
+    let nextID: String
+    /// Nil: the two songs play as they are (same album).
+    let plan: TransitionPlan?
+    /// The next song's file, analysed and played from.
+    let file: URL?
+    let label: String
+    /// Its moment passed without the transition.
+    var missed = false
+}
+
+/// The next song's player, loaded at the plan's starting point and waiting for its moment.
+private final class ArmedTransition {
+    let plan: TransitionPlan
+    let player: AVPlayer
+    let item: AVPlayerItem
+    let track: Track
+    let label: String
+    let outgoingTrackID: String
+    /// Its start has been set on the system clock.
+    var scheduled = false
+
+    init(plan: TransitionPlan, player: AVPlayer, item: AVPlayerItem, track: Track, label: String, outgoingTrackID: String) {
+        self.plan = plan
+        self.player = player
+        self.item = item
+        self.track = track
+        self.label = label
+        self.outgoingTrackID = outgoingTrackID
     }
 }

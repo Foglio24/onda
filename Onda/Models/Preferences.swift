@@ -77,6 +77,25 @@ enum AudioQuality: String, CaseIterable, Identifiable, Sendable {
     var usesOpus: Bool { self == .max || self == .medium }
 }
 
+/// What happens between songs (Impostazioni → Riproduzione → Transizioni tra brani).
+enum SongTransition: String, CaseIterable, Identifiable {
+    /// Like Apple Music's AutoMix: matched beats or a crossfade suited to the two songs.
+    case autoMix
+    /// The same overlap every time, of `Preferences.crossfadeSeconds`.
+    case crossfade
+    case off
+
+    var id: Self { self }
+
+    var title: String {
+        switch self {
+        case .autoMix: return String(localized: "AutoMix")
+        case .crossfade: return String(localized: "Dissolvenza incrociata")
+        case .off: return String(localized: "Nessuna")
+        }
+    }
+}
+
 enum LyricsStyle: String, CaseIterable, Identifiable {
     case focus, fade, glow
 
@@ -126,6 +145,7 @@ enum Preferences {
     static let downloadFormats = "download.formats"
     static let skipLongMixes = "radio.skipLongMixes"
     static let crossfade = "playback.crossfade"
+    static let songTransition = "playback.transition"
     static let opusLastError = "audio.opusLastError"
     static let accent = "theme.accent"
     /// -1 unknown, 0 refused by iOS, 1 accepted.
@@ -201,9 +221,18 @@ enum Preferences {
 
     static let defaultCrossfade: Double = 6
 
-    /// Seconds of overlap between songs; 0 turns the crossfade off.
+    /// Seconds of overlap between songs with "Dissolvenza incrociata".
     static var crossfadeSeconds: Double {
         UserDefaults.standard.object(forKey: crossfade) as? Double ?? defaultCrossfade
+    }
+
+    /// AutoMix unless chosen otherwise; up to 1.11 a crossfade of 0 seconds meant no transitions.
+    static var songTransitionSetting: SongTransition {
+        if let stored = UserDefaults.standard.string(forKey: songTransition),
+           let transition = SongTransition(rawValue: stored) {
+            return transition
+        }
+        return (UserDefaults.standard.object(forKey: crossfade) as? Double) == 0 ? .off : .autoMix
     }
 
     static let normalizeVolume = "audio.normalizeVolume"

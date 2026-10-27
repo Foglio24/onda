@@ -2,12 +2,20 @@ import SwiftUI
 
 struct QueueView: View {
     @EnvironmentObject private var player: PlayerController
+    @AppStorage(Preferences.songTransition) private var transition: SongTransition = Preferences.songTransitionSetting
 
     var body: some View {
         List {
-            Toggle(isOn: $player.autoRadio) {
-                Label("Radio automatica", systemImage: "infinity")
-                    .font(.subheadline.weight(.semibold))
+            VStack(spacing: 10) {
+                Toggle(isOn: $player.autoRadio) {
+                    Label("Radio automatica", systemImage: "infinity")
+                        .font(.subheadline.weight(.semibold))
+                }
+                Divider().opacity(0.4)
+                Toggle(isOn: autoMix) {
+                    Label("AutoMix", systemImage: "waveform.path")
+                        .font(.subheadline.weight(.semibold))
+                }
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
@@ -59,6 +67,16 @@ struct QueueView: View {
                         ? "Con la radio automatica arriveranno brani simili."
                         : "Aggiungi brani dal menu ··· di ogni canzone."))
             }
+        }
+    }
+
+    /// AutoMix on or off, as in Apple Music's queue (off means no transitions).
+    private var autoMix: Binding<Bool> {
+        Binding {
+            transition == .autoMix
+        } set: { isOn in
+            transition = isOn ? .autoMix : .off
+            player.applyTransitionPreference()
         }
     }
 }
