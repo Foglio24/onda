@@ -48,7 +48,8 @@ struct RootView: View {
             MusicPageSheet(page: page)
         }
         .sheet(item: $router.mixTarget) { target in
-            PlaylistMixView(playlistID: target.playlistID, opensFirst: target.opensFirst, opensOptions: target.options)
+            PlaylistMixView(playlistID: target.playlistID, opensFirst: target.opensFirst, opensOptions: target.options,
+                            opensEditing: target.editing)
         }
         .task { LaunchScene.apply(select: { selection = $0 }) }
         // Outermost, so the player and sheets presented above inherit it too.

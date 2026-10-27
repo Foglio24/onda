@@ -542,3 +542,20 @@
 "Eco" = "Echo";
 "Picco" = "Peak";
 "Fusione calda" = "Warm blend";
+
+/* Mix: bars, lines drawn by hand */
+"%lld barre" = "%lld bars";
+"Scegli la durata della transizione delle tracce." = "Choose how long the transition between the songs lasts.";
+"Personalizza" = "Customize";
+"Ripristina" = "Reset";
+"Trascina i punti per cambiare le linee. Tocca una linea per aggiungere un punto, tocca un punto per toglierlo." = "Drag the points to change the lines. Tap a line to add a point, tap a point to remove it.";
+"In alto i bassi ci sono tutti, in basso sono tolti." = "At the top the bass is all there, at the bottom it is cut.";
+"A metà altezza il filtro è aperto: più su è un passa alto, più giù un passa basso." = "Halfway up the filter is open: higher up it is a high-pass, lower down a low-pass.";
+"Più in alto, più il brano che esce va nell'effetto: %@." = "The higher the line, the more of the song leaving goes into the effect: %@.";
+
+/* Headphones */
+"Ultimo cambio di uscita audio" = "Last audio output change";
+"nessuna azione" = "no action";
+"in pausa" = "paused";
+"in attesa" = "waiting";
+"ripresa" = "resumed";

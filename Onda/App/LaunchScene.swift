@@ -4,9 +4,9 @@ import SwiftUI
 /// Opens a given screen at launch, for the screenshots CI takes on a simulator
 /// (Tools/Screenshots/run.sh): `-OndaScene home | library | settings | search:<query> |
 /// artist:<browseId> | album:<browseId> | player:<videoId> | downloads:<videoId> | storage |
-/// equalizer | info:<album browseId> | mix | mix:options`.
+/// equalizer | info:<album browseId> | mix | mix:options | mix:edit`.
 /// `mix` makes two short songs and a playlist of them, and opens their transition in the Mix editor
-/// (`mix:options` with the options sheet too).
+/// (`mix:options` with the options sheet too, `mix:edit` drawing the volume lines by hand).
 /// `downloads` downloads the first songs of a song's radio and shows them downloading;
 /// `storage` shows the space they take; `info` plays an album and opens its first song's details.
 /// Launch arguments are never passed in normal use, so this does nothing then.
@@ -74,7 +74,8 @@ enum LaunchScene {
                 }.value
                 let playlist = Library.shared.createPlaylist(named: "Mix demo", tracks: [first, second])
                 router.mixTarget = MixTarget(playlistID: playlist.id, opensFirst: true,
-                                             options: value == "options" ? .eq : nil)
+                                             options: value == "options" ? .eq : nil,
+                                             editing: value == "edit" ? .volume : nil)
             }
         case "player":
             Task {

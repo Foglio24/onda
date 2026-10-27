@@ -203,6 +203,8 @@ final class PlayerController: ObservableObject {
     private var lastTick: TimeInterval = 0
     /// When the music paused because the headphones went away (see `handleRouteChange`).
     private var pausedForHeadphones: Date?
+    /// Where the sound went at the last route change (for when iOS doesn't say where it was).
+    private var lastOutputs: [(kind: AVAudioSession.Port, name: String)] = []
     /// AutoMix (see `prepareAutoMix`): the transition into the next song, planned while this one plays.
     private var autoMix: PlannedTransition?
     private var autoMixTask: Task<Void, Never>?
@@ -228,6 +230,7 @@ final class PlayerController: ObservableObject {
         let session = AVAudioSession.sharedInstance()
         try? session.setCategory(.playback, mode: .default)
         try? session.setSupportsMultichannelContent(true)
+        lastOutputs = Self.outputs(session.currentRoute)
         var usesNowPlayingFramework = false
         #if canImport(NowPlaying)
         if #available(iOS 27, *) {
@@ -1438,6 +1441,9 @@ final class PlayerController: ObservableObject {
         }
         let seam = CMTimeRange(start: CMTimeSubtract(length, overlap), duration: overlap)
         let mixPart = AVMutableAudioMixInputParameters(track: first)
+        // The mix comes in under the playing song, which fades out over it (see `startOnTime`).
+        mixPart.setVolumeRamp(fromStartVolume: 0, toEndVolume: 1,
+                              timeRange: CMTimeRange(start: .zero, duration: CMTime(seconds: handoverFade, preferredTimescale: scale)))
         mixPart.setVolumeRamp(fromStartVolume: 1, toEndVolume: 0, timeRange: seam)
         let songPart = AVMutableAudioMixInputParameters(track: second)
         songPart.setVolumeRamp(fromStartVolume: 0, toEndVolume: planned.incomingGain, timeRange: seam)
@@ -1452,8 +1458,13 @@ final class PlayerController: ObservableObject {
         return item
     }
 
+    /// How long the playing song and the mix overlap at the handover. There both play the same
+    /// music (the mix starts as a copy of the song), so a short crossfade hides the change of player
+    /// (two players never start on the very same sample: switched at once, it is heard as a cut).
+    nonisolated private static let handoverFade = 0.25
+
     /// Waits until the playing song is about to reach the handover, then has AVPlayer start the mix
-    /// at that exact moment of the system clock, and the playing song end there.
+    /// at that exact moment of the system clock, fading in while the playing song fades out.
     private func startOnTime(_ transition: ArmedTransition) async {
         let handover = transition.planned.plan.handover
         let outgoing = player
@@ -1479,10 +1490,20 @@ final class PlayerController: ObservableObject {
         let start = CMTimeAdd(CMClockGetTime(CMClockGetHostTimeClock()),
                               CMTime(seconds: (target - now) / rate, preferredTimescale: 1_000_000_000))
         transition.player.setRate(1, time: .zero, atHostTime: start)
-        // The playing song stops exactly where the mix carries it on.
-        item.forwardPlaybackEndTime = CMTime(seconds: target, preferredTimescale: 44_100)
+        // The playing song goes on under the mix's first moments, then stops.
+        let fade = Self.handoverFade
+        item.forwardPlaybackEndTime = CMTime(seconds: target + fade + 0.05, preferredTimescale: 44_100)
         transition.scheduled = true
         beginTransition(transition)
+        fadeOutTask = Task {
+            // Down in step with the mix coming up (same music: the two add up to the song).
+            while !Task.isCancelled {
+                let elapsed = CMTimeSubtract(CMClockGetTime(CMClockGetHostTimeClock()), start).seconds
+                outgoing.volume = Float(max(0, min(1, 1 - elapsed / fade)))
+                if elapsed >= fade { break }
+                try? await Task.sleep(for: .milliseconds(elapsed < 0 ? max(1, Int(-elapsed * 1000)) : 8))
+            }
+        }
     }
 
     /// The mix is starting: the next song becomes the current song (its player plays the mix and
@@ -1835,27 +1856,70 @@ final class PlayerController: ObservableObject {
     /// to the speaker; when they come back within half an hour, it carries on. Taking out a single
     /// AirPod, or Beats with ear detection, sends pause and play as remote commands instead
     /// (see `configureRemoteCommands`).
+    ///
+    /// Whatever reason iOS gives for the change (not always "old device unavailable"), what counts is
+    /// the sound moving from somewhere else to the iPhone itself. A route still settling (no output
+    /// yet) is looked at again a moment later. The last change is kept for Settings → Informazioni.
     private func handleRouteChange(_ note: Notification) {
-        guard let raw = note.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt,
-              let reason = AVAudioSession.RouteChangeReason(rawValue: raw) else { return }
-        switch reason {
-        case .oldDeviceUnavailable:
-            guard let previous = note.userInfo?[AVAudioSessionRouteChangePreviousRouteKey] as? AVAudioSessionRouteDescription,
-                  Self.hasHeadphones(previous), playWhenReady else { return }
-            pause()
-            pausedForHeadphones = .now
-        case .newDeviceAvailable:
-            guard let paused = pausedForHeadphones, Date.now.timeIntervalSince(paused) < 30 * 60, !playWhenReady,
-                  Self.hasHeadphones(AVAudioSession.sharedInstance().currentRoute) else { return }
+        let raw = note.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt
+        let reason = raw.flatMap(AVAudioSession.RouteChangeReason.init(rawValue:))
+        let previous = (note.userInfo?[AVAudioSessionRouteChangePreviousRouteKey] as? AVAudioSessionRouteDescription)
+            .map(Self.outputs) ?? lastOutputs
+        let current = Self.outputs(AVAudioSession.sharedInstance().currentRoute)
+        lastOutputs = current
+        var action = String(localized: "nessuna azione")
+        if Self.isAway(previous), playWhenReady {
+            if current.isEmpty {
+                // Still switching: decide once there is an output.
+                Task {
+                    try? await Task.sleep(for: .milliseconds(600))
+                    let settled = Self.outputs(AVAudioSession.sharedInstance().currentRoute)
+                    self.lastOutputs = settled
+                    guard self.playWhenReady, Self.isOnPhone(settled) else { return }
+                    self.pauseForHeadphones()
+                    self.noteRouteChange(reason, from: previous, to: settled, action: String(localized: "in pausa"))
+                }
+                action = String(localized: "in attesa")
+            } else if Self.isOnPhone(current) {
+                pauseForHeadphones()
+                action = String(localized: "in pausa")
+            }
+        } else if let paused = pausedForHeadphones, Self.isAway(current), !playWhenReady,
+                  Date.now.timeIntervalSince(paused) > 2, Date.now.timeIntervalSince(paused) < 30 * 60 {
             resume()
-        default:
-            break
+            action = String(localized: "ripresa")
         }
+        noteRouteChange(reason, from: previous, to: current, action: action)
     }
 
-    private static func hasHeadphones(_ route: AVAudioSessionRouteDescription) -> Bool {
-        let kinds: Set<AVAudioSession.Port> = [.headphones, .bluetoothA2DP, .bluetoothHFP, .bluetoothLE]
-        return route.outputs.contains { kinds.contains($0.portType) }
+    private func pauseForHeadphones() {
+        pause()
+        pausedForHeadphones = .now
+    }
+
+    /// The outputs of a route: their kind and name.
+    private static func outputs(_ route: AVAudioSessionRouteDescription) -> [(kind: AVAudioSession.Port, name: String)] {
+        route.outputs.map { ($0.portType, $0.portName) }
+    }
+
+    /// Playing on the iPhone itself (its speaker or earpiece).
+    private static func isOnPhone(_ outputs: [(kind: AVAudioSession.Port, name: String)]) -> Bool {
+        !outputs.isEmpty && outputs.allSatisfy { $0.kind == .builtInSpeaker || $0.kind == .builtInReceiver }
+    }
+
+    /// Playing somewhere else: headphones, AirPods, a Bluetooth or AirPlay speaker, the car.
+    private static func isAway(_ outputs: [(kind: AVAudioSession.Port, name: String)]) -> Bool {
+        !outputs.isEmpty && !isOnPhone(outputs)
+    }
+
+    private func noteRouteChange(_ reason: AVAudioSession.RouteChangeReason?, from previous: [(kind: AVAudioSession.Port, name: String)],
+                                 to current: [(kind: AVAudioSession.Port, name: String)], action: String) {
+        let names = { (outputs: [(kind: AVAudioSession.Port, name: String)]) -> String in
+            outputs.isEmpty ? "—" : outputs.map(\.name).joined(separator: ", ")
+        }
+        let time = Date.now.formatted(date: .omitted, time: .standard)
+        let text = "\(time) · \(names(previous)) → \(names(current)) (\(reason.map { "\($0.rawValue)" } ?? "?")) · \(action)"
+        UserDefaults.standard.set(text, forKey: Preferences.lastRouteChange)
     }
 
     private func handleInterruption(_ note: Notification) {

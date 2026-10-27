@@ -180,7 +180,29 @@ enum TransitionPlanner {
     /// A beat-matched plan of `bars` bars, the overlap ending by `end` (the song's time).
     static func beatMatched(_ a: TrackAnalysis, _ b: TrackAnalysis, bars: Int, endingBy end: Double,
                             minimumHandover: Double = 30) -> TransitionPlan? {
-        guard let octave = tempoMatch(a, b)?.octave else { return nil }
+        guard let found = cues(a, b, bars: bars, endingBy: end) else { return nil }
+        return beatMatched(a, b, bars: bars, from: found.outgoing, to: found.incoming, minimumHandover: minimumHandover)
+    }
+
+    /// Where a beat-matched mix of `bars` bars ending by `end` puts the two songs: this song's
+    /// downbeat the next one comes in on (as its sound ends, at a new section when there is one
+    /// nearby), and the next song's downbeat landing there (so the overlap ends where its main part
+    /// starts, skipping a long intro).
+    static func cues(_ a: TrackAnalysis, _ b: TrackAnalysis, bars: Int, endingBy end: Double) -> (outgoing: Int, incoming: Int)? {
+        guard let octave = tempoMatch(a, b)?.octave,
+              let downbeatOut = a.downbeat(startingOverlapOf: Double(bars * 4) * a.beatLength, endingBy: end)
+        else { return nil }
+        let first = b.firstDownbeat
+        let incomingBeats = Int((Double(bars * 4) / octave).rounded())
+        if let main = b.mainStart(), main - incomingBeats > first { return (downbeatOut, main - incomingBeats) }
+        return (downbeatOut, first)
+    }
+
+    /// A beat-matched plan of `bars` bars, the next song's downbeat `downbeatIn` landing on this
+    /// song's downbeat `downbeatOut`.
+    static func beatMatched(_ a: TrackAnalysis, _ b: TrackAnalysis, bars: Int, from downbeatOut: Int, to downbeatIn: Int,
+                            minimumHandover: Double) -> TransitionPlan? {
+        guard let octave = tempoMatch(a, b)?.octave, downbeatIn >= b.firstDownbeat, downbeatOut > 0 else { return nil }
         let tempoOut = a.tempo
         let tempoIn = b.tempo * octave
         // The two meet halfway (in ratio): each changes speed by as little as possible.
@@ -188,22 +210,12 @@ enum TransitionPlanner {
         let beat = a.beatLength
         let length = Double(bars * 4) * beat
         guard length * tempoOut / tempoMeet <= longestOverlap else { return nil }
-        // The next song: the overlap ends where its main part starts, so a long intro is skipped.
-        let first = b.firstDownbeat
-        let incomingBeats = Int((Double(bars * 4) / octave).rounded())
-        var downbeatIn = first
-        var inStart = max(0, b.soundStart - 0.01)
-        if let main = b.mainStart(), main - incomingBeats > first {
-            downbeatIn = main - incomingBeats
-            inStart = max(0, b.beatTime(downbeatIn) - 0.05)
-        }
+        // The next song starts where its sound does, or just before the downbeat it comes in on.
+        let inStart = downbeatIn == b.firstDownbeat ? max(0, b.soundStart - 0.01) : max(0, b.beatTime(downbeatIn) - 0.05)
         // While the next song plays up to its first downbeat, this one moves on by as many of its
         // own beats (both at the meeting tempo).
         let leadOut = (b.beatTime(downbeatIn) - inStart) * tempoIn / tempoOut
-        // This song: the overlap ends as its sound does, starting on a downbeat (at a new section
-        // when there is one nearby).
-        guard leadOut >= 0, leadOut < 8 * beat,
-              let downbeatOut = a.downbeat(startingOverlapOf: length, endingBy: end) else { return nil }
+        guard leadOut >= 0, leadOut < 8 * beat else { return nil }
         let alignment = a.beatTime(downbeatOut)
         let outStart = alignment - leadOut
         let outEnd = min(alignment + length, a.duration - 0.05)

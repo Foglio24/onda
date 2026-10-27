@@ -423,6 +423,157 @@ if let a = analyses[124], let b = analyses[126] {
            "Mix: an effect's tail stays inside the mix (\(format(schedule.length, 1)) s)")
 }
 
+// MARK: Bars and moving the songs
+
+// Two-minute songs: room for every choice of bars.
+if let a = analyze(song(bpm: 124, seconds: 120).samples, "124 BPM, 2 minutes"),
+   let b = analyze(song(bpm: 126, seconds: 120).samples, "126 BPM, 2 minutes") {
+    let bar = 4 * a.beatLength, barIn = 4 * b.beatLength
+    let choices = MixDesigner.barChoices(from: a, to: b, design: MixDesign())
+    expect(choices.map(\.bars) == [2, 4, 8, 16] && choices.allSatisfy(\.available),
+           "bars: 2, 4, 8 and 16 offered and possible (\(choices.filter(\.available).map(\.bars)))")
+    for bars in [2, 4, 8, 16] {
+        var design = MixDesign()
+        design.overlap = Double(bars) * bar
+        let plan = MixDesigner.plan(from: a, to: b, design: design)
+        expect(plan.bars == bars && MixDesigner.bars(of: plan) == bars && worstBeat(plan, a, b) < 0.002,
+               "bars: \(bars) bars together on the beat (\(plan.bars ?? 0), \(format(plan.overlap, 1)) s)")
+    }
+
+    var design = MixDesign()
+    design.overlap = 8 * bar
+    let base = MixDesigner.plan(from: a, to: b, design: design)
+    // The song leaving moved two and five bars earlier: the box (the bars) stays, the overlap
+    // moves by exactly that much.
+    for move in [-2, -5] {
+        var moved = design
+        moved.shift = Double(move) * bar
+        let plan = MixDesigner.plan(from: a, to: b, design: moved)
+        let difference = (plan.alignment ?? 0) - (base.alignment ?? 0)
+        expect(plan.bars == 8 && abs(difference - Double(move) * bar) < 0.001 && abs(plan.overlap - base.overlap) < 0.001
+               && worstBeat(plan, a, b) < 0.002,
+               "moving the song leaving \(move) bars: overlap moved \(format(difference / bar, 2)) bars, same length, on the beat")
+    }
+    // The next song moved two bars later: it starts that much further in, on the beat.
+    var later = design
+    later.incomingShift = 2 * barIn
+    let laterPlan = MixDesigner.plan(from: a, to: b, design: later)
+    expect(laterPlan.bars == 8 && abs(laterPlan.inStart - (b.beatTime(b.firstDownbeat + 8) - 0.05)) < 0.001
+           && worstBeat(laterPlan, a, b) < 0.002 && abs((laterPlan.alignment ?? 0) - (base.alignment ?? 0)) < 0.001,
+           "moving the next song 2 bars: it starts at \(format(laterPlan.inStart, 2)) s, on the beat, the song leaving unmoved")
+    checkSchedule(laterPlan, a, b, "next song moved")
+    // Too far: brought back to where the mix can be made (the mix already ends with the song, the
+    // next song can't start before its first beat, the first song keeps its first part), and kept
+    // there, so dragging back moves at once.
+    var past = design
+    past.shift = 100 * bar
+    past.incomingShift = -100 * barIn
+    let kept = MixDesigner.normalized(past, from: a, to: b)
+    expect(kept.shift == 0 && kept.incomingShift == nil, "moving past the ends: the songs stay where they can")
+    var early = design
+    early.shift = -100 * bar
+    let earliest = MixDesigner.normalized(early, from: a, to: b)
+    let earlyPlan = MixDesigner.plan(from: a, to: b, design: earliest)
+    let unkept = MixDesigner.plan(from: a, to: b, design: early)
+    expect(earliest.shift > -100 * bar && earliest.shift < 0 && earlyPlan.bars == 8 && earlyPlan.handover >= 15
+           && abs(earlyPlan.overlap - base.overlap) < 0.01 && unkept.outStart == earlyPlan.outStart && unkept.inStart == earlyPlan.inStart,
+           "moving too early: kept at \(format(earliest.shift / bar, 0)) bars (from \(format(earlyPlan.handover, 1)) s), the same mix")
+    // Without beatmatching the next song moves by seconds.
+    var free = MixDesign(beatmatch: false, overlap: 8)
+    let freeBase = MixDesigner.plan(from: a, to: b, design: free)
+    free.incomingShift = 6
+    let freePlan = MixDesigner.plan(from: a, to: b, design: free)
+    expect(abs(freePlan.inStart - freeBase.inStart - 6) < 0.001 && abs(freePlan.overlap - 8) < 0.01,
+           "beatmatching off: the next song starts 6 s further in (\(format(freePlan.inStart, 2)) s)")
+} else {
+    expect(false, "bars: the two-minute songs were analysed")
+}
+
+// MARK: Lines drawn by hand
+
+/// A design with its parts' options drawn as lines: what the editor starts from.
+func traced(_ design: MixDesign, overlap: Double = 15) -> MixDesign {
+    var drawn = design
+    for line in MixLine.allCases where line != .effect || design.effect != .none {
+        drawn.setLine(line, MixCurve.tracing { design.levels(at: $0, bar: 2 / overlap, ramp: 0.05 / overlap).value(of: line) })
+    }
+    return drawn
+}
+
+extension TransitionLevels {
+    func value(of line: MixLine) -> Double { line.value(in: self) }
+}
+
+/// Lines drawn from every option sound like the option (within 3 per cent outside its cuts),
+/// start and end right and never click, even over a short overlap.
+func checkDrawnLines() {
+    var bad: [String] = []
+    var designs: [(String, MixDesign)] = []
+    for option in MixVolume.allCases { designs.append(("volume \(option.rawValue)", MixDesign(volume: option))) }
+    for option in MixEQ.allCases { designs.append(("EQ \(option.rawValue)", MixDesign(eq: option))) }
+    for option in MixFilter.allCases { designs.append(("filter \(option.rawValue)", MixDesign(filter: option))) }
+    for option in MixEffect.allCases { designs.append(("effect \(option.rawValue)", MixDesign(effect: option))) }
+    for overlap in [15.0, 3.5] {
+        let bar = 2 / overlap, ramp = 0.05 / overlap
+        for (name, design) in designs {
+            let drawn = traced(design, overlap: overlap)
+            let first = drawn.levels(at: 0, bar: bar, ramp: ramp), last = drawn.levels(at: 1, bar: bar, ramp: ramp)
+            var ok = first.outgoing > 0.99 && first.incoming < 0.01 && last.outgoing < 0.01 && last.incoming > 0.99
+                && first.outgoingBassCut < 0.01 && first.outgoingLowPass < 0.01 && first.outgoingHighPass < 0.01
+                && last.incomingBassCut < 0.01 && last.incomingLowPass < 0.01 && last.incomingHighPass < 0.01
+            var close = 0, total = 0
+            var previous = first
+            let steps = Int(overlap * 44_100 / 512)
+            for step in 1...steps {
+                let progress = Double(step) / Double(steps)
+                let levels = drawn.levels(at: progress, bar: bar, ramp: ramp)
+                let option = design.levels(at: progress, bar: bar, ramp: ramp)
+                for line in MixLine.allCases {
+                    total += 1
+                    if abs(levels.value(of: line) - option.value(of: line)) < 0.03 { close += 1 }
+                }
+                if abs(levels.outgoing - previous.outgoing) > 0.5 || abs(levels.incoming - previous.incoming) > 0.5 { ok = false }
+                previous = levels
+            }
+            if !ok || Double(close) / Double(total) < 0.97 { bad.append("\(name) over \(format(overlap, 1)) s") }
+        }
+    }
+    expect(bad.isEmpty, "lines drawn from \(designs.count) options sound like them, start and end right, no clicks\(bad.isEmpty ? "" : " (not: \(bad.joined(separator: ", ")))")")
+}
+checkDrawnLines()
+
+do {
+    // A filter line is a DJ's knob: open in the middle, a high-pass above, a low-pass below.
+    var design = MixDesign()
+    design.setLine(.outgoingFilter, MixCurve(points: [MixPoint(x: 0, y: 0.5), MixPoint(x: 0.5, y: 0.8), MixPoint(x: 1, y: 0.2)]))
+    let middle = design.levels(at: 0.5, bar: 0.1, ramp: 0.003), end = design.levels(at: 1, bar: 0.1, ramp: 0.003)
+    expect(abs(middle.outgoingHighPass - 0.6) < 0.01 && middle.outgoingLowPass == 0
+           && abs(end.outgoingLowPass - 0.6) < 0.01 && end.outgoingHighPass == 0,
+           "filter line: above the middle a high-pass, below a low-pass")
+    // The ends where a song plays alone stay fixed.
+    design.setLine(.outgoingVolume, MixCurve(points: [MixPoint(x: 0, y: 0.3), MixPoint(x: 0.6, y: 0.9), MixPoint(x: 1, y: 0.7)]))
+    design.setLine(.effect, MixCurve(points: [MixPoint(x: 0.2, y: 0.4), MixPoint(x: 0.8, y: 1)]))
+    let volume = design.lines?[.outgoingVolume]?.points ?? []
+    let effect = design.lines?[.effect]?.points ?? []
+    expect(volume.first == MixPoint(x: 0, y: 1) && volume.last == MixPoint(x: 1, y: 0)
+           && effect.first == MixPoint(x: 0, y: 0) && effect.last == MixPoint(x: 1, y: 1),
+           "lines: the ends where a song plays alone are fixed, the others free")
+    // An effect line needs an effect: with none it does nothing; with an echo it drives the echo.
+    expect(design.levels(at: 0.5, bar: 0.1, ramp: 0.003).echo == 0, "effect line: nothing without an effect")
+    design.effect = .echoOutHalf
+    let echoed = design.levels(at: 0.8, bar: 0.1, ramp: 0.003)
+    expect(abs(echoed.echo - 1) < 0.01 && echoed.reverb == 0, "effect line: drives the echo chosen")
+    design.setLine(.effect, nil)
+    expect(design.lines?[.effect] == nil && design.lines?.count == 2, "lines: one taken away, the others kept")
+
+    // Saved designs: a 1.14 one (no lines, no move of the next song) still reads; lines are kept.
+    let old = #"{"preset":"fade","volume":"crossfade","eq":"none","filter":"none","effect":"none","loop":0,"beatmatch":true,"shift":0}"#
+    let decoded = try? JSONDecoder().decode(MixDesign.self, from: Data(old.utf8))
+    expect(decoded?.preset == .fade && decoded?.lines == nil && decoded?.incomingShift == nil, "saved 1.14 design: still read")
+    let again = (try? JSONEncoder().encode(design)).flatMap { try? JSONDecoder().decode(MixDesign.self, from: $0) }
+    expect(again == design, "design with lines: saved and read back the same")
+}
+
 // Progress follows the outgoing song's time, clamped.
 let sample = TransitionPlan(style: .fade, handover: 99.5, outStart: 100, outEnd: 110, inStart: 0, tempoOut: 120,
                             tempoMeet: 120, tempoIn: 120, alignment: nil, swapStart: nil, swapEnd: nil, fadeIn: 0.5,

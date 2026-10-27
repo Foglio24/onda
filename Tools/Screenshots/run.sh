@@ -59,5 +59,6 @@ xcrun simctl io "$device" screenshot "$out/16-player-card.png" >/dev/null && ech
 # The Mix editor, on two songs it makes itself (YouTube's audio isn't available to CI).
 shot 17-mix it 25 mix
 shot 18-mix-options it 25 "mix:options"
+shot 19-mix-edit it 25 "mix:edit"
 
 xcrun simctl shutdown "$device" || true

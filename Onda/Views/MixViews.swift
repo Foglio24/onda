@@ -28,12 +28,43 @@ enum MixCategory: Int, CaseIterable, Identifiable {
     }
 
     func value(_ design: MixDesign) -> String {
+        if isCustom(design) { return MixPreset.custom.title }
         switch self {
         case .volume: return design.volume.title
         case .eq: return design.eq.title
         case .filter: return design.filter.title
         case .effects: return design.effect.title
         case .loop: return design.loop.title
+        }
+    }
+
+    /// The lines of this part that can be drawn by hand (none for looping).
+    var lines: [MixLine] {
+        switch self {
+        case .volume: return [.outgoingVolume, .incomingVolume]
+        case .eq: return [.outgoingBass, .incomingBass]
+        case .filter: return [.outgoingFilter, .incomingFilter]
+        case .effects: return [.effect]
+        case .loop: return []
+        }
+    }
+
+    /// The parts with lines to draw.
+    static var drawable: [MixCategory] { allCases.filter { !$0.lines.isEmpty } }
+
+    /// Some of its lines are drawn by hand.
+    func isCustom(_ design: MixDesign) -> Bool {
+        lines.contains { design.lines?[$0] != nil }
+    }
+}
+
+extension MixLine {
+    var category: MixCategory {
+        switch self {
+        case .outgoingVolume, .incomingVolume: return .volume
+        case .outgoingBass, .incomingBass: return .eq
+        case .outgoingFilter, .incomingFilter: return .filter
+        case .effect: return .effects
         }
     }
 }
@@ -44,6 +75,7 @@ struct MixTarget: Identifiable {
     let playlistID: UUID
     var opensFirst = false
     var options: MixCategory?
+    var editing: MixCategory?
 }
 
 // MARK: Playlist
@@ -55,6 +87,7 @@ struct PlaylistMixView: View {
     let playlistID: UUID
     var opensFirst = false
     var opensOptions: MixCategory?
+    var opensEditing: MixCategory?
 
     @EnvironmentObject private var library: Library
     @EnvironmentObject private var downloads: DownloadManager
@@ -81,7 +114,8 @@ struct PlaylistMixView: View {
             .navigationDestination(for: Int.self) { index in
                 if let playlist = library.playlist(playlistID), index + 1 < playlist.tracks.count {
                     TransitionEditorView(playlistID: playlistID, from: playlist.tracks[index],
-                                         to: playlist.tracks[index + 1], opensOptions: opensOptions)
+                                         to: playlist.tracks[index + 1], opensOptions: opensOptions,
+                                         opensEditing: opensEditing)
                 }
             }
         }
@@ -186,14 +220,17 @@ private struct TransitionRow: View {
 
 // MARK: Transition
 
-/// One transition of the Mix, as Spotify's editor: both songs' waveforms overlapping with the
-/// volume, bass and filter curves over them (drag them to move and lengthen the mix), the presets,
-/// the five parts, beatmatching, and a preview of the mix.
+/// One transition of the Mix, as Spotify's editor: both songs' waveforms overlapping in a box that
+/// stands for the bars they play together, with the volume, bass, filter and effect lines over
+/// them. Drag a song sideways to move where it leaves or comes in (the box keeps its length: that
+/// is the bars' choice), or draw the lines by hand (Personalizza); then the presets, the five
+/// parts, beatmatching and a preview of the mix.
 struct TransitionEditorView: View {
     let playlistID: UUID
     let from: Track
     let to: Track
     var opensOptions: MixCategory?
+    var opensEditing: MixCategory?
 
     @EnvironmentObject private var library: Library
     @Environment(\.dismiss) private var dismiss
@@ -203,7 +240,30 @@ struct TransitionEditorView: View {
     @State private var waves: (outgoing: MixWaveform, incoming: MixWaveform)?
     @State private var failed = false
     @State private var options: MixCategory?
-    @State private var dragStart: (overlap: Double, shift: Double)?
+    @State private var showsBars = false
+    /// A song dragged sideways: the upper one (leaving) or the lower one, and by how many points.
+    @State private var slide: (outgoing: Bool, offset: CGFloat)?
+    /// The part whose lines are being drawn by hand.
+    @State private var editing: MixCategory?
+    /// Lines given their option's shape when drawing started (taken away again if left as they
+    /// were), and the effect chosen for drawing when there was none.
+    @State private var seeded: [MixLine: MixCurve] = [:]
+    @State private var seededEffect: MixEffect?
+    /// The point held while drawing.
+    @State private var grab: Grab?
+    @State private var touches = 0
+
+    private struct Grab {
+        let line: MixLine
+        var index: Int
+        /// Added by this touch (so lifting the finger doesn't take it away).
+        let added: Bool
+        /// From the finger to the point, so it doesn't jump when taken.
+        let offset: CGSize
+    }
+
+    /// Points of a line stay this far apart (of the overlap).
+    private static let gap = 0.012
 
     private var plan: TransitionPlan? {
         analyses.map { MixDesigner.plan(from: $0.outgoing, to: $0.incoming, design: design) }
@@ -218,6 +278,7 @@ struct TransitionEditorView: View {
             VStack(spacing: 16) {
                 header(from, analysis: analyses?.outgoing)
                 waveformBox
+                if editing != nil { editBar }
                 header(to, analysis: analyses?.incoming)
                 if failed {
                     Text("Non è stato possibile analizzare questi brani.")
@@ -242,7 +303,10 @@ struct TransitionEditorView: View {
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
-                    Button { design = MixDesign(beatmatch: canBeatmatch) } label: {
+                    Button {
+                        editing = nil
+                        design = MixDesign(beatmatch: canBeatmatch)
+                    } label: {
                         Label("Torna ad Auto", systemImage: "sparkles")
                     }
                     Button(role: .destructive) {
@@ -257,11 +321,21 @@ struct TransitionEditorView: View {
                 }
             }
         }
+        .sensoryFeedback(.selection, trigger: touches)
         .task { await load() }
         .onDisappear { preview.stop() }
         .sheet(item: $options) { category in
-            MixOptionsSheet(design: $design, start: category)
-                .presentationDetents([.medium, .large])
+            MixOptionsSheet(design: $design, start: category) { chosen in
+                options = nil
+                beginEditing(chosen)
+            }
+            .presentationDetents([.medium, .large])
+        }
+        .sheet(isPresented: $showsBars) {
+            if let analyses {
+                MixBarsSheet(choices: MixDesigner.barChoices(from: analyses.outgoing, to: analyses.incoming, design: design),
+                             selected: plan.map(MixDesigner.bars(of:)) ?? 0) { bars in setBars(bars) }
+            }
         }
     }
 
@@ -307,40 +381,141 @@ struct TransitionEditorView: View {
     }
 
     private var waveformBox: some View {
-        GeometryReader { geometry in
-            let size = geometry.size
-            let box = Self.box(in: size)
-            ZStack {
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .fill(Color.white.opacity(0.06))
-                    .glassEffect(.regular, in: .rect(cornerRadius: 24))
-                    .frame(width: box.width, height: size.height)
-                    .position(x: box.midX, y: size.height / 2)
-                if let plan, let waves {
-                    Canvas { context, canvasSize in
-                        MixDrawing.draw(in: &context, size: canvasSize, box: Self.box(in: canvasSize), plan: plan,
-                                        outgoing: waves.outgoing, incoming: waves.incoming,
-                                        playhead: preview.position)
+        VStack(spacing: 0) {
+            GeometryReader { geometry in
+                let size = geometry.size
+                let box = Self.box(in: size)
+                ZStack {
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .fill(Color.white.opacity(0.06))
+                        .glassEffect(.regular, in: .rect(cornerRadius: 24))
+                        .frame(width: box.width, height: size.height)
+                        .position(x: box.midX, y: size.height / 2)
+                    if let plan, let waves {
+                        let scene = MixDrawing.Scene(plan: plan, outgoing: waves.outgoing, incoming: waves.incoming,
+                                                     beats: gridBeats(plan), playhead: preview.position, slide: slide,
+                                                     editing: editing?.lines ?? [], held: grab.map { ($0.line, $0.index) })
+                        Canvas { context, canvasSize in
+                            MixDrawing.draw(scene, in: &context, size: canvasSize, box: Self.box(in: canvasSize))
+                        }
+                        .allowsHitTesting(false)
+                    } else if !failed {
+                        ProgressView()
                     }
-                    .allowsHitTesting(false)
-                } else if !failed {
-                    ProgressView()
+                    Color.clear
+                        .contentShape(Rectangle())
+                        .gesture(touch(size: size))
+                    Button { togglePreview() } label: {
+                        Image(systemName: preview.isPlaying ? "stop.fill" : (preview.isPreparing ? "hourglass" : "play.fill"))
+                            .font(.title3)
+                            .frame(width: 58, height: 42)
+                            .contentShape(.capsule)
+                    }
+                    .buttonStyle(.plain)
+                    .glassEffect(.regular.interactive(), in: .capsule)
+                    .position(x: size.width / 2, y: size.height / 2)
+                    .disabled(plan == nil)
                 }
-                Button { togglePreview() } label: {
-                    Image(systemName: preview.isPlaying ? "stop.fill" : (preview.isPreparing ? "hourglass" : "play.fill"))
-                        .font(.title3)
-                        .frame(width: 58, height: 42)
+            }
+            .frame(height: 330)
+            if editing == nil {
+                pills
+                    .padding(.top, -22)
+            }
+        }
+    }
+
+    /// Under the box, as Spotify's: how many bars the mix lasts, and drawing the lines by hand.
+    private var pills: some View {
+        HStack(spacing: 10) {
+            Button { showsBars = true } label: {
+                HStack(spacing: 6) {
+                    Text("\(plan.map(MixDesigner.bars(of:)) ?? 0) barre")
+                    Image(systemName: "chevron.down")
+                        .font(.caption.weight(.bold))
+                }
+                .font(.headline)
+                .padding(.horizontal, 18)
+                .padding(.vertical, 11)
+                .contentShape(.capsule)
+            }
+            .buttonStyle(.plain)
+            .glassEffect(.regular.interactive(), in: .capsule)
+            Button { beginEditing(.volume) } label: {
+                Label("Personalizza", systemImage: "scribble.variable")
+                    .font(.headline)
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 11)
+                    .contentShape(.capsule)
+            }
+            .buttonStyle(.plain)
+            .glassEffect(.regular.interactive(), in: .capsule)
+        }
+        .disabled(plan == nil)
+    }
+
+    /// While drawing: which part's lines, back to the option's, done; and how it works.
+    private var editBar: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                ScrollView(.horizontal) {
+                    HStack(spacing: 8) {
+                        ForEach(MixCategory.drawable) { category in
+                            let selected = editing == category
+                            Button { switchEditing(to: category) } label: {
+                                Text(category.title)
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(selected ? Color.black : Color.primary)
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 9)
+                                    .contentShape(.capsule)
+                            }
+                            .buttonStyle(.plain)
+                            .glassEffect(selected ? Glass.regular.tint(category.color).interactive() : Glass.regular.interactive(),
+                                         in: .capsule)
+                        }
+                    }
+                    .padding(.vertical, 2)
+                }
+                .scrollIndicators(.hidden)
+                Button { resetLines() } label: {
+                    Image(systemName: "arrow.counterclockwise")
+                        .font(.body.weight(.semibold))
+                        .frame(width: 40, height: 40)
+                        .contentShape(.circle)
+                }
+                .buttonStyle(.plain)
+                .glassEffect(.regular.interactive(), in: .circle)
+                .accessibilityLabel("Ripristina")
+                Button { endEditing() } label: {
+                    Text("Fine")
+                        .font(.subheadline.weight(.bold))
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
                         .contentShape(.capsule)
                 }
                 .buttonStyle(.plain)
-                .glassEffect(.regular.interactive(), in: .capsule)
-                .position(x: size.width / 2, y: size.height / 2)
-                .disabled(plan == nil)
+                .glassEffect(.regular.tint(.green).interactive(), in: .capsule)
             }
-            .contentShape(Rectangle())
-            .gesture(drag(size: size))
+            Text(editingHint)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
-        .frame(height: 330)
+    }
+
+    private var editingHint: String {
+        let basic = String(localized: "Trascina i punti per cambiare le linee. Tocca una linea per aggiungere un punto, tocca un punto per toglierlo.")
+        switch editing {
+        case .eq:
+            return basic + " " + String(localized: "In alto i bassi ci sono tutti, in basso sono tolti.")
+        case .filter:
+            return basic + " " + String(localized: "A metà altezza il filtro è aperto: più su è un passa alto, più giù un passa basso.")
+        case .effects:
+            return basic + " " + String(localized: "Più in alto, più il brano che esce va nell'effetto: \(design.effect.title).")
+        default:
+            return basic
+        }
     }
 
     private var presets: some View {
@@ -433,33 +608,205 @@ struct TransitionEditorView: View {
     // MARK: Actions
 
     private func apply(_ preset: MixPreset) {
+        editing = nil
+        seeded = [:]
         var next = MixDesign.preset(preset)
         next.beatmatch = design.beatmatch
         next.overlap = design.overlap
         next.shift = design.shift
+        next.incomingShift = design.incomingShift
         design = next
     }
 
-    /// Dragging the lower song moves where it comes in (the overlap gets longer or shorter);
-    /// dragging the upper one moves where the song leaving ends. In whole bars with beatmatching.
-    private func drag(size: CGSize) -> some Gesture {
-        DragGesture(minimumDistance: 8)
+    private func setBars(_ bars: Int) {
+        guard let analyses else { return }
+        var next = design
+        next.overlap = Double(bars) * 4 * analyses.outgoing.beatLength
+        design = MixDesigner.normalized(next, from: analyses.outgoing, to: analyses.incoming)
+        touches += 1
+    }
+
+    /// Outside drawing, a finger slides a song sideways; while drawing, it moves, adds and takes
+    /// away the points of the lines.
+    private func touch(size: CGSize) -> some Gesture {
+        DragGesture(minimumDistance: editing == nil ? 6 : 0)
             .onChanged { value in
-                guard let plan else { return }
-                let box = Self.box(in: size)
-                let secondsPerPoint = plan.overlap / Double(max(1, box.width))
-                if dragStart == nil { dragStart = (plan.overlap, design.shift) }
-                guard let start = dragStart else { return }
-                let moved = Double(value.translation.width) * secondsPerPoint
-                let step = design.beatmatch && canBeatmatch ? plan.barLength : 0.5
-                if value.startLocation.y > size.height / 2 {
-                    let overlap = max(step, min(64, start.overlap - moved))
-                    design.overlap = (overlap / step).rounded() * step
+                if editing != nil {
+                    draw(value, size: size)
                 } else {
-                    design.shift = ((start.shift - moved) / step).rounded() * step
+                    slide = (value.startLocation.y < size.height / 2, value.translation.width)
                 }
             }
-            .onEnded { _ in dragStart = nil }
+            .onEnded { value in
+                if editing != nil {
+                    finishDrawing(value)
+                } else {
+                    settleSlide(value.translation.width, outgoing: value.startLocation.y < size.height / 2, size: size)
+                }
+            }
+    }
+
+    /// A song slid sideways: the upper one changes where it leaves, the lower one where it comes
+    /// in, in whole bars with beatmatching (and only as far as the mix can be made). The box, the
+    /// length of the mix, stays as it is.
+    private func settleSlide(_ translation: CGFloat, outgoing: Bool, size: CGSize) {
+        defer { slide = nil }
+        guard let plan, let analyses else { return }
+        // Dragging to the left brings later music into the box.
+        let seconds = -Double(translation) * plan.overlap / Double(max(1, Self.box(in: size).width))
+        let matched = plan.style == .beatMatched
+        var next = design
+        if outgoing {
+            let step = matched ? plan.barLength : 0.5
+            next.shift = ((design.shift + seconds) / step).rounded() * step
+        } else {
+            // In the next song's own seconds: it plays at its tempo against this one's.
+            let own = seconds * plan.tempoOut / plan.tempoIn
+            let step = matched ? 4 * analyses.incoming.beatLength : 0.5
+            next.incomingShift = (((design.incomingShift ?? 0) + own) / step).rounded() * step
+        }
+        let normalized = MixDesigner.normalized(next, from: analyses.outgoing, to: analyses.incoming)
+        if normalized != design {
+            design = normalized
+            touches += 1
+        }
+    }
+
+    /// Starts drawing a part's lines: each one not drawn yet takes its option's shape (an effect
+    /// line starts from a reverb when there is no effect).
+    private func beginEditing(_ category: MixCategory) {
+        guard let analyses, !category.lines.isEmpty else { return }
+        preview.stop()
+        var next = design
+        seededEffect = nil
+        if category == .effects, next.effect == .none {
+            seededEffect = next.effect
+            next.effect = .reverbOutEnd
+        }
+        let plan = MixDesigner.plan(from: analyses.outgoing, to: analyses.incoming, design: next)
+        seeded = [:]
+        for line in category.lines where next.lines?[line] == nil {
+            next.setLine(line, MixCurve.tracing { line.value(in: plan.levels(at: $0)) })
+            seeded[line] = next.lines?[line]
+        }
+        design = next
+        editing = category
+    }
+
+    /// Lines left as their option drew them go back to being the option.
+    private func endEditing() {
+        if let category = editing {
+            var untouched = true
+            for line in category.lines {
+                if let start = seeded[line], design.lines?[line] == start {
+                    design.setLine(line, nil)
+                } else if seeded[line] != nil {
+                    untouched = false
+                }
+            }
+            if untouched, let seededEffect { design.effect = seededEffect }
+        }
+        seeded = [:]
+        seededEffect = nil
+        grab = nil
+        editing = nil
+    }
+
+    private func switchEditing(to category: MixCategory) {
+        guard category != editing else { return }
+        endEditing()
+        beginEditing(category)
+    }
+
+    /// The part's lines back to its option's shape.
+    private func resetLines() {
+        guard let category = editing else { return }
+        let effect = seededEffect
+        for line in category.lines { design.setLine(line, nil) }
+        editing = nil
+        beginEditing(category)
+        if let effect { seededEffect = effect }
+        touches += 1
+    }
+
+    private func draw(_ value: DragGesture.Value, size: CGSize) {
+        guard let category = editing, let plan else { return }
+        let box = Self.box(in: size)
+        let lanes = MixDrawing.lanes(in: size)
+        if grab == nil {
+            let start = value.startLocation
+            let upper = start.y < size.height / 2
+            guard let line = category.lines.first(where: { $0.isOutgoing == upper }) else { return }
+            let lane = upper ? lanes.top : lanes.bottom
+            var curve = design.lines?[line] ?? MixCurve.tracing { line.value(in: plan.levels(at: $0)) }
+            let points = curve.points.map { MixDrawing.screen($0, box: box, lane: lane) }
+            if let nearest = points.indices.min(by: { Self.distance(points[$0], start) < Self.distance(points[$1], start) }),
+               Self.distance(points[nearest], start) < 30 {
+                grab = Grab(line: line, index: nearest, added: false,
+                            offset: CGSize(width: points[nearest].x - start.x, height: points[nearest].y - start.y))
+            } else {
+                // A new point where the line was touched.
+                let x = Double((start.x - box.minX) / box.width)
+                guard let after = curve.points.firstIndex(where: { $0.x > x }), after > 0,
+                      x - curve.points[after - 1].x >= Self.gap, curve.points[after].x - x >= Self.gap else { return }
+                curve.points.insert(MixPoint(x: x, y: Self.level(at: start.y, in: lane, for: line)), at: after)
+                design.setLine(line, curve)
+                design.preset = .custom
+                grab = Grab(line: line, index: after, added: true, offset: .zero)
+            }
+            touches += 1
+        }
+        guard let grab, var curve = design.lines?[grab.line] else { return }
+        let lane = grab.line.isOutgoing ? lanes.top : lanes.bottom
+        let location = CGPoint(x: value.location.x + grab.offset.width, y: value.location.y + grab.offset.height)
+        let index = grab.index, last = curve.points.count - 1
+        guard curve.points.indices.contains(index) else { return }
+        var point = curve.points[index]
+        if index > 0, index < last {
+            let x = Double((location.x - box.minX) / box.width)
+            point.x = min(max(x, curve.points[index - 1].x + Self.gap), curve.points[index + 1].x - Self.gap)
+        }
+        let fixed = index == 0 ? grab.line.fixedStart : (index == last ? grab.line.fixedEnd : nil)
+        if fixed == nil { point.y = Self.level(at: location.y, in: lane, for: grab.line) }
+        guard point != curve.points[index] else { return }
+        curve.points[index] = point
+        design.setLine(grab.line, curve)
+        design.preset = .custom
+    }
+
+    /// A tap on a point (not one just added, nor the ends) takes it away.
+    private func finishDrawing(_ value: DragGesture.Value) {
+        defer { grab = nil }
+        guard let grab, !grab.added, hypot(value.translation.width, value.translation.height) < 4,
+              var curve = design.lines?[grab.line], grab.index > 0, grab.index < curve.points.count - 1 else { return }
+        curve.points.remove(at: grab.index)
+        design.setLine(grab.line, curve)
+        design.preset = .custom
+        touches += 1
+    }
+
+    /// A line's value at a height of its lane; a filter snaps open in the middle.
+    private static func level(at y: CGFloat, in lane: CGRect, for line: MixLine) -> Double {
+        let value = max(0, min(1, Double((lane.maxY - y) / lane.height)))
+        if line.category == .filter, abs(value - 0.5) < 0.04 { return 0.5 }
+        return value
+    }
+
+    private static func distance(_ a: CGPoint, _ b: CGPoint) -> CGFloat {
+        hypot(a.x - b.x, a.y - b.y)
+    }
+
+    /// The song leaving's beats around the mix, for the grid in the box.
+    private func gridBeats(_ plan: TransitionPlan) -> [(time: Double, downbeat: Bool)] {
+        guard let outgoing = analyses?.outgoing, outgoing.isGridLocked else { return [] }
+        let margin = plan.overlap * 0.7
+        var beats: [(time: Double, downbeat: Bool)] = []
+        var beat = outgoing.beat(atOrAfter: plan.outStart - margin)
+        while outgoing.beatTime(beat) <= plan.outEnd + margin, beats.count < 600 {
+            beats.append((outgoing.beatTime(beat), outgoing.isDownbeat(beat)))
+            beat += 1
+        }
+        return beats
     }
 
     private func togglePreview() {
@@ -468,6 +815,7 @@ struct TransitionEditorView: View {
     }
 
     private func save() {
+        endEditing()
         library.setMixDesign(design, from: from, to: to, in: playlistID)
         if library.playlist(playlistID)?.mix?.enabled == false { library.setMixEnabled(true, for: playlistID) }
         PlayerController.shared.applyTransitionPreference()
@@ -493,10 +841,12 @@ struct TransitionEditorView: View {
             design.beatmatch = MixDesigner.canBeatmatch(analysisA, analysisB)
         }
         analyses = (analysisA, analysisB)
-        async let waveA = MixWaveform.make(file: fileA, from: max(0, analysisA.duration - 110), to: analysisA.duration)
-        async let waveB = MixWaveform.make(file: fileB, from: 0, to: min(analysisB.duration, 110))
+        // The whole songs, so either can be slid to any part of it.
+        async let waveA = MixWaveform.make(file: fileA, from: 0, to: analysisA.duration)
+        async let waveB = MixWaveform.make(file: fileB, from: 0, to: analysisB.duration)
         if let a = await waveA, let b = await waveB { waves = (a, b) }
         if let opensOptions { options = opensOptions }
+        if let opensEditing { beginEditing(opensEditing) }
     }
 
     static func file(for track: Track) -> URL? {
@@ -514,12 +864,54 @@ struct TransitionEditorView: View {
     }
 }
 
+/// How many bars the mix lasts, as Spotify's: 2, 4, 8 or 16 (those the songs allow).
+private struct MixBarsSheet: View {
+    let choices: [(bars: Int, available: Bool)]
+    let selected: Int
+    let choose: (Int) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(spacing: 10) {
+                ForEach(choices, id: \.bars) { choice in
+                    let isSelected = choice.bars == selected
+                    Button { choose(choice.bars) } label: {
+                        Text("\(choice.bars) barre")
+                            .font(.headline)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                            .foregroundStyle(isSelected ? Color.black : Color.primary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 18)
+                            .contentShape(.rect(cornerRadius: 16))
+                    }
+                    .buttonStyle(.plain)
+                    .glassEffect(isSelected ? Glass.regular.tint(.white).interactive() : Glass.regular.interactive(),
+                                 in: .rect(cornerRadius: 16))
+                    .disabled(!choice.available)
+                    .opacity(choice.available ? 1 : 0.4)
+                }
+            }
+            Text("Scegli la durata della transizione delle tracce.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 30)
+        .frame(maxHeight: .infinity, alignment: .top)
+        .presentationDetents([.height(190)])
+        .presentationBackground(.regularMaterial)
+    }
+}
+
 // MARK: Options
 
 /// The options of the five parts, one page each (swipe between them), as in Spotify's Mix.
 struct MixOptionsSheet: View {
     @Binding var design: MixDesign
     let start: MixCategory
+    /// Draw a part's lines by hand (Personalizza).
+    var customize: ((MixCategory) -> Void)?
     @State private var page: MixCategory = .volume
 
     var body: some View {
@@ -550,6 +942,19 @@ struct MixOptionsSheet: View {
                         Text(category.title)
                             .font(.title3.weight(.semibold))
                         Spacer()
+                        if let customize, !category.lines.isEmpty {
+                            let custom = category.isCustom(design)
+                            Button { customize(category) } label: {
+                                Label(custom ? String(localized: "Personalizzato") : String(localized: "Personalizza"),
+                                      systemImage: custom ? "checkmark" : "scribble.variable")
+                                    .font(.subheadline.weight(.semibold))
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 7)
+                                    .contentShape(.capsule)
+                            }
+                            .buttonStyle(.plain)
+                            .glassEffect(.regular.interactive(), in: .capsule)
+                        }
                     }
                     .padding(.horizontal, 20)
                     .padding(.vertical, 16)
@@ -589,28 +994,31 @@ struct MixOptionsSheet: View {
     }
 
     private func rows(for category: MixCategory) -> [Row] {
+        // Choosing an option takes the place of the part's lines drawn by hand.
+        let drawn = category.isCustom(design)
         func custom(_ change: @escaping (inout MixDesign) -> Void) -> () -> Void {
             {
                 change(&design)
+                for line in category.lines { design.setLine(line, nil) }
                 design.preset = .custom
             }
         }
         switch category {
         case .volume:
             return MixVolume.allCases.map { option in
-                Row(title: option.title, selected: design.volume == option, choose: custom { $0.volume = option })
+                Row(title: option.title, selected: !drawn && design.volume == option, choose: custom { $0.volume = option })
             }
         case .eq:
             return MixEQ.allCases.map { option in
-                Row(title: option.title, selected: design.eq == option, choose: custom { $0.eq = option })
+                Row(title: option.title, selected: !drawn && design.eq == option, choose: custom { $0.eq = option })
             }
         case .filter:
             return MixFilter.allCases.map { option in
-                Row(title: option.title, selected: design.filter == option, choose: custom { $0.filter = option })
+                Row(title: option.title, selected: !drawn && design.filter == option, choose: custom { $0.filter = option })
             }
         case .effects:
             return MixEffect.allCases.map { option in
-                Row(title: option.title, selected: design.effect == option, choose: custom { $0.effect = option })
+                Row(title: option.title, selected: !drawn && design.effect == option, choose: custom { $0.effect = option })
             }
         case .loop:
             return MixLoop.allCases.map { option in
@@ -669,71 +1077,111 @@ struct MixWaveform: Sendable {
     }
 }
 
-/// Draws the editor's waveforms (the song leaving on top, warm colours; the next one below, blue)
-/// and the curves of the mix over them, mapped to the song leaving's time.
+/// Draws the editor: the beat grid in the box, the waveforms (the song leaving on top, warm
+/// colours; the next one below, blue; faded where they don't play in the mix) and the lines of the
+/// mix over them, all in the leaving song's time.
 enum MixDrawing {
-    static func draw(in context: inout GraphicsContext, size: CGSize, box: CGRect, plan: TransitionPlan,
-                     outgoing: MixWaveform, incoming: MixWaveform, playhead: Double?) {
+    struct Scene {
+        var plan: TransitionPlan
+        var outgoing: MixWaveform
+        var incoming: MixWaveform
+        /// The song leaving's beats around the mix, and whether each starts a bar.
+        var beats: [(time: Double, downbeat: Bool)]
+        var playhead: Double?
+        /// A song being slid sideways, by so many points.
+        var slide: (outgoing: Bool, offset: CGFloat)?
+        /// Lines being drawn by hand (their points shown), and the point held.
+        var editing: [MixLine]
+        var held: (line: MixLine, index: Int)?
+    }
+
+    /// The song leaving's lane (top) and the next one's.
+    static func lanes(in size: CGSize) -> (top: CGRect, bottom: CGRect) {
+        (CGRect(x: 0, y: size.height * 0.06, width: size.width, height: size.height * 0.4),
+         CGRect(x: 0, y: size.height * 0.54, width: size.width, height: size.height * 0.4))
+    }
+
+    /// Where a point of a line is drawn.
+    static func screen(_ point: MixPoint, box: CGRect, lane: CGRect) -> CGPoint {
+        CGPoint(x: box.minX + CGFloat(point.x) * box.width, y: lane.maxY - CGFloat(point.y) * lane.height)
+    }
+
+    static func draw(_ scene: Scene, in context: inout GraphicsContext, size: CGSize, box: CGRect) {
+        let plan = scene.plan
         let scale = Double(box.width) / max(0.5, plan.overlap)
+        let lanes = Self.lanes(in: size)
+        let topOffset = scene.slide.map { $0.outgoing ? $0.offset : 0 } ?? 0
+        let bottomOffset = scene.slide.map { $0.outgoing ? 0 : $0.offset } ?? 0
         let x = { (time: Double) -> CGFloat in box.minX + CGFloat((time - plan.outStart) * scale) }
         // The next song's time in the leaving song's, while they play together.
         let ratio = plan.tempoIn / plan.tempoOut
         let fromIncoming = { (time: Double) -> Double in plan.outStart + (time - plan.inStart) * ratio }
-        let topLane = CGRect(x: 0, y: size.height * 0.06, width: size.width, height: size.height * 0.4)
-        let bottomLane = CGRect(x: 0, y: size.height * 0.54, width: size.width, height: size.height * 0.4)
 
-        // The song leaving, up to where it has gone.
-        let warm = (Color(red: 0.86, green: 0.58, blue: 0.32), Color(red: 0.55, green: 0.33, blue: 0.16),
-                    Color(red: 0.97, green: 0.92, blue: 0.82))
-        let cool = (Color(red: 0.15, green: 0.24, blue: 0.78), Color(red: 0.55, green: 0.33, blue: 0.16),
-                    Color(red: 0.97, green: 0.92, blue: 0.82))
-        let barWidth = max(1, CGFloat(outgoing.step * scale) * 0.9)
-        var time = plan.outStart - Double(box.minX) / scale
-        while time < plan.outEnd {
-            if let index = outgoing.index(at: time) {
-                bar(&context, at: x(time), lane: topLane, width: barWidth, values: (outgoing.full[index],
-                    outgoing.low[index], outgoing.high[index]), colors: warm)
+        // The beat grid, a bar line stronger, inside the box.
+        context.drawLayer { layer in
+            layer.clip(to: Path(roundedRect: box, cornerRadius: 24, style: .continuous))
+            for beat in scene.beats {
+                let position = x(beat.time) + topOffset
+                guard position > box.minX - 2, position < box.maxX + 2 else { continue }
+                var line = Path()
+                line.move(to: CGPoint(x: position, y: 0))
+                line.addLine(to: CGPoint(x: position, y: size.height))
+                layer.stroke(line, with: .color(.white.opacity(beat.downbeat ? 0.13 : 0.05)), lineWidth: beat.downbeat ? 1.2 : 1)
             }
-            time += outgoing.step
-        }
-        var incomingTime = plan.inStart
-        let incomingWidth = max(1, CGFloat(incoming.step * scale * ratio) * 0.9)
-        while x(fromIncoming(incomingTime)) < size.width {
-            if let index = incoming.index(at: incomingTime) {
-                bar(&context, at: x(fromIncoming(incomingTime)), lane: bottomLane, width: incomingWidth,
-                    values: (incoming.full[index], incoming.low[index], incoming.high[index]), colors: cool)
-            }
-            incomingTime += incoming.step
         }
 
-        // The curves: volumes (blue), bass (yellow), filters (pink) and effects (white).
-        let samples = (0...120).map { Double($0) / 120 }
-        func curve(_ lane: CGRect, color: Color, dashed: Bool = false, _ value: (TransitionLevels) -> Float) {
+        // The song leaving, bright up to the end of the box (it has gone after it); the next one
+        // bright from the start of the box.
+        let warm = [Color(red: 0.86, green: 0.58, blue: 0.32), Color(red: 0.55, green: 0.33, blue: 0.16),
+                    Color(red: 0.97, green: 0.92, blue: 0.82)]
+        let cool = [Color(red: 0.15, green: 0.24, blue: 0.78), Color(red: 0.55, green: 0.33, blue: 0.16),
+                    Color(red: 0.97, green: 0.92, blue: 0.82)]
+        waveform(scene.outgoing, lane: lanes.top, width: max(1, CGFloat(scene.outgoing.step * scale) * 0.9), colors: warm,
+                 in: &context, size: size, position: { x($0) + topOffset }, bright: { $0 <= box.maxX })
+        waveform(scene.incoming, lane: lanes.bottom, width: max(1, CGFloat(scene.incoming.step * scale * ratio) * 0.9),
+                 colors: cool, in: &context, size: size, position: { x(fromIncoming($0)) + bottomOffset },
+                 bright: { $0 >= box.minX })
+
+        // The lines: volumes (blue), bass (yellow), filters (pink) and effect (white). Lines drawn
+        // by hand follow their points; while drawing, the other parts' lines fade.
+        let design = plan.design ?? MixDesign()
+        let editing = Set(scene.editing)
+        for line in MixLine.allCases where editing.contains(line) || shows(line, design) {
+            let lane = line.isOutgoing ? lanes.top : lanes.bottom
             var path = Path()
-            for (position, progress) in samples.enumerated() {
-                let level = CGFloat(value(plan.levels(at: progress)))
-                let point = CGPoint(x: box.minX + CGFloat(progress) * box.width,
-                                    y: lane.maxY - level * lane.height)
-                if position == 0 { path.move(to: point) } else { path.addLine(to: point) }
+            if let curve = design.lines?[line] {
+                for (index, point) in curve.points.enumerated() {
+                    let position = screen(point, box: box, lane: lane)
+                    if index == 0 { path.move(to: position) } else { path.addLine(to: position) }
+                }
+            } else {
+                for step in 0...160 {
+                    let progress = Double(step) / 160
+                    let position = screen(MixPoint(x: progress, y: line.value(in: plan.levels(at: progress))), box: box, lane: lane)
+                    if step == 0 { path.move(to: position) } else { path.addLine(to: position) }
+                }
             }
-            context.stroke(path, with: .color(color),
-                           style: StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round, dash: dashed ? [6, 5] : []))
+            let faded = !editing.isEmpty && !editing.contains(line)
+            context.stroke(path, with: .color(line.category.color.opacity(faded ? 0.3 : 1)),
+                           style: StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
         }
-        let design = plan.design
-        curve(topLane, color: MixCategory.volume.color) { $0.outgoing }
-        curve(bottomLane, color: MixCategory.volume.color) { $0.incoming }
-        if design?.eq != MixEQ.none {
-            curve(topLane, color: MixCategory.eq.color) { 1 - $0.outgoingBassCut }
-            curve(bottomLane, color: MixCategory.eq.color) { 1 - $0.incomingBassCut }
+        // The points of the lines being drawn; the fixed ends smaller.
+        for line in scene.editing {
+            guard let curve = design.lines?[line] else { continue }
+            let lane = line.isOutgoing ? lanes.top : lanes.bottom
+            let last = curve.points.count - 1
+            for (index, point) in curve.points.enumerated() {
+                let fixed = (index == 0 && line.fixedStart != nil) || (index == last && line.fixedEnd != nil)
+                let held = scene.held.map { $0.line == line && $0.index == index } ?? false
+                let radius: CGFloat = held ? 10 : (fixed ? 4 : 7)
+                let center = screen(point, box: box, lane: lane)
+                let dot = Path(ellipseIn: CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2))
+                context.fill(dot, with: .color(.white))
+                context.stroke(dot, with: .color(line.category.color), lineWidth: 2.5)
+            }
         }
-        if let design, design.filter != .none {
-            curve(topLane, color: MixCategory.filter.color, dashed: true) { 1 - max($0.outgoingLowPass, $0.outgoingHighPass) }
-            curve(bottomLane, color: MixCategory.filter.color, dashed: true) { 1 - max($0.incomingLowPass, $0.incomingHighPass) }
-        }
-        if let design, design.effect != .none {
-            curve(topLane, color: MixCategory.effects.color, dashed: true) { max($0.reverb, $0.echo) }
-        }
-        if let playhead {
+
+        if let playhead = scene.playhead {
             let position = x(playhead)
             var line = Path()
             line.move(to: CGPoint(x: position, y: 0))
@@ -742,14 +1190,39 @@ enum MixDrawing {
         }
     }
 
-    private static func bar(_ context: inout GraphicsContext, at x: CGFloat, lane: CGRect, width: CGFloat,
-                            values: (Float, Float, Float), colors: (Color, Color, Color)) {
-        let middle = lane.midY
-        let half = lane.height / 2
-        for (value, color, thinner) in [(values.0, colors.0, CGFloat(1)), (values.1, colors.1, 1), (values.2, colors.2, 0.5)] {
-            let height = CGFloat(max(0.01, value)) * half
-            let rect = CGRect(x: x - width * thinner / 2, y: middle - height, width: max(1, width * thinner), height: height * 2)
-            context.fill(Path(rect), with: .color(color))
+    /// The lines a design's options draw (volumes always; the others when the part does something).
+    private static func shows(_ line: MixLine, _ design: MixDesign) -> Bool {
+        if design.lines?[line] != nil { return line != .effect || design.effect != .none }
+        switch line.category {
+        case .volume: return true
+        case .eq: return design.eq != MixEQ.none
+        case .filter: return design.filter != .none
+        case .effects: return design.effect != .none
+        case .loop: return false
+        }
+    }
+
+    /// One song's waveform: overall loudness, bass and treble, each band in one path per brightness.
+    private static func waveform(_ wave: MixWaveform, lane: CGRect, width: CGFloat, colors: [Color],
+                                 in context: inout GraphicsContext, size: CGSize, position: (Double) -> CGFloat,
+                                 bright: (CGFloat) -> Bool) {
+        var paths = [[Path]](repeating: [Path(), Path(), Path()], count: 2)
+        let middle = lane.midY, half = lane.height / 2
+        for index in wave.full.indices {
+            let center = position(wave.start + Double(index) * wave.step)
+            guard center > -width, center < size.width + width else { continue }
+            let set = bright(center) ? 0 : 1
+            let values = [wave.full[index], wave.low[index], wave.high[index]]
+            for band in 0..<3 {
+                let height = CGFloat(max(0.01, values[band])) * half
+                let barWidth = max(1, band == 2 ? width / 2 : width)
+                paths[set][band].addRect(CGRect(x: center - barWidth / 2, y: middle - height, width: barWidth, height: height * 2))
+            }
+        }
+        for set in [1, 0] {
+            for band in 0..<3 {
+                context.fill(paths[set][band], with: .color(colors[band].opacity(set == 0 ? 1 : 0.28)))
+            }
         }
     }
 }

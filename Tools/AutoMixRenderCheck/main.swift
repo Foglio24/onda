@@ -226,9 +226,21 @@ struct AutoMixRenderCheck {
 
             // Designed mixes with effects: they render, start where the song is, stay in range and join.
             for (name, preset) in [("blur: reverb, low-pass, 3 bands", MixPreset.blur), ("peak: loop, high-pass", .peak),
-                                   ("wave: echo, filters", .wave)] {
+                                   ("wave: echo, filters", .wave), ("lines drawn by hand: filters, volume, echo", .echo)] {
                 var design = MixDesign.preset(preset)
                 if preset == .peak { design.filter = .noiseOut }
+                if preset == .echo {
+                    // A high-pass rising on the song leaving, a low-pass opening on the next one,
+                    // a volume dip and an echo swelling.
+                    design.setLine(.outgoingFilter, MixCurve(points: [MixPoint(x: 0, y: 0.5), MixPoint(x: 0.4, y: 0.5),
+                                                                      MixPoint(x: 1, y: 0.95)]))
+                    design.setLine(.incomingFilter, MixCurve(points: [MixPoint(x: 0, y: 0.1), MixPoint(x: 0.7, y: 0.5),
+                                                                      MixPoint(x: 1, y: 0.5)]))
+                    design.setLine(.outgoingVolume, MixCurve(points: [MixPoint(x: 0, y: 1), MixPoint(x: 0.5, y: 0.6),
+                                                                      MixPoint(x: 0.8, y: 0.7), MixPoint(x: 1, y: 0)]))
+                    design.setLine(.effect, MixCurve(points: [MixPoint(x: 0, y: 0), MixPoint(x: 0.6, y: 0.2),
+                                                              MixPoint(x: 1, y: 0.9)]))
+                }
                 let plan = MixDesigner.plan(from: a.analysis, to: b.analysis, design: design)
                 let schedule = MixSchedule(plan: plan)
                 let url = folder.appending(path: "\(preset.rawValue).caf")

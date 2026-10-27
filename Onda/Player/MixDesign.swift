@@ -146,6 +146,157 @@ enum MixPreset: String, Codable, CaseIterable, Sendable {
     static var choices: [MixPreset] { allCases.filter { $0 != .custom } }
 }
 
+/// A line of the mix drawn by hand (Personalizza): it takes the place of what its part's option
+/// does to one song. Volumes and the bass go from 0 (silent, no bass) to 1 (full); a filter line
+/// works like a DJ's filter knob, open in the middle (0.5), a low-pass below and a high-pass above;
+/// the effect line is how much of the song leaving goes through its effect.
+enum MixLine: String, Codable, CodingKeyRepresentable, CaseIterable, Sendable {
+    case outgoingVolume, incomingVolume, outgoingBass, incomingBass, outgoingFilter, incomingFilter, effect
+
+    /// On the song leaving (drawn over the upper waveform) rather than the next one.
+    var isOutgoing: Bool {
+        switch self {
+        case .outgoingVolume, .outgoingBass, .outgoingFilter, .effect: return true
+        case .incomingVolume, .incomingBass, .incomingFilter: return false
+        }
+    }
+
+    /// The value at the start and at the end where a song plays on its own there (the song leaving
+    /// at the start, the next one at the end), so the mix starts and ends as the songs sound. Nil
+    /// where the line is free.
+    var fixedStart: Double? {
+        switch self {
+        case .outgoingVolume, .outgoingBass: return 1
+        case .incomingVolume, .effect: return 0
+        case .outgoingFilter: return 0.5
+        case .incomingBass, .incomingFilter: return nil
+        }
+    }
+
+    var fixedEnd: Double? {
+        switch self {
+        case .outgoingVolume: return 0
+        case .incomingVolume, .incomingBass: return 1
+        case .incomingFilter: return 0.5
+        case .outgoingBass, .outgoingFilter, .effect: return nil
+        }
+    }
+
+    /// The line's value in a mix's levels.
+    func value(in levels: TransitionLevels) -> Double {
+        switch self {
+        case .outgoingVolume: return Double(levels.outgoing)
+        case .incomingVolume: return Double(levels.incoming)
+        case .outgoingBass: return 1 - Double(levels.outgoingBassCut)
+        case .incomingBass: return 1 - Double(levels.incomingBassCut)
+        case .outgoingFilter: return 0.5 + 0.5 * Double(levels.outgoingHighPass - levels.outgoingLowPass)
+        case .incomingFilter: return 0.5 + 0.5 * Double(levels.incomingHighPass - levels.incomingLowPass)
+        case .effect: return Double(max(levels.reverb, levels.echo))
+        }
+    }
+
+    /// Puts the line's value into a mix's levels; the effect line drives the reverb or the echo.
+    func apply(_ value: Double, to levels: inout TransitionLevels, reverb: Bool) {
+        let v = Float(max(0, min(1, value)))
+        switch self {
+        case .outgoingVolume: levels.outgoing = v
+        case .incomingVolume: levels.incoming = v
+        case .outgoingBass: levels.outgoingBassCut = 1 - v
+        case .incomingBass: levels.incomingBassCut = 1 - v
+        case .outgoingFilter:
+            levels.outgoingLowPass = max(0, (0.5 - v) * 2)
+            levels.outgoingHighPass = max(0, (v - 0.5) * 2)
+        case .incomingFilter:
+            levels.incomingLowPass = max(0, (0.5 - v) * 2)
+            levels.incomingHighPass = max(0, (v - 0.5) * 2)
+        case .effect:
+            levels.reverb = reverb ? v : 0
+            levels.echo = reverb ? 0 : v
+        }
+    }
+
+    /// The curve with its ends at 0 and 1, in order, in range, and fixed where they must be.
+    func fixing(_ curve: MixCurve) -> MixCurve {
+        var points = curve.points
+            .map { MixPoint(x: max(0, min(1, $0.x)), y: max(0, min(1, $0.y))) }
+            .sorted { $0.x < $1.x }
+        if points.first?.x != 0 { points.insert(MixPoint(x: 0, y: points.first?.y ?? fixedStart ?? 0), at: 0) }
+        if points.last?.x != 1 { points.append(MixPoint(x: 1, y: points.last?.y ?? fixedEnd ?? 0)) }
+        if let fixedStart { points[0].y = fixedStart }
+        if let fixedEnd { points[points.count - 1].y = fixedEnd }
+        return MixCurve(points: points)
+    }
+}
+
+/// A point of a line drawn by hand: where in the overlap (0…1) and its value (0…1).
+struct MixPoint: Codable, Hashable, Sendable {
+    var x: Double
+    var y: Double
+}
+
+/// A line drawn by hand: points across the overlap, in order, from 0 to 1, joined straight.
+struct MixCurve: Codable, Hashable, Sendable {
+    var points: [MixPoint]
+
+    func value(at x: Double) -> Double {
+        guard let first = points.first, let last = points.last else { return 0 }
+        if x <= first.x { return first.y }
+        if x >= last.x { return last.y }
+        for index in 1..<points.count where points[index].x >= x {
+            let a = points[index - 1], b = points[index]
+            return b.x > a.x ? a.y + (b.y - a.y) * (x - a.x) / (b.x - a.x) : b.y
+        }
+        return last.y
+    }
+
+    /// The line's mean over `width` around `x` (narrower at the ends, which stay exact): a jump
+    /// drawn steeper than `width` becomes a ramp that long.
+    func value(at x: Double, smoothing width: Double) -> Double {
+        let half = min(width / 2, x, 1 - x)
+        guard half > 1e-9 else { return value(at: x) }
+        let lower = x - half, upper = x + half
+        // Exact for straight pieces: the trapezoids between the points inside the window.
+        var edges = [lower]
+        edges += points.lazy.map(\.x).filter { $0 > lower && $0 < upper }
+        edges.append(upper)
+        var area = 0.0
+        for index in 1..<edges.count {
+            area += (value(at: edges[index - 1]) + value(at: edges[index])) / 2 * (edges[index] - edges[index - 1])
+        }
+        return area / (upper - lower)
+    }
+
+    /// A line following `value` across the overlap with as few points as keep it within
+    /// `tolerance` (Ramer–Douglas–Peucker over 400 samples).
+    static func tracing(tolerance: Double = 0.015, _ value: (Double) -> Double) -> MixCurve {
+        let count = 400
+        let samples = (0...count).map { MixPoint(x: Double($0) / Double(count), y: value(Double($0) / Double(count))) }
+        var keep = [Bool](repeating: false, count: samples.count)
+        keep[0] = true
+        keep[count] = true
+        var spans = [(0, count)]
+        while let (start, end) = spans.popLast() {
+            guard end > start + 1 else { continue }
+            let a = samples[start], b = samples[end]
+            var worst = 0.0, worstIndex = start
+            for index in (start + 1)..<end {
+                let line = a.y + (b.y - a.y) * (samples[index].x - a.x) / (b.x - a.x)
+                let distance = abs(samples[index].y - line)
+                if distance > worst {
+                    worst = distance
+                    worstIndex = index
+                }
+            }
+            if worst > tolerance {
+                keep[worstIndex] = true
+                spans.append((start, worstIndex))
+                spans.append((worstIndex, end))
+            }
+        }
+        return MixCurve(points: samples.indices.filter { keep[$0] }.map { samples[$0] })
+    }
+}
+
 /// One transition of a playlist's Mix.
 struct MixDesign: Codable, Hashable, Sendable {
     var preset: MixPreset
@@ -157,11 +308,18 @@ struct MixDesign: Codable, Hashable, Sendable {
     var beatmatch: Bool
     /// Seconds the two play together (of the song leaving); nil for automatic.
     var overlap: Double?
-    /// How far the song leaving ends earlier (negative) or later than automatic, in seconds.
+    /// How far the song leaving ends earlier (negative) or later than automatic, in seconds (whole
+    /// bars with beatmatching).
     var shift: Double = 0
+    /// How much later (positive) or earlier than automatic the next song starts, in its own
+    /// seconds (whole bars with beatmatching). Optional: designs saved before it lack it.
+    var incomingShift: Double?
+    /// Lines drawn by hand ("Personalizza"), each in place of what its part's option does.
+    var lines: [MixLine: MixCurve]?
 
     init(preset: MixPreset = .auto, volume: MixVolume = .smooth, eq: MixEQ = .bassSwapCenter, filter: MixFilter = .none,
-         effect: MixEffect = .none, loop: MixLoop = .none, beatmatch: Bool = true, overlap: Double? = nil, shift: Double = 0) {
+         effect: MixEffect = .none, loop: MixLoop = .none, beatmatch: Bool = true, overlap: Double? = nil, shift: Double = 0,
+         incomingShift: Double? = nil, lines: [MixLine: MixCurve]? = nil) {
         self.preset = preset
         self.volume = volume
         self.eq = eq
@@ -171,6 +329,15 @@ struct MixDesign: Codable, Hashable, Sendable {
         self.beatmatch = beatmatch
         self.overlap = overlap
         self.shift = shift
+        self.incomingShift = incomingShift
+        self.lines = lines
+    }
+
+    /// The design with a line drawn by hand (its fixed ends kept), or without it.
+    mutating func setLine(_ line: MixLine, _ curve: MixCurve?) {
+        var all = lines ?? [:]
+        all[line] = curve.map { line.fixing($0) }
+        lines = all.isEmpty ? nil : all
     }
 
     /// A preset's choices (timing kept as automatic).
@@ -192,8 +359,20 @@ struct MixDesign: Codable, Hashable, Sendable {
     }
 
     /// Volumes, bands, filters and effects at a point of the overlap (0…1). `bar` is one bar of
-    /// the song leaving, and `ramp` the shortest change (50 ms), both in the same units.
+    /// the song leaving, and `ramp` the shortest change (50 ms), both in the same units. Lines
+    /// drawn by hand replace what their options do (smoothed over `ramp`, so no change clicks).
     func levels(at progress: Double, bar: Double, ramp: Double) -> TransitionLevels {
+        var levels = optionLevels(at: progress, bar: bar, ramp: ramp)
+        guard let lines else { return levels }
+        let p = max(0, min(1, progress))
+        for (line, curve) in lines where line != .effect || effect != .none {
+            line.apply(curve.value(at: p, smoothing: ramp), to: &levels, reverb: effect.isReverb)
+        }
+        return levels
+    }
+
+    /// What the options alone do at a point of the overlap.
+    private func optionLevels(at progress: Double, bar: Double, ramp: Double) -> TransitionLevels {
         let p = max(0, min(1, progress))
         let edge = max(0.001, ramp)
         func rise(_ start: Double, _ end: Double) -> Double {
@@ -343,7 +522,7 @@ enum MixDesigner {
         var plan: TransitionPlan
         if design.beatmatch, canBeatmatch(a, b),
            let matched = beatMatched(a, b, design: design, automatic: automatic) {
-            plan = matched
+            plan = matched.plan
         } else {
             plan = free(a, b, design: design, automatic: automatic)
         }
@@ -370,17 +549,86 @@ enum MixDesigner {
         return automatic.bars ?? max(1, Int((automatic.overlap / bar).rounded()))
     }
 
-    private static func beatMatched(_ a: TrackAnalysis, _ b: TrackAnalysis, design: MixDesign,
-                                    automatic: TransitionPlan) -> TransitionPlan? {
+    /// The design with the songs moved only as far as the mix can be made: what the editor keeps
+    /// after a drag, so dragging back moves them at once.
+    static func normalized(_ design: MixDesign, from a: TrackAnalysis, to b: TrackAnalysis) -> MixDesign {
+        var design = design
+        let automatic = TransitionPlanner.plan(from: a, to: b)
+        if design.beatmatch, canBeatmatch(a, b),
+           let matched = beatMatched(a, b, design: design, automatic: automatic) {
+            design.shift = Double(matched.outgoingBars) * 4 * a.beatLength
+            design.incomingShift = matched.incomingBars == 0 ? nil : Double(matched.incomingBars) * 4 * b.beatLength
+        } else {
+            let plan = free(a, b, design: design, automatic: automatic)
+            design.shift = plan.outEnd - automatic.outEnd
+            let moved = plan.inStart - freeStart(b, automatic: automatic)
+            design.incomingShift = abs(moved) < 0.01 ? nil : moved
+        }
+        return design
+    }
+
+    /// The overlaps the editor offers, in bars of the song leaving.
+    static let barOptions = [2, 4, 8, 16]
+
+    /// Each overlap the editor offers, and whether these two songs can be mixed over it.
+    static func barChoices(from a: TrackAnalysis, to b: TrackAnalysis, design: MixDesign) -> [(bars: Int, available: Bool)] {
+        barOptions.map { bars in
+            var choice = design
+            let seconds = Double(bars) * 4 * a.beatLength
+            choice.overlap = seconds
+            let planned = Self.plan(from: a, to: b, design: choice)
+            let available = planned.style == .beatMatched ? planned.bars == bars : abs(planned.overlap - seconds) < 0.05
+            return (bars, available)
+        }
+    }
+
+    /// The overlap of a plan in bars of the song leaving.
+    static func bars(of plan: TransitionPlan) -> Int {
+        plan.bars ?? max(1, Int((plan.overlap / plan.barLength).rounded()))
+    }
+
+    /// The moves asked for, brought back toward none, nearest first.
+    private static func towardZero(_ moves: Int) -> [Int] {
+        moves >= 0 ? Array((0...moves).reversed()) : Array(moves...0)
+    }
+
+    /// Beats matched over the bars asked for (half or a quarter when the song is too short),
+    /// both songs moved from the automatic cue points by whole bars, as far as they can be: the next
+    /// song from its first downbeat to where enough of it is left, the song leaving to where the
+    /// whole overlap still fits before its end.
+    private static func beatMatched(_ a: TrackAnalysis, _ b: TrackAnalysis, design: MixDesign, automatic: TransitionPlan)
+        -> (plan: TransitionPlan, outgoingBars: Int, incomingBars: Int)? {
+        guard let octave = TransitionPlanner.tempoMatch(a, b)?.octave else { return nil }
         let bar = 4 * a.beatLength
         let wanted = bars(design, automatic: automatic, bar: bar)
-        let end = min(a.duration - 0.05, a.audibleEnd + (design.shift / bar).rounded() * bar)
-        for bars in [wanted, wanted / 2, wanted / 4] where bars >= 1 {
-            if let plan = TransitionPlanner.beatMatched(a, b, bars: bars, endingBy: end, minimumHandover: 15) {
-                return plan
+        let outgoingMove = Int((design.shift / bar).rounded())
+        let incomingMove = Int(((design.incomingShift ?? 0) / (4 * b.beatLength)).rounded())
+        for count in [wanted, wanted / 2, wanted / 4] where count >= 1 {
+            guard let cues = TransitionPlanner.cues(a, b, bars: count, endingBy: a.audibleEnd) else { continue }
+            let length = Double(count * 4) * a.beatLength
+            // The overlap in the next song's own time.
+            let incomingLength = length * a.tempo / (b.tempo * octave)
+            let incomingBars = towardZero(incomingMove).first { move in
+                let downbeat = cues.incoming + 4 * move
+                return downbeat >= b.firstDownbeat && b.beatTime(downbeat) + incomingLength + 10 <= b.soundEnd
+            } ?? 0
+            for move in towardZero(outgoingMove) {
+                let downbeat = cues.outgoing + 4 * move
+                guard let plan = TransitionPlanner.beatMatched(a, b, bars: count, from: downbeat,
+                                                               to: cues.incoming + 4 * incomingBars, minimumHandover: 15)
+                else { continue }
+                // Moved, the whole overlap fits before the song's end.
+                if move == 0 || plan.outEnd >= a.beatTime(downbeat) + length - 0.01 {
+                    return (plan, move, incomingBars)
+                }
             }
         }
         return nil
+    }
+
+    /// Where the next song starts without beatmatching, before the design moves it.
+    private static func freeStart(_ b: TrackAnalysis, automatic: TransitionPlan) -> Double {
+        automatic.style == .beatMatched ? max(0, b.soundStart - 0.01) : automatic.inStart
     }
 
     private static func free(_ a: TrackAnalysis, _ b: TrackAnalysis, design: MixDesign,
@@ -388,7 +636,9 @@ enum MixDesigner {
         let end = max(a.soundStart + 12, min(a.duration - 0.05, automatic.outEnd + design.shift))
         let overlap = max(1, min(design.overlap ?? max(6, automatic.overlap), end - a.soundStart - 10))
         let outStart = end - overlap
-        let inStart = automatic.style == .beatMatched ? max(0, b.soundStart - 0.01) : automatic.inStart
+        let start = freeStart(b, automatic: automatic)
+        let latest = max(start, b.soundEnd - overlap - 10)
+        let inStart = max(0, min(latest, start + (design.incomingShift ?? 0)))
         let tempo = a.tempo
         return TransitionPlan(style: .blend, handover: max(0, outStart - 0.5), outStart: outStart, outEnd: end,
                               inStart: inStart, tempoOut: tempo, tempoMeet: tempo, tempoIn: tempo, alignment: nil,

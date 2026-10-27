@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.15.0 (2026-10-28)
+
+### Added
+- **Mix: 2, 4, 8 or 16 bars, like Spotify's.** Under the waveforms a "16 barre" button opens the choice of how many bars the two songs play together (the ones the songs are too short for are greyed out). The box over the waveforms always stands for those bars.
+- **Mix: lines drawn by hand.** "Personalizza" (under the waveforms, or at the top of each part's options) shows the points of the Volume, EQ, Filtra or Effetti lines over the songs: drag a point to move it, tap a line to add one, tap a point to remove it; "Ripristina" goes back to the option's shape. The ends where a song plays on its own stay fixed, so a mix always starts and ends as the songs sound, and any jump drawn is smoothed over 50 ms so it never clicks.
+  - The filter line works like a DJ's filter knob: open in the middle, a high-pass when it goes up, a low-pass when it goes down, on either song.
+  - The effect line is how much of the song leaving goes into its reverb or echo.
+  - Choosing an option again replaces the lines drawn for that part.
+- The box shows the beats of the song leaving, a stronger line at each bar.
+
+### Fixed
+- **AutoMix: no more cut when the mix takes over.** The playing song and the mix are two players, and two players never start on exactly the same sample: switched at once, the change was heard as a cut. Now the two (which play the same music at that moment) overlap for a quarter of a second, one fading out as the other fades in.
+- **Taking off your AirPods pauses the music.** Onda only paused when iOS gave "device unavailable" as the reason for the change, with the AirPods among a few known kinds of output; now it pauses whenever the sound moves from headphones, AirPods, a Bluetooth or AirPlay speaker or the car to the iPhone itself, whatever reason iOS gives, waiting a moment when the route is still changing. Settings → Informazioni shows the last change of output and what Onda did.
+- **Mix editor: dragging a song no longer shrinks the waveforms.** Dragging the lower song used to change the length of the mix, so the whole picture zoomed out and in under the finger. Now dragging a song slides it under the box, which keeps its length: the upper song changes where it leaves, the lower one where it comes in (it can skip its first bars), in whole bars with beatmatching, and only as far as the mix can be made (dragging back moves it at once). The waveforms cover the whole songs, faded where they don't play in the mix.
+
+### For development
+- `Tools/AutoMixCheck`: every choice of bars over two-minute songs (on the beat), moving each song by whole bars (exactly that far, the same length, on the beat), moves past the ends kept where the mix can be made, lines traced from every option (sound like it, start and end right, no clicks, also over a 3.5-second overlap), the filter knob, fixed ends, and designs saved by 1.14 still read. `Tools/AutoMixRenderCheck` renders a mix with lines drawn by hand.
+- New screenshot: drawing the volume lines (`-OndaScene mix:edit`). The screenshot job has 20 minutes.
+
 ## 1.14.0 (2026-10-27)
 
 ### Added

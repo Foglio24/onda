@@ -151,6 +151,8 @@ enum Preferences {
     /// -1 unknown, 0 refused by iOS, 1 accepted.
     static let nowPlayingAccepted = "diagnostics.nowPlayingAccepted"
     static let nowPlayingBackend = "diagnostics.nowPlayingBackend"
+    /// The last change of audio output (headphones in or out) and what the player did.
+    static let lastRouteChange = "diagnostics.lastRouteChange"
     static let interactiveArtwork = "player.interactiveArtwork"
     static let lyricsTranslate = "lyrics.translate"
     static let updateMode = "updates.mode"
