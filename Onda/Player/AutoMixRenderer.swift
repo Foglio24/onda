@@ -29,30 +29,95 @@ enum AutoMixRenderer {
         let outgoingAudio = try await decode(outgoing, from: plan.handover, duration: plan.outEnd - plan.handover + 2)
         let incomingAudio = try await decode(incoming, from: plan.inStart, duration: schedule.join - plan.inStart + 2)
         try Task.checkCancellation()
-        // The time stretch moves the next song by a few milliseconds, depending on its tempo when it
-        // starts. A first pass measures by how much at the end, where it plays alone at its own
-        // tempo, and the second starts it that much later: its beats and its join then land exactly.
-        let end = schedule.join - plan.inStart
+        // The time stretch moves each song by a few milliseconds, depending on how its tempo moved.
+        // When the beats are matched, both songs are first rendered alone (at full volume, without
+        // filters) and their onsets lined up where they play together: the next song then starts
+        // that much earlier or later, so the beats land together.
         var delay = 0.0
-        var pass = try renderPass(schedule, outgoingAudio, incomingAudio, delay: delay,
-                                  gains: (outgoingGain, incomingGain), effects: effects, to: destination)
-        var offset = contentOffset(pass.tail, incomingAudio, end: end)
-        if abs(offset) > 0.000_3 {
-            delay = offset
+        if plan.style == .beatMatched, let overlap = overlapWindow(schedule) {
+            let alone = try renderPass(schedule, outgoingAudio, incomingAudio, delay: 0, gains: (1, 0), effects: false,
+                                       fullVolume: true, capture: overlap, to: nil)
             try Task.checkCancellation()
-            pass = try renderPass(schedule, outgoingAudio, incomingAudio, delay: delay,
-                                  gains: (outgoingGain, incomingGain), effects: effects, to: destination)
-            // Starting `delay` later, the end is `delay` earlier in the song; what remains is measured.
-            offset = contentOffset(pass.tail, incomingAudio, end: end - delay) - delay
+            let other = try renderPass(schedule, outgoingAudio, incomingAudio, delay: 0, gains: (0, 1), effects: false,
+                                       fullVolume: true, capture: overlap, to: nil)
+            try Task.checkCancellation()
+            if let lag = onsetLag(alone.captured, other.captured) {
+                // Late by `lag` seconds at the next song's rate: it starts that much of its own time earlier.
+                delay = -lag * plan.incomingRate
+            }
         }
+        let pass = try renderPass(schedule, outgoingAudio, incomingAudio, delay: delay,
+                                  gains: (outgoingGain, incomingGain), effects: effects, fullVolume: false,
+                                  capture: nil, to: destination)
+        // Where the next song really is at the end of the mix (so the join is seamless): starting
+        // `delay` later, the end is `delay` earlier in it; the rest is measured.
+        let end = schedule.join - plan.inStart - delay
+        let offset = contentOffset(pass.tail, incomingAudio, end: end) - delay
         return Mix(url: destination, length: pass.length, join: schedule.join + offset)
     }
 
-    /// One rendering of the mix into `destination`, the next song starting `delay` seconds late.
-    /// Returns its length and its last half second (mono), for `contentOffset`.
+    /// The stretch of the mix where both songs play clearly, for lining up their beats.
+    private static func overlapWindow(_ schedule: MixSchedule) -> Range<Double>? {
+        let plan = schedule.plan
+        let start = schedule.entry + max(0.5, (plan.alignment ?? plan.outStart) - plan.outStart)
+        var end = start
+        while end < schedule.length, schedule.positions(at: end + 0.25).outgoing < plan.outEnd - 0.25 * plan.overlap {
+            end += 0.25
+        }
+        return end - start >= 3 ? start..<end : nil
+    }
+
+    /// How much later (seconds) the onsets of `b` are than those of `a`: the lag, within 40 ms
+    /// either way, at which their onset curves line up best. Nil when they don't line up clearly.
+    private static func onsetLag(_ a: [Float], _ b: [Float]) -> Double? {
+        let rate = MixSchedule.sampleRate
+        let hop = Int(rate / 1000)
+        let window = 5 * hop
+        func onsets(_ x: [Float]) -> [Float] {
+            let count = max(0, (x.count - window) / hop)
+            var energy = [Float](repeating: 0, count: count)
+            x.withUnsafeBufferPointer { samples in
+                guard let base = samples.baseAddress else { return }
+                for frame in 0..<count {
+                    var sum: Float = 0
+                    vDSP_svesq(base + frame * hop, 1, &sum, vDSP_Length(window))
+                    energy[frame] = log10(sum + 1e-9)
+                }
+            }
+            return (0..<count).map { $0 >= 3 ? max(0, energy[$0] - energy[$0 - 3]) : 0 }
+        }
+        let curveA = onsets(a), curveB = onsets(b)
+        let range = 40
+        let length = min(curveA.count, curveB.count) - 2 * range
+        guard length > 500 else { return nil }
+        var scores: [Double] = []
+        for lag in -range...range {
+            var dot = 0.0, energyA = 0.0, energyB = 0.0
+            for frame in range..<(range + length) {
+                let x = Double(curveA[frame]), y = Double(curveB[frame + lag])
+                dot += x * y
+                energyA += x * x
+                energyB += y * y
+            }
+            scores.append(dot / ((energyA * energyB).squareRoot() + 1e-12))
+        }
+        guard let best = scores.indices.max(by: { scores[$0] < scores[$1] }), scores[best] > 0.3 else { return nil }
+        var shift = 0.0
+        if best > 0, best < scores.count - 1 {
+            let left = scores[best - 1], centre = scores[best], right = scores[best + 1]
+            let denominator = left - 2 * centre + right
+            if denominator < 0 { shift = 0.5 * (left - right) / denominator }
+        }
+        return (Double(best - range) + shift) * Double(hop) / rate
+    }
+
+    /// One rendering of the mix, into `destination` when there is one, the next song starting
+    /// `delay` seconds late. `fullVolume` leaves out the volume curves (for measuring). Returns its
+    /// length, its last half second and the `capture` stretch (both mono).
     private static func renderPass(_ schedule: MixSchedule, _ outgoingAudio: AVAudioPCMBuffer,
                                    _ incomingAudio: AVAudioPCMBuffer, delay: Double, gains: (Float, Float),
-                                   effects: Bool, to destination: URL) throws -> (length: Double, tail: [Float]) {
+                                   effects: Bool, fullVolume: Bool, capture: Range<Double>?,
+                                   to destination: URL?) throws -> (length: Double, tail: [Float], captured: [Float]) {
         let rate = MixSchedule.sampleRate
         guard let format = AVAudioFormat(standardFormatWithSampleRate: rate, channels: 2) else { throw RenderError.engine }
         let engine = AVAudioEngine()
@@ -93,16 +158,22 @@ enum AutoMixRenderer {
         let total = schedule.steps.count * block + latencyFrames
         guard let output = AVAudioPCMBuffer(pcmFormat: engine.manualRenderingFormat,
                                             frameCapacity: AVAudioFrameCount(block)) else { throw RenderError.engine }
-        try? FileManager.default.removeItem(at: destination)
-        let file = try AVAudioFile(forWriting: destination, settings: [
-            AVFormatIDKey: kAudioFormatLinearPCM,
-            AVSampleRateKey: rate,
-            AVNumberOfChannelsKey: 2,
-            AVLinearPCMBitDepthKey: 16,
-            AVLinearPCMIsFloatKey: false,
-            AVLinearPCMIsBigEndianKey: false,
-            AVLinearPCMIsNonInterleaved: false,
-        ], commonFormat: .pcmFormatFloat32, interleaved: false)
+        var file: AVAudioFile?
+        if let destination {
+            try? FileManager.default.removeItem(at: destination)
+            file = try AVAudioFile(forWriting: destination, settings: [
+                AVFormatIDKey: kAudioFormatLinearPCM,
+                AVSampleRateKey: rate,
+                AVNumberOfChannelsKey: 2,
+                AVLinearPCMBitDepthKey: 16,
+                AVLinearPCMIsFloatKey: false,
+                AVLinearPCMIsBigEndianKey: false,
+                AVLinearPCMIsNonInterleaved: false,
+            ], commonFormat: .pcmFormatFloat32, interleaved: false)
+        }
+        let captureFrames = capture.map { Int(($0.lowerBound * rate).rounded())..<Int(($0.upperBound * rate).rounded()) }
+        var captured: [Float] = []
+        captured.reserveCapacity(captureFrames?.count ?? 0)
         let tailLength = Int(0.5 * rate)
         var tail = [Float](repeating: 0, count: tailLength)
         var rendered = 0
@@ -112,19 +183,22 @@ enum AutoMixRenderer {
             let time = Double(rendered) / rate
             let pace = schedule.step(at: time)
             let heard = schedule.step(at: max(0, time - latency)).levels
-            decks[0].set(rate: pace.outgoingRate, volume: heard.outgoing * gains.0, bassCut: heard.outgoingBassCut,
+            let volumes = fullVolume ? (gains.0, gains.1) : (heard.outgoing * gains.0, heard.incoming * gains.1)
+            decks[0].set(rate: pace.outgoingRate, volume: volumes.0, bassCut: heard.outgoingBassCut,
                          highPass: heard.outgoingHighPass, effects: effects)
-            decks[1].set(rate: pace.incomingRate, volume: heard.incoming * gains.1, bassCut: heard.incomingBassCut,
+            decks[1].set(rate: pace.incomingRate, volume: volumes.1, bassCut: heard.incomingBassCut,
                          highPass: 0, effects: effects)
             let frames = min(block, total - rendered)
             let status = try engine.renderOffline(AVAudioFrameCount(frames), to: output)
             guard status == .success, let channels = output.floatChannelData else { throw RenderError.engine }
             let skip = max(0, latencyFrames - rendered)
             if skip < frames {
-                try write(output, from: skip, count: frames - skip, to: file)
-                // Keep the last half second, as mono.
+                if let file { try write(output, from: skip, count: frames - skip, to: file) }
+                // Keep the last half second, and the stretch asked for, as mono.
                 for frame in skip..<frames {
-                    tail[written % tailLength] = (channels[0][frame] + channels[1][frame]) / 2
+                    let value = (channels[0][frame] + channels[1][frame]) / 2
+                    tail[written % tailLength] = value
+                    if let captureFrames, captureFrames.contains(written) { captured.append(value) }
                     written += 1
                 }
             }
@@ -132,7 +206,7 @@ enum AutoMixRenderer {
         }
         let start = written % tailLength
         let ordered = Array(tail[start...]) + Array(tail[..<start])
-        return (Double(written) / rate, ordered)
+        return (Double(written) / rate, ordered, captured)
     }
 
     /// How much later in the next song (seconds) the end of the mix is than `end` (its time counted
