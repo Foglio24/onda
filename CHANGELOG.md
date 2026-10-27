@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.12.1 (2026-10-27)
+
+### Improved
+- **AutoMix now mixes every pair of songs, as Apple Music's does.** In 1.12.0 it matched beats only for songs within 6 % of each other's tempo and only over the last eight bars, so with most songs it ended up as a crossfade on the last seconds, with the next song from its start. Now:
+  - **Beats matched up to 20 % apart** (half and double time count): both songs change tempo to meet halfway, without changing pitch. The playing song glides to the meeting tempo during the bars before the mix, the next one starts at it, then glides back to its own.
+  - **Longer mixes, earlier:** sixteen bars when both songs have a beat there and their tempos and keys are close (about 30–40 seconds before the end), eight or four otherwise. The mix starts on a downbeat, at a change of section when there is one nearby.
+  - **Long intros are skipped:** the next song starts so that its main part (where it gets louder after the intro) arrives just as the previous song leaves, as a DJ would.
+  - **Filters:** the outgoing song thins out through a rising high-pass filter at the end of the mix, on top of the bass swap.
+  - **Tempos too far apart:** a cut on the beat; the outgoing song thins out (filter and bass cut) while the next one comes in on one of its downbeats, straight into its main part.
+  - **Songs without a steady beat** (ballads, live recordings): a crossfade on the ending, filtered when the outgoing song has a beat; during the fade-out when it has one.
+  - Songs of the same album are mixed too.
+- **The queue shows what AutoMix will do** at the end of the current song, under its switch: for example "Mix a tempo: 16 battute, 124 → 126 BPM, 34 s prima della fine · il prossimo parte da 0:16", or why it falls back to a plain crossfade.
+
+### For development
+- `Tools/AutoMixCheck` now also checks that both tempos meet halfway with the beats landing within 2 ms (124 → 126 and 124 → 140 BPM), the cut on the beat for 124 → 100 BPM, the skipped intro (the next song's main part arriving as the previous one leaves), filtered crossfades and the outgoing song's high-pass. `Tools/EqualizerCheck` checks the new high-pass filter.
+
 ## 1.12.0 (2026-10-27)
 
 ### Added

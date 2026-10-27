@@ -245,9 +245,19 @@
 "Dissolvenza incrociata" = "Crossfade";
 "Nessuna" = "None";
 "Durata della dissolvenza" = "Crossfade length";
+"Analisi dei brani in corso…" = "Analysing the songs…";
+"Analisi non riuscita: dissolvenza semplice" = "Analysis failed: plain crossfade";
+"Non disponibile per questi brani: dissolvenza semplice" = "Not available for these songs: plain crossfade";
+"Transizione saltata: dissolvenza semplice" = "Transition missed: plain crossfade";
+"Mix a tempo: %lld battute, %lld → %lld BPM, %lld s prima della fine" = "Beat-matched mix: %lld bars, %lld → %lld BPM, %lld s before the end";
+"Stacco sul battere: %lld → %lld BPM, %lld s prima della fine" = "Cut on the beat: %lld → %lld BPM, %lld s before the end";
+"Dissolvenza sul finale: %lld s" = "Crossfade on the fade-out: %lld s";
+"Dissolvenza filtrata: %lld s" = "Filtered crossfade: %lld s";
+"Dissolvenza incrociata: %lld s" = "Crossfade: %lld s";
+"il prossimo parte da %@" = "the next one starts at %@";
 "%lld s" = "%lld s";
 "Salta le compilation lunghe" = "Skip long compilations";
-"AutoMix passa da un brano all'altro come un DJ, come su Apple Music: se i due brani hanno un ritmo regolare e un tempo simile, il successivo entra a tempo sul primo battito di una battuta, suonano insieme per qualche battuta e i bassi passano dall'uno all'altro; altrimenti c'è una dissolvenza che toglie i silenzi e segue il finale del brano. I brani dello stesso album, in ordine, suonano senza transizioni. Il brano successivo viene analizzato dalla copia che Onda scarica comunque, senza dati in più. La radio automatica continua con brani simili quando la coda finisce. Le compilation da più di 15 minuti vengono escluse da radio, mood e \"Scelti per te\". Il timer di spegnimento è nel menu ··· del player." = "AutoMix moves from song to song like a DJ, as in Apple Music: when both songs have a steady beat and similar tempos, the next one comes in on the first beat of a bar, they play together for a few bars and the bass passes from one to the other; otherwise a crossfade leaves out the silence and follows the song's ending. Songs of the same album, in order, play without transitions. The next song is analysed from the copy Onda downloads anyway, with no extra data. Automatic radio keeps going with similar songs when the queue ends. Compilations longer than 15 minutes are left out of radios, moods and \"Picked for you\". The sleep timer is in the player's ··· menu.";
+"AutoMix mixa ogni brano nel successivo come un DJ, come su Apple Music. Se entrambi hanno un ritmo regolare e tempi vicini, i due brani cambiano velocità per incontrarsi a metà, il successivo entra sul primo battito di una battuta (saltando un'intro lunga) e suonano insieme fino a 16 battute, con i bassi che passano dall'uno all'altro; se i tempi sono lontani, il primo si svuota col filtro e il successivo entra sul battere; senza un ritmo regolare c'è una dissolvenza sul finale. Nella coda vedi cosa farà. Il brano successivo viene analizzato dalla copia che Onda scarica comunque, senza dati in più. La radio automatica continua con brani simili quando la coda finisce. Le compilation da più di 15 minuti vengono escluse da radio, mood e \"Scelti per te\". Il timer di spegnimento è nel menu ··· del player." = "AutoMix mixes every song into the next like a DJ, as in Apple Music. When both have a steady beat and close tempos, the two songs change speed to meet halfway, the next one comes in on the first beat of a bar (skipping a long intro) and they play together for up to 16 bars, the bass passing from one to the other; when the tempos are far apart, the first one thins out through a filter and the next comes in on the beat; without a steady beat there's a crossfade on the ending. The queue shows what it will do. The next song is analysed from the copy Onda downloads anyway, with no extra data. Automatic radio keeps going with similar songs when the queue ends. Compilations longer than 15 minutes are left out of radios, moods and \"Picked for you\". The sleep timer is in the player's ··· menu.";
 
 /* Settings: karaoke */
 "Modello AI (UVR MDX-Net)" = "AI model (UVR MDX-Net)";

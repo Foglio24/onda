@@ -33,6 +33,12 @@ for sampleRate in [44_100.0, 48_000.0] {
     expect(close(high.response(at: 15_000, sampleRate: sampleRate), -4, within: 0.05), "high shelf: half the gain at 15 kHz")
     expect(close(high.response(at: 1_000, sampleRate: sampleRate), 0, within: 0.1), "high shelf: nothing at 1 kHz")
 
+    // AutoMix's high-pass: half the power at its corner, nothing above, a lot below.
+    let highPass = Biquad.highPass(frequency: 400, sampleRate: sampleRate)
+    expect(close(highPass.response(at: 400, sampleRate: sampleRate), -3.01, within: 0.05), "high-pass: -3 dB at 400 Hz")
+    expect(close(highPass.response(at: 4_000, sampleRate: sampleRate), 0, within: 0.1), "high-pass: nothing at 4 kHz")
+    expect(highPass.response(at: 40, sampleRate: sampleRate) < -38, "high-pass: about -40 dB at 40 Hz")
+
     // Every section of every preset is stable: both poles inside the unit circle.
     for preset in EqualizerPreset.allCases {
         guard let gains = preset.gains else { continue }

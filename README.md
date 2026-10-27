@@ -18,7 +18,7 @@ See [CHANGELOG.md](CHANGELOG.md) for what changed in each version.
 | Song details | ✅ Release date, label, ℗ and credits from YouTube Music's catalogue, plus format and loudness |
 | Quality and codecs | ✅ Four levels, set separately for Wi-Fi, cellular and downloads (details below) |
 | Dolby Atmos | ✅ Dolby Digital Plus when YouTube offers it, plus Apple's Spatial Audio with AirPods/Beats |
-| Song transitions | ✅ AutoMix like Apple Music (beat-matched DJ transitions, silence left out, albums as they are), or a 1–12 s crossfade |
+| Song transitions | ✅ AutoMix like Apple Music (every pair mixed: tempos meeting halfway, beat-matched up to 16 bars, intros skipped, filters), or a 1–12 s crossfade |
 | Smart radios and mixes | ✅ A radio from any song, auto-radio when the queue ends, and recommendations that change every day from what you play, skip and like: six daily mixes, *Scelti per te* and moods; plus *Taste Mix* / *Rediscover* from Last.fm |
 | Playlists | ✅ Create, rename, reorder, set a custom cover from Photos, download a whole playlist in one tap |
 | Playlist import | ✅ From Spotify (up to 100 songs), Apple Music, YouTube and YouTube Music links; each song is matched on YouTube Music |

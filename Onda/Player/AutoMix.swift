@@ -128,19 +128,25 @@ enum AutoMixDecoder {
     }
 }
 
-/// The bass cut AutoMix moves while two songs play together, read by the song's audio tap
-/// (see `EqualizerProcessor`): 0 leaves the bass alone, 1 takes it out.
+/// The filters AutoMix moves while two songs play together, read by the song's audio tap (see
+/// `EqualizerProcessor`): the bass cut (0 leaves the bass alone, 1 takes it out) and the high-pass
+/// (0 off, 1 up to 1.2 kHz).
 final class TransitionFilter: @unchecked Sendable {
-    private let cut = OSAllocatedUnfairLock(initialState: Float(0))
-
-    func set(_ value: Float) {
-        let clamped = max(0, min(1, value))
-        cut.withLock { $0 = clamped }
+    struct Values: Sendable {
+        var bassCut: Float = 0
+        var highPass: Float = 0
     }
 
-    /// Nil while it is being changed: the audio thread keeps the previous value instead of waiting.
-    func valueIfAvailable() -> Float? {
-        cut.withLockIfAvailable { $0 }
+    private let values = OSAllocatedUnfairLock(initialState: Values())
+
+    func set(bassCut: Float, highPass: Float = 0) {
+        let new = Values(bassCut: max(0, min(1, bassCut)), highPass: max(0, min(1, highPass)))
+        values.withLock { $0 = new }
+    }
+
+    /// Nil while they are being changed: the audio thread keeps the previous values instead of waiting.
+    func valuesIfAvailable() -> Values? {
+        values.withLockIfAvailable { $0 }
     }
 }
 

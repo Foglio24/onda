@@ -119,6 +119,16 @@ struct Biquad: Equatable, Sendable {
                       a2: ((a + 1) + (a - 1) * cosw - root) / a0)
     }
 
+    /// A second-order high-pass (Butterworth with the default `q`): nothing below `frequency`.
+    static func highPass(frequency: Double, q: Double = 0.707_1, sampleRate: Double) -> Biquad {
+        let w = 2 * Double.pi * min(frequency, sampleRate * 0.45) / sampleRate
+        let cosw = cos(w)
+        let alpha = sin(w) / (2 * q)
+        let a0 = 1 + alpha
+        return Biquad(b0: (1 + cosw) / 2 / a0, b1: -(1 + cosw) / a0, b2: (1 + cosw) / 2 / a0,
+                      a1: -2 * cosw / a0, a2: (1 - alpha) / a0)
+    }
+
     /// The section's gain in decibels at a frequency.
     func response(at frequency: Double, sampleRate: Double) -> Double {
         let w = 2 * Double.pi * frequency / sampleRate

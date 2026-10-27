@@ -167,7 +167,7 @@ struct SettingsView: View {
         } header: {
             Text("Riproduzione")
         } footer: {
-            Text("AutoMix passa da un brano all'altro come un DJ, come su Apple Music: se i due brani hanno un ritmo regolare e un tempo simile, il successivo entra a tempo sul primo battito di una battuta, suonano insieme per qualche battuta e i bassi passano dall'uno all'altro; altrimenti c'è una dissolvenza che toglie i silenzi e segue il finale del brano. I brani dello stesso album, in ordine, suonano senza transizioni. Il brano successivo viene analizzato dalla copia che Onda scarica comunque, senza dati in più. La radio automatica continua con brani simili quando la coda finisce. Le compilation da più di 15 minuti vengono escluse da radio, mood e \"Scelti per te\". Il timer di spegnimento è nel menu ··· del player.")
+            Text("AutoMix mixa ogni brano nel successivo come un DJ, come su Apple Music. Se entrambi hanno un ritmo regolare e tempi vicini, i due brani cambiano velocità per incontrarsi a metà, il successivo entra sul primo battito di una battuta (saltando un'intro lunga) e suonano insieme fino a 16 battute, con i bassi che passano dall'uno all'altro; se i tempi sono lontani, il primo si svuota col filtro e il successivo entra sul battere; senza un ritmo regolare c'è una dissolvenza sul finale. Nella coda vedi cosa farà. Il brano successivo viene analizzato dalla copia che Onda scarica comunque, senza dati in più. La radio automatica continua con brani simili quando la coda finisce. Le compilation da più di 15 minuti vengono escluse da radio, mood e \"Scelti per te\". Il timer di spegnimento è nel menu ··· del player.")
         }
     }
 

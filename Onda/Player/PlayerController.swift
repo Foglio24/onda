@@ -102,6 +102,8 @@ final class PlayerController: ObservableObject {
     @Published private(set) var karaokeAmount: Float = 1
     @Published private(set) var karaokeStatus: KaraokeStatus = .idle
     @Published var repeatMode: RepeatMode = .off
+    /// What AutoMix plans for the end of the current song, shown in the queue.
+    @Published private(set) var autoMixNote: String?
     @Published var autoRadio: Bool {
         didSet { UserDefaults.standard.set(autoRadio, forKey: "player.autoRadio") }
     }
@@ -211,6 +213,9 @@ final class PlayerController: ObservableObject {
     private var armTask: Task<Void, Never>?
     /// The AutoMix transition playing now: volumes, bass and tempo follow the outgoing song's time.
     private var transitionTask: Task<Void, Never>?
+    /// Brings the playing song to the tempo the next one meets it at (see `rampOutgoing`).
+    private var rampTask: Task<Void, Never>?
+    private var outgoingRamped = false
 
     private init() {
         autoRadio = UserDefaults.standard.object(forKey: "player.autoRadio") as? Bool ?? true
@@ -424,6 +429,8 @@ final class PlayerController: ObservableObject {
         stopPreparationWork()
         requestedSeek?.setPlaying(false, now: ProcessInfo.processInfo.systemUptime)
         player.pause()
+        // An AutoMix transition about to start is prepared again after the pause.
+        disarm()
         rememberPosition(progress.currentTime)
         updateNowPlayingInfo()
     }
@@ -925,6 +932,8 @@ final class PlayerController: ObservableObject {
                 self.itemStatusChanged(status, item: item, track: track)
             }
 
+        // AutoMix may change the song's tempo near its end: keep the pitch at the best quality.
+        if Preferences.songTransitionSetting == .autoMix { item.audioTimePitchAlgorithm = .spectral }
         if !alreadyStarted {
             if pendingFadeIn != nil {
                 // Crossfading in: stay silent until the song really plays (see `startPendingFades`).
@@ -1187,7 +1196,7 @@ final class PlayerController: ObservableObject {
     // MARK: AutoMix
 
     /// Seconds of plain crossfade at the end of a song: the setting's with "Dissolvenza incrociata";
-    /// with AutoMix, a short one while no plan is ready (none between songs of the same album).
+    /// with AutoMix, a short one while no plan is ready.
     private var plainCrossfadeSeconds: Double {
         switch Preferences.songTransitionSetting {
         case .off:
@@ -1195,9 +1204,6 @@ final class PlayerController: ObservableObject {
         case .crossfade:
             return max(1, Preferences.crossfadeSeconds)
         case .autoMix:
-            if let track = current, index + 1 < queue.count, !shuffleEnabled, Self.sameAlbum(track, queue[index + 1]) {
-                return 0
-            }
             return 5
         }
     }
@@ -1208,10 +1214,10 @@ final class PlayerController: ObservableObject {
         prepareAutoMix()
     }
 
-    /// Plans AutoMix's transition into the next song: both songs' files are analysed (the next
-    /// song's is the copy it then plays from, so nothing is downloaded twice) and
-    /// `TransitionPlanner` picks the transition. Until a plan is ready the song ends with a short
-    /// plain crossfade; songs of the same album, in order, play as they are.
+    /// Plans AutoMix's mix into the next song, whatever the two songs are: both songs' files are
+    /// analysed (the next song's is the copy it then plays from, so nothing is downloaded twice)
+    /// and `TransitionPlanner` picks the mix. Until a plan is ready the song ends with a short
+    /// plain crossfade.
     private func prepareAutoMix() {
         guard Preferences.songTransitionSetting == .autoMix, karaokeMode == .off, playWhenReady,
               let track = current, index + 1 < queue.count else {
@@ -1224,29 +1230,63 @@ final class PlayerController: ObservableObject {
         if autoMixPair == pair { return }
         resetAutoMix()
         autoMixPair = pair
-        if !shuffleEnabled, Self.sameAlbum(track, next) {
-            autoMix = PlannedTransition(trackID: track.id, nextID: next.id, plan: nil, file: nil, label: "")
-            return
-        }
         let thermal = ProcessInfo.processInfo.thermalState
         guard let videoId = track.videoId, let nextVideoId = next.videoId,
               (track.duration ?? 0) <= AutoMixLibrary.lengthLimit, (next.duration ?? 0) <= AutoMixLibrary.lengthLimit,
-              thermal != .serious, thermal != .critical else { return }
+              thermal != .serious, thermal != .critical else {
+            autoMixNote = String(localized: "Non disponibile per questi brani: dissolvenza semplice")
+            return
+        }
+        autoMixNote = String(localized: "Analisi dei brani in corso…")
         let generation = requests.loadGeneration
         autoMixTask = Task {
-            guard let outgoingFile = await self.analysisFile(for: track, videoId: videoId),
-                  let incomingFile = await self.analysisFile(for: next, videoId: nextVideoId),
-                  !Task.isCancelled else { return }
-            async let outgoingAnalysis = AutoMixLibrary.shared.analysis(of: outgoingFile.url)
-            async let incomingAnalysis = AutoMixLibrary.shared.analysis(of: incomingFile.url)
-            let analyses = await (outgoingAnalysis, incomingAnalysis)
-            guard !Task.isCancelled, self.requests.isCurrentLoad(generation), self.autoMixPair == pair,
-                  let outgoing = analyses.0, let incoming = analyses.1 else { return }
-            self.autoMix = PlannedTransition(trackID: track.id, nextID: next.id,
-                                             plan: TransitionPlanner.plan(from: outgoing, to: incoming, sameAlbum: false),
-                                             file: incomingFile.url, label: incomingFile.label)
+            let outgoingFile = await self.analysisFile(for: track, videoId: videoId)
+            let incomingFile = await self.analysisFile(for: next, videoId: nextVideoId)
+            guard !Task.isCancelled, self.autoMixPair == pair else { return }
+            var analyses: (TrackAnalysis?, TrackAnalysis?) = (nil, nil)
+            if let outgoingFile, let incomingFile {
+                async let outgoingAnalysis = AutoMixLibrary.shared.analysis(of: outgoingFile.url)
+                async let incomingAnalysis = AutoMixLibrary.shared.analysis(of: incomingFile.url)
+                analyses = await (outgoingAnalysis, incomingAnalysis)
+            }
+            guard !Task.isCancelled, self.requests.isCurrentLoad(generation), self.autoMixPair == pair else { return }
             self.autoMixTask = nil
+            guard let incomingFile, let outgoing = analyses.0, let incoming = analyses.1 else {
+                self.autoMixNote = String(localized: "Analisi non riuscita: dissolvenza semplice")
+                return
+            }
+            let plan = TransitionPlanner.plan(from: outgoing, to: incoming)
+            self.autoMix = PlannedTransition(trackID: track.id, nextID: next.id, plan: plan,
+                                             file: incomingFile.url, label: incomingFile.label)
+            self.autoMixNote = Self.describe(plan, from: outgoing, to: incoming)
         }
+    }
+
+    /// The plan in words, for the queue.
+    private static func describe(_ plan: TransitionPlan, from outgoing: TrackAnalysis, to incoming: TrackAnalysis) -> String {
+        let before = Int((outgoing.duration - plan.outStart).rounded())
+        let tempoOut = Int(outgoing.tempo.rounded()), tempoIn = Int(incoming.tempo.rounded())
+        let seconds = Int(plan.overlap.rounded())
+        var text: String
+        switch plan.style {
+        case .beatMatched:
+            let bars = plan.bars ?? 0
+            text = String(localized: "Mix a tempo: \(bars) battute, \(tempoOut) → \(tempoIn) BPM, \(before) s prima della fine")
+        case .drop:
+            text = String(localized: "Stacco sul battere: \(tempoOut) → \(tempoIn) BPM, \(before) s prima della fine")
+        case .fade:
+            text = String(localized: "Dissolvenza sul finale: \(seconds) s")
+        case .blend:
+            text = plan.filterOut != nil
+                ? String(localized: "Dissolvenza filtrata: \(seconds) s")
+                : String(localized: "Dissolvenza incrociata: \(seconds) s")
+        }
+        if plan.inStart - incoming.soundStart > 3 {
+            let start = Int(plan.inStart.rounded())
+            let time = String(format: "%d:%02d", start / 60, start % 60)
+            text += " · " + String(localized: "il prossimo parte da \(time)")
+        }
+        return text
     }
 
     /// The file a song is analysed from (and, for the next song, played from): its download, its
@@ -1259,13 +1299,6 @@ final class PlayerController: ObservableObject {
         return try? await Self.prepareCopy(videoId: videoId, quality: Preferences.streamingQuality)
     }
 
-    /// Songs of the same album: one after the other in order, they play as they are.
-    private static func sameAlbum(_ a: Track, _ b: Track) -> Bool {
-        if let first = a.albumID, let second = b.albumID { return first == second }
-        guard let first = a.album, let second = b.album, !first.isEmpty else { return false }
-        return first.caseInsensitiveCompare(second) == .orderedSame && a.primaryArtist == b.primaryArtist
-    }
-
     /// The AutoMix plan from the current song into the next, unless its moment was missed.
     private func plannedTransition() -> PlannedTransition? {
         guard let autoMix, !autoMix.missed, Preferences.songTransitionSetting == .autoMix, karaokeMode == .off,
@@ -1274,15 +1307,34 @@ final class PlayerController: ObservableObject {
         return autoMix
     }
 
-    /// Loads the next song shortly before the planned transition. A transition whose moment
-    /// passed (a seek beyond it) becomes a plain crossfade.
+    /// Loads the next song shortly before the planned transition (and brings this song to the
+    /// meeting tempo). A transition whose moment passed (a seek beyond it) becomes a plain crossfade.
     private func followPlan(_ planned: PlannedTransition, at seconds: TimeInterval) {
         guard let plan = planned.plan, outgoingPlayer == nil else { return }
-        if armed == nil, seconds >= plan.outStart - 12, seconds < plan.outStart - 1.5 {
+        if armed == nil, seconds >= plan.outStart - 16, seconds < plan.outStart - 1.5 {
             armTransition(planned, plan: plan)
         } else if seconds > plan.outStart + 0.5, armed?.scheduled != true {
             disarm()
             autoMix?.missed = true
+            autoMixNote = String(localized: "Transizione saltata: dissolvenza semplice")
+        }
+    }
+
+    /// Brings the playing song gradually to the tempo the next song meets it at, finishing before
+    /// `time` (in the song's time), so the next song's start can be set while the tempo is steady.
+    private func rampOutgoing(to rate: Double, before time: Double) {
+        guard abs(rate - 1) > 0.0005 else { return }
+        let outgoing = player
+        outgoingRamped = true
+        rampTask?.cancel()
+        rampTask = Task {
+            let available = max(0.3, time - outgoing.currentTime().seconds)
+            let steps = max(1, Int(min(8, available * 0.75) / 0.1))
+            for step in 1...steps {
+                try? await Task.sleep(for: .milliseconds(100))
+                guard !Task.isCancelled, self.player === outgoing, outgoing.timeControlStatus == .playing else { return }
+                outgoing.rate = Float(1 + (rate - 1) * Double(step) / Double(steps))
+            }
         }
     }
 
@@ -1304,6 +1356,7 @@ final class PlayerController: ObservableObject {
         let transition = ArmedTransition(plan: plan, player: incoming, item: item, track: next,
                                          label: planned.label, outgoingTrackID: track.id)
         armed = transition
+        rampOutgoing(to: plan.outgoingRate, before: plan.outStart - 1.2)
         armTask = Task {
             item.audioMix = await self.audioMix(for: item, track: next)
             var waited = 0
@@ -1340,6 +1393,13 @@ final class PlayerController: ObservableObject {
             try? await Task.sleep(for: .seconds(min(wait - 0.35, 1)))
         }
         guard let timebase = outgoing.currentItem?.timebase else { return abandon(transition) }
+        if abs(CMTimebaseGetRate(timebase) - plan.outgoingRate) > 0.002 {
+            // The tempo ramp didn't finish (a pause, a stall): reach the meeting tempo now.
+            rampTask?.cancel()
+            outgoing.rate = Float(plan.outgoingRate)
+            try? await Task.sleep(for: .milliseconds(60))
+            guard armed === transition, player === outgoing else { return abandon(transition) }
+        }
         let rate = CMTimebaseGetRate(timebase)
         let now = CMTimebaseGetTime(timebase).seconds
         guard rate > 0, now.isFinite, now <= plan.outStart + 0.05 else { return abandon(transition) }
@@ -1356,6 +1416,8 @@ final class PlayerController: ObservableObject {
     private func beginTransition(_ transition: ArmedTransition) {
         armed = nil
         armTask = nil
+        rampTask = nil
+        outgoingRamped = false
         let outgoing = player
         finishedCurrent = true
         fadeOutTask?.cancel()
@@ -1389,17 +1451,17 @@ final class PlayerController: ObservableObject {
                 let levels = plan.levels(at: progress)
                 if self.outgoingPlayer === outgoing {
                     outgoing.volume = levels.outgoing
-                    outgoingFilter?.set(levels.outgoingBassCut)
+                    outgoingFilter?.set(bassCut: levels.outgoingBassCut, highPass: levels.outgoingHighPass)
                 }
                 incoming.volume = levels.incoming
-                incomingFilter?.set(levels.incomingBassCut)
+                incomingFilter?.set(bassCut: levels.incomingBassCut)
                 if progress >= 1 { break }
                 try? await Task.sleep(for: .milliseconds(30))
             }
             guard !Task.isCancelled else { return }
             if self.outgoingPlayer === outgoing { self.endCrossfade(interrupted: false) }
             incoming.volume = 1
-            incomingFilter?.set(0)
+            incomingFilter?.set(bassCut: 0)
             if plan.rate != 1 {
                 let steps = 40
                 for step in 1...steps {
@@ -1420,7 +1482,7 @@ final class PlayerController: ObservableObject {
         guard let task = transitionTask else { return }
         task.cancel()
         transitionTask = nil
-        player.currentItem?.transitionFilter?.set(0)
+        player.currentItem?.transitionFilter?.set(bassCut: 0)
         if player.rate > 0, player.rate != 1 { player.rate = 1 }
         player.automaticallyWaitsToMinimizeStalling = true
     }
@@ -1430,12 +1492,20 @@ final class PlayerController: ObservableObject {
         autoMixTask = nil
         autoMixPair = nil
         autoMix = nil
+        if autoMixNote != nil { autoMixNote = nil }
         disarm()
     }
 
+    /// Drops the next song's waiting player; the playing song goes back to its own tempo.
     private func disarm() {
         armTask?.cancel()
         armTask = nil
+        rampTask?.cancel()
+        rampTask = nil
+        if outgoingRamped {
+            outgoingRamped = false
+            if player.rate > 0, player.rate != 1 { player.rate = 1 }
+        }
         guard let armed else { return }
         armed.player.pause()
         armed.player.replaceCurrentItem(with: nil)
@@ -1448,6 +1518,7 @@ final class PlayerController: ObservableObject {
         guard armed === transition else { return }
         disarm()
         autoMix?.missed = true
+        autoMixNote = String(localized: "Transizione saltata: dissolvenza semplice")
     }
 
     // MARK: Queue upkeep
@@ -1853,7 +1924,6 @@ final class PlayerController: ObservableObject {
 private struct PlannedTransition {
     let trackID: String
     let nextID: String
-    /// Nil: the two songs play as they are (same album).
     let plan: TransitionPlan?
     /// The next song's file, analysed and played from.
     let file: URL?

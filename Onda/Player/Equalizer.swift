@@ -128,11 +128,15 @@ final class EqualizerProcessor {
     private var version = -1
     private var isActive = false
     private var preamp: Float = 1
-    /// The bass cut as heard, moving towards `target` within a few milliseconds.
+    /// The bass cut and high-pass as heard, moving towards their targets within a few milliseconds.
     private var cut: Float = 0
     private var target: Float = 0
+    private var pass: Float = 0
+    private var passTarget: Float = 0
     private var bass = Biquad.identity
+    private var highPass = Biquad.identity
     private let bassMemory = UnsafeMutablePointer<Double>.allocate(capacity: maxChannels * 2)
+    private let passMemory = UnsafeMutablePointer<Double>.allocate(capacity: maxChannels * 2)
 
     init(parameters: EqualizerParameters, transition: TransitionFilter? = nil) {
         self.parameters = parameters
@@ -140,12 +144,14 @@ final class EqualizerProcessor {
         sections.initialize(repeating: .identity, count: EqualizerBands.count)
         memory.initialize(repeating: 0, count: Self.maxChannels * EqualizerBands.count * 2)
         bassMemory.initialize(repeating: 0, count: Self.maxChannels * 2)
+        passMemory.initialize(repeating: 0, count: Self.maxChannels * 2)
     }
 
     deinit {
         sections.deallocate()
         memory.deallocate()
         bassMemory.deallocate()
+        passMemory.deallocate()
     }
 
     func prepare(format: AudioStreamBasicDescription) {
@@ -155,8 +161,11 @@ final class EqualizerProcessor {
         version = -1
         memory.update(repeating: 0, count: memoryCount)
         cut = 0
+        pass = 0
         bass = .identity
+        highPass = .identity
         bassMemory.update(repeating: 0, count: Self.maxChannels * 2)
+        passMemory.update(repeating: 0, count: Self.maxChannels * 2)
     }
 
     func process(_ buffers: UnsafeMutableAudioBufferListPointer, frames: Int) {
@@ -170,7 +179,7 @@ final class EqualizerProcessor {
             if !wasActive { memory.update(repeating: 0, count: memoryCount) }
         }
         if isActive { equalize(buffers, frames: frames) }
-        if transition != nil { cutBass(buffers, frames: frames) }
+        if transition != nil { applyTransition(buffers, frames: frames) }
     }
 
     private func equalize(_ buffers: UnsafeMutableAudioBufferListPointer, frames: Int) {
@@ -187,22 +196,29 @@ final class EqualizerProcessor {
         }
     }
 
-    /// AutoMix's bass cut: a low shelf at 150 Hz down to -30 dB, its depth following the
-    /// transition (updated every 64 frames, so it moves smoothly).
-    private func cutBass(_ buffers: UnsafeMutableAudioBufferListPointer, frames: Int) {
-        if let value = transition?.valueIfAvailable() { target = value }
-        guard target > 0 || cut > 0 else { return }
+    /// AutoMix's filters while two songs play together: a low shelf at 150 Hz down to -30 dB (the
+    /// bass cut) and a high-pass sweeping from 20 Hz to 1.2 kHz, updated every 64 frames so they
+    /// move smoothly.
+    private func applyTransition(_ buffers: UnsafeMutableAudioBufferListPointer, frames: Int) {
+        if let values = transition?.valuesIfAvailable() {
+            target = values.bassCut
+            passTarget = values.highPass
+        }
+        guard target > 0 || cut > 0 || passTarget > 0 || pass > 0 else { return }
         let step = Float(Double(Self.block) / (sampleRate * 0.03))
         var start = 0
         while start < frames {
             let count = min(Self.block, frames - start)
-            let previous = cut
-            cut += max(-step, min(step, target - cut))
-            if cut < 0.001 { cut = 0 }
-            if cut != previous || (cut > 0 && bass == .identity) {
+            let previousCut = cut, previousPass = pass
+            cut = Self.approach(cut, target, step: step)
+            pass = Self.approach(pass, passTarget, step: step)
+            if cut != previousCut || (cut > 0 && bass == .identity) {
                 bass = cut > 0 ? .shelf(high: false, frequency: 150, gain: Double(-30 * cut), sampleRate: sampleRate) : .identity
             }
-            if cut > 0 {
+            if pass != previousPass || (pass > 0 && highPass == .identity) {
+                highPass = pass > 0 ? .highPass(frequency: 20 * pow(60, Double(pass)), sampleRate: sampleRate) : .identity
+            }
+            if cut > 0 || pass > 0 {
                 var channel = 0
                 for buffer in buffers {
                     guard let data = buffer.mData?.assumingMemoryBound(to: Float.self) else { continue }
@@ -211,8 +227,13 @@ final class EqualizerProcessor {
                     let length = min(count, available - start)
                     for offset in 0..<interleaved where channel < Self.maxChannels {
                         if length > 0 {
-                            filter(data + start * interleaved + offset, count: length, stride: interleaved,
-                                   memory: bassMemory + channel * 2)
+                            let samples = data + start * interleaved + offset
+                            if cut > 0 {
+                                filter(bass, samples, count: length, stride: interleaved, memory: bassMemory + channel * 2)
+                            }
+                            if pass > 0 {
+                                filter(highPass, samples, count: length, stride: interleaved, memory: passMemory + channel * 2)
+                            }
                         }
                         channel += 1
                     }
@@ -221,17 +242,23 @@ final class EqualizerProcessor {
             start += count
         }
         if cut == 0 { bassMemory.update(repeating: 0, count: Self.maxChannels * 2) }
+        if pass == 0 { passMemory.update(repeating: 0, count: Self.maxChannels * 2) }
     }
 
-    private func filter(_ samples: UnsafeMutablePointer<Float>, count: Int, stride: Int,
+    private static func approach(_ value: Float, _ target: Float, step: Float) -> Float {
+        let next = value + max(-step, min(step, target - value))
+        return next < 0.001 ? 0 : next
+    }
+
+    private func filter(_ section: Biquad, _ samples: UnsafeMutablePointer<Float>, count: Int, stride: Int,
                         memory: UnsafeMutablePointer<Double>) {
         var z1 = memory[0], z2 = memory[1]
         var index = 0
         while index < count {
             let x = Double(samples[index * stride])
-            let y = bass.b0 * x + z1
-            z1 = bass.b1 * x - bass.a1 * y + z2
-            z2 = bass.b2 * x - bass.a2 * y
+            let y = section.b0 * x + z1
+            z1 = section.b1 * x - section.a1 * y + z2
+            z2 = section.b2 * x - section.a2 * y
             samples[index * stride] = Float(y)
             index += 1
         }

@@ -16,6 +16,12 @@ struct QueueView: View {
                     Label("AutoMix", systemImage: "waveform.path")
                         .font(.subheadline.weight(.semibold))
                 }
+                if transition == .autoMix, let note = player.autoMixNote {
+                    Text(note)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
