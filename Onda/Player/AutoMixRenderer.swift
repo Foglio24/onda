@@ -1,3 +1,4 @@
+import Accelerate
 import AVFoundation
 import Foundation
 
@@ -24,12 +25,35 @@ enum AutoMixRenderer {
     /// `effects` false leaves out the filters (for checks that look at the beats).
     static func render(_ schedule: MixSchedule, outgoing: URL, incoming: URL, outgoingGain: Float,
                        incomingGain: Float, to destination: URL, effects: Bool = true) async throws -> Mix {
-        let rate = MixSchedule.sampleRate
         let plan = schedule.plan
         let outgoingAudio = try await decode(outgoing, from: plan.handover, duration: plan.outEnd - plan.handover + 2)
         let incomingAudio = try await decode(incoming, from: plan.inStart, duration: schedule.join - plan.inStart + 2)
         try Task.checkCancellation()
+        // The time stretch moves the next song by a few milliseconds, depending on its tempo when it
+        // starts. A first pass measures by how much at the end, where it plays alone at its own
+        // tempo, and the second starts it that much later: its beats and its join then land exactly.
+        let end = schedule.join - plan.inStart
+        var delay = 0.0
+        var pass = try renderPass(schedule, outgoingAudio, incomingAudio, delay: delay,
+                                  gains: (outgoingGain, incomingGain), effects: effects, to: destination)
+        var offset = contentOffset(pass.tail, incomingAudio, end: end)
+        if abs(offset) > 0.000_3 {
+            delay = offset
+            try Task.checkCancellation()
+            pass = try renderPass(schedule, outgoingAudio, incomingAudio, delay: delay,
+                                  gains: (outgoingGain, incomingGain), effects: effects, to: destination)
+            // Starting `delay` later, the end is `delay` earlier in the song; what remains is measured.
+            offset = contentOffset(pass.tail, incomingAudio, end: end - delay) - delay
+        }
+        return Mix(url: destination, length: pass.length, join: schedule.join + offset)
+    }
 
+    /// One rendering of the mix into `destination`, the next song starting `delay` seconds late.
+    /// Returns its length and its last half second (mono), for `contentOffset`.
+    private static func renderPass(_ schedule: MixSchedule, _ outgoingAudio: AVAudioPCMBuffer,
+                                   _ incomingAudio: AVAudioPCMBuffer, delay: Double, gains: (Float, Float),
+                                   effects: Bool, to destination: URL) throws -> (length: Double, tail: [Float]) {
+        let rate = MixSchedule.sampleRate
         guard let format = AVAudioFormat(standardFormatWithSampleRate: rate, channels: 2) else { throw RenderError.engine }
         let engine = AVAudioEngine()
         let block = MixSchedule.blockFrames
@@ -55,9 +79,9 @@ enum AutoMixRenderer {
 
         // The next song's player starts when, by its own clock, the mix reaches the entry.
         decks[0].player.scheduleBuffer(outgoingAudio, at: nil, options: [], completionHandler: nil)
-        let entry = AVAudioFramePosition((schedule.incomingClockAtEntry * rate).rounded())
-        decks[1].player.scheduleBuffer(incomingAudio, at: AVAudioTime(sampleTime: entry, atRate: rate), options: [],
-                                       completionHandler: nil)
+        let entry = AVAudioFramePosition(((schedule.incomingClockAtEntry + delay) * rate).rounded())
+        decks[1].player.scheduleBuffer(incomingAudio, at: AVAudioTime(sampleTime: max(0, entry), atRate: rate),
+                                       options: [], completionHandler: nil)
         decks[0].player.play()
         decks[1].player.play()
 
@@ -69,6 +93,7 @@ enum AutoMixRenderer {
         let total = schedule.steps.count * block + latencyFrames
         guard let output = AVAudioPCMBuffer(pcmFormat: engine.manualRenderingFormat,
                                             frameCapacity: AVAudioFrameCount(block)) else { throw RenderError.engine }
+        try? FileManager.default.removeItem(at: destination)
         let file = try AVAudioFile(forWriting: destination, settings: [
             AVFormatIDKey: kAudioFormatLinearPCM,
             AVSampleRateKey: rate,
@@ -78,6 +103,8 @@ enum AutoMixRenderer {
             AVLinearPCMIsBigEndianKey: false,
             AVLinearPCMIsNonInterleaved: false,
         ], commonFormat: .pcmFormatFloat32, interleaved: false)
+        let tailLength = Int(0.5 * rate)
+        var tail = [Float](repeating: 0, count: tailLength)
         var rendered = 0
         var written = 0
         while rendered < total {
@@ -85,21 +112,64 @@ enum AutoMixRenderer {
             let time = Double(rendered) / rate
             let pace = schedule.step(at: time)
             let heard = schedule.step(at: max(0, time - latency)).levels
-            decks[0].set(rate: pace.outgoingRate, volume: heard.outgoing * outgoingGain, bassCut: heard.outgoingBassCut,
+            decks[0].set(rate: pace.outgoingRate, volume: heard.outgoing * gains.0, bassCut: heard.outgoingBassCut,
                          highPass: heard.outgoingHighPass, effects: effects)
-            decks[1].set(rate: pace.incomingRate, volume: heard.incoming * incomingGain, bassCut: heard.incomingBassCut,
+            decks[1].set(rate: pace.incomingRate, volume: heard.incoming * gains.1, bassCut: heard.incomingBassCut,
                          highPass: 0, effects: effects)
             let frames = min(block, total - rendered)
             let status = try engine.renderOffline(AVAudioFrameCount(frames), to: output)
-            guard status == .success else { throw RenderError.engine }
+            guard status == .success, let channels = output.floatChannelData else { throw RenderError.engine }
             let skip = max(0, latencyFrames - rendered)
             if skip < frames {
                 try write(output, from: skip, count: frames - skip, to: file)
-                written += frames - skip
+                // Keep the last half second, as mono.
+                for frame in skip..<frames {
+                    tail[written % tailLength] = (channels[0][frame] + channels[1][frame]) / 2
+                    written += 1
+                }
             }
             rendered += frames
         }
-        return Mix(url: destination, length: Double(written) / rate, join: schedule.join)
+        let start = written % tailLength
+        let ordered = Array(tail[start...]) + Array(tail[..<start])
+        return (Double(written) / rate, ordered)
+    }
+
+    /// How much later in the next song (seconds) the end of the mix is than `end` (its time counted
+    /// from where it starts in the mix): the lag at which the mix's last half second best matches
+    /// the song, within 25 ms either way.
+    private static func contentOffset(_ tail: [Float], _ incomingAudio: AVAudioPCMBuffer, end: Double) -> Double {
+        let rate = MixSchedule.sampleRate
+        guard let channels = incomingAudio.floatChannelData else { return 0 }
+        let count = Int(incomingAudio.frameLength)
+        let range = Int(0.025 * rate)
+        let length = tail.count
+        let first = Int((end * rate).rounded()) - length
+        guard first - range >= 0, first + range + length <= count else { return 0 }
+        var source = [Float](repeating: 0, count: count)
+        for frame in 0..<count { source[frame] = (channels[0][frame] + channels[1][frame]) / 2 }
+        var bestLag = 0
+        var bestScore = -Float.infinity
+        tail.withUnsafeBufferPointer { mix in
+            source.withUnsafeBufferPointer { song in
+                guard let mixStart = mix.baseAddress, let songStart = song.baseAddress else { return }
+                var mixEnergy: Float = 0
+                vDSP_svesq(mixStart, 1, &mixEnergy, vDSP_Length(length))
+                for lag in -range...range {
+                    var dot: Float = 0, energy: Float = 0
+                    let window = songStart + first + lag
+                    vDSP_dotpr(mixStart, 1, window, 1, &dot, vDSP_Length(length))
+                    vDSP_svesq(window, 1, &energy, vDSP_Length(length))
+                    let score = dot / ((mixEnergy * energy).squareRoot() + 1e-12)
+                    if score > bestScore {
+                        bestScore = score
+                        bestLag = lag
+                    }
+                }
+            }
+        }
+        // A quiet or unclear ending says nothing reliable: no correction then.
+        return bestScore > 0.5 ? Double(bestLag) / rate : 0
     }
 
     /// One song's chain in the mix.

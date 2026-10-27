@@ -275,7 +275,10 @@ struct MixSchedule: Sendable {
         let dt = Double(Self.blockFrames) / Self.sampleRate
         // The next song takes 16 of its beats to get back to its own tempo (when it changed at all).
         let glideBack = plan.tempoMeet == plan.tempoIn ? 0 : 16 * 60 / plan.tempoIn
-        let preGlide = max(1e-6, plan.outStart - plan.handover)
+        // The playing song keeps its own tempo for a second after the handover (so the mix starts
+        // exactly as the song sounds), then glides.
+        let glideFrom = plan.handover + 1
+        let preGlide = max(1e-6, plan.outStart - glideFrom)
         var outgoing = plan.handover
         var incoming: Double?
         var incomingClock = 0.0
@@ -288,7 +291,7 @@ struct MixSchedule: Sendable {
                 let progress = glideBack > 0 ? (position - from) / glideBack : 1
                 tempo = plan.tempoMeet + (plan.tempoIn - plan.tempoMeet) * Self.smooth(progress)
             } else {
-                tempo = plan.tempoOut + (plan.tempoMeet - plan.tempoOut) * Self.smooth((outgoing - plan.handover) / preGlide)
+                tempo = plan.tempoOut + (plan.tempoMeet - plan.tempoOut) * Self.smooth((outgoing - glideFrom) / preGlide)
             }
             let outgoingRate = tempo / plan.tempoOut, incomingRate = tempo / plan.tempoIn
             steps.append(Step(outgoingRate: outgoingRate, incomingRate: incomingRate,

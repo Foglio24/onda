@@ -148,6 +148,7 @@ struct AutoMixRenderCheck {
             let name = "\(Int(from)) → \(Int(to)) BPM"
             let plan = TransitionPlanner.plan(from: a.analysis, to: b.analysis)
             let schedule = MixSchedule(plan: plan)
+            var joins: [String: Double] = [:]
             func render(_ outgoingGain: Float, _ incomingGain: Float, effects: Bool, _ label: String) async -> [Float]? {
                 let url = folder.appending(path: "\(Int(from))-\(Int(to))-\(label).caf")
                 let started = Date()
@@ -158,6 +159,7 @@ struct AutoMixRenderCheck {
                     let seconds = Date().timeIntervalSince(started)
                     expect(abs(mix.length - schedule.length) < 0.05,
                            "\(name) (\(label)): \(format(mix.length, 1)) s of mix rendered in \(format(seconds)) s")
+                    joins[label] = mix.join
                     return try await AutoMixDecoder.samples(of: url)
                 } catch {
                     expect(false, "\(name) (\(label)): rendered (\(error))")
@@ -170,12 +172,12 @@ struct AutoMixRenderCheck {
 
             // Starts exactly where the playing song is at the handover.
             let handover = Int(plan.handover * rate)
-            let head = alignment(full[0..<Int(1.5 * rate)], a.samples[handover..<(handover + Int(1.5 * rate))], range: 0.02)
+            let head = alignment(full[0..<Int(0.6 * rate)], a.samples[handover..<(handover + Int(0.6 * rate))], range: 0.02)
             expect(abs(head.lag) <= 0.0012 && head.correlation > 0.9,
                    "\(name): the mix starts where the song is (lag \(format(head.lag * 1000)) ms, match \(format(head.correlation)))")
             // Ends exactly where the next song carries on.
             let tailLength = Int(1.0 * rate)
-            let joinIndex = Int(schedule.join * rate)
+            let joinIndex = Int((joins["full"] ?? schedule.join) * rate)
             let tail = alignment(full[(full.count - tailLength)..<full.count],
                                  b.samples[(joinIndex - tailLength)..<joinIndex], range: 0.02)
             expect(abs(tail.lag) <= 0.0012 && tail.correlation > 0.9,
@@ -200,10 +202,11 @@ struct AutoMixRenderCheck {
             let kicksOut = onsets(outgoingOnly).filter { $0 > entry + 1 && $0 < overlapEnd }
             let kicksIn = onsets(incomingOnly).filter { $0 > entry + 1 && $0 < overlapEnd }
             let distances = kicksIn.map { kick in kicksOut.map { abs($0 - kick) }.min() ?? 1 }.sorted()
+            // (The last kicks of the song leaving can be too faint to find: the worst tenth is left out.)
             let median = distances.isEmpty ? 1 : distances[distances.count / 2]
-            let worst = distances.last ?? 1
-            expect(distances.count >= 8 && median < 0.006 && worst < 0.015,
-                   "\(name): \(distances.count) kicks together (median \(format(median * 1000, 1)) ms, worst \(format(worst * 1000, 1)) ms)")
+            let most = distances.isEmpty ? 1 : distances[distances.count * 9 / 10]
+            expect(distances.count >= 8 && median < 0.003 && most < 0.006,
+                   "\(name): \(distances.count) kicks together (median \(format(median * 1000, 1)) ms, 90 % within \(format(most * 1000, 1)) ms)")
         }
 
         print(failures == 0 ? "AutoMixRenderCheck: all checks passed" : "AutoMixRenderCheck: \(failures) failed")
