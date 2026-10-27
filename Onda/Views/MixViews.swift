@@ -558,9 +558,10 @@ struct MixOptionsSheet: View {
                     }
                     .listStyle(.plain)
                     .scrollContentBackground(.hidden)
+                    // Room for the page dots under the last option.
+                    .contentMargins(.bottom, 44, for: .scrollContent)
                 }
                 .tag(category)
-                .padding(.bottom, 28)
             }
         }
         .tabViewStyle(.page(indexDisplayMode: .always))
