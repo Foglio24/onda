@@ -82,9 +82,9 @@ enum TrackAnalyzer {
         let level = loudness(samples, sampleRate: sampleRate)
         let frameRate = sampleRate / Double(hop)
         let curves = onsets(samples, sampleRate: sampleRate)
-        guard curves.onset.count > Int(frameRate * 10) else { return nil }
-        let first = max(0, min(curves.onset.count - 1, Int(level.soundStart * frameRate)))
-        let last = max(first + 1, min(curves.onset.count, Int(level.soundEnd * frameRate)))
+        guard curves.full.count > Int(frameRate * 10) else { return nil }
+        let first = max(0, min(curves.full.count - 1, Int(level.soundStart * frameRate)))
+        let last = max(first + 1, min(curves.full.count, Int(level.soundEnd * frameRate)))
         let sound = first..<last
         let onset = combined(curves, sound: sound)
 
@@ -452,13 +452,18 @@ enum TrackAnalyzer {
             }
             return (re, im)
         }
-        let periods = (0..<candidates).map { period * (1 + (-0.03 + 0.06 * Double($0) / Double(candidates - 1))) }
+        /// The candidate at a (fractional) position: from 3 % shorter to 3 % longer than `period`.
+        func candidate(_ position: Double) -> Double {
+            let change: Double = -0.03 + 0.06 * position / Double(candidates - 1)
+            return period * (1 + change)
+        }
+        let periods: [Double] = (0..<candidates).map { candidate(Double($0)) }
         let magnitudes = periods.map { candidate -> Double in
             let value = sum(candidate)
             return (value.re * value.re + value.im * value.im).squareRoot()
         }
         guard let best = magnitudes.indices.max(by: { magnitudes[$0] < magnitudes[$1] }) else { return nil }
-        let refined = period * (1 + (-0.03 + 0.06 * (Double(best) + parabolicShift(magnitudes, at: best)) / Double(candidates - 1)))
+        let refined = candidate(Double(best) + parabolicShift(magnitudes, at: best))
         let value = sum(refined)
         let start = positiveRemainder(-atan2(value.im, value.re) / (2 * Double.pi) * refined, refined)
         return (refined, start)
