@@ -199,8 +199,9 @@ struct AutoMixRenderCheck {
                                                                outgoingGain: outgoingGain, incomingGain: incomingGain,
                                                                to: url, effects: effects)
                     let seconds = Date().timeIntervalSince(started)
+                    let shift = mix.shift.map { "next song moved \(format($0 * 1000, 1)) ms to land on the beat" } ?? "beats not lined up"
                     expect(abs(mix.length - schedule.length) < 0.05,
-                           "\(name) (\(label)): \(format(mix.length, 1)) s of mix rendered in \(format(seconds)) s")
+                           "\(name) (\(label)): \(format(mix.length, 1)) s of mix rendered in \(format(seconds)) s (\(shift))")
                     joins[label] = mix.join
                     return try await AutoMixDecoder.samples(of: url)
                 } catch {

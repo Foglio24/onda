@@ -14,6 +14,9 @@ enum AutoMixRenderer {
         let length: Double
         /// The next song's own time at the end of the file.
         let join: Double
+        /// How much earlier (seconds, of its own time) the next song was started so its beats land
+        /// on the first one's (nil: not measured, the beats weren't matched or didn't line up clearly).
+        var shift: Double? = nil
     }
 
     enum RenderError: Error {
@@ -35,6 +38,7 @@ enum AutoMixRenderer {
         // filters) and their onsets lined up where they play together: the next song then starts
         // that much earlier or later, so the beats land together.
         var delay = 0.0
+        var measured: Double?
         if plan.style == .beatMatched, let overlap = overlapWindow(schedule) {
             let alone = try renderPass(schedule, outgoingAudio, incomingAudio, delay: 0, gains: (1, 0), effects: false,
                                        fullVolume: true, capture: overlap, to: nil)
@@ -45,6 +49,7 @@ enum AutoMixRenderer {
             if let lag = onsetLag(alone.captured, other.captured) {
                 // Late by `lag` seconds at the next song's rate: it starts that much of its own time earlier.
                 delay = -lag * plan.incomingRate
+                measured = -delay
             }
         }
         let pass = try renderPass(schedule, outgoingAudio, incomingAudio, delay: delay,
@@ -54,7 +59,7 @@ enum AutoMixRenderer {
         // `delay` later, the end is `delay` earlier in it; the rest is measured.
         let end = schedule.join - plan.inStart - delay
         let offset = contentOffset(pass.tail, incomingAudio, end: end) - delay
-        return Mix(url: destination, length: pass.length, join: schedule.join + offset)
+        return Mix(url: destination, length: pass.length, join: schedule.join + offset, shift: measured)
     }
 
     /// The stretch of the mix where both songs play clearly, for lining up their beats.
@@ -68,8 +73,9 @@ enum AutoMixRenderer {
         return end - start >= 3 ? start..<end : nil
     }
 
-    /// How much later (seconds) the onsets of `b` are than those of `a`: the lag, within 40 ms
-    /// either way, at which their onset curves line up best. Nil when they don't line up clearly.
+    /// How much later (seconds) the onsets of `b` are than those of `a`: the lag, within 80 ms
+    /// either way (a sixth of a beat at 120 BPM: never the next beat), at which their onset curves
+    /// line up best. Nil when they don't line up clearly.
     private static func onsetLag(_ a: [Float], _ b: [Float]) -> Double? {
         let rate = MixSchedule.sampleRate
         let hop = Int(rate / 1000)
@@ -88,7 +94,7 @@ enum AutoMixRenderer {
             return (0..<count).map { $0 >= 3 ? max(0, energy[$0] - energy[$0 - 3]) : 0 }
         }
         let curveA = onsets(a), curveB = onsets(b)
-        let range = 40
+        let range = 80
         let length = min(curveA.count, curveB.count) - 2 * range
         guard length > 500 else { return nil }
         var scores: [Double] = []
