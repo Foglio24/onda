@@ -75,8 +75,9 @@ final class OpusStream: NSObject, @unchecked Sendable {
     private let file: URL
     private let lock = NSLock()
     private var state = State()
-    /// Parsing, decoding and writing, in order.
-    private let work = DispatchQueue(label: "onda.opus-stream", qos: .userInitiated)
+    /// Parsing, decoding and writing, in order: the first range urgently (the song is waiting for
+    /// it), the rest in the background, which is enough to keep well ahead of playback.
+    private let work = DispatchQueue(label: "onda.opus-stream", qos: .utility)
     private var parser = WebMStreamParser()
     private var decoder: OpusPacketDecoder?
     private var writer: FileHandle?
@@ -228,7 +229,7 @@ final class OpusStream: NSObject, @unchecked Sendable {
         request.setValue("bytes=0-\(firstRange - 1)", forHTTPHeaderField: "Range")
         let receiver = RangeReceiver { [weak self] data in
             guard let self else { return }
-            self.work.async { self.feed(data) }
+            self.work.async(qos: .userInitiated, flags: .enforceQoS) { self.feed(data) }
         }
         let response = try await receiver.run(request, in: Self.session)
         if response.statusCode == 200 {

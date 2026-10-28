@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.16.0 (2026-10-28)
+
+### Added
+- **Opus from the first note.** At "Massima" (for videos without Dolby or AAC 256) and "Media", a song no longer starts in AAC with Opus only from the next listen or seek. Onda downloads the WebM in pieces, takes the Opus packets out of each piece as it arrives, decodes them on the iPhone with Apple's decoder and plays them right away while the rest comes in. The song is an ordinary player item, so seeks, AutoMix, the equalizer, the lock screen and Control Center work as before. The first half second of audio is in the first ~9 KB of the file.
+  - The next song in the queue, or the one you are about to tap, has its first ~8 seconds ready: 128 KB downloaded and decoded, only on Wi-Fi that isn't metered, as for AAC until now. The rest downloads when it plays. Whole playlists are never downloaded ahead.
+  - When the whole song is in, its decoded audio stays as the song's cached file: seeks, karaoke and the next listen use it.
+  - With AutoMix the song after a mix plays Opus too (it was the AAC copy).
+  - AAC plays instead only when Opus can't, and the reason is written next to the format: a song over 20 minutes, Low Power Mode or a hot iPhone, or a stream that fails (AAC then carries on from where the song is). "Opus dal primo suono" in Settings → Audio turns it off, back to the old way.
+- **Settings → Diagnostica** shows start times by how the song started (Opus prepared, Opus with its link ready, Opus from the internet, and the AAC ways). For the last start it also shows when Opus's first byte and first decoded audio arrived and when the first audio went through the audio processing. The last fallback to AAC is listed with its reason.
+
+### For development
+- `Tools/OpusStreamCheck` (CI) encodes a test signal with Apple's Opus encoder into a WebM like YouTube's and checks:
+  - the progressive parser finds the whole-file packets for pieces of 1 byte to 1 MB;
+  - the PCM decoded piece by piece is the PCM of the whole-file Apple Lossless conversion;
+  - the first audio's timing, and prepared and cancelled streams;
+  - AVFoundation opens, plays and seeks the stream through the resource loader.
+- `Tools/OpusStartupProbe` (a live CI step that never blocks the build; also runs on a Mac) times the visionOS links, AAC, progressive Opus, prepared Opus and the whole-file Opus of up to 1.15, from the "tap".
+- `Tools/StartupMetricsCheck` checks the timings by source, the Opus steps and the fallbacks.
+
 ## 1.15.1 (2026-10-28)
 
 ### Fixed

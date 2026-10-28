@@ -30,16 +30,16 @@ See [CHANGELOG.md](CHANGELOG.md) for what changed in each version.
 | Lock screen, Control Center, AirPlay | ✅ |
 | Dynamic colours from the artwork | ✅ Every screen and the player are tinted with the album's colours |
 | Theme colour | ✅ 11 preset accent colours |
-| Instant start | ✅ Audio links in one quick request, the likely next song ready in advance on Wi-Fi, links of songs on screen unlocked in the background, and playback starts with the first audio |
+| Instant start | ✅ Audio links in one quick request, the likely next song ready in advance on Wi-Fi (for Opus, its first seconds already decoded), links of songs on screen unlocked in the background, and playback starts with the first audio, Opus included |
 | Library | ✅ Favourites, playlists, downloads, history, and an editable queue (drag, delete, shuffle) that comes back after a restart |
 
 The quality levels are:
-- **Maximum:** Opus ~160 kbps, decoded on the iPhone into Apple Lossless. Dolby Digital Plus or 256 kbps AAC is used instead when the video has it.
+- **Maximum:** Opus ~160 kbps, decoded on the iPhone as it downloads and played from the first second. Dolby Digital Plus or 256 kbps AAC is used instead when the video has it.
 - **High:** AAC 128 kbps.
-- **Medium:** Opus ~70 kbps.
+- **Medium:** Opus ~70 kbps, played the same way.
 - **Data saver:** AAC 48 kbps.
 
-Wi-Fi and cellular default to **High (native AAC)** to avoid converting every streamed song on the phone. Existing explicit quality choices are preserved. Maximum remains available; conversion and AI work stop when Low Power Mode is enabled or iOS reports a serious thermal state. Only the next song's AAC copy is prepared ahead, and karaoke prepares the current song on demand. These limits reduce avoidable work; temperature and battery improvements still need measurement on an iPhone.
+Wi-Fi and cellular default to **High (native AAC)** to avoid converting every streamed song on the phone. Existing explicit quality choices are preserved. Maximum remains available; Opus decoding and AI work stop when Low Power Mode is enabled or iOS reports a serious thermal state (AAC plays then, and says so). Only the first seconds of the next song (or of the one about to be tapped) are prepared ahead, on Wi-Fi; with AutoMix the next song is downloaded whole, as the mix needs it. Karaoke prepares the current song on demand. These limits reduce avoidable work; temperature and battery improvements still need measurement on an iPhone.
 
 On every song, tap **···** for all actions, or swipe it like on Spotify: right to add it to the queue, left to add it to your favourites (tap the note that appears to pick a playlist instead).
 
@@ -94,7 +94,7 @@ Installing stays manual (Sideloadly, AltStore or SideStore): iOS doesn't let a s
 
 - **The GitHub build fails:** open the *Build (unsigned)* step of the run and look for lines containing `error:`.
 - **"Brano non disponibile" on every song:** YouTube changed its player. Bump YouTubeKit in `project.yml` and rebuild.
-- **Opus is never used at Maximum quality:** Settings → Audio shows the last Opus error in orange.
+- **Opus is never used at Maximum quality:** the format shown in the player says why AAC plays; Settings → Diagnostica keeps the last fallback, and Settings → Audio the last Opus error in orange.
 - **The app no longer opens:** the 7-day signature expired. Re-sign it.
 
 ## How it's built
@@ -111,7 +111,7 @@ project.yml   XcodeGen project (the .xcodeproj is generated in CI)
 
 - **Search, radios and playlists** use YouTube Music's web API (the `WEB_REMIX` client).
 - **Audio URLs** come from [YouTubeKit](https://github.com/alexeichhorn/YouTubeKit). Extraction runs on the phone. Only if that fails does it use the library author's server, which receives the video ID.
-- **Opus** (WebM) is demuxed in the app and decoded with Apple's own Opus decoder into Apple Lossless, which AVPlayer plays natively.
+- **Opus** (WebM) is read as it downloads: the app takes the packets out of each piece, decodes them with Apple's own Opus decoder into PCM and serves a growing WAV to AVPlayer through a resource loader (`OpusStream`). Downloads are decoded into Apple Lossless.
 - **Lyrics** come from [LRCLIB](https://lrclib.net). **Scrobbling** uses the [Last.fm API](https://www.last.fm/api).
 
 ## License

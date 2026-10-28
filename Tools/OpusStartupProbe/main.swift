@@ -75,6 +75,28 @@ struct OpusStartupProbe {
                 _ = try? await stream.completedFile()
                 print("        whole song in after \(ms(since(stream.timing.completed)))")
 
+                // A seek far ahead right after the start: AVPlayer waits until the audio there is decoded.
+                let seeking = OpusStream(source: .remote(opus.url), destination: nil, duration: nil)
+                seeking.start()
+                let seekItem = seeking.makeItem()
+                let seekPlayer = AVPlayer(playerItem: seekItem)
+                seekPlayer.playImmediately(atRate: 1)
+                try? await seeking.waitForAudio(seconds: 1)
+                let duration = (try? await seekItem.asset.load(.duration))?.seconds ?? 0
+                start = uptime()
+                let target = duration * 0.75
+                _ = await seekItem.seek(to: CMTime(seconds: target, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
+                let sought = uptime() - start
+                var resumed: TimeInterval?
+                while uptime() - start < 10, resumed == nil {
+                    if seekPlayer.timeControlStatus == .playing, seekPlayer.currentTime().seconds > target { resumed = uptime() - start }
+                    try? await Task.sleep(for: .milliseconds(5))
+                }
+                print("   [\(round)] Opus progressive, seek to 75 % one second in: seek done \(ms(sought)), playing there \(ms(resumed))"
+                      + " (\(String(format: "%.0f", seeking.decodedSeconds)) s decoded by then)")
+                seekPlayer.pause()
+                seeking.cancel()
+
                 // Prepared: the first range read and decoded before the tap.
                 let prepared = OpusStream(source: .remote(opus.url), destination: nil, duration: nil, firstRange: 128 << 10)
                 let preparing = uptime()
