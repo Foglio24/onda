@@ -15,6 +15,10 @@ func expect(_ condition: Bool, _ message: String) {
     if !condition { failures += 1 }
 }
 
+final class Flag: @unchecked Sendable {
+    var value = false
+}
+
 func format(_ value: Double, _ digits: Int = 1) -> String { String(format: "%.\(digits)f", value) }
 func milliseconds(_ seconds: TimeInterval) -> String { "\(Int((seconds * 1000).rounded())) ms" }
 
@@ -237,10 +241,11 @@ struct OpusStreamCheck {
         let refused = (try? await cancelled.completedFile()) == nil
         expect(refused && cancelled.failure != nil, "a cancelled stream ends with an error")
 
-        // AVPlayer through the resource loader while the song is still arriving (2 KB every 20 ms,
-        // about a second for all of it): ready, and playing, long before it is all in. AVFoundation
-        // looks after the audio of a WAV for more chunks, so a WAV waits for the end (reported);
-        // a CAF whose audio runs to the end of the file doesn't.
+        // AVPlayer through the resource loader while the song is still arriving (2 KB every 20 ms):
+        // ready, and playing, long before it is all in. Before it plays, AVFoundation reads the last
+        // block of the file: there the stream serves silence at once (after the song, which the item
+        // stops at), so neither container waits for the whole song.
+        let padding = Double(OpusStream.tailPadding) / Double(4 * Int(rate))
         for container in [OpusStream.Container.caf, .wav] {
             let playing = OpusStream(source: .local(file, chunk: 2_048, pace: 0.02), destination: nil, duration: nil,
                                      firstRange: 64 << 10, container: container)
@@ -251,30 +256,43 @@ struct OpusStreamCheck {
             let tracks = (try? await item.asset.loadTracks(withMediaType: .audio)) ?? []
             let player = AVPlayer(playerItem: item)
             player.playImmediately(atRate: 1)
-            while item.status == .unknown, Date().timeIntervalSince(opened) < 5 {
+            while item.status == .unknown, Date().timeIntervalSince(opened) < 8 {
                 try? await Task.sleep(for: .milliseconds(5))
             }
             let ready = Date().timeIntervalSince(opened)
             let early = playing.completedURL == nil
             print("     \(container): requests \(playing.loaderRequests.joined(separator: ", "))")
-            let name = container == .caf ? "CAF" : "WAV"
-            let summary = "\(name): \(String(format: "%.3f", duration?.seconds ?? 0)) s, \(tracks.count) audio track, "
-                + "ready after \(milliseconds(ready)) \(early ? "while the song was still arriving" : "once all of it was in")"
-                + " (\(item.error.map { "\($0)" } ?? "no error"))"
-            if container == .caf {
-                expect(abs((duration?.seconds ?? 0) - seconds) < 0.05 && tracks.count == 1 && item.status == .readyToPlay && early,
-                       summary)
-                try? await Task.sleep(for: .seconds(1.5))
-                // Without a sound card (some build machines) AVPlayer doesn't move: only reported.
-                print("     playing: \(format(player.currentTime().seconds, 2)) s after 1.5 s"
-                      + " (\(player.timeControlStatus == .playing ? "playing" : "not playing"))")
-                let sought = await item.seek(to: CMTime(seconds: 8, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
-                expect(sought, "seeks to 8 s in the stream")
-            } else {
-                print("     \(summary)")
+            let stop = item.forwardPlaybackEndTime.seconds
+            expect(abs((duration?.seconds ?? 0) - seconds - padding) < 0.05 && abs(stop - seconds) < 0.05 && tracks.count == 1
+                   && item.status == .readyToPlay && early,
+                   "\(container): ready after \(milliseconds(ready)) while the song was still arriving "
+                   + "(stops at \(format(stop, 3)) s, \(tracks.count) audio track, \(item.error.map { "\($0)" } ?? "no error"))")
+            guard container == .caf else {
+                player.pause()
+                _ = try? await playing.completedFile()
+                continue
+            }
+            try? await Task.sleep(for: .seconds(1.5))
+            // Without a sound card (some build machines) AVPlayer doesn't move: then only reported.
+            let moved = player.currentTime().seconds
+            print("     playing: \(format(moved, 2)) s after 1.5 s (\(player.timeControlStatus == .playing ? "playing" : "not playing"))")
+            let sought = await item.seek(to: CMTime(seconds: 8, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
+            expect(sought, "seeks to 8 s in the stream")
+            // Played to the end, it stops at the song's end, not in the silence after it.
+            _ = try? await playing.completedFile()
+            if moved > 0.5 {
+                _ = await item.seek(to: CMTime(seconds: seconds - 1, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
+                player.play()
+                let ended = Date()
+                let finished = Flag()
+                let observer = NotificationCenter.default.addObserver(forName: AVPlayerItem.didPlayToEndTimeNotification,
+                                                                      object: item, queue: nil) { _ in finished.value = true }
+                while !finished.value, Date().timeIntervalSince(ended) < 4 { try? await Task.sleep(for: .milliseconds(20)) }
+                NotificationCenter.default.removeObserver(observer)
+                let at = player.currentTime().seconds
+                expect(finished.value && abs(at - seconds) < 0.1, "the song ends at \(format(at, 3)) s, its own end (not after the silence)")
             }
             player.pause()
-            _ = try? await playing.completedFile()
         }
 
         print(failures == 0 ? "OpusStreamCheck: all checks passed" : "OpusStreamCheck: \(failures) failed")

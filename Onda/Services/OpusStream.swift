@@ -14,6 +14,11 @@ import Foundation
 final class OpusStream: NSObject, @unchecked Sendable {
     static let scheme = "onda-opus"
     static let sampleRate = 48_000
+    /// Silence served after the song: before it plays, AVFoundation reads the last block of the
+    /// file (64 KB-aligned on a Mac), which would otherwise wait for the whole song to be decoded.
+    /// The item stops at the song's own end (`forwardPlaybackEndTime`), so it is never heard, and
+    /// the cached file doesn't have it.
+    static let tailPadding = 256 << 10
     /// Ranges after the first, fetched four at a time: YouTube serves ranges at full speed, a
     /// whole-file request only at about playback speed (see `ChunkedDownload`).
     private static let rangeSize = 1 << 20
@@ -101,6 +106,8 @@ final class OpusStream: NSObject, @unchecked Sendable {
     private let loaderQueue = DispatchQueue(label: "onda.opus-stream.loader", qos: .userInitiated)
     private var requests: [AVAssetResourceLoadingRequest] = []
     private var reader: FileHandle?
+    /// The item playing the stream (on the main thread), stopped at the song's own end.
+    private weak var playerItem: AVPlayerItem?
 
     /// `duration` (seconds) stands in for the file's own length when it doesn't give one;
     /// `firstRange` is the first range's size in bytes.
@@ -193,7 +200,14 @@ final class OpusStream: NSObject, @unchecked Sendable {
     func makeItem() -> AVPlayerItem {
         let asset = AVURLAsset(url: playbackURL)
         asset.resourceLoader.setDelegate(self, queue: loaderQueue)
-        return AVPlayerItem(asset: asset)
+        let item = AVPlayerItem(asset: asset)
+        playerItem = item
+        if let frames = withState({ $0.declaredFrames }) { item.forwardPlaybackEndTime = Self.time(frames) }
+        return item
+    }
+
+    private static func time(_ frames: Int) -> CMTime {
+        CMTime(value: CMTimeValue(frames), timescale: CMTimeScale(sampleRate))
     }
 
     private func withState<T>(_ body: (inout State) -> T) -> T {
@@ -359,6 +373,10 @@ final class OpusStream: NSObject, @unchecked Sendable {
             state.channels = channels
             state.declaredFrames = frames
         }
+        // Known before it plays: the item stops there, not after the silence that follows.
+        DispatchQueue.main.async { [weak self] in
+            self?.playerItem?.forwardPlaybackEndTime = Self.time(frames)
+        }
         dataAvailable()
     }
 
@@ -447,7 +465,8 @@ final class OpusStream: NSObject, @unchecked Sendable {
     /// chunk runs to the end of the file until it is `final`.
     private func header(frames: Int, channels: Int, final: Bool) -> Data {
         let blockAlign = 2 * channels
-        let dataSize = frames * blockAlign
+        // While streaming, the silence after the song is part of the audio.
+        let dataSize = frames * blockAlign + (final ? 0 : Self.tailPadding)
         var data = Data()
         func little<T: FixedWidthInteger>(_ value: T) { withUnsafeBytes(of: value.littleEndian) { data.append(contentsOf: $0) } }
         func big<T: FixedWidthInteger>(_ value: T) { withUnsafeBytes(of: value.bigEndian) { data.append(contentsOf: $0) } }
@@ -503,8 +522,7 @@ final class OpusStream: NSObject, @unchecked Sendable {
             }
             // The length is known with the first packets.
             guard let declared else { return false }
-            let dataSize = declared * 2 * channels
-            let total = container.headerSize + dataSize
+            let total = container.headerSize + declared * 2 * channels + Self.tailPadding
             if let information = request.contentInformationRequest {
                 information.contentType = container.fileType.rawValue
                 information.contentLength = Int64(total)
@@ -539,8 +557,12 @@ final class OpusStream: NSObject, @unchecked Sendable {
             return header(frames: declared, channels: channels, final: false).subdata(in: offset..<min(headerSize, end))
         }
         let position = offset - headerSize
-        if position < decoded {
-            let count = min(end - offset, decoded - position)
+        let audio = declared * 2 * channels
+        // The silence after the song, at once.
+        if position >= audio { return Data(count: end - offset) }
+        let limit = min(end, headerSize + audio)
+        if position < min(decoded, audio) {
+            let count = min(limit - offset, min(decoded, audio) - position)
             do {
                 // The file moves where it is kept once complete (an open reader follows it).
                 if reader == nil { reader = try FileHandle(forReadingFrom: completedURL ?? file) }
@@ -551,8 +573,9 @@ final class OpusStream: NSObject, @unchecked Sendable {
                 return nil
             }
         }
+        // A song shorter than it said: silence up to the length it said.
         guard finished else { return nil }
-        return Data(count: end - offset)
+        return Data(count: limit - offset)
     }
 }
 
