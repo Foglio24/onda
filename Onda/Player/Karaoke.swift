@@ -312,6 +312,28 @@ actor StemSeparator {
         return .cpuAndGPU
     }
 
+    /// The vocals of a stereo piece (at most `MDXSeparator.maxPieceLength` frames at 44.1 kHz),
+    /// separated by the karaoke's model on its queue, after any separation in progress: for
+    /// AutoMix, which listens for voices near the ends of songs (see `VocalDetector`).
+    nonisolated static func vocals(left: ArraySlice<Float>, right: ArraySlice<Float>) async throws -> (left: [Float], right: [Float]) {
+        guard let modelURL else { throw KaraokeError.engineUnavailable }
+        guard EnergyPolicy.current.allowsKaraoke else { throw KaraokeError.energyLimited }
+        try Task.checkCancellation()
+        return try await withCheckedThrowingContinuation { continuation in
+            workQueue.async {
+                let available = os_proc_available_memory()
+                guard available == 0 || available >= memoryReserve else {
+                    return continuation.resume(throwing: KaraokeError.lowMemory)
+                }
+                do {
+                    continuation.resume(returning: try separateVocals(modelURL: modelURL, left: left, right: right))
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
+
     // MARK: Separation (on workQueue)
 
     private nonisolated static func loadSeparator(modelURL: URL) throws -> MDXSeparator {

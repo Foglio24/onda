@@ -1,0 +1,104 @@
+# AutoMix on real songs, when its choice or its voice detection changes (or by hand): the voice
+# detection checked against timed lyrics, and the transitions of up to 1.16 and of now rendered
+# side by side for blind listening (see Tools/AutoMixRealMusic). The songs are the Creative Commons
+# ones of the JamendoLyrics dataset whose licence allows derivative works; the excerpts are
+# uploaded as an artifact with their credits, for evaluation only.
+name: AutoMix on real songs
+
+on:
+  # When AutoMix's choice, its voice detection or this check changes (a new workflow can only be
+  # started by hand once it is on the default branch).
+  push:
+    paths:
+      - "Onda/Player/AutoMixSelection.swift"
+      - "Onda/Player/VocalDetector.swift"
+      - "Tools/AutoMixRealMusic/**"
+      - ".github/workflows/automix-real-music.yml"
+  workflow_dispatch:
+    inputs:
+      songs:
+        description: "How many songs to use (40 allow mixes)"
+        default: "40"
+
+permissions:
+  contents: read
+
+jobs:
+  listen:
+    runs-on: macos-26
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select the newest Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest
+
+      # The karaoke's vocal model, as the app build makes it (see build.yml).
+      - name: Restore the karaoke model
+        id: karaoke-model
+        uses: actions/cache@v4
+        with:
+          path: |
+            Generated/VocFT.mlpackage
+            Generated/karaoke-fixture.bin
+          key: karaoke-model-${{ hashFiles('Tools/convert_karaoke_model.py') }}
+
+      - name: Set up Python
+        if: steps.karaoke-model.outputs.cache-hit != 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Convert the karaoke model to Core ML
+        if: steps.karaoke-model.outputs.cache-hit != 'true'
+        run: |
+          python -m pip install --quiet "numpy==1.26.4" "torch==2.5.1" "coremltools==8.3.0" \
+            "onnx==1.17.0" "onnx2torch==1.5.15" "onnxruntime==1.20.1"
+          mkdir -p Generated
+          curl -fsSL -o Generated/Voc_FT.onnx \
+            https://github.com/k2-fsa/sherpa-onnx/releases/download/source-separation-models/UVR-MDX-NET-Voc_FT.onnx
+          python Tools/convert_karaoke_model.py Generated/Voc_FT.onnx Generated/VocFT.mlpackage \
+            Generated/karaoke-fixture.bin
+          rm Generated/Voc_FT.onnx
+
+      - name: Compile the karaoke model
+        run: |
+          mkdir -p Generated/Karaoke
+          xcrun coremlcompiler compile Generated/VocFT.mlpackage Generated/Karaoke
+
+      # JamendoLyrics at a fixed commit: its list, the words' timings, and only the songs whose
+      # licence allows derivative works (no "ND").
+      - name: Download the songs
+        env:
+          DATASET: https://raw.githubusercontent.com/f90/jamendolyrics/f093b7a74e034deac21eb5ea3fc40769b29c35b0
+        run: |
+          mkdir -p jamendolyrics/mp3 jamendolyrics/annotations/words
+          curl -fsSL -o jamendolyrics/JamendoLyrics.csv "$DATASET/JamendoLyrics.csv"
+          python3 - <<'PY'
+          import csv, os, subprocess, urllib.parse
+          base = os.environ["DATASET"]
+          with open("jamendolyrics/JamendoLyrics.csv", newline="", encoding="utf-8") as f:
+              rows = [r for r in csv.DictReader(f) if "ND" not in r["LicenseType"]]
+          for r in rows:
+              name = r["Filepath"]
+              stem = name[:-4]
+              for remote, local in [(f"mp3/{name}", f"jamendolyrics/mp3/{name}"),
+                                    (f"annotations/words/{stem}.csv", f"jamendolyrics/annotations/words/{stem}.csv")]:
+                  subprocess.run(["curl", "-fsSL", "--retry", "3", "-o", local, f"{base}/{urllib.parse.quote(remote)}"], check=True)
+          print(f"{len(rows)} songs")
+          PY
+          du -sh jamendolyrics
+
+      - name: Run AutoMix on them
+        run: bash Tools/AutoMixRealMusic/run.sh Generated/Karaoke/VocFT.mlmodelc jamendolyrics AutoMix-listening "${{ inputs.songs }}"
+
+      - name: Upload the excerpts and the report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: AutoMix-listening
+          path: AutoMix-listening
+          if-no-files-found: warn
+          retention-days: 30

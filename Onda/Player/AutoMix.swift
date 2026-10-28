@@ -1,8 +1,8 @@
 import AVFoundation
 import Foundation
 
-/// AutoMix's analyses of songs (`TrackAnalyzer`), made from their local files and kept on disk, so
-/// each file is analysed once.
+/// AutoMix's analyses of songs (`TrackAnalyzer`) and of their voices (`VocalDetector`), made from
+/// their local files and kept on disk, so each file is analysed once.
 actor AutoMixLibrary {
     static let shared = AutoMixLibrary()
 
@@ -17,6 +17,7 @@ actor AutoMixLibrary {
     }()
 
     private var recent: [String: TrackAnalysis] = [:]
+    private var recentVocals: [String: VocalActivity] = [:]
     private var running: [String: Task<TrackAnalysis?, Never>] = [:]
 
     /// The analysis of a song's file, made now unless it was made before.
@@ -47,6 +48,33 @@ actor AutoMixLibrary {
         return analysis
     }
 
+    /// The voices of a part of a song's file (its start or its end, see `VocalDetector`), measured
+    /// now unless they were before; nil when they can't be (no model, energy saving, cancelled).
+    /// Cancelling the caller stops the measuring.
+    func vocals(_ part: VocalDetector.Part, of file: URL, analysis: TrackAnalysis,
+                separate: @escaping VocalDetector.Separate) async -> VocalActivity? {
+        let key = file.deletingPathExtension().lastPathComponent
+        let saved = Self.directory.appending(path: "\(key).vocals.json")
+        var activity = recentVocals[key]
+        if activity == nil, let data = try? Data(contentsOf: saved),
+           let decoded = try? JSONDecoder().decode(VocalActivity.self, from: data),
+           decoded.version == VocalActivity.currentVersion {
+            activity = decoded
+        }
+        let stretch = VocalDetector.range(part, of: analysis)
+        if let activity, activity.covers(from: stretch.start, to: stretch.end) { return activity }
+        guard let region = try? await VocalDetector.measure(part, of: file, analysis: analysis, separate: separate) else {
+            return activity
+        }
+        var updated = recentVocals[key] ?? activity ?? VocalActivity()
+        updated.regions.removeAll { $0.start >= region.start && $0.end <= region.end }
+        updated.regions.append(region)
+        if recentVocals.count >= 20 { recentVocals.removeAll() }
+        recentVocals[key] = updated
+        if let data = try? JSONEncoder().encode(updated) { try? data.write(to: saved, options: .atomic) }
+        return updated
+    }
+
     private func remember(_ analysis: TrackAnalysis, key: String) {
         if recent.count >= 20 { recent.removeAll() }
         recent[key] = analysis
@@ -57,9 +85,9 @@ actor AutoMixLibrary {
         let manager = FileManager.default
         guard let files = try? manager.contentsOfDirectory(at: directory, includingPropertiesForKeys: [.contentModificationDateKey])
             .filter({ $0.pathExtension == "json" }),
-              files.count > fileLimit else { return }
+              files.count > 2 * fileLimit else { return }
         let dated = files.map { ($0, (try? $0.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? .distantPast) }
-        for (file, _) in dated.sorted(by: { $0.1 > $1.1 }).dropFirst(fileLimit) {
+        for (file, _) in dated.sorted(by: { $0.1 > $1.1 }).dropFirst(2 * fileLimit) {
             try? manager.removeItem(at: file)
         }
     }

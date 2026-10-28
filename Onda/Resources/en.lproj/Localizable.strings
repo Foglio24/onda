@@ -261,6 +261,7 @@
 "Mix non riuscito: dissolvenza semplice" = "Mix failed: plain crossfade";
 "Dissolvenza sul finale: %lld s" = "Crossfade on the fade-out: %lld s";
 "Senza silenzio tra i brani" = "No silence between the songs";
+"Ascolto delle voci…" = "Listening for voices…";
 "Uno dopo l'altro, con una breve pausa" = "One after the other, with a short pause";
 "Come nell'album" = "As on the album";
 "ritmo instabile" = "unsteady rhythm";

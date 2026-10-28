@@ -1455,13 +1455,36 @@ final class PlayerController: ObservableObject {
             if let gain = self.playingGain { outgoingGain = gain } else { outgoingGain = await self.volumeGain(for: track) }
             let incomingGain = await self.volumeGain(for: next)
             guard !Task.isCancelled, self.autoMixPair == pair else { return }
+            // Two songs that follow each other on their album, played in order, stay as the album has them.
+            let albumOrder = !self.shuffleEnabled && track.albumID != nil && track.albumID == next.albumID
+            // Their voices where they meet (this song's end, the next one's start), with the
+            // karaoke's vocal model, when there is the energy and the time for it: by a minute and a
+            // half before this song's end the mix must be planned and rendered. Without them AutoMix
+            // plans carefully.
+            var outgoingVocals: VocalActivity?
+            var incomingVocals: VocalActivity?
+            let remaining = (track.duration ?? outgoing.duration) - self.currentTime
+            let budget = min(120, remaining - 90)
+            if design == nil, !albumOrder, StemSeparator.isAvailable, EnergyPolicy.current.allowsKaraoke, budget >= 10 {
+                self.autoMixNote = String(localized: "Ascolto delle voci…")
+                let separate: VocalDetector.Separate = { try await StemSeparator.vocals(left: $0, right: $1) }
+                let incomingURL = incomingFile.url
+                let voices = await Self.within(budget) { () -> (VocalActivity?, VocalActivity?) in
+                    async let tail = AutoMixLibrary.shared.vocals(.tail, of: outgoingFile, analysis: outgoing, separate: separate)
+                    async let head = AutoMixLibrary.shared.vocals(.head, of: incomingURL, analysis: incoming, separate: separate)
+                    return await (tail, head)
+                }
+                outgoingVocals = voices?.0
+                incomingVocals = voices?.1
+                if self.karaokeMode == .off { StemSeparator.releaseEngine() }
+                guard !Task.isCancelled, self.requests.isCurrentLoad(generation), self.autoMixPair == pair else { return }
+            }
             let plan: TransitionPlan
             if let design {
                 plan = MixDesigner.plan(from: outgoing, to: incoming, design: design)
             } else {
-                // Two songs that follow each other on their album, played in order, stay as the album has them.
-                let albumOrder = !self.shuffleEnabled && track.albumID != nil && track.albumID == next.albumID
                 let context = TransitionContext(outgoingGain: outgoingGain, incomingGain: incomingGain,
+                                                outgoingVocals: outgoingVocals, incomingVocals: incomingVocals,
                                                 albumOrder: albumOrder)
                 let choice = TransitionPlanner.choose(from: outgoing, to: incoming, context: context)
                 plan = choice.plan
@@ -1494,6 +1517,21 @@ final class PlayerController: ObservableObject {
                                              file: incomingFile.url, label: incomingFile.label, incomingGain: incomingGain,
                                              outgoingFile: outgoingFile, outgoingGain: outgoingGain)
             self.autoMixNote = Self.describe(plan, from: outgoing, to: incoming)
+        }
+    }
+
+    /// The result of `work`, unless it takes longer than `seconds` (it is cancelled then).
+    private nonisolated static func within<T: Sendable>(_ seconds: Double,
+                                                        _ work: @escaping @Sendable () async -> T) async -> T? {
+        await withTaskGroup(of: T?.self) { group in
+            group.addTask { await work() }
+            group.addTask {
+                try? await Task.sleep(for: .seconds(seconds))
+                return nil
+            }
+            let first = await group.next() ?? nil
+            group.cancelAll()
+            return first
         }
     }
 

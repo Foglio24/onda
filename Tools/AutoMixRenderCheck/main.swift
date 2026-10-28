@@ -362,6 +362,38 @@ struct AutoMixRenderCheck {
             }
         }
 
+        // Voices (`VocalDetector`), with a stand-in for the model: the vocals' share of each piece,
+        // and phrases made of it (short pauses filled, blips left out).
+        do {
+            let frames = Int(12 * 44_100.0)
+            let sound = (0..<frames).map { Float(sin(Double($0) * 0.05)) * 0.5 }
+            // "Vocals": half the sound (-6 dB) from 2 to 8 s, nothing elsewhere.
+            let separate: VocalDetector.Separate = { left, _ in
+                let vocals = left.indices.map { index -> Float in
+                    let time = Double(index) / 44_100
+                    return time >= 2 && time < 8 ? left[index] * 0.5 : 0
+                }
+                return (vocals, vocals)
+            }
+            let shares = try await VocalDetector.shares(left: sound, right: sound, separate: separate)
+            let region = VocalDetector.region(start: 10, shares: shares)
+            let activity = VocalActivity(regions: [region])
+            let sung = (activity.presence(at: 15) ?? 0) > 0.9, quiet = (activity.presence(at: 11) ?? 1) < 0.1
+            expect(shares.count == 48 && sung && quiet && abs((activity.firstVoice(after: 10) ?? 0) - 12) < 0.3
+                   && abs((activity.lastVoice(before: 22) ?? 0) - 18) < 0.3,
+                   "voices: found from 12 to 18 s of the song (\(shares.count) quarter seconds)")
+            // A pause of half a second inside a phrase is filled; a quarter second of voice alone isn't one.
+            var phrase = [Float](repeating: -40, count: 40)
+            for index in 4..<14 { phrase[index] = 0 }
+            for index in 16..<26 { phrase[index] = 0 }
+            phrase[34] = 0
+            let filled = VocalDetector.region(start: 0, shares: phrase)
+            expect(filled.values[14] >= 128 && filled.values[15] >= 128 && filled.values[34] < 128,
+                   "voices: a pause within a phrase filled, a blip left out")
+        } catch {
+            expect(false, "voices: measured (\(error))")
+        }
+
         print(failures == 0 ? "AutoMixRenderCheck: all checks passed" : "AutoMixRenderCheck: \(failures) failed")
         exit(failures == 0 ? 0 : 1)
     }

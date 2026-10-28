@@ -70,6 +70,8 @@ struct TransitionPlan: Equatable, Sendable {
     /// only goes down, the next only up: neither pumps.
     var outgoingTrim: [Float] = []
     var incomingTrim: [Float] = []
+    /// The curves of AutoMix up to 1.16 (see `TransitionPlanner.reference`), to compare with.
+    var legacyCurves = false
 
     var overlap: Double { outEnd - outStart }
     /// The playback rates while the two play together.
@@ -88,6 +90,7 @@ struct TransitionPlan: Equatable, Sendable {
             let span = max(0.001, overlap)
             return design.levels(at: progress, bar: barLength / span, ramp: 0.05 / span)
         }
+        if legacyCurves { return legacyLevels(at: progress) }
         let p = max(0, min(1, progress))
         // Equal-power curves: over the same stretch the two add up to a steady loudness.
         let comeIn = fadeIn > fadeInFrom ? max(0, min(1, (p - fadeInFrom) / (fadeIn - fadeInFrom))) : (p >= fadeInFrom ? 1 : 0)
@@ -107,6 +110,44 @@ struct TransitionPlan: Equatable, Sendable {
         let incoming = sin(comeIn * .pi / 2) * Double(Self.value(of: incomingTrim, at: p))
         return TransitionLevels(outgoing: Float(outgoing), incoming: Float(incoming),
                                 outgoingBassCut: hasSwap ? Float(swap) : 0, incomingBassCut: hasSwap ? Float(1 - swap) : 0,
+                                outgoingHighPass: Float(highPass))
+    }
+
+    /// The curves of up to 1.16: the next song fully in by `fadeIn` (half way in a crossfade, while
+    /// the song leaving was still at 71 %: 1.76 dB louder together), and in a beat-matched mix both
+    /// held at 80–90 % around the bass swap.
+    private func legacyLevels(at progress: Double) -> TransitionLevels {
+        let p = max(0, min(1, progress))
+        let comeIn = fadeIn > 0 ? min(1, p / fadeIn) : 1
+        var swap = 0.0
+        if let swapStart, let swapEnd, swapEnd > swapStart {
+            swap = p <= swapStart ? 0 : (p >= swapEnd ? 1 : (p - swapStart) / (swapEnd - swapStart))
+        }
+        var highPass = 0.0
+        if let filterOut, p > filterOut {
+            let x = filterOut < 1 ? (p - filterOut) / (1 - filterOut) : 1
+            highPass = x * x * (3 - 2 * x)
+        }
+        let hasSwap = swapStart != nil && swapEnd != nil
+        let incomingBassCut: Double = hasSwap ? 1 - swap : 0
+        let outgoingBassCut: Double = hasSwap ? swap : 0
+        guard style == .beatMatched, let swapStart, let swapEnd else {
+            return TransitionLevels(outgoing: Float(cos(p * .pi / 2)), incoming: Float(sin(comeIn * .pi / 2)),
+                                    outgoingBassCut: Float(outgoingBassCut), incomingBassCut: Float(incomingBassCut),
+                                    outgoingHighPass: Float(highPass))
+        }
+        let incoming: Double = p < swapStart ? 0.8 * sin(comeIn * .pi / 2) : 0.8 + 0.2 * swap
+        let outgoing: Double
+        if p < swapStart {
+            outgoing = 1 - 0.1 * (swapStart > 0 ? p / swapStart : 1)
+        } else if p < swapEnd {
+            outgoing = 0.9
+        } else {
+            let tail: Double = (p - swapEnd) / max(1e-6, 1 - swapEnd)
+            outgoing = 0.9 * cos(tail * .pi / 2)
+        }
+        return TransitionLevels(outgoing: Float(outgoing), incoming: Float(incoming),
+                                outgoingBassCut: Float(outgoingBassCut), incomingBassCut: Float(incomingBassCut),
                                 outgoingHighPass: Float(highPass))
     }
 
@@ -167,8 +208,9 @@ enum TransitionPlanner {
     /// The plan of AutoMix up to 1.16: the longest beat-matched mix that fits (16, 8 or 4 bars,
     /// both tempos meeting halfway, up to 30 % apart), otherwise a crossfade on the song's ending.
     static func reference(from outgoing: TrackAnalysis, to incoming: TrackAnalysis) -> TransitionPlan {
-        if let matched = beatMatched(outgoing, incoming) { return matched }
-        return blend(outgoing, incoming)
+        var plan = beatMatched(outgoing, incoming) ?? blend(outgoing, incoming)
+        plan.legacyCurves = true
+        return plan
     }
 
     /// The next song's beat over this song's, counting half and double time: the ratio, and the
