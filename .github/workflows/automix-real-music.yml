@@ -6,12 +6,13 @@
 name: AutoMix on real songs
 
 on:
-  # When AutoMix's choice, its rendering, its voice detection or this check changes (a new
-  # workflow can only be started by hand once it is on the default branch).
+  # When AutoMix's choice, its rendering or handover, its voice detection or this check changes
+  # (a new workflow can only be started by hand once it is on the default branch).
   push:
     paths:
       - "Seaglass/Player/AutoMixSelection.swift"
       - "Seaglass/Player/AutoMixRenderer.swift"
+      - "Seaglass/Player/HandoverFade.swift"
       - "Seaglass/Player/VocalDetector.swift"
       - "Tools/AutoMixRealMusic/**"
       - ".github/workflows/automix-real-music.yml"

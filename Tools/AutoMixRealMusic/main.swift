@@ -83,11 +83,36 @@ do {
     exit(1)
 }
 
+/// The song as a file of floats decoded from its start. These MP3s are VBR without a seek table,
+/// so one read from a point lands only near it, a different place each time (the app's own files,
+/// MP4 and the like, are read exactly where asked): everything here reads the copy.
+let copies = FileManager.default.temporaryDirectory.appending(path: "automix-real-copies-\(UUID().uuidString)")
+try? FileManager.default.createDirectory(at: copies, withIntermediateDirectories: true)
+defer { try? FileManager.default.removeItem(at: copies) }
+func exactCopy(of source: URL) throws -> URL {
+    let input = try AVAudioFile(forReading: source)
+    let format = input.processingFormat
+    let url = copies.appending(path: source.deletingPathExtension().lastPathComponent + ".caf")
+    let output = try AVAudioFile(forWriting: url, settings: format.settings, commonFormat: format.commonFormat,
+                                 interleaved: format.isInterleaved)
+    guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 65_536) else { throw CocoaError(.fileReadUnknown) }
+    while input.framePosition < input.length {
+        try input.read(into: buffer, frameCount: 65_536)
+        guard buffer.frameLength > 0 else { break }
+        try output.write(from: buffer)
+    }
+    return url
+}
+
 var songs: [Song] = []
 for row in rows where row.count >= 10 && !row[5].contains("ND") && songs.count < songLimit {
-    let file = dataset.appending(path: "mp3").appending(path: row[1])
+    let mp3 = dataset.appending(path: "mp3").appending(path: row[1])
     let stem = (row[1] as NSString).deletingPathExtension
-    guard FileManager.default.fileExists(atPath: file.path) else { continue }
+    guard FileManager.default.fileExists(atPath: mp3.path) else { continue }
+    guard let file = try? exactCopy(of: mp3) else {
+        print("\(row[2]) – \(row[3]): not decoded")
+        continue
+    }
     let words = (try? String(contentsOf: dataset.appending(path: "annotations/words/\(stem).csv"), encoding: .utf8)) ?? ""
     var phrases: [(start: Double, end: Double)] = []
     for line in words.split(whereSeparator: \.isNewline).dropFirst() {
@@ -302,6 +327,38 @@ func seams(_ mix: AutoMixRenderer.Mix, _ plan: TransitionPlan, from a: Song, to 
     return (level(mixed, to: 1) - level(first, to: 1) - offset, level(mixed, from: length - 1, to: length) - level(last, to: 1) - offset)
 }
 
+/// The handover as the player makes it, the mix (a copy of the song there) `lag` seconds ahead of
+/// the song, crossing over `length` seconds: the quietest tenth of a second against the song's (dB).
+func handoverDip(_ song: MonoStretch, lag: Double, over length: Double) -> Double {
+    let x = song.mono
+    let start = Int(0.3 * rate), span = Int(length * rate), shift = Int(lag * rate), tenth = Int(0.1 * rate)
+    guard x.count > start + span + shift + 2 * tenth else { return 0 }
+    var worst = 0.0
+    var frame = start - tenth
+    while frame + tenth < start + span + tenth {
+        var own = 0.0, heard = 0.0
+        for index in frame..<(frame + tenth) {
+            let r = Float(max(0, min(1, Double(index - start) / Double(span))))
+            let value = x[index] * (1 - r) + x[index + shift] * r
+            own += Double(x[index] * x[index])
+            heard += Double(value * value)
+        }
+        if own > 1e-9 { worst = min(worst, 10 * log10(heard / own)) }
+        frame += tenth / 10
+    }
+    return worst
+}
+
+/// A stretch of a song as mono samples.
+struct MonoStretch {
+    let mono: [Float]
+    init(_ buffer: AVAudioPCMBuffer) {
+        let count = Int(buffer.frameLength)
+        guard let channels = buffer.floatChannelData else { mono = []; return }
+        mono = (0..<count).map { (channels[0][$0] + channels[1][$0]) / 2 }
+    }
+}
+
 /// How much the next song alone comes up within a second once it has fully come in (the trims
 /// letting go as the first song leaves), in dB.
 func rise(_ plan: TransitionPlan) -> Double {
@@ -421,6 +478,15 @@ for (number, pair) in pairs.enumerated() {
                                                         outgoingGain: 0.5, incomingGain: 0.5,
                                                         to: work.appending(path: "\(label)-\(entry.name)-down.caf"))
             let half = try await seams(down, entry.plan, from: a, to: b, gain: 0.5)
+            if entry.name == "new" {
+                let song = MonoStretch(try await AutoMixRenderer.decode(a.file, from: entry.plan.handover, duration: 1.5))
+                let lags = [0.001, 0.002, 0.005]
+                let short = lags.map { handoverDip(song, lag: $0, over: HandoverFader.exactLength) }
+                let long = lags.map { handoverDip(song, lag: $0, over: HandoverFader.volumeLength) }
+                note("   handover with the players 1, 2 and 5 ms apart: down at most "
+                    + short.map { format(-$0, 1) }.joined(separator: ", ") + " dB over a tenth of a second (crossing over "
+                    + long.map { format(-$0, 1) }.joined(separator: ", ") + " dB as before)")
+            }
             note("   \(entry.name), seams (the mix against the same second of the song): taking over \(format(full.start, 2)) dB, "
                 + "handing back \(format(full.end, 2)) dB; 6 dB down: \(format(half.start, 2)) and \(format(half.end, 2)) dB; "
                 + "the next song comes up by \(format(rise(entry.plan), 1)) dB within a second once in")

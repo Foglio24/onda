@@ -9,6 +9,15 @@ import os
 /// a fifth of a second later (AirPlay two seconds later), while the mix's ramp follows the music
 /// as it is heard.
 final class HandoverFader: @unchecked Sendable {
+    /// How long the song and the mix cross at the handover when the song fades out here: short. The
+    /// two players are never on the very same sample, and the same music a few milliseconds apart,
+    /// half and half, partly cancels out: over a quarter of a second that was heard as the volume
+    /// dipping by 2–4 dB (with the players 1–5 ms apart); over 40 ms it is under 1 dB, and brief.
+    static let exactLength = 0.04
+    /// With the player's volume instead (no fader: Dolby, or a song started before AutoMix was on),
+    /// whose timing is only as good as the output's latency is known: longer.
+    static let volumeLength = 0.25
+
     /// Where the fade starts in the song's time (infinity: never) and how long it lasts.
     struct Fade: Equatable, Sendable {
         var start = Double.infinity

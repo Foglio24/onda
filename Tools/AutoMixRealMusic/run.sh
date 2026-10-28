@@ -8,5 +8,5 @@ binary="$(mktemp "${TMPDIR:-/tmp}/onda-automix-real.XXXXXX")"
 trap 'rm -f "$binary"' EXIT
 swiftc -O -target "$(uname -m)-apple-macosx14.0" Seaglass/Player/AutoMixAnalysis.swift Seaglass/Player/AutoMixPlanner.swift \
   Seaglass/Player/AutoMixSelection.swift Seaglass/Player/MixDesign.swift Seaglass/Player/AutoMixRenderer.swift Seaglass/Player/AutoMix.swift \
-  Seaglass/Player/VocalDetector.swift Seaglass/Player/MDXSeparator.swift Tools/AutoMixRealMusic/main.swift -o "$binary"
+  Seaglass/Player/VocalDetector.swift Seaglass/Player/MDXSeparator.swift Seaglass/Player/HandoverFade.swift Tools/AutoMixRealMusic/main.swift -o "$binary"
 "$binary" "$@"
