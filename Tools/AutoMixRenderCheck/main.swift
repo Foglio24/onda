@@ -101,6 +101,12 @@ func alignment(_ a: ArraySlice<Float>, _ b: ArraySlice<Float>, range: Double) ->
     return (Double(best.lag) / rate, best.value)
 }
 
+/// How much louder `a` is than `b` (dB).
+func decibels(_ a: ArraySlice<Float>, _ b: ArraySlice<Float>) -> Double {
+    let power = { (x: ArraySlice<Float>) -> Double in x.reduce(0.0) { $0 + Double($1 * $1) } / Double(max(1, x.count)) }
+    return 10 * log10((power(a) + 1e-12) / (power(b) + 1e-12))
+}
+
 /// A song as its player passes it through its audio processing: in buffers of uneven sizes, each
 /// with its time, through `fader`. `program` runs once the audio has gone through up to `index`
 /// (AutoMix sets the fade while the song plays, ahead of the music).
@@ -250,6 +256,9 @@ struct AutoMixRenderCheck {
                                  b.samples[(joinIndex - tailLength)..<joinIndex], range: 0.02)
             expect(abs(tail.lag) <= 0.0012 && tail.correlation > 0.9,
                    "\(name): the mix ends where the next song carries on (lag \(format(tail.lag * 1000)) ms, match \(format(tail.correlation)))")
+            // And as loud as it: the next song alone there.
+            let handBack = decibels(full[(full.count - tailLength)..<full.count], b.samples[(joinIndex - tailLength)..<joinIndex])
+            expect(abs(handBack) < 0.05, "\(name): hands back as loud as the next song (\(format(handBack)) dB over the last second)")
             // Never silent.
             let window = Int(0.05 * rate)
             let levels = stride(from: 0, to: full.count - window, by: window).map { start -> Double in
@@ -321,6 +330,46 @@ struct AutoMixRenderCheck {
                 expect(level < 0.001, "a muted song isn't heard (\(format(20 * log10(max(level, 1e-9)), 0)) dB)")
             } else {
                 expect(false, "muted mix rendered")
+            }
+
+            // Loud songs, mastered up to full scale and over it (as decoded AAC often is), at full
+            // gain: where one plays alone the mix is that song, as loud and with its peaks; where
+            // both play the limiter keeps them under full scale.
+            let loud = { (samples: [Float]) -> [Float] in samples.map { Float(tanh(Double($0) * 4) * 1.1) } }
+            let loudA = loud(a.samples), loudB = loud(b.samples)
+            let loudURLs = (folder.appending(path: "loud-a.wav"), folder.appending(path: "loud-b.wav"))
+            do {
+                try write(loudA, to: loudURLs.0)
+                try write(loudB, to: loudURLs.1)
+                let instrumental = { (analysis: TrackAnalysis) in
+                    VocalActivity(regions: [VocalActivity.Region(start: 0, values: [UInt8](repeating: 0, count: Int(analysis.duration / 0.25) + 1))])
+                }
+                let plan = TransitionPlanner.plan(from: a.analysis, to: b.analysis,
+                                                  context: TransitionContext(outgoingVocals: instrumental(a.analysis),
+                                                                             incomingVocals: instrumental(b.analysis)))
+                let loudSchedule = MixSchedule(plan: plan)
+                let url = folder.appending(path: "loud.caf")
+                let mix = try await AutoMixRenderer.render(loudSchedule, outgoing: loudURLs.0, incoming: loudURLs.1,
+                                                           outgoingGain: 1, incomingGain: 1, to: url)
+                let samples = try await AutoMixDecoder.samples(of: url)
+                let handover = Int(plan.handover * rate), second = Int(rate)
+                let takeOver = decibels(samples[0..<second], loudA[handover..<(handover + second)])
+                let joinIndex = Int(mix.join * rate)
+                let handBack = decibels(samples[(samples.count - second)..<samples.count], loudB[(joinIndex - second)..<joinIndex])
+                // Where both are clearly heard.
+                var peakTogether: Float = 0
+                for time in stride(from: loudSchedule.entry, to: loudSchedule.length - 0.05, by: 0.05) {
+                    let levels = loudSchedule.step(at: time).levels
+                    guard levels.outgoing >= 0.3, levels.incoming >= 0.3 else { continue }
+                    let range = Int(time * rate)..<min(samples.count, Int((time + 0.05) * rate))
+                    peakTogether = max(peakTogether, samples[range].map { abs($0) }.max() ?? 0)
+                }
+                let peakAlone = samples[0..<second].map { abs($0) }.max() ?? 0
+                expect(abs(takeOver) < 0.1 && abs(handBack) < 0.05 && peakTogether <= 1.0001 && peakAlone > 1,
+                       "loud songs: the mix takes over \(format(takeOver)) dB and hands back \(format(handBack)) dB from the songs, "
+                       + "peaks \(format(Double(peakAlone))) alone (kept) and \(format(Double(peakTogether))) together")
+            } catch {
+                expect(false, "loud songs: rendered (\(error))")
             }
 
             // Designed mixes with effects: they render, start where the song is, stay in range and join.

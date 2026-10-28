@@ -1514,7 +1514,9 @@ final class PlayerController: ObservableObject {
                 }.value
                 guard !Task.isCancelled, self.requests.isCurrentLoad(generation), self.autoMixPair == pair else { return }
                 plan = choice.plan
-                UserDefaults.standard.set("\(track.title) → \(next.title)\n" + choice.summary,
+                // With the gains it is made at: a jump in volume where it hands back would show here.
+                let volumes = String(localized: "Volume uniforme: \(Self.decibels(outgoingGain)) → \(Self.decibels(incomingGain))")
+                UserDefaults.standard.set("\(track.title) → \(next.title)\n" + choice.summary + "\n" + volumes,
                                           forKey: Preferences.lastAutoMixChoice)
             }
             self.autoMixNote = String(localized: "Preparazione del mix…")
@@ -1544,6 +1546,11 @@ final class PlayerController: ObservableObject {
                                              outgoingFile: outgoingFile, outgoingGain: outgoingGain)
             self.autoMixNote = Self.describe(plan, from: outgoing, to: incoming)
         }
+    }
+
+    /// A gain as "-4.2 dB".
+    private static func decibels(_ gain: Float) -> String {
+        String(format: "%.1f dB", 20 * log10(Double(max(gain, 1e-6))))
     }
 
     /// The queue is an album played in order, and the two songs follow each other on it: not a
