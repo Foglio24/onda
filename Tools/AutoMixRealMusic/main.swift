@@ -278,6 +278,47 @@ func levels(_ buffer: AVAudioPCMBuffer, from start: Double = 0, to end: Double =
     return result
 }
 
+/// Loudness (dB) of a stretch of a buffer, as one.
+func level(_ buffer: AVAudioPCMBuffer, from start: Double = 0, to end: Double = .infinity) -> Double {
+    guard let channels = buffer.floatChannelData else { return -120 }
+    let count = Int(buffer.frameLength)
+    let first = max(0, min(count, Int(start * rate))), last = max(first, min(count, end.isFinite ? Int(end * rate) : count))
+    var power = 0.0
+    for index in first..<last {
+        power += Double(channels[0][index] * channels[0][index] + channels[1][index] * channels[1][index]) / 2
+    }
+    return 10 * log10(power / Double(max(1, last - first)) + 1e-12)
+}
+
+/// Where the mix takes over and hands back, it should be the song itself: its first second
+/// against the same second of the song playing, its last against the same second of the next
+/// song, at the gains it was made with (dB; 0 when the same).
+func seams(_ mix: AutoMixRenderer.Mix, _ plan: TransitionPlan, from a: Song, to b: Song, gain: Double) async throws -> (start: Double, end: Double) {
+    let mixed = try read(mix.url)
+    let length = Double(mixed.frameLength) / rate
+    let first = try await AutoMixRenderer.decode(a.file, from: plan.handover, duration: 1)
+    let last = try await AutoMixRenderer.decode(b.file, from: mix.join - 1, duration: 1)
+    let offset = 20 * log10(gain)
+    return (level(mixed, to: 1) - level(first, to: 1) - offset, level(mixed, from: length - 1, to: length) - level(last, to: 1) - offset)
+}
+
+/// How much the next song alone comes up within a second once it has fully come in (the trims
+/// letting go as the first song leaves), in dB.
+func rise(_ plan: TransitionPlan) -> Double {
+    let step = 0.05
+    var points: [(time: Double, level: Double)] = []
+    for time in stride(from: plan.outStart, through: plan.outEnd, by: step) {
+        let p = plan.progress(atOutgoingTime: time)
+        guard p >= plan.fadeIn else { continue }
+        points.append((time, 20 * log10(Double(max(plan.levels(at: p).incoming, 1e-6)))))
+    }
+    var largest = 0.0
+    for (index, point) in points.enumerated() {
+        for later in points[index...] where later.time - point.time <= 1 { largest = max(largest, later.level - point.level) }
+    }
+    return largest
+}
+
 /// The mix against the songs around it: how much louder than the louder of the two (the last
 /// four seconds before it, the first four after) and how much quieter than the quieter it gets,
 /// over seconds; and its peak.
@@ -369,6 +410,22 @@ for (number, pair) in pairs.enumerated() {
                 + "\(format(20 * log10(Double(max(loudness.peak, 1e-9))), 1)) dBFS")
         } catch {
             note("   \(entry.name): excerpt not written (\(error))")
+        }
+    }
+    // The seams, at full gain (the limiter has the most to do) and 6 dB down (as "Volume uniforme"
+    // has most songs).
+    for entry in mixes {
+        do {
+            let full = try await seams(entry.mix, entry.plan, from: a, to: b, gain: 1)
+            let down = try await AutoMixRenderer.render(MixSchedule(plan: entry.plan), outgoing: a.file, incoming: b.file,
+                                                        outgoingGain: 0.5, incomingGain: 0.5,
+                                                        to: work.appending(path: "\(label)-\(entry.name)-down.caf"))
+            let half = try await seams(down, entry.plan, from: a, to: b, gain: 0.5)
+            note("   \(entry.name), seams (the mix against the same second of the song): taking over \(format(full.start, 2)) dB, "
+                + "handing back \(format(full.end, 2)) dB; 6 dB down: \(format(half.start, 2)) and \(format(half.end, 2)) dB; "
+                + "the next song comes up by \(format(rise(entry.plan), 1)) dB within a second once in")
+        } catch {
+            note("   \(entry.name): seams not measured (\(error))")
         }
     }
     key += "pair \(label) (\(pair.kind)): 1.16 = \(files["1.16"] ?? "?"), new = \(files["new"] ?? "?")\n"
