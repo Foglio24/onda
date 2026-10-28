@@ -15,6 +15,14 @@ struct TransitionPlan: Equatable, Sendable {
         case blend
         /// The song fades out on its own: the next one comes in during the fade.
         case fade
+        /// No overlap: the next song starts as this one's sound ends, the silence between them
+        /// left out.
+        case gapless
+        /// No overlap: this song ends in full, then the next one starts after a short breath.
+        case sequence
+        /// Two songs that follow each other on their album, played in order: as the album has
+        /// them, nothing left out (a song running into the next stays joined).
+        case album
     }
 
     var style: Style
@@ -52,6 +60,16 @@ struct TransitionPlan: Equatable, Sendable {
     var echoFeedback: Double = 0
     /// The song leaving repeats a stretch of beats, from `loop.start` on.
     var loop: MixLoopPlan? = nil
+    /// Automatic plans: the progress at which the next song starts coming in (it is fully in at
+    /// `fadeIn`) and at which this one starts going (it has gone at the end), each along an
+    /// equal-power curve. Where the two overlap at full, the trims hold them down.
+    var fadeInFrom: Double = 0
+    var fadeOutFrom: Double = 0
+    /// Gains on each song, sampled evenly through the overlap (empty: none), so that together they
+    /// never sound louder than the louder of the two alone (see `TransitionJudge`). The song leaving
+    /// only goes down, the next only up: neither pumps.
+    var outgoingTrim: [Float] = []
+    var incomingTrim: [Float] = []
 
     var overlap: Double { outEnd - outStart }
     /// The playback rates while the two play together.
@@ -71,10 +89,13 @@ struct TransitionPlan: Equatable, Sendable {
             return design.levels(at: progress, bar: barLength / span, ramp: 0.05 / span)
         }
         let p = max(0, min(1, progress))
-        let comeIn = fadeIn > 0 ? min(1, p / fadeIn) : 1
+        // Equal-power curves: over the same stretch the two add up to a steady loudness.
+        let comeIn = fadeIn > fadeInFrom ? max(0, min(1, (p - fadeInFrom) / (fadeIn - fadeInFrom))) : (p >= fadeInFrom ? 1 : 0)
+        let goOut = fadeOutFrom < 1 ? max(0, min(1, (p - fadeOutFrom) / (1 - fadeOutFrom))) : (p >= 1 ? 1 : 0)
         var swap = 0.0
-        if let swapStart, let swapEnd, swapEnd > swapStart {
-            swap = p <= swapStart ? 0 : (p >= swapEnd ? 1 : (p - swapStart) / (swapEnd - swapStart))
+        if let swapStart, let swapEnd {
+            let x = swapEnd > swapStart ? max(0, min(1, (p - swapStart) / (swapEnd - swapStart))) : (p >= swapStart ? 1 : 0)
+            swap = x * x * (3 - 2 * x)
         }
         var highPass = 0.0
         if let filterOut, p > filterOut {
@@ -82,31 +103,20 @@ struct TransitionPlan: Equatable, Sendable {
             highPass = x * x * (3 - 2 * x)
         }
         let hasSwap = swapStart != nil && swapEnd != nil
-        let incomingBassCut: Double = hasSwap ? 1 - swap : 0
-        let outgoingBassCut: Double = hasSwap ? swap : 0
-        guard style == .beatMatched, let swapStart, let swapEnd else {
-            // Equal-power crossfade: the overall loudness stays steady.
-            let outgoing: Double = cos(p * .pi / 2)
-            let incoming: Double = sin(comeIn * .pi / 2)
-            return TransitionLevels(outgoing: Float(outgoing), incoming: Float(incoming),
-                                    outgoingBassCut: Float(outgoingBassCut), incomingBassCut: Float(incomingBassCut),
-                                    outgoingHighPass: Float(highPass))
-        }
-        // Before the swap the next song plays a little lower and without bass over this one;
-        // after it, this one plays on without bass, thins out and fades.
-        let incoming: Double = p < swapStart ? 0.8 * sin(comeIn * .pi / 2) : 0.8 + 0.2 * swap
-        let outgoing: Double
-        if p < swapStart {
-            outgoing = 1 - 0.1 * (swapStart > 0 ? p / swapStart : 1)
-        } else if p < swapEnd {
-            outgoing = 0.9
-        } else {
-            let tail: Double = (p - swapEnd) / max(1e-6, 1 - swapEnd)
-            outgoing = 0.9 * cos(tail * .pi / 2)
-        }
+        let outgoing = cos(goOut * .pi / 2) * Double(Self.value(of: outgoingTrim, at: p))
+        let incoming = sin(comeIn * .pi / 2) * Double(Self.value(of: incomingTrim, at: p))
         return TransitionLevels(outgoing: Float(outgoing), incoming: Float(incoming),
-                                outgoingBassCut: Float(outgoingBassCut), incomingBassCut: Float(incomingBassCut),
+                                outgoingBassCut: hasSwap ? Float(swap) : 0, incomingBassCut: hasSwap ? Float(1 - swap) : 0,
                                 outgoingHighPass: Float(highPass))
+    }
+
+    /// A trim at a point of the overlap (1 without one).
+    static func value(of trim: [Float], at progress: Double) -> Float {
+        guard trim.count > 1 else { return trim.first ?? 1 }
+        let position = max(0, min(1, progress)) * Double(trim.count - 1)
+        let lower = Int(position.rounded(.down)), upper = min(trim.count - 1, lower + 1)
+        let weight = Float(position - Double(lower))
+        return trim[lower] * (1 - weight) + trim[upper] * weight
     }
 }
 
@@ -137,16 +147,26 @@ struct MixLoopPlan: Equatable, Sendable {
     var length: Double
 }
 
-/// Mixes any two analysed songs, the way Apple Music's AutoMix does: matched beats when both are
-/// made to a steady grid and their tempos are within 30 % (both gliding to meet halfway), otherwise
-/// a long crossfade on the song's ending. There is never a cut: every mix lasts several seconds.
+/// Mixes any two analysed songs. AutoMix weighs many ways of doing it against each other (see
+/// `choose`, in AutoMixSelection.swift); `reference` is the single plan AutoMix made up to 1.16,
+/// which a playlist's Mix still starts its timing from (so the Mixes made with it stay as they were).
 enum TransitionPlanner {
-    /// How far apart two tempos may be for their beats to be matched; each song changes by half of it.
+    /// How far apart two tempos may be for their beats to be matched in a playlist's Mix (where
+    /// beatmatching is asked for); each song changes by half of it. AutoMix keeps to much less
+    /// (`AutoMixTuning.maximumRateChange`).
     static let maximumTempoChange = 0.3
     /// The longest beat-matched overlap, in seconds.
     static let longestOverlap = 48.0
 
-    static func plan(from outgoing: TrackAnalysis, to incoming: TrackAnalysis) -> TransitionPlan {
+    /// The transition AutoMix chooses (see `choose`).
+    static func plan(from outgoing: TrackAnalysis, to incoming: TrackAnalysis,
+                     context: TransitionContext = TransitionContext()) -> TransitionPlan {
+        choose(from: outgoing, to: incoming, context: context).plan
+    }
+
+    /// The plan of AutoMix up to 1.16: the longest beat-matched mix that fits (16, 8 or 4 bars,
+    /// both tempos meeting halfway, up to 30 % apart), otherwise a crossfade on the song's ending.
+    static func reference(from outgoing: TrackAnalysis, to incoming: TrackAnalysis) -> TransitionPlan {
         if let matched = beatMatched(outgoing, incoming) { return matched }
         return blend(outgoing, incoming)
     }
@@ -200,13 +220,14 @@ enum TransitionPlanner {
 
     /// A beat-matched plan of `bars` bars, the next song's downbeat `downbeatIn` landing on this
     /// song's downbeat `downbeatOut`.
+    /// The two play together at `meet` (by default halfway between their tempos, in ratio: each
+    /// changes speed by as little as possible).
     static func beatMatched(_ a: TrackAnalysis, _ b: TrackAnalysis, bars: Int, from downbeatOut: Int, to downbeatIn: Int,
-                            minimumHandover: Double) -> TransitionPlan? {
+                            minimumHandover: Double, meet: Double? = nil) -> TransitionPlan? {
         guard let octave = tempoMatch(a, b)?.octave, downbeatIn >= b.firstDownbeat, downbeatOut > 0 else { return nil }
         let tempoOut = a.tempo
         let tempoIn = b.tempo * octave
-        // The two meet halfway (in ratio): each changes speed by as little as possible.
-        let tempoMeet = (tempoOut * tempoIn).squareRoot()
+        let tempoMeet = meet ?? (tempoOut * tempoIn).squareRoot()
         let beat = a.beatLength
         let length = Double(bars * 4) * beat
         guard length * tempoOut / tempoMeet <= longestOverlap else { return nil }

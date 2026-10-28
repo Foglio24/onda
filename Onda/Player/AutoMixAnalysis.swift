@@ -2,11 +2,11 @@ import Accelerate
 import Foundation
 
 /// What AutoMix knows about a song, worked out once from its audio (see `TrackAnalyzer`) and kept
-/// on disk: where the sound starts and ends, its beat grid, how loud and how rhythmic each beat is,
-/// and its key.
+/// on disk: where the sound starts and ends, its beat grid, how loud, how rhythmic, how steady and
+/// how bass-heavy each beat is, the harmony of each bar, and its key.
 struct TrackAnalysis: Codable, Equatable, Sendable {
     /// Raised whenever the analysis changes, so older results are made again.
-    static let currentVersion = 1
+    static let currentVersion = 2
     /// Seconds between the values of `loudness`.
     static let loudnessStep = 0.25
 
@@ -35,6 +35,15 @@ struct TrackAnalysis: Codable, Equatable, Sendable {
     var key: Int
     var minor: Bool
     var keyClarity: Double
+    /// For each beat: the share of its sound below 150 Hz (kick drum and bass), 0…255 for 0…1.
+    var beatBass: [UInt8]
+    /// For each beat: how far (ms, ±100) the strongest onset near it falls from the grid. A stretch
+    /// whose marked beats sit on the grid can be beat-matched there; live and freely played songs
+    /// drift away from a constant grid in places.
+    var beatOffset: [Int8]
+    /// Each bar's pitch classes (12 values, 0…255, the strongest 255), bar k starting on beat
+    /// `firstBarBeat + 4k`: the harmony of a stretch, for what two songs sound like together.
+    var barChroma: [UInt8]
 
     var tempo: Double { 60 / beatLength }
     var beatCount: Int { beatLoudness.count }
@@ -60,6 +69,57 @@ struct TrackAnalysis: Codable, Equatable, Sendable {
         guard !loudness.isEmpty else { return -100 }
         let index = Int(time / Self.loudnessStep)
         return loudness[max(0, min(loudness.count - 1, index))]
+    }
+
+    /// Mean power (linear) between two times, from `loudness`; 0 outside the sound.
+    func power(from start: Double, to end: Double) -> Double {
+        guard !loudness.isEmpty else { return 0 }
+        let first = max(0, min(loudness.count - 1, Int(start / Self.loudnessStep)))
+        let last = max(first + 1, min(loudness.count, Int((end / Self.loudnessStep).rounded(.up))))
+        let total = loudness[first..<last].reduce(0.0) { $0 + pow(10, Double($1) / 10) }
+        return total / Double(last - first)
+    }
+
+    /// The first beat of the first whole bar (bars start every four beats from it).
+    var firstBarBeat: Int { ((downbeat % 4) + 4) % 4 }
+
+    /// The share (0…1) of the sound below 150 Hz over a range of beats, weighted by their power.
+    func bassShare(_ beats: Range<Int>) -> Double {
+        let range = beats.clamped(to: 0..<min(beatBass.count, beatLoudness.count))
+        guard !range.isEmpty else { return 0 }
+        var weighted = 0.0, total = 0.0
+        for beat in range {
+            let power = pow(10, Double(beatLoudness[beat]) / 10)
+            weighted += power * Double(beatBass[beat]) / 255
+            total += power
+        }
+        return total > 0 ? weighted / total : 0
+    }
+
+    /// How steady a range of beats is: the share of its beats clearly marked (pulse at least half
+    /// a typical strong beat's), and the share of those within 20 ms of the grid.
+    func timing(_ beats: Range<Int>) -> (marked: Double, onGrid: Double) {
+        let range = beats.clamped(to: 0..<min(beatPulse.count, beatOffset.count))
+        guard !range.isEmpty else { return (0, 0) }
+        let marked = range.filter { beatPulse[$0] >= 0.5 }
+        guard !marked.isEmpty else { return (0, 0) }
+        let onGrid = marked.filter { abs(Int(beatOffset[$0])) <= 20 }.count
+        return (Double(marked.count) / Double(range.count), Double(onGrid) / Double(marked.count))
+    }
+
+    /// The average pitch classes (each 0…1) of the bars between two times.
+    func chroma(from start: Double, to end: Double) -> [Double] {
+        var sum = [Double](repeating: 0, count: 12)
+        let bars = barChroma.count / 12
+        guard bars > 0 else { return sum }
+        let barLength = 4 * beatLength
+        let origin = beatTime(firstBarBeat)
+        let first = max(0, min(bars - 1, Int(((start - origin) / barLength).rounded(.down))))
+        let last = max(first + 1, min(bars, Int(((end - origin) / barLength).rounded(.up))))
+        for bar in first..<last {
+            for pitch in 0..<12 { sum[pitch] += Double(barChroma[bar * 12 + pitch]) / 255 }
+        }
+        return sum.map { $0 / Double(last - first) }
     }
 }
 
@@ -133,10 +193,44 @@ enum TrackAnalyzer {
         let downbeat = downbeatPhase(lowPulse: lowPulse, loudness: beatLoudness, chroma: chroma,
                                      gridStart: gridStart, beatLength: beatLength)
 
+        // Each beat's share of bass, from the frames inside it.
+        let beatBass = (0..<beatCount).map { beat -> UInt8 in
+            let start = max(0, frameOf(gridStart + Double(beat) * beatLength))
+            let end = min(curves.totalPower.count, max(start + 1, frameOf(gridStart + Double(beat + 1) * beatLength)))
+            guard start < end else { return 0 }
+            let low = curves.lowPower[start..<end].reduce(0, +), total = curves.totalPower[start..<end].reduce(0, +)
+            return UInt8(max(0, min(255, (total > 0 ? low / total : 0) * 255)).rounded())
+        }
+        // Where the strongest onset near each beat falls: within a tenth of a second (a quarter
+        // of a beat at fast tempos).
+        let reach = max(1, min(Int(0.1 * frameRate), Int(0.25 * grid.period)))
+        let beatOffset = (0..<beatCount).map { beat -> Int8 in
+            let exact = ((gridStart + Double(beat) * beatLength) * sampleRate - Double(frameLength / 2)) / Double(hop)
+            let centre = Int(exact.rounded())
+            let lower = max(1, centre - reach), upper = min(onset.count - 1, centre + reach + 1)
+            guard lower < upper else { return 100 }
+            var best = lower
+            for index in lower..<upper where onset[index] > onset[best] { best = index }
+            let shift = parabolicShift(onset[(best - 1)...(best + 1)].map(Double.init), at: 1)
+            let milliseconds = (Double(best) + shift - exact) / frameRate * 1000
+            return Int8(max(-100, min(100, milliseconds.rounded())))
+        }
+        // Each bar's harmony.
+        let firstBar = ((downbeat % 4) + 4) % 4
+        var barChroma: [UInt8] = []
+        var bar = firstBar
+        while bar + 4 <= beatCount {
+            let values = chroma.average(from: gridStart + Double(bar) * beatLength, to: gridStart + Double(bar + 4) * beatLength)
+            let peak = max(values.max() ?? 0, 1e-6)
+            barChroma += values.map { UInt8(max(0, min(255, $0 / peak * 255)).rounded()) }
+            bar += 4
+        }
+
         return TrackAnalysis(duration: duration, soundStart: level.soundStart, soundEnd: level.soundEnd,
                              gridStart: gridStart, beatLength: beatLength, gridFit: grid.fit, downbeat: downbeat,
                              beatLoudness: beatLoudness, beatPulse: beatPulse, loudness: level.envelope,
-                             bodyLoudness: level.body, key: key.tonic, minor: key.minor, keyClarity: key.clarity)
+                             bodyLoudness: level.body, key: key.tonic, minor: key.minor, keyClarity: key.clarity,
+                             beatBass: beatBass, beatOffset: beatOffset, barChroma: barChroma)
     }
 
     // MARK: Loudness and silence
@@ -198,6 +292,9 @@ enum TrackAnalyzer {
     private struct Curves {
         var full: [Float]
         var low: [Float]
+        /// Each frame's power below 150 Hz, and in all bands.
+        var lowPower: [Float] = []
+        var totalPower: [Float] = []
     }
 
     private static func onsets(_ samples: [Float], sampleRate: Double) -> Curves {
@@ -231,6 +328,8 @@ enum TrackAnalyzer {
         let lowCount = max(1, isLow.filter { $0 }.count)
 
         var levels = [Float](repeating: 0, count: frames * bands)
+        var lowPower = [Float](repeating: 0, count: frames)
+        var totalPower = [Float](repeating: 0, count: frames)
         var frame = [Float](repeating: 0, count: length)
         var real = [Float](repeating: 0, count: half)
         var imaginary = [Float](repeating: 0, count: half)
@@ -254,7 +353,11 @@ enum TrackAnalyzer {
                 }
                 for band in 0..<bands { bandPower[band] = 0 }
                 for bin in 1..<half where bandOfBin[bin] >= 0 { bandPower[bandOfBin[bin]] += power[bin] }
-                for band in 0..<bands { levels[index * bands + band] = 10 * log10(bandPower[band] + 1e-10) }
+                for band in 0..<bands {
+                    levels[index * bands + band] = 10 * log10(bandPower[band] + 1e-10)
+                    totalPower[index] += bandPower[band]
+                    if isLow[band] { lowPower[index] += bandPower[band] }
+                }
             }
         }
         // Nothing counts below 80 dB under the loudest band.
@@ -281,7 +384,8 @@ enum TrackAnalyzer {
         }
         // Only what stands out from the last second counts.
         let width = max(1, Int(sampleRate / Double(hop)))
-        return Curves(full: detrended(full, width: width), low: detrended(low, width: width))
+        return Curves(full: detrended(full, width: width), low: detrended(low, width: width),
+                      lowPower: lowPower, totalPower: totalPower)
     }
 
     private static func detrended(_ values: [Float], width: Int) -> [Float] {
@@ -684,24 +788,31 @@ private struct Chroma {
         return sum.map { $0 / Float(last - first) }
     }
 
+    /// The key whose profile best matches the song's average chroma.
+    func key(from start: Double, to end: Double) -> (tonic: Int, minor: Bool, clarity: Double) {
+        KeyProfile.key(of: average(from: start, to: end).map(Double.init))
+    }
+}
+
+/// Keys from pitch classes, by the Krumhansl–Kessler profiles.
+enum KeyProfile {
     private static let major: [Double] = [6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88]
     private static let minor: [Double] = [6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17]
 
-    /// The key whose profile best matches the song's average chroma.
-    func key(from start: Double, to end: Double) -> (tonic: Int, minor: Bool, clarity: Double) {
-        let profile = average(from: start, to: end).map(Double.init)
+    /// The key whose profile best matches the pitch classes, with how well it does (0…1).
+    static func key(of profile: [Double]) -> (tonic: Int, minor: Bool, clarity: Double) {
         var best = (tonic: 0, minor: false, clarity: -2.0)
         for tonic in 0..<12 {
-            for (isMinor, shape) in [(false, Self.major), (true, Self.minor)] {
+            for (isMinor, shape) in [(false, major), (true, minor)] {
                 let rotated = (0..<12).map { shape[(($0 - tonic) % 12 + 12) % 12] }
-                let correlation = Self.correlation(profile, rotated)
-                if correlation > best.clarity { best = (tonic, isMinor, correlation) }
+                let value = correlation(profile, rotated)
+                if value > best.clarity { best = (tonic, isMinor, value) }
             }
         }
         return (best.tonic, best.minor, max(0, best.clarity))
     }
 
-    private static func correlation(_ a: [Double], _ b: [Double]) -> Double {
+    static func correlation(_ a: [Double], _ b: [Double]) -> Double {
         let meanA = a.reduce(0, +) / Double(a.count), meanB = b.reduce(0, +) / Double(b.count)
         var covariance = 0.0, varianceA = 0.0, varianceB = 0.0
         for index in a.indices {

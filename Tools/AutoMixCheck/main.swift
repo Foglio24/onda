@@ -1,8 +1,11 @@
-// Checks AutoMix on songs made here, whose beats, bars, key and silences are known: the analysis
-// (tempo, beat grid, downbeats, key, where the sound starts and ends, songs without a beat) and
-// the planner (every pair is mixed: matched beats land on each other with both tempos meeting
-// halfway, a long intro is skipped, tempos too far apart cut on the beat, songs without a beat and
-// fades get crossfades; volumes, bass cuts and filters move the right way).
+// Checks AutoMix on songs made here, whose beats, bars, key, voices and silences are known: the
+// analysis (tempo, beat grid, downbeats, key, bass, where the sound starts and ends, songs without
+// a beat) and the choice of transition (beats matched only within 5 % per song, over the bars that
+// avoid two voices at once, the tempo of the sung song kept, the next song's voice after this one
+// has gone, clashing keys kept short, a long intro skipped, a fade-out mixed into, an album played
+// as it is; the curves equal-power, never pumping, never louder together than the louder alone,
+// the bass swapped only when both are carried by it), and the plan of up to 1.16 that playlist
+// Mixes still start from.
 // Run from the repository root: bash Tools/AutoMixCheck/run.sh
 import Foundation
 
@@ -38,7 +41,7 @@ let aMinor = [(57, true), (62, true), (64, true), (57, true)]
 /// A song made to a click: a kick on every beat (stronger on the first of the bar), a hi-hat
 /// between beats and a chord on every bar, with silence before and after.
 func song(bpm: Double, seconds: Double = 60, lead: Double = 1.5, tail: Double = 2,
-          chords: [(Int, Bool)] = major, introBars: Int = 0) -> (samples: [Float], onsets: [Double]) {
+          chords: [(Int, Bool)] = major, introBars: Int = 0, kick: Double = 1) -> (samples: [Float], onsets: [Double]) {
     let beat = 60 / bpm
     let count = Int((seconds - lead - tail) / beat)
     var x = [Float](repeating: 0, count: Int(seconds * rate))
@@ -52,7 +55,7 @@ func song(bpm: Double, seconds: Double = 60, lead: Double = 1.5, tail: Double = 
         for i in 0..<Int(0.25 * rate) where start + i < x.count {
             let time = Double(i) / rate
             let accent: Double = k % 4 == 0 ? 1.4 : 1
-            let envelope: Double = exp(-time * 18) * accent * level
+            let envelope: Double = exp(-time * 18) * accent * level * kick
             let sweep: Double = 55 + 90 * exp(-time * 40)
             x[start + i] += Float(0.8 * sin(2 * Double.pi * sweep * time) * envelope)
         }
@@ -155,20 +158,40 @@ expect(TrackAnalyzer.analyze([Float](repeating: 0, count: Int(5 * rate)), sample
 
 // MARK: Planner
 
-func checkLevels(_ plan: TransitionPlan, _ name: String) {
+/// Voices: none at all, or sung from one time to another (the rest measured as not sung).
+func instrumental(_ analysis: TrackAnalysis) -> VocalActivity { sung(analysis, from: 0, to: 0) }
+func sung(_ analysis: TrackAnalysis, from start: Double, to end: Double) -> VocalActivity {
+    let count = Int(analysis.duration / VocalActivity.step) + 1
+    let values = (0..<count).map { index -> UInt8 in
+        let time = Double(index) * VocalActivity.step
+        return time >= start && time < end ? 255 : 0
+    }
+    return VocalActivity(regions: [VocalActivity.Region(start: 0, values: values)])
+}
+
+/// The song leaving alone at the start and the next alone at the end; the one only quieter, the
+/// other only louder; and, from the analyses, together never louder than the louder of the two
+/// alone (plus the headroom) nor much quieter.
+func checkLevels(_ plan: TransitionPlan, _ a: TrackAnalysis, _ b: TrackAnalysis, _ name: String,
+                 context: TransitionContext = TransitionContext()) {
     let start = plan.levels(at: 0), end = plan.levels(at: 1)
-    expect(start.outgoing > 0.99 && start.incoming < 0.01, "\(name): starts with the outgoing song alone")
+    expect(start.outgoing > 0.99 && start.incoming < 0.01 || plan.style == .gapless || plan.style == .sequence || plan.style == .album,
+           "\(name): starts with the outgoing song alone")
     expect(end.outgoing < 0.01 && end.incoming > 0.99, "\(name): ends with the next song alone")
-    var monotonic = true, steady = true
+    var monotonic = true
     var previous = start
-    for step in 1...100 {
-        let levels = plan.levels(at: Double(step) / 100)
+    for step in 1...200 {
+        let levels = plan.levels(at: Double(step) / 200)
         if levels.outgoing > previous.outgoing + 1e-4 || levels.incoming < previous.incoming - 1e-4 { monotonic = false }
-        if levels.outgoing * levels.outgoing + levels.incoming * levels.incoming < 0.6 { steady = false }
         previous = levels
     }
-    expect(monotonic, "\(name): the outgoing song only gets quieter, the next only louder")
-    expect(steady, "\(name): no dip in loudness")
+    expect(monotonic, "\(name): the outgoing song only gets quieter, the next only louder (no pumping)")
+    let loudness = TransitionJudge(a, b, context).loudness(of: plan)
+    let bump = loudness.map { $0.together - $0.louder }.max() ?? 0
+    let step = loudness.count > 1 ? plan.overlap / Double(loudness.count - 1) : 0
+    let deep = Double(loudness.filter { $0.louder - $0.together > 6 }.count) * step
+    expect(bump <= context.tuning.headroom + 0.5, "\(name): together at most \(format(bump, 2)) dB over the louder alone")
+    expect(deep <= 0.5, "\(name): more than 6 dB under the louder alone for \(format(deep, 2)) s at most")
 }
 
 /// Where a time of the next song falls in the outgoing song's time, once it has started.
@@ -189,6 +212,22 @@ func worstBeat(_ plan: TransitionPlan, _ a: TrackAnalysis, _ b: TrackAnalysis) -
     return worst
 }
 
+/// Seconds where both songs sing and both are heard (each at least at 0.3).
+func doubleVoice(_ plan: TransitionPlan, _ outgoing: VocalActivity, _ incoming: VocalActivity) -> Double {
+    var seconds = 0.0
+    let step = 0.05
+    for time in stride(from: plan.outStart, to: plan.outEnd, by: step) {
+        let p = plan.progress(atOutgoingTime: time)
+        let levels = plan.levels(at: p)
+        let incomingTime = plan.inStart + (time - plan.outStart) * plan.tempoOut / plan.tempoIn
+        if levels.outgoing >= 0.3, levels.incoming >= 0.3, (outgoing.presence(at: time) ?? 0) > 0.5,
+           (incoming.presence(at: incomingTime) ?? 0) > 0.5 {
+            seconds += step
+        }
+    }
+    return seconds
+}
+
 /// The rendered mix's timeline: the playing song glides to the meeting tempo before the next one
 /// comes in, both stay on the same beat while together (also while the tempo moves), and the next
 /// song ends back at its own tempo.
@@ -200,6 +239,9 @@ func checkSchedule(_ plan: TransitionPlan, _ a: TrackAnalysis, _ b: TrackAnalysi
     let atEntry = schedule.positions(at: schedule.entry)
     expect(abs(atEntry.outgoing - plan.outStart) < 0.002 && schedule.entry > 1,
            "\(name): the next song comes in \(format(schedule.entry, 1)) s into the mix, at \(format(atEntry.outgoing, 2)) s of this one")
+    let maximum = schedule.steps.map { max(abs(log($0.outgoingRate)), abs(log($0.incomingRate))) }.max() ?? 0
+    expect(maximum <= log(1.05) + 1e-9, "\(name): no song's tempo changes by more than 5 % (\(format((exp(maximum) - 1) * 100, 2)) %)")
+    guard plan.style == .beatMatched else { return }
     // Both songs' beat phases, through the overlap.
     // The next song's beat as matched (half or double time already counted in `tempoIn`).
     let beatIn = 60 / plan.tempoIn
@@ -221,78 +263,137 @@ func checkSchedule(_ plan: TransitionPlan, _ a: TrackAnalysis, _ b: TrackAnalysi
            "\(name): a mix of \(format(schedule.length, 1)) s, the next song carrying on from \(format(schedule.join, 1)) s")
 }
 
+let tritone = [(66, false), (71, false), (73, false), (66, false)]
+
 if let a = analyses[124], let b = analyses[126] {
-    let plan = TransitionPlanner.plan(from: a, to: b)
-    expect(plan.style == .beatMatched, "124 → 126 BPM: beats matched (\(plan.style.rawValue))")
-    expect(abs(plan.incomingRate * plan.incomingRate - b.beatLength / a.beatLength) < 1e-9
-           && abs(plan.incomingRate * plan.outgoingRate - 1) < 1e-9,
-           "124 → 126 BPM: both tempos meet halfway (next \(format(plan.incomingRate, 4)), this \(format(plan.outgoingRate, 4)))")
+    let quiet = TransitionContext(outgoingVocals: instrumental(a), incomingVocals: instrumental(b))
+    let choice = TransitionPlanner.choose(from: a, to: b, context: quiet)
+    let plan = choice.plan
+    print("     124 → 126, no voices: " + choice.summary.replacingOccurrences(of: "\n", with: "\n     "))
+    expect(plan.style == .beatMatched && (plan.bars ?? 0) >= 4,
+           "124 → 126 BPM without voices: beats matched over \(plan.bars ?? 0) bars (\(choice.chosen.title))")
+    expect(abs(log(plan.outgoingRate)) <= log(1.05) && abs(log(plan.incomingRate)) <= log(1.05)
+           && abs(plan.incomingRate / plan.outgoingRate - b.beatLength / a.beatLength) < 1e-9,
+           "124 → 126 BPM: within 5 % each (this \(format(plan.outgoingRate, 4)), next \(format(plan.incomingRate, 4)))")
     expect(abs(b.beatLength / plan.incomingRate - a.beatLength / plan.outgoingRate) < 1e-9,
            "124 → 126 BPM: the same beat length while together")
-    expect(abs(plan.inStart - b.soundStart) < 0.02, "124 → 126 BPM: next song starts where its sound starts (no intro)")
-    expect(plan.outStart >= a.duration * 0.5 && plan.outEnd <= a.duration && plan.overlap > 6 && plan.overlap <= 48,
-           "124 → 126 BPM: overlap \(format(plan.outStart, 2))–\(format(plan.outEnd, 2)) s (\(format(plan.overlap, 1)) s, \(plan.bars ?? 0) bars)")
+    expect(plan.outStart >= a.duration * 0.45 && plan.outEnd <= a.duration && plan.overlap <= 48,
+           "124 → 126 BPM: overlap \(format(plan.outStart, 2))–\(format(plan.outEnd, 2)) s (\(format(plan.overlap, 1)) s)")
     let worst = worstBeat(plan, a, b)
     expect(worst < 0.002, "124 → 126 BPM: the next song's beats land on this one's (worst \(format(worst * 1000, 2)) ms)")
     if let alignment = plan.alignment {
         let alignedBeat = Int(((alignment - a.gridStart) / a.beatLength).rounded())
-        expect(a.isDownbeat(alignedBeat), "124 → 126 BPM: the next song's first downbeat lands on a downbeat")
-        expect(abs(outgoingTime(plan, b.beatTime(b.firstDownbeat)) - alignment) < 0.001, "124 → 126 BPM: … exactly")
+        expect(a.isDownbeat(alignedBeat), "124 → 126 BPM: the next song's first counted downbeat lands on a downbeat")
     } else {
         expect(false, "124 → 126 BPM: alignment given")
     }
     if let swapStart = plan.swapStart, let swapEnd = plan.swapEnd {
-        expect(swapStart > 0.3 && swapStart < 0.7 && swapEnd > swapStart, "124 → 126 BPM: the bass passes over halfway")
         let before = plan.levels(at: swapStart / 2), after = plan.levels(at: (swapEnd + 1) / 2)
-        expect(before.incomingBassCut == 1 && before.outgoingBassCut == 0 && after.incomingBassCut == 0 && after.outgoingBassCut == 1,
-               "124 → 126 BPM: one bass at a time")
+        expect(swapStart > 0.3 && swapEnd < 0.7 && swapEnd > swapStart && before.incomingBassCut == 1 && before.outgoingBassCut == 0
+               && after.incomingBassCut == 0 && after.outgoingBassCut == 1,
+               "124 → 126 BPM (both carried by the bass): the bass passes over the middle, one at a time")
+        let middle = plan.levels(at: (swapStart + swapEnd) / 2)
+        expect(middle.incomingBassCut > 0.05 && middle.incomingBassCut < 0.95, "124 → 126 BPM: … gradually")
     } else {
         expect(false, "124 → 126 BPM: bass swap planned")
     }
-    expect(plan.levels(at: 0.5).outgoingHighPass == 0 && plan.levels(at: 1).outgoingHighPass == 1,
-           "124 → 126 BPM: the outgoing song thins out only at the end")
-    checkLevels(plan, "124 → 126 BPM")
+    checkLevels(plan, a, b, "124 → 126 BPM", context: quiet)
     checkSchedule(plan, a, b, "124 → 126 BPM")
+    expect(choice.runnersUp.count >= 2 && choice.summary.contains(choice.chosen.title),
+           "diagnostics: the choice and \(choice.runnersUp.count) alternatives, in words")
 
-    if let c = analyses[140] {
-        let plan = TransitionPlanner.plan(from: a, to: c)
-        let worst = worstBeat(plan, a, c)
-        expect(plan.style == .beatMatched && worst < 0.002 && abs(plan.incomingRate * plan.incomingRate - c.beatLength / a.beatLength) < 1e-9,
-               "124 → 140 BPM (13 % apart): still matched, both changing 6 % (worst \(format(worst * 1000, 2)) ms)")
-        checkLevels(plan, "124 → 140 BPM")
+    // Not knowing the voices: careful, no long overlap.
+    let unknown = TransitionPlanner.plan(from: a, to: b)
+    expect(unknown.overlap <= 4 * 4 * a.beatLength + 0.5,
+           "voices unknown: at most four bars together (\(format(unknown.overlap, 1)) s, \(unknown.style.rawValue))")
+
+    // A sung to its end, the next sung from its first bar: never two singers at once for long.
+    let singingA = sung(a, from: 10, to: a.soundEnd), singingB = sung(b, from: b.soundStart, to: b.soundEnd)
+    let both = TransitionPlanner.plan(from: a, to: b, context: TransitionContext(outgoingVocals: singingA, incomingVocals: singingB))
+    let doubled = doubleVoice(both, singingA, singingB)
+    expect(doubled <= 1, "both sung at the junction: \(format(doubled, 2)) s of two voices (\(both.style.rawValue), \(format(both.overlap, 1)) s)")
+    checkLevels(both, a, b, "both sung")
+
+    // A's phrase ends; the next song has eight bars without voice: they come in under the end of
+    // this one, and its voice after this one has gone.
+    let phraseEnd = a.beatTime(a.beat(atOrAfter: a.audibleEnd - 16 * a.beatLength))
+    let wordsAt = b.beatTime(b.firstDownbeat + 32)
+    let endingA = sung(a, from: 10, to: phraseEnd), laterB = sung(b, from: wordsAt, to: b.soundEnd)
+    let handed = TransitionPlanner.choose(from: a, to: b, context: TransitionContext(outgoingVocals: endingA, incomingVocals: laterB))
+    let entryWords = outgoingTime(handed.plan, wordsAt)
+    expect(handed.plan.style == .beatMatched && entryWords >= handed.plan.outEnd - 0.3
+           && doubleVoice(handed.plan, endingA, laterB) == 0,
+           "phrase ends, next song's voice later: \(handed.chosen.title), its words at \(format(entryWords, 1)) s, this song gone at \(format(handed.plan.outEnd, 1)) s")
+    var dropAt = handed.plan.outEnd
+    for time in stride(from: handed.plan.outStart, to: handed.plan.outEnd, by: 0.05)
+    where handed.plan.levels(at: handed.plan.progress(atOutgoingTime: time)).outgoing < 0.9 {
+        dropAt = time
+        break
+    }
+    expect(dropAt >= phraseEnd - 0.3, "… and this song's phrase ends (\(format(phraseEnd, 1)) s) before it goes down (\(format(dropAt, 1)) s)")
+
+    // The tempo of the song whose voice is heard stays.
+    if let c = analyses[128] {
+        let keepsA = TransitionPlanner.plan(from: a, to: c, context: TransitionContext(outgoingVocals: sung(a, from: 10, to: a.soundEnd),
+                                                                                       incomingVocals: instrumental(c)))
+        expect(keepsA.style == .beatMatched && abs(keepsA.outgoingRate - 1) < 1e-9 && abs(log(keepsA.incomingRate)) <= log(1.05),
+               "124 → 128, this one sung: its tempo kept, the next one's changed \(format((keepsA.incomingRate - 1) * 100, 2)) %")
+        let keepsB = TransitionPlanner.plan(from: a, to: c, context: TransitionContext(outgoingVocals: sung(a, from: 10, to: 30),
+                                                                                       incomingVocals: sung(c, from: c.soundStart, to: c.soundEnd)))
+        expect(keepsB.style != .beatMatched || abs(keepsB.incomingRate - 1) < 1e-9,
+               "124 → 128, the next one sung: its tempo kept (\(keepsB.style.rawValue), next at \(format(keepsB.incomingRate, 4)))")
+        checkSchedule(keepsA, a, c, "124 → 128")
+        checkLevels(keepsA, a, c, "124 → 128")
     }
 
-    if let c = analyses[100] {
-        let plan = TransitionPlanner.plan(from: a, to: c)
-        let worst = worstBeat(plan, a, c)
-        expect(plan.style == .beatMatched && worst < 0.002 && abs(plan.tempoMeet - (124.0 * 100).squareRoot()) < 0.5,
-               "124 → 100 BPM (24 % apart): matched, meeting at \(format(plan.tempoMeet, 1)) BPM (worst \(format(worst * 1000, 2)) ms)")
-        checkSchedule(plan, a, c, "124 → 100 BPM")
-        checkLevels(plan, "124 → 100 BPM")
-        if let d = analyses[140] {
-            let far = TransitionPlanner.plan(from: d, to: c)
-            expect(far.style == .blend && far.overlap >= 6 && far.filterOut != nil && far.incomingRate == 1 && far.outgoingRate == 1,
-                   "140 → 100 BPM (40 % apart): a long filtered crossfade, no cut (\(far.style.rawValue), \(format(far.overlap, 1)) s)")
-            if let alignment = far.alignment {
-                let alignedBeat = Int(((alignment - d.gridStart) / d.beatLength).rounded())
-                expect(d.isDownbeat(alignedBeat), "140 → 100 BPM: the next song comes in on a downbeat")
-            }
-            checkLevels(far, "140 → 100 BPM")
-        }
+    // Tempos more than 10 % apart: a crossfade at their own tempos.
+    for other in [140.0, 100] {
+        guard let c = analyses[other] else { continue }
+        let far = TransitionPlanner.plan(from: a, to: c, context: TransitionContext(outgoingVocals: instrumental(a), incomingVocals: instrumental(c)))
+        expect(far.style != .beatMatched && far.incomingRate == 1 && far.outgoingRate == 1,
+               "124 → \(Int(other)) BPM: no tempo change (\(far.style.rawValue), \(format(far.overlap, 1)) s)")
+        checkLevels(far, a, c, "124 → \(Int(other)) BPM")
+        checkSchedule(far, a, c, "124 → \(Int(other)) BPM")
+    }
+
+    // A crossfade is equal-power: half way, both at 71 % (not one at full and the other at 71 %).
+    var crossfade = TransitionPlan(style: .blend, handover: 40, outStart: 42, outEnd: 50, inStart: 1, tempoOut: 124,
+                                   tempoMeet: 124, tempoIn: 124, alignment: nil, swapStart: nil, swapEnd: nil, fadeIn: 1,
+                                   filterOut: nil, bars: nil)
+    crossfade.fadeOutFrom = 0
+    let half = crossfade.levels(at: 0.5)
+    expect(abs(half.outgoing * half.outgoing + half.incoming * half.incoming - 1) < 0.01 && abs(half.outgoing - half.incoming) < 0.01,
+           "crossfade half way: \(format(Double(half.outgoing), 2)) and \(format(Double(half.incoming), 2)), together 0 dB")
+
+    // Keys that clash: no long overlap; the same song in a key that goes, longer.
+    if let clash = analyze(song(bpm: 126, chords: tritone).samples, "126 BPM in F# major") {
+        let context = TransitionContext(outgoingVocals: instrumental(a), incomingVocals: instrumental(clash))
+        let choice = TransitionPlanner.choose(from: a, to: clash, context: context)
+        let together = TransitionJudge(a, clash, context).loudness(of: choice.plan).count
+        expect(choice.plan.overlap < plan.overlap / 2,
+               "C major → F# major: \(format(choice.plan.overlap, 1)) s together, under half of C → C (\(format(plan.overlap, 1)) s; \(choice.chosen.title), \(together) points)")
+    }
+
+    // Without bass to speak of in the next song: no bass swap (nothing to cut).
+    if let light = analyze(song(bpm: 126, kick: 0.1).samples, "126 BPM, light bass") {
+        let choice = TransitionPlanner.plan(from: a, to: light, context: TransitionContext(outgoingVocals: instrumental(a), incomingVocals: instrumental(light)))
+        expect(light.bassShare(0..<light.beatCount) < 0.3 && choice.swapStart == nil
+               && (0...20).allSatisfy { choice.levels(at: Double($0) / 20).incomingBassCut == 0 },
+               "next song light on bass (\(format(light.bassShare(0..<light.beatCount), 2))): no bass cut (\(choice.style.rawValue))")
+        checkLevels(choice, a, light, "light bass")
     }
 
     if let still {
         let plan = TransitionPlanner.plan(from: still, to: b)
-        expect((plan.style == .blend || plan.style == .fade) && plan.incomingRate == 1 && plan.overlap >= 6 && plan.outEnd <= still.duration,
+        expect(plan.style != .beatMatched && plan.incomingRate == 1 && plan.overlap >= 1 && plan.outEnd <= still.duration,
                "ambient → 126 BPM: no beat to follow, a crossfade on the ending (\(plan.style.rawValue), \(format(plan.overlap, 1)) s)")
-        checkLevels(plan, "ambient → 126 BPM")
+        checkLevels(plan, still, b, "ambient → 126 BPM")
         let back = TransitionPlanner.plan(from: b, to: still)
-        expect(back.style == .blend && back.overlap >= 6 && back.filterOut != nil,
-               "126 BPM → ambient: a filtered crossfade (\(back.style.rawValue), \(format(back.overlap, 1)) s)")
-        checkLevels(back, "126 BPM → ambient")
+        expect(back.style != .beatMatched && back.incomingRate == 1, "126 BPM → ambient: no tempo change (\(back.style.rawValue), \(format(back.overlap, 1)) s)")
+        checkLevels(back, b, still, "126 BPM → ambient")
     }
 
-    // A song fading out over its last ten seconds.
+    // A song fading out over its last ten seconds: the next one comes in before the fade is over.
     var faded = song(bpm: 124).samples
     for index in faded.indices {
         let time = Double(index) / rate
@@ -300,24 +401,42 @@ if let a = analyses[124], let b = analyses[126] {
     }
     if let fading = analyze(faded, "124 BPM fading out"), let still {
         let plan = TransitionPlanner.plan(from: fading, to: still)
-        expect(plan.style == .fade && plan.overlap >= 6 && plan.overlap <= 13 && plan.outEnd <= fading.soundEnd + 0.01,
-               "fade-out → ambient: the next song comes in during the fade (\(plan.style.rawValue), \(format(plan.overlap, 1)) s)")
-        checkLevels(plan, "fade-out → ambient")
+        expect(plan.style != .gapless && plan.style != .sequence && plan.outStart < fading.soundEnd - 2 && plan.overlap >= 1,
+               "fade-out → ambient: the next song comes in before the fade ends (\(plan.style.rawValue), from \(format(plan.outStart, 1)) s)")
+        checkLevels(plan, fading, still, "fade-out → ambient")
     }
 
-    // A next song with a quiet 16-bar intro: the mix skips what doesn't fit.
+    // A next song with a quiet 16-bar intro: its main part arrives as this song leaves.
     if let intro = analyze(song(bpm: 126, seconds: 90, introBars: 16).samples, "126 BPM with an intro") {
         let main = intro.mainStart()
         expect(main.map { abs(intro.beatTime($0) - (1.5 + 64 * 60 / 126)) < 0.05 } == true,
                "intro: the main part found at bar 16 (\(main.map { format(intro.beatTime($0), 2) } ?? "none") s)")
-        let plan = TransitionPlanner.plan(from: a, to: intro)
-        let overlapEnd = (plan.alignment ?? 0) + Double((plan.bars ?? 0) * 4) * a.beatLength
-        expect(plan.style == .beatMatched && plan.inStart > 10,
-               "intro: the next song starts at \(format(plan.inStart, 1)) s, not from the beginning")
-        expect(main.map { abs(outgoingTime(plan, intro.beatTime($0)) - overlapEnd) < 0.001 } == true,
-               "intro: its main part arrives as this song leaves")
+        let context = TransitionContext(outgoingVocals: instrumental(a), incomingVocals: instrumental(intro))
+        let plan = TransitionPlanner.plan(from: a, to: intro, context: context)
+        expect(plan.style == .beatMatched && main.map { abs(outgoingTime(plan, intro.beatTime($0)) - plan.outEnd) < 0.05 } == true,
+               "intro: its main part arrives as this song leaves (from \(format(plan.inStart, 1)) s, \(plan.bars ?? 0) bars)")
         expect(worstBeat(plan, a, intro) < 0.002, "intro: beats matched")
         checkSchedule(plan, a, intro, "intro")
+        checkLevels(plan, a, intro, "intro", context: context)
+    }
+
+    // Two songs that follow each other on their album, played in order: as the album has them.
+    let album = TransitionPlanner.choose(from: a, to: b, context: TransitionContext(albumOrder: true))
+    let albumSchedule = MixSchedule(plan: album.plan)
+    expect(album.plan.style == .album && album.plan.inStart == 0 && album.plan.outStart == a.duration
+           && album.plan.levels(at: 0.5).outgoing == 1 && album.plan.levels(at: 0).incoming == 1
+           && abs(albumSchedule.positions(at: albumSchedule.entry).outgoing - a.duration) < 0.002,
+           "album in order: the next song from its first sample as this one's last ends, nothing faded")
+
+    // The plan of up to 1.16, which a playlist's Mix starts from, is unchanged.
+    let reference = TransitionPlanner.reference(from: a, to: b)
+    expect(reference.style == .beatMatched && [8, 16].contains(reference.bars ?? 0)
+           && abs(reference.incomingRate * reference.outgoingRate - 1) < 1e-9,
+           "reference plan (playlist Mixes): the longest that fits (\(reference.bars ?? 0) bars), meeting halfway, as before")
+    if let c = analyses[140], let d = analyses[100] {
+        expect(TransitionPlanner.reference(from: a, to: c).style == .beatMatched && TransitionPlanner.reference(from: a, to: d).style == .beatMatched
+               && TransitionPlanner.reference(from: c, to: d).style == .blend,
+               "reference plan: 124 → 140 and → 100 matched, 140 → 100 crossfaded, as before")
     }
 
     // Keys: the Camelot neighbours mix, a tritone apart doesn't.
@@ -336,14 +455,14 @@ if let a = analyses[124], let b = analyses[126] {
     unclear.keyClarity = 0.3
     expect(TransitionPlanner.keysCompatible(keyed(0, minor: false), unclear), "keys: an unclear key doesn't stand in the way")
 
-    // Half and double time count as the same tempo; 30 % is the limit.
-    var half = b
-    half.beatLength = b.beatLength * 2
-    expect(TransitionPlanner.tempoMatch(a, half).map { abs($0.ratio - 124.0 / 126) < 0.002 && $0.octave == 2 } == true,
+    // Half and double time count as the same tempo; 30 % is the limit (playlist Mixes).
+    var halfTime = b
+    halfTime.beatLength = b.beatLength * 2
+    expect(TransitionPlanner.tempoMatch(a, halfTime).map { abs($0.ratio - 124.0 / 126) < 0.002 && $0.octave == 2 } == true,
            "half time: matched like the same tempo")
     var near = b
     near.beatLength = 60 / 145
-    expect(TransitionPlanner.tempoMatch(a, near) != nil, "124 → 145 BPM: close enough to match")
+    expect(TransitionPlanner.tempoMatch(a, near) != nil, "124 → 145 BPM: close enough to match in a playlist's Mix")
     var far = b
     far.beatLength = 60 / 170
     expect(TransitionPlanner.tempoMatch(a, far) == nil, "124 → 170 BPM: too far to match")
@@ -393,7 +512,7 @@ expect(Camelot.code(key: 0, minor: false) == "8B" && Camelot.code(key: 9, minor:
 
 if let a = analyses[124], let b = analyses[126] {
     let bar = 4 * a.beatLength
-    let automatic = TransitionPlanner.plan(from: a, to: b)
+    let automatic = TransitionPlanner.reference(from: a, to: b)
     let fade = MixDesigner.plan(from: a, to: b, design: .preset(.fade))
     expect(fade.design?.volume == .crossfade && fade.style == .beatMatched && abs(fade.outEnd - automatic.outEnd) < 0.01,
            "Mix: a preset keeps the automatic timing, with its own curves")

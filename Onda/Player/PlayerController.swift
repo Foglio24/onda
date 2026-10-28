@@ -1450,13 +1450,25 @@ final class PlayerController: ObservableObject {
                 self.autoMixNote = String(localized: "Analisi non riuscita: dissolvenza semplice")
                 return
             }
-            let plan = design.map { MixDesigner.plan(from: outgoing, to: incoming, design: $0) }
-                ?? TransitionPlanner.plan(from: outgoing, to: incoming)
-            self.autoMixNote = String(localized: "Preparazione del mix…")
             // At the gain the song plays with, so the mix takes over at its very level.
             let outgoingGain: Float
             if let gain = self.playingGain { outgoingGain = gain } else { outgoingGain = await self.volumeGain(for: track) }
             let incomingGain = await self.volumeGain(for: next)
+            guard !Task.isCancelled, self.autoMixPair == pair else { return }
+            let plan: TransitionPlan
+            if let design {
+                plan = MixDesigner.plan(from: outgoing, to: incoming, design: design)
+            } else {
+                // Two songs that follow each other on their album, played in order, stay as the album has them.
+                let albumOrder = !self.shuffleEnabled && track.albumID != nil && track.albumID == next.albumID
+                let context = TransitionContext(outgoingGain: outgoingGain, incomingGain: incomingGain,
+                                                albumOrder: albumOrder)
+                let choice = TransitionPlanner.choose(from: outgoing, to: incoming, context: context)
+                plan = choice.plan
+                UserDefaults.standard.set("\(track.title) → \(next.title)\n" + choice.summary,
+                                          forKey: Preferences.lastAutoMixChoice)
+            }
+            self.autoMixNote = String(localized: "Preparazione del mix…")
             let destination = AutoMixLibrary.newMixFile()
             let mix: AutoMixRenderer.Mix
             do {
@@ -1504,6 +1516,12 @@ final class PlayerController: ObservableObject {
             text = plan.filterOut != nil
                 ? String(localized: "Dissolvenza filtrata: \(seconds) s")
                 : String(localized: "Dissolvenza incrociata: \(seconds) s")
+        case .gapless:
+            text = String(localized: "Senza silenzio tra i brani")
+        case .sequence:
+            text = String(localized: "Uno dopo l'altro, con una breve pausa")
+        case .album:
+            text = String(localized: "Come nell'album")
         }
         if plan.inStart - incoming.soundStart > 3 {
             let start = Int(plan.inStart.rounded())

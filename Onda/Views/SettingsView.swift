@@ -27,6 +27,7 @@ struct SettingsView: View {
     @AppStorage(Preferences.nowPlayingBackend) private var nowPlayingBackend = ""
     @AppStorage(Preferences.lastRouteChange) private var lastRouteChange = ""
     @AppStorage(Preferences.lastHandover) private var lastHandover = ""
+    @AppStorage(Preferences.lastAutoMixChoice) private var lastAutoMixChoice = ""
     @AppStorage(Preferences.lyricsTranslate) private var translateLyrics = false
     @AppStorage(Preferences.interactiveArtwork) private var interactiveArtwork = true
     @AppStorage(Preferences.lyricsTranslationTarget) private var translationTarget = Preferences.defaultTranslationTarget
@@ -533,6 +534,12 @@ struct SettingsView: View {
                 .textSelection(.enabled)
             LabeledContent("Ultimo passaggio AutoMix", value: lastHandover.isEmpty ? "—" : lastHandover)
                 .textSelection(.enabled)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Ultima scelta AutoMix")
+                Text(lastAutoMixChoice.isEmpty ? "—" : lastAutoMixChoice)
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+            }
             Text("Catalogo: YouTube Music · Testi: LRCLIB · Scrobbling: Last.fm")
             Text("Progetto personale, non affiliato a Google, YouTube o Last.fm.")
             LabeledContent("Copyright", value: "© 2026 Foglio24")

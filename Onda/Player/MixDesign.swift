@@ -518,7 +518,7 @@ enum MixDesigner {
     }
 
     static func plan(from a: TrackAnalysis, to b: TrackAnalysis, design: MixDesign) -> TransitionPlan {
-        let automatic = TransitionPlanner.plan(from: a, to: b)
+        let automatic = TransitionPlanner.reference(from: a, to: b)
         var plan: TransitionPlan
         if design.beatmatch, canBeatmatch(a, b),
            let matched = beatMatched(a, b, design: design, automatic: automatic) {
@@ -553,7 +553,7 @@ enum MixDesigner {
     /// after a drag, so dragging back moves them at once.
     static func normalized(_ design: MixDesign, from a: TrackAnalysis, to b: TrackAnalysis) -> MixDesign {
         var design = design
-        let automatic = TransitionPlanner.plan(from: a, to: b)
+        let automatic = TransitionPlanner.reference(from: a, to: b)
         if design.beatmatch, canBeatmatch(a, b),
            let matched = beatMatched(a, b, design: design, automatic: automatic) {
             design.shift = Double(matched.outgoingBars) * 4 * a.beatLength

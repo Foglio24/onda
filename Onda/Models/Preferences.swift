@@ -158,6 +158,8 @@ enum Preferences {
     static let lastRouteChange = "diagnostics.lastRouteChange"
     /// The last AutoMix handover and how it went.
     static let lastHandover = "diagnostics.lastHandover"
+    /// The last transition AutoMix chose, and why (see `TransitionChoice.summary`).
+    static let lastAutoMixChoice = "diagnostics.lastAutoMixChoice"
     static let interactiveArtwork = "player.interactiveArtwork"
     static let lyricsTranslate = "lyrics.translate"
     static let updateMode = "updates.mode"
