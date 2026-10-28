@@ -56,6 +56,13 @@ jobs:
         continue-on-error: true
         run: bash Tools/CatalogCheck/run.sh
 
+      # From the tap to playing, on this machine's network: AAC, Opus progressive, Opus prepared and
+      # the whole-file Opus of up to 1.15 (see Tools/OpusStartupProbe). Reported, never blocking.
+      - name: Measure song startup (live)
+        continue-on-error: true
+        timeout-minutes: 5
+        run: bash Tools/OpusStartupProbe/run.sh
+
       - name: Install XcodeGen
         run: brew install xcodegen
 

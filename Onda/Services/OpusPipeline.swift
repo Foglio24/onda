@@ -63,6 +63,14 @@ actor OpusPipeline {
         (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0
     }
 
+    /// Where an Opus stream played as it downloads keeps its decoded WAV (see `OpusStream`):
+    /// "<videoId>__Opus__160.wav", the song's cached file from then on. Room is made for it
+    /// meanwhile, away from the song's start.
+    nonisolated static func streamFile(videoId: String, stream: ResolvedStream) -> URL {
+        Task.detached(priority: .utility) { pruneCache() }
+        return cacheFile(videoId: videoId, stream: stream).deletingPathExtension().appendingPathExtension("wav")
+    }
+
     /// "<videoId>__Opus__160.m4a"
     private nonisolated static func cacheFile(videoId: String, stream: ResolvedStream) -> URL {
         let format: String
@@ -238,7 +246,7 @@ actor OpusPipeline {
         return url
     }()
 
-    private static func pruneCache() {
+    nonisolated static func pruneCache() {
         let keys: [URLResourceKey] = [.fileSizeKey, .contentModificationDateKey]
         guard let files = try? FileManager.default.contentsOfDirectory(at: cacheDirectory,
                                                                       includingPropertiesForKeys: keys) else { return }

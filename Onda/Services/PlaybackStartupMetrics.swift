@@ -9,10 +9,17 @@ enum StartupReason: Sendable {
 
 enum StartupSource: Sendable {
     case network, resolvedURL, localFile, prepared, preparing
+    /// Opus played as it downloads (`OpusStream`): links fetched first, links already known, or
+    /// its first seconds prepared (`PreparedPlayback`).
+    case opusNetwork, opusResolvedURL, opusPrepared
+
+    var isOpus: Bool { self == .opusNetwork || self == .opusResolvedURL || self == .opusPrepared }
 }
 
 /// Local timing only: no song, account, URL or persistent request identifier is recorded.
-/// `.playing` measures AVPlayer's state transition, not sound arriving at the speakers.
+/// `.playing` measures AVPlayer's state transition, not sound arriving at the speakers; the first
+/// audio through the item's audio processing (`firstAudioAfter`), when there is a tap, comes
+/// closer (the sound is heard the output's latency later).
 @MainActor
 final class PlaybackStartupMetrics: ObservableObject {
     static let shared = PlaybackStartupMetrics()
@@ -23,6 +30,15 @@ final class PlaybackStartupMetrics: ObservableObject {
         let resolvedAfter: TimeInterval?
         let readyAfter: TimeInterval?
         let playingAfter: TimeInterval
+        /// Opus: its first byte and its first decoded audio.
+        var firstByteAfter: TimeInterval?
+        var firstDecodedAfter: TimeInterval?
+        /// The first audio through the item's audio processing.
+        var firstAudioAfter: TimeInterval?
+        /// Opus failed and AAC played instead.
+        var fellBack = false
+        fileprivate var generation: UUID?
+        fileprivate var started: TimeInterval = 0
     }
 
     private struct Attempt {
@@ -32,6 +48,7 @@ final class PlaybackStartupMetrics: ObservableObject {
         var source: StartupSource?
         var resolvedAfter: TimeInterval?
         var readyAfter: TimeInterval?
+        var fellBack = false
     }
 
     @Published private(set) var samples: [Sample] = []
@@ -52,6 +69,12 @@ final class PlaybackStartupMetrics: ObservableObject {
     }
     var automaticMedian: TimeInterval? {
         Self.median(samples.filter { $0.reason == .automatic }.map(\.playingAfter))
+    }
+
+    /// The median start of the chosen songs from each source, with how many there were.
+    func manualMedian(for source: StartupSource) -> (median: TimeInterval, count: Int)? {
+        let values = samples.filter { $0.reason.isManualSelection && $0.source == source && !$0.fellBack }.map(\.playingAfter)
+        return Self.median(values).map { ($0, values.count) }
     }
 
     func begin(_ generation: UUID, reason: StartupReason = .selection) {
@@ -80,8 +103,29 @@ final class PlaybackStartupMetrics: ObservableObject {
         guard let elapsed = elapsed(since: current.started) else { return }
         samples.append(Sample(reason: current.reason, source: current.source,
                               resolvedAfter: current.resolvedAfter, readyAfter: current.readyAfter,
-                              playingAfter: elapsed))
+                              playingAfter: elapsed, fellBack: current.fellBack,
+                              generation: generation, started: current.started))
         if samples.count > Self.limit { samples.removeFirst(samples.count - Self.limit) }
+    }
+
+    /// Opus failed before the song played: AAC plays instead (the start is still timed).
+    func fellBack(_ generation: UUID) {
+        if attempt?.generation == generation { attempt?.fellBack = true }
+        if let index = samples.lastIndex(where: { $0.generation == generation }) { samples[index].fellBack = true }
+    }
+
+    /// Moments known only after the start (system uptime): Opus's first byte and first decoded
+    /// audio, and the first audio through the audio processing.
+    func details(_ generation: UUID, firstByte: TimeInterval?, firstDecoded: TimeInterval?, firstAudio: TimeInterval?) {
+        guard let index = samples.lastIndex(where: { $0.generation == generation }) else { return }
+        let started = samples[index].started
+        func after(_ time: TimeInterval?) -> TimeInterval? {
+            guard let time, time >= started, time - started < 120 else { return nil }
+            return time - started
+        }
+        samples[index].firstByteAfter = after(firstByte) ?? samples[index].firstByteAfter
+        samples[index].firstDecodedAfter = after(firstDecoded) ?? samples[index].firstDecodedAfter
+        samples[index].firstAudioAfter = after(firstAudio) ?? samples[index].firstAudioAfter
     }
 
     func cancel(_ generation: UUID) {

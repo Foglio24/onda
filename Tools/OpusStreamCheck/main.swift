@@ -222,8 +222,11 @@ struct OpusStreamCheck {
         let early = prepared.decodedSeconds
         prepared.resume()
         let finished = try? await prepared.completedFile()
-        expect(early > 1 && early < 6 && finished != nil && prepared.decodedSeconds > seconds - 0.1,
-               "prepared: \(format(early)) s decoded from the first range, all \(format(prepared.decodedSeconds)) s once resumed")
+        // The first range holds about its share of the song's length (the test file is ~110 KB).
+        let share = seconds * Double(64 << 10) / Double(file.count)
+        expect(abs(early - share) < 1.5 && early < seconds - 1 && finished != nil && prepared.decodedSeconds > seconds - 0.1,
+               "prepared: \(format(early)) s decoded from the first range (\(format(share)) s in it), "
+               + "all \(format(prepared.decodedSeconds)) s once resumed")
         if let finished { try? FileManager.default.removeItem(at: finished) }
 
         // A cancelled stream gives up, and says so.

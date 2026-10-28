@@ -147,6 +147,9 @@ enum Preferences {
     static let crossfade = "playback.crossfade"
     static let songTransition = "playback.transition"
     static let opusLastError = "audio.opusLastError"
+    static let opusFromStart = "audio.opusFromStart"
+    /// The last time Opus couldn't play from the start and AAC played instead, and why.
+    static let lastOpusFallback = "diagnostics.lastOpusFallback"
     static let accent = "theme.accent"
     /// -1 unknown, 0 refused by iOS, 1 accepted.
     static let nowPlayingAccepted = "diagnostics.nowPlayingAccepted"
@@ -212,9 +215,12 @@ enum Preferences {
         quality(for: NetworkMonitor.shared.isExpensive ? cellularQuality : wifiQuality)
     }
 
-    /// What a song starts streaming with before its local copy takes over (AAC, playable right away).
+    /// What a song starts streaming with: at the Opus qualities, Opus itself from its first
+    /// seconds (`playsOpusFromStart`, see `OpusStream`); otherwise AAC, playable right away,
+    /// until its local copy takes over.
     static var initialStreamQuality: AudioQuality {
         let quality = streamingQuality
+        if quality.usesOpus, playsOpusFromStart { return quality }
         return quality == .low || quality == .medium ? .low : .high
     }
 
@@ -245,6 +251,9 @@ enum Preferences {
     static var prefersDolby: Bool { flag(preferDolby, default: true) }
     static var skipsLongMixes: Bool { flag(skipLongMixes, default: true) }
     static var dynamicColorsEnabled: Bool { flag(dynamicColors, default: true) }
+    /// "Opus dal primo suono": Opus plays while it downloads, instead of AAC until the decoded
+    /// file is ready (for the next seek or listen).
+    static var playsOpusFromStart: Bool { flag(opusFromStart, default: true) }
 
     private static func flag(_ key: String, default value: Bool) -> Bool {
         UserDefaults.standard.object(forKey: key) as? Bool ?? value

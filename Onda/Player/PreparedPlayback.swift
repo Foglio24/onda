@@ -5,6 +5,8 @@ import UIKit
 
 /// One paused, primed native player. Playback adopts this exact player so the
 /// prepared media pipeline survives the tap; it never waits for preroll to finish.
+/// At the Opus qualities it plays an `OpusStream` that read only its first range (about eight
+/// seconds of audio, 128 KB) and decoded it; the rest downloads once the song is played.
 @MainActor
 final class PreparedPlayback {
     static let shared = PreparedPlayback()
@@ -13,13 +15,19 @@ final class PreparedPlayback {
         let player: AVPlayer
         let label: String
         let wasPrerolled: Bool
+        /// The Opus stream the player reads, to resume.
+        let opus: OpusStream?
     }
+
+    /// The first range a prepared Opus stream reads.
+    static let opusFirstRange = 128 << 10
 
     private struct Slot {
         let id: UUID
         let videoID: String
         let quality: AudioQuality
         var player: AVPlayer?
+        var opus: OpusStream?
         var label = ""
         var startedPreroll = false
         var wasPrerolled = false
@@ -109,7 +117,7 @@ final class PreparedPlayback {
               ProcessInfo.processInfo.systemUptime - slot.created < 120,
               let player = slot.player, player.currentItem != nil,
               player.status != .failed, player.currentItem?.status != .failed else { return nil }
-        let result = Result(player: player, label: slot.label, wasPrerolled: slot.wasPrerolled)
+        let result = Result(player: player, label: slot.label, wasPrerolled: slot.wasPrerolled, opus: slot.opus)
         clearSlot(destroyPlayer: false)
         player.cancelPendingPrerolls()
         return result
@@ -168,23 +176,47 @@ final class PreparedPlayback {
         }
         resolveTask = Task { [weak self] in
             do {
-                let url: URL
+                var url: URL?
+                var opus: OpusStream?
                 let label: String
+                let cached = OpusPipeline.cachedFile(videoId: videoID)
                 if let local = Storage.localAudio(for: track) {
                     url = local
                     label = "\(DownloadManager.formatLabel(for: track) ?? "AAC") · offline"
-                } else if let cached = OpusPipeline.cachedFile(videoId: videoID) {
+                } else if let cached, cached.label.hasPrefix("Opus") || !quality.usesOpus {
                     url = cached.url
                     label = cached.label
                 } else {
                     let stream = try await StreamResolver.shared.stream(for: videoID, quality: quality)
-                    guard stream.format == .aac else { throw PlayerError.unavailable }
-                    url = stream.url
+                    if stream.format == .opus {
+                        // Only as long as PlayerController would play it as a stream.
+                        guard (track.duration ?? 0) <= Preferences.opusLengthLimit,
+                              EnergyPolicy.current.allowsAudioConversion else { throw PlayerError.unavailable }
+                        let prepared = OpusStream(source: .remote(stream.url),
+                                                  destination: OpusPipeline.streamFile(videoId: videoID, stream: stream),
+                                                  duration: track.duration, firstRange: Self.opusFirstRange)
+                        prepared.start(prepareOnly: true)
+                        opus = prepared
+                    } else {
+                        guard stream.format == .aac || stream.format == .dolby else { throw PlayerError.unavailable }
+                        url = stream.url
+                    }
                     label = stream.label
                 }
                 guard !Task.isCancelled, let self, self.slot?.id == id, self.allowsPreparation,
-                      self.candidates.shouldKeep(videoID), Preferences.initialStreamQuality == quality else { return }
-                let item = AVPlayerItem(url: url)
+                      self.candidates.shouldKeep(videoID), Preferences.initialStreamQuality == quality else {
+                    opus?.cancel()
+                    return
+                }
+                let item: AVPlayerItem
+                if let opus {
+                    item = opus.makeItem()
+                    self.slot?.opus = opus
+                } else if let url {
+                    item = AVPlayerItem(url: url)
+                } else {
+                    return
+                }
                 // This is AVFoundation's preference, not a hard byte/download cap.
                 item.preferredForwardBufferDuration = 2
                 item.allowedAudioSpatializationFormats = Preferences.spatialAudioEnabled ? .monoStereoAndMultichannel : []
@@ -236,6 +268,7 @@ final class PreparedPlayback {
         expiryTask?.cancel()
         expiryTask = nil
         if destroyPlayer {
+            previous?.opus?.cancel()
             previous?.player?.cancelPendingPrerolls()
             previous?.player?.pause()
             previous?.player?.replaceCurrentItem(with: nil)

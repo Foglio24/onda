@@ -89,6 +89,39 @@ struct StartupMetricsCheck {
         expect(metrics.manualCount == 20 && metrics.manualMedian == 0.5, "Statistics reflect only retained samples")
         metrics.removeAll()
         expect(metrics.samples.isEmpty && metrics.manualMedian == nil, "Clearing removes local statistics")
+
+        // Opus: each source on its own, its steps measured from the same tap, a fallback apart.
+        clock = 1_000
+        let opus = UUID()
+        metrics.begin(opus)
+        clock = 1_000.3
+        metrics.resolved(opus, source: .opusNetwork)
+        clock = 1_000.9
+        metrics.playing(opus)
+        metrics.details(opus, firstByte: 1_000.5, firstDecoded: 1_000.52, firstAudio: 1_000.95)
+        let sample = metrics.last
+        expect(sample?.source == .opusNetwork && sample?.firstByteAfter.map { abs($0 - 0.5) < 1e-9 } == true
+               && sample?.firstDecodedAfter.map { abs($0 - 0.52) < 1e-9 } == true
+               && sample?.firstAudioAfter.map { abs($0 - 0.95) < 1e-9 } == true,
+               "Opus steps are measured from the tap")
+        metrics.details(opus, firstByte: 900, firstDecoded: nil, firstAudio: 2_000)
+        expect(metrics.last?.firstByteAfter.map { abs($0 - 0.5) < 1e-9 } == true && metrics.last?.firstAudioAfter.map { abs($0 - 0.95) < 1e-9 } == true,
+               "Moments before the tap or minutes after it are left out")
+        let prepared = UUID()
+        metrics.begin(prepared)
+        metrics.resolved(prepared, source: .opusPrepared)
+        clock = 1_001
+        metrics.playing(prepared)
+        let failedOpus = UUID()
+        metrics.begin(failedOpus)
+        metrics.resolved(failedOpus, source: .opusResolvedURL)
+        metrics.fellBack(failedOpus)
+        clock = 1_003
+        metrics.playing(failedOpus)
+        expect(metrics.manualMedian(for: .opusNetwork).map { abs($0.median - 0.9) < 1e-9 && $0.count == 1 } == true
+               && metrics.manualMedian(for: .opusPrepared).map { abs($0.median - 0.1) < 1e-9 } == true
+               && metrics.manualMedian(for: .opusResolvedURL) == nil && metrics.last?.fellBack == true,
+               "Each source has its own median, and a start that fell back to AAC counts in none")
         print("StartupMetricsCheck: \(count) checks passed")
     }
 }

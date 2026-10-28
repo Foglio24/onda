@@ -220,6 +220,8 @@
 "Streaming su Wi-Fi" = "Streaming on Wi-Fi";
 "Streaming su rete cellulare" = "Streaming on cellular";
 "Dolby quando disponibile" = "Dolby when available";
+"Opus dal primo suono" = "Opus from the first note";
+"Massima usa Opus 160 kbps, il formato migliore che YouTube dà senza Premium. Con «Opus dal primo suono» Onda lo scarica a blocchi e lo decodifica sull'iPhone mentre suona, dal primo secondo; il brano successivo e quello che stai per toccare hanno i primi secondi già pronti (solo in Wi-Fi). Se Opus non può partire (un errore, il risparmio energetico, un brano oltre 20 minuti) suona AAC, e accanto al formato è scritto perché. Se un video ha l'audio Dolby Digital Plus o AAC 256 kbps, viene usato quello. L'Audio spaziale funziona con AirPods e cuffie Beats compatibili." = "Maximum uses Opus 160 kbps, the best format YouTube offers without Premium. With “Opus from the first note” Onda downloads it in pieces and decodes it on the iPhone as it plays, from the first second; the next song and the one you are about to tap have their first seconds ready (on Wi-Fi only). If Opus can't start (an error, energy saving, a song over 20 minutes), AAC plays, and the reason is written next to the format. If a video has Dolby Digital Plus or AAC 256 kbps audio, that is used. Spatial Audio works with compatible AirPods and Beats headphones.";
 "Audio spaziale" = "Spatial Audio";
 "Volume uniforme" = "Normalize volume";
 "Volume uniforme abbassa i brani più forti al livello di riferimento di YouTube (-14 LUFS), come la normalizzazione di Spotify, così passando da un brano all'altro il volume resta simile." = "Normalize volume lowers louder songs to YouTube's reference level (-14 LUFS), like Spotify's normalization, so the volume stays similar from one song to the next.";
@@ -236,6 +238,11 @@
 "Nessun audio Opus nel file." = "No Opus audio in the file.";
 "Decoder Opus non disponibile." = "Opus decoder not available.";
 "Risposta non valida dal server audio." = "Invalid answer from the audio server.";
+"Opus: %@" = "Opus: %@";
+"brano oltre 20 minuti" = "song over 20 minutes";
+"risparmio energetico" = "energy saving";
+"non riuscito (%@)" = "failed (%@)";
+"Opus non riuscito" = "Opus failed";
 "Nessuno stream audio riproducibile per questo brano." = "No playable audio stream for this song.";
 
 /* Settings: playback */
@@ -472,7 +479,15 @@
 "link già pronto" = "link ready";
 "da internet" = "from the internet";
 "file sull'iPhone" = "file on the iPhone";
-"I tempi di avvio vanno dal tocco su un brano alla prima nota, sugli ultimi 20 avvii, e restano sull'iPhone." = "Start times run from tapping a song to its first note, over the last 20 starts, and stay on the iPhone.";
+"I tempi di avvio vanno dal tocco su un brano a quando il player lo fa suonare, sugli ultimi 20 avvii, divisi per come parte il brano (Opus o no, già preparato o no), e restano sull'iPhone. Per Opus l'ultimo avvio dice anche quando sono arrivati il primo byte e il primo audio decodificato; «primo audio» è quando il suono è passato per l'elaborazione audio (con AutoMix o l'equalizzatore), un attimo prima di sentirlo." = "Start times run from tapping a song to the player making it play, over the last 20 starts, by how the song starts (Opus or not, prepared or not), and stay on the iPhone. For Opus the last start also says when the first byte and the first decoded audio arrived; “first audio” is when the sound went through the audio processing (with AutoMix or the equalizer), a moment before it is heard.";
+"Opus, già preparato" = "Opus, prepared";
+"Opus, link già pronto" = "Opus, link ready";
+"Opus, da internet" = "Opus, from the internet";
+"primo byte %@" = "first byte %@";
+"primo audio decodificato %@" = "first decoded audio %@";
+"primo audio %@" = "first audio %@";
+"Opus non riuscito: AAC" = "Opus failed: AAC";
+"Ultimo ripiego su AAC" = "Last fallback to AAC";
 
 /* Playlist Mix */
 "Mix" = "Mix";

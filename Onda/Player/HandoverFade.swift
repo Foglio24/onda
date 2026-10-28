@@ -19,6 +19,8 @@ final class HandoverFader: @unchecked Sendable {
         var fade = Fade()
         /// The song's time at the end of the audio processed last (none yet: -infinity).
         var processed = -Double.infinity
+        /// When the first audio went through (host ticks; 0 before).
+        var firstTicks: UInt64 = 0
     }
 
     private let lock = OSAllocatedUnfairLock(initialState: State())
@@ -42,6 +44,16 @@ final class HandoverFader: @unchecked Sendable {
         }
     }
 
+    /// When its audio first went through (system uptime), for the startup timings in Settings →
+    /// Diagnostica: the sound is heard the output's latency later.
+    var firstProcessed: TimeInterval? {
+        let ticks = lock.withLock { state -> UInt64 in state.firstTicks }
+        guard ticks > 0 else { return nil }
+        var timebase = mach_timebase_info_data_t()
+        mach_timebase_info(&timebase)
+        return Double(ticks) * Double(timebase.numer) / Double(timebase.denom) / 1e9
+    }
+
     /// On the audio thread: fades `frames` frames of 32-bit float audio that start at the song's
     /// `time`. `fade` holds the values read last, used when the lock is busy (it is never waited for).
     func process(_ buffers: UnsafeMutableAudioBufferListPointer, frames: Int, time: Double,
@@ -50,6 +62,7 @@ final class HandoverFader: @unchecked Sendable {
         let end = time + Double(frames) / sampleRate
         if let current = lock.withLockIfAvailable({ state -> Fade in
             state.processed = end
+            if state.firstTicks == 0 { state.firstTicks = mach_absolute_time() }
             return state.fade
         }) {
             fade = current

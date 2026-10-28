@@ -221,6 +221,10 @@ final class PlayerController: ObservableObject {
     /// What the current item plays with: its "Volume uniforme" gain and, when AutoMix may hand over
     /// from it, the fader in its audio processing (see `audioMix(for:track:)` and `startOnTime`).
     private var itemEffects: (item: AVPlayerItem, gain: Float, fader: HandoverFader?)?
+    /// The Opus stream the current item plays from while it downloads (see `OpusStream`), and the
+    /// one of a song fading out (the stream serves its item until the end).
+    private var opusPlayback: (item: AVPlayerItem, stream: OpusStream)?
+    private var outgoingOpus: OpusStream?
     /// Between the start of a mix and the end of the song it takes over from.
     private var mixHandover = false
     /// The playlist the queue was started from, whose Mix then plays (see `playlistMix`).
@@ -503,7 +507,8 @@ final class PlayerController: ObservableObject {
             return
         }
         var switched = false
-        if let asset = player.currentItem?.asset as? AVURLAsset, !asset.url.isFileURL {
+        // An Opus stream seeks like a file (where it isn't decoded yet, it waits for it).
+        if let asset = player.currentItem?.asset as? AVURLAsset, !asset.url.isFileURL, asset.url.scheme != OpusStream.scheme {
             // Seeking in YouTube's streams is unreliable: remember it for when the local copy takes over.
             requestedSeek = StreamingSeekPosition(time: seconds,
                                                    isPlaying: player.timeControlStatus == .playing,
@@ -713,6 +718,15 @@ final class PlayerController: ObservableObject {
         errorMessage = nil
         streamInfo = nil
         itemStatus = nil
+        if let opus = opusPlayback {
+            // A song fading out still plays from its stream; one left behind stops downloading.
+            if crossfading, opus.item === outgoingPlayer?.currentItem {
+                outgoingOpus = opus.stream
+            } else {
+                opus.stream.cancel()
+            }
+            opusPlayback = nil
+        }
         if transition == nil {
             player.replaceCurrentItem(with: nil)
             mixItem = nil
@@ -754,16 +768,37 @@ final class PlayerController: ObservableObject {
                 // has audio buffered: play that one (not during a crossfade, which has its own).
                 if !crossfading, let videoId = playable.videoId,
                    let prepared = PreparedPlayback.shared.take(for: videoId, quality: Preferences.initialStreamQuality) {
-                    self.startupMetrics.resolved(generation, source: .prepared)
+                    self.startupMetrics.resolved(generation, source: prepared.opus == nil ? .prepared : .opusPrepared)
                     self.streamInfo = prepared.label
+                    if let opus = prepared.opus, let item = prepared.player.currentItem {
+                        opus.resume()
+                        self.opusPlayback = (item, opus)
+                    }
                     self.start(adopting: prepared.player, track: playable)
                     return
                 }
                 let source = await self.startupSource(for: playable)
+                // At the Opus qualities, Opus plays from its first seconds while it downloads.
+                let opus = try await self.opusStart(for: playable)
+                guard !Task.isCancelled, self.requests.isCurrentLoad(generation), self.index == position else {
+                    if case .stream(let stream, _) = opus { stream.cancel() }
+                    return
+                }
+                if case .stream(let stream, let label) = opus {
+                    self.startupMetrics.resolved(generation, source: source == .resolvedURL ? .opusResolvedURL : .opusNetwork)
+                    self.streamInfo = label
+                    self.start(opus: stream, track: playable)
+                    return
+                }
                 let stream = try await self.stream(for: playable)
                 guard !Task.isCancelled, self.requests.isCurrentLoad(generation), self.index == position else { return }
                 self.startupMetrics.resolved(generation, source: source)
-                self.streamInfo = stream.label
+                if case .unavailable(let reason) = opus {
+                    // Said where the format is shown, as AAC plays instead.
+                    self.streamInfo = "\(stream.label) · " + String(localized: "Opus: \(reason)")
+                } else {
+                    self.streamInfo = stream.label
+                }
                 self.start(url: stream.url, track: playable)
             } catch {
                 guard !Task.isCancelled, self.requests.isCurrentLoad(generation), self.index == position else { return }
@@ -780,6 +815,75 @@ final class PlayerController: ObservableObject {
         guard let videoId = track.videoId else { return .network }
         if OpusPipeline.cachedFile(videoId: videoId) != nil { return .localFile }
         return await StreamResolver.shared.isCached(videoId) ? .resolvedURL : .network
+    }
+
+    /// How a song starts at the Opus qualities.
+    private enum OpusStart {
+        /// From a file, or the best rendition isn't Opus (Dolby, AAC 256): the usual way.
+        case none
+        /// Opus from its first seconds, while it downloads.
+        case stream(OpusStream, label: String)
+        /// Opus can't play now: AAC does, and says why.
+        case unavailable(String)
+    }
+
+    /// At the Opus qualities (with "Opus dal primo suono"), the song's Opus stream, started. AAC
+    /// plays instead only when Opus can't: a song over 20 minutes (its decoded audio would be too
+    /// big), or Low Power Mode or a hot iPhone; the reason is kept for Settings.
+    private func opusStart(for track: Track) async throws -> OpusStart {
+        let quality = Preferences.streamingQuality
+        guard quality.usesOpus, Preferences.playsOpusFromStart, let videoId = track.videoId,
+              Storage.localAudio(for: track) == nil else { return .none }
+        // Decoded Opus from an earlier listen plays as a file.
+        if let cached = OpusPipeline.cachedFile(videoId: videoId), cached.label.hasPrefix("Opus") { return .none }
+        if (track.duration ?? 0) > Preferences.opusLengthLimit {
+            return noteOpusFallback(String(localized: "brano oltre 20 minuti"))
+        }
+        guard EnergyPolicy.current.allowsAudioConversion else {
+            return noteOpusFallback(String(localized: "risparmio energetico"))
+        }
+        let stream = try await StreamResolver.shared.stream(for: videoId, quality: quality)
+        guard stream.format == .opus else { return .none }
+        let opus = OpusStream(source: .remote(stream.url), destination: OpusPipeline.streamFile(videoId: videoId, stream: stream),
+                              duration: track.duration)
+        opus.start()
+        return .stream(opus, label: stream.label)
+    }
+
+    /// AAC plays where Opus should have: kept, with the reason, for Settings → Diagnostica.
+    private func noteOpusFallback(_ reason: String) -> OpusStart {
+        let time = Date.now.formatted(date: .omitted, time: .standard)
+        UserDefaults.standard.set("\(time) · \(reason)", forKey: Preferences.lastOpusFallback)
+        return .unavailable(reason)
+    }
+
+    /// Plays an Opus stream as it downloads (see `OpusStream`).
+    private func start(opus stream: OpusStream, track: Track) {
+        let item = stream.makeItem()
+        item.allowedAudioSpatializationFormats = Self.spatializationFormats
+        opusPlayback = (item, stream)
+        player.replaceCurrentItem(with: item)
+        begin(item, track: track, isRetry: false)
+    }
+
+    /// An Opus stream failed (the network, or its decoding): AAC carries on from where the song
+    /// is, and says so. The only time a song changes format while it plays.
+    private func playAAC(insteadOf item: AVPlayerItem, track: Track) {
+        guard let opus = opusPlayback, opus.item === item, let videoId = track.videoId else { return }
+        let reason = opus.stream.failure?.localizedDescription ?? item.error?.localizedDescription ?? ""
+        opus.stream.cancel()
+        opusPlayback = nil
+        _ = noteOpusFallback(String(localized: "non riuscito (\(reason))"))
+        let generation = requests.loadGeneration
+        retryTask?.cancel()
+        retryTask = Task {
+            let stream = try? await StreamResolver.shared.stream(for: videoId, quality: .high)
+            guard !Task.isCancelled, self.requests.isCurrentLoad(generation), self.player.currentItem === item else { return }
+            guard let stream else { return self.fail(reason) }
+            self.startupMetrics.fellBack(generation)
+            self.switchItem(to: AVPlayerItem(url: stream.url),
+                            label: "\(stream.label) · " + String(localized: "Opus non riuscito"), track: track)
+        }
     }
 
     /// Downloaded or cached file when there is one; otherwise the best stream AVPlayer plays as it is,
@@ -855,6 +959,12 @@ final class PlayerController: ObservableObject {
             position = requested.position(at: ProcessInfo.processInfo.systemUptime)
         }
         requestedSeek = nil
+        if let opus = opusPlayback, opus.item === player.currentItem {
+            // Stems or AAC take over: the stream still finishes the song's decoded file.
+            let stream = opus.stream
+            opusPlayback = nil
+            Task { _ = try? await stream.completedFile() }
+        }
         // The new item holds the song from its start.
         mixItem = nil
         itemOffset = 0
@@ -1040,6 +1150,8 @@ final class PlayerController: ObservableObject {
         upgradeTask?.cancel()
         guard playWhenReady, !isPlayingStems, Storage.localAudio(for: track) == nil,
               let videoId = track.videoId, let asset = player.currentItem?.asset as? AVURLAsset else { return }
+        // An Opus stream becomes the song's decoded file by itself.
+        guard asset.url.scheme != OpusStream.scheme else { return }
         let quality = Preferences.streamingQuality
         let isStreaming = !asset.url.isFileURL
         let canConvert = UIApplication.shared.applicationState != .background && EnergyPolicy.current.allowsAudioConversion
@@ -1101,6 +1213,7 @@ final class PlayerController: ObservableObject {
             }
             updateNowPlayingInfo()
         case .failed:
+            if opusPlayback?.item === item { return playAAC(insteadOf: item, track: track) }
             let message = player.currentItem?.error?.localizedDescription
                 ?? PlayerError.unavailable.localizedDescription
             guard !retriedCurrentItem, let videoId = track.videoId, Storage.localAudio(for: track) == nil else {
@@ -1237,6 +1350,8 @@ final class PlayerController: ObservableObject {
         outgoing.pause()
         outgoing.replaceCurrentItem(with: nil)
         outgoingPlayer = nil
+        outgoingOpus?.cancel()
+        outgoingOpus = nil
         if interrupted {
             fadeInTask?.cancel()
             pendingFadeIn = nil
@@ -1399,12 +1514,29 @@ final class PlayerController: ObservableObject {
     }
 
     /// The file a song is analysed from (and, for the next song, played from): its download, its
-    /// cached file, or a fresh copy.
+    /// cached file, or a fresh copy; at the Opus qualities, its Opus decoded (so the song after a
+    /// mix plays Opus too).
     private func analysisFile(for track: Track, videoId: String) async -> (url: URL, label: String)? {
         if let local = Storage.localAudio(for: track) {
             return (local, "\(DownloadManager.formatLabel(for: track) ?? "AAC") · offline")
         }
-        if let cached = OpusPipeline.cachedFile(videoId: videoId) { return cached }
+        let cached = OpusPipeline.cachedFile(videoId: videoId)
+        if let cached, cached.label.hasPrefix("Opus") || !Preferences.initialStreamQuality.usesOpus { return cached }
+        if Preferences.initialStreamQuality.usesOpus, (track.duration ?? 0) <= Preferences.opusLengthLimit,
+           EnergyPolicy.current.allowsAudioConversion,
+           let stream = try? await StreamResolver.shared.stream(for: videoId, quality: Preferences.streamingQuality),
+           stream.format == .opus {
+            let opus = OpusStream(source: .remote(stream.url), destination: OpusPipeline.streamFile(videoId: videoId, stream: stream),
+                                  duration: track.duration)
+            opus.start()
+            let file = await withTaskCancellationHandler {
+                try? await opus.completedFile()
+            } onCancel: {
+                opus.cancel()
+            }
+            if let file { return (file, stream.label) }
+        }
+        if let cached { return cached }
         return try? await Self.prepareCopy(videoId: videoId, quality: Preferences.streamingQuality)
     }
 
@@ -1421,6 +1553,11 @@ final class PlayerController: ObservableObject {
     /// heard as a jump at the handover.
     private func outgoingFile(for track: Track, videoId: String, source: URL?) async -> URL? {
         if let source, source.isFileURL { return source }
+        // An Opus stream: its decoded WAV, once the whole song is in.
+        if let source, source.scheme == OpusStream.scheme, let opus = opusPlayback?.stream, opus.playbackURL == source,
+           let file = try? await opus.completedFile() {
+            return file
+        }
         if let source, let stream = await StreamResolver.shared.stream(for: videoId, at: source),
            let copy = try? await OpusPipeline.shared.localCopy(videoId: videoId, stream: stream) {
             return copy
@@ -1785,8 +1922,9 @@ final class PlayerController: ObservableObject {
         let track = queue[index + 1]
         guard let videoId = track.videoId else { return }
         // With AutoMix the next song's copy is made by `prepareAutoMix`, at the quality it will play.
+        // An Opus song starts from its stream (its first seconds are prepared by PreparedPlayback).
         let needsCopy = Storage.localAudio(for: track) == nil && OpusPipeline.cachedFile(videoId: videoId) == nil
-            && !mixesTransitions
+            && !mixesTransitions && !Preferences.initialStreamQuality.usesOpus
         let prefetchLoudness = Preferences.normalizesVolume
         guard needsCopy || prefetchLoudness else { return }
         let quality = Preferences.initialStreamQuality
@@ -1902,6 +2040,7 @@ final class PlayerController: ObservableObject {
                     self.isLoading = false
                     self.startPendingFades()
                     self.startupMetrics.playing(self.requests.loadGeneration)
+                    self.noteStartupDetails(self.requests.loadGeneration)
                     self.startDeferredPreparation()
                 }
                 self.updateNowPlayingInfo()
@@ -2018,6 +2157,18 @@ final class PlayerController: ObservableObject {
         if remaining < -1.5 {
             // The file keeps "playing" silence past the real end.
             itemFinished()
+        }
+    }
+
+    /// A moment after a song starts: Opus's first byte and first decoded audio, and the first
+    /// audio through the item's audio processing (see `PlaybackStartupMetrics`).
+    private func noteStartupDetails(_ generation: UUID) {
+        let timing = opusPlayback?.stream.timing
+        let fader = player.currentItem.flatMap { handoverFader(of: $0) }
+        Task {
+            try? await Task.sleep(for: .seconds(1))
+            self.startupMetrics.details(generation, firstByte: timing?.firstByte, firstDecoded: timing?.firstAudio,
+                                        firstAudio: fader?.firstProcessed)
         }
     }
 

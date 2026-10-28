@@ -17,6 +17,8 @@ struct SettingsView: View {
     @AppStorage(Preferences.spatialAudio) private var spatialAudio = true
     @AppStorage(Preferences.normalizeVolume) private var normalizeVolume = true
     @AppStorage(Preferences.preferDolby) private var preferDolby = true
+    @AppStorage(Preferences.opusFromStart) private var opusFromStart = true
+    @AppStorage(Preferences.lastOpusFallback) private var lastOpusFallback = ""
     @AppStorage(Preferences.crossfade) private var crossfade = Preferences.defaultCrossfade
     @AppStorage(Preferences.songTransition) private var transition: SongTransition = Preferences.songTransitionSetting
     @AppStorage(Preferences.opusLastError) private var opusLastError = ""
@@ -108,6 +110,9 @@ struct SettingsView: View {
             Toggle(isOn: $preferDolby) {
                 Label("Dolby quando disponibile", systemImage: "hifispeaker.2")
             }
+            Toggle(isOn: $opusFromStart) {
+                Label("Opus dal primo suono", systemImage: "waveform")
+            }
             Toggle(isOn: $spatialAudio) {
                 Label("Audio spaziale", systemImage: "headphones")
             }
@@ -126,7 +131,11 @@ struct SettingsView: View {
         } footer: {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Volume uniforme abbassa i brani più forti al livello di riferimento di YouTube (-14 LUFS), come la normalizzazione di Spotify, così passando da un brano all'altro il volume resta simile.")
-                Text("Massima usa Opus 160 kbps, il formato migliore che YouTube dà senza Premium: Onda lo decodifica sull'iPhone e lo riproduce senza perdite. Il brano parte subito in AAC e lo tiene fino alla fine, senza salti: Opus viene preparato intanto e suona dal riascolto successivo (o da quando sposti la barra). Se un video ha l'audio Dolby Digital Plus o AAC 256 kbps, viene usato quello. L'Audio spaziale funziona con AirPods e cuffie Beats compatibili.")
+                if opusFromStart {
+                    Text("Massima usa Opus 160 kbps, il formato migliore che YouTube dà senza Premium. Con «Opus dal primo suono» Onda lo scarica a blocchi e lo decodifica sull'iPhone mentre suona, dal primo secondo; il brano successivo e quello che stai per toccare hanno i primi secondi già pronti (solo in Wi-Fi). Se Opus non può partire (un errore, il risparmio energetico, un brano oltre 20 minuti) suona AAC, e accanto al formato è scritto perché. Se un video ha l'audio Dolby Digital Plus o AAC 256 kbps, viene usato quello. L'Audio spaziale funziona con AirPods e cuffie Beats compatibili.")
+                } else {
+                    Text("Massima usa Opus 160 kbps, il formato migliore che YouTube dà senza Premium: Onda lo decodifica sull'iPhone e lo riproduce senza perdite. Il brano parte subito in AAC e lo tiene fino alla fine, senza salti: Opus viene preparato intanto e suona dal riascolto successivo (o da quando sposti la barra). Se un video ha l'audio Dolby Digital Plus o AAC 256 kbps, viene usato quello. L'Audio spaziale funziona con AirPods e cuffie Beats compatibili.")
+                }
                 if !opusLastError.isEmpty {
                     Text("Ultimo errore Opus: \(opusLastError)")
                         .foregroundStyle(.orange)
@@ -436,7 +445,7 @@ struct SettingsView: View {
             Text("Diagnostica")
         } footer: {
             VStack(alignment: .leading, spacing: 6) {
-                Text("I tempi di avvio vanno dal tocco su un brano alla prima nota, sugli ultimi 20 avvii, e restano sull'iPhone.")
+                Text("I tempi di avvio vanno dal tocco su un brano a quando il player lo fa suonare, sugli ultimi 20 avvii, divisi per come parte il brano (Opus o no, già preparato o no), e restano sull'iPhone. Per Opus l'ultimo avvio dice anche quando sono arrivati il primo byte e il primo audio decodificato; «primo audio» è quando il suono è passato per l'elaborazione audio (con AutoMix o l'equalizzatore), un attimo prima di sentirlo.")
                 Text("Se Onda si chiude da sola o si blocca, iOS prepara un rapporto tecnico e lo consegna all'app a un avvio successivo, di solito entro un giorno. Toccalo per condividerlo: contiene solo dati tecnici dell'app, non la tua musica né i tuoi account.")
             }
         }
@@ -452,15 +461,37 @@ struct SettingsView: View {
             LabeledContent("Passaggio automatico",
                            value: String(localized: "\(Self.seconds(median)) · mediana di \(startupMetrics.automaticCount)"))
         }
+        // Each way a song can start, on its own: prepared or not, Opus or not.
+        ForEach(Self.sources, id: \.self) { source in
+            if let median = startupMetrics.manualMedian(for: source), let name = Self.sourceName(source) {
+                LabeledContent(name, value: String(localized: "\(Self.seconds(median.median)) · mediana di \(median.count)"))
+            }
+        }
         if let last = startupMetrics.last {
-            LabeledContent("Ultimo avvio", value: [Self.seconds(last.playingAfter), Self.sourceName(last.source)]
-                .compactMap { $0 }.joined(separator: " · "))
+            LabeledContent("Ultimo avvio", value: Self.describe(last))
             Button("Azzera i tempi di avvio") { startupMetrics.removeAll() }
+        }
+        if !lastOpusFallback.isEmpty {
+            LabeledContent("Ultimo ripiego su AAC", value: lastOpusFallback)
+                .textSelection(.enabled)
         }
     }
 
+    private static let sources: [StartupSource] = [.opusPrepared, .opusResolvedURL, .opusNetwork, .prepared,
+                                                   .resolvedURL, .network, .localFile]
+
+    /// The last start, and for Opus its steps: first byte, first decoded audio, first audio played.
+    private static func describe(_ sample: PlaybackStartupMetrics.Sample) -> String {
+        var parts = [seconds(sample.playingAfter), sourceName(sample.source)].compactMap { $0 }
+        if let value = sample.firstByteAfter { parts.append(String(localized: "primo byte \(seconds(value))")) }
+        if let value = sample.firstDecodedAfter { parts.append(String(localized: "primo audio decodificato \(seconds(value))")) }
+        if let value = sample.firstAudioAfter { parts.append(String(localized: "primo audio \(seconds(value))")) }
+        if sample.fellBack { parts.append(String(localized: "Opus non riuscito: AAC")) }
+        return parts.joined(separator: " · ")
+    }
+
     private static func seconds(_ value: TimeInterval) -> String {
-        value.formatted(.number.precision(.fractionLength(1))) + " s"
+        value.formatted(.number.precision(.fractionLength(2))) + " s"
     }
 
     private static func sourceName(_ source: StartupSource?) -> String? {
@@ -469,6 +500,9 @@ struct SettingsView: View {
         case .resolvedURL?: return String(localized: "link già pronto")
         case .network?: return String(localized: "da internet")
         case .localFile?: return String(localized: "file sull'iPhone")
+        case .opusPrepared?: return String(localized: "Opus, già preparato")
+        case .opusResolvedURL?: return String(localized: "Opus, link già pronto")
+        case .opusNetwork?: return String(localized: "Opus, da internet")
         case nil: return nil
         }
     }
