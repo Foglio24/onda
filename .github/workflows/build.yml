@@ -169,10 +169,26 @@ jobs:
           if-no-files-found: ignore
           retention-days: 90
 
+      # The release's name and notes, which the app's update sheet shows: the version's section of
+      # CHANGELOG.md, with those of any versions since the last release that were never released.
+      - name: Write the release notes
+        id: notes
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          previous=$(gh api "repos/${{ github.repository }}/releases/latest" --jq .tag_name 2>/dev/null || true)
+          python3 Tools/release_notes.py CHANGELOG.md "${TAG#v}" "${previous#v}" > release-notes.md
+          echo "name=Onda ${TAG#v}" >> "$GITHUB_OUTPUT"
+          head -20 release-notes.md
+
       - name: Attach IPA and debug symbols to the release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
+          name: ${{ steps.notes.outputs.name }}
+          body_path: release-notes.md
           files: |
             Onda.ipa
             Onda.app.dSYM.zip
