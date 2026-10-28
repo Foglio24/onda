@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.15.1 (2026-10-28)
+
+### Fixed
+- **AutoMix: no more cut where the mix takes over, also with AirPods.** In 1.15.0 the playing song faded out with the player's volume, which acts on the sound as it is made: with AirPods, which play it about a fifth of a second later, the song was still at full volume while the mix came in, and was then stopped while still loud, which was heard as a cut. Now the song fades out inside its own audio processing, over the very quarter of a second of music the mix fades in on, so the two always add up to the song: on the iPhone's speaker, AirPods, Bluetooth or AirPlay, and however busy the iPhone is while the screen moves to the next song. Both are set more than a second ahead.
+  - The mix is made from the very audio that plays: the song's file, or a copy of the same stream. At "Massima" it could be made from the song's decoded Opus (or its AAC 256) while the AAC stream was playing: encoded differently, its music landed some milliseconds off.
+  - The mix is made at the volume the song plays with ("Volume uniforme"), and made again if that changes or the song moves to another file.
+  - A song that started before AutoMix was turned on (and Dolby Digital Plus) still fades with the player's volume, now set ahead by the time the sound takes to be heard.
+
+### For development
+- `Tools/AutoMixRenderCheck` plays the handover as the player makes it: the song through the fade in buffers of uneven sizes while the mix fades in (as loud as the song during the fade and after it, never a gap), the fade exact, set only ahead of the music and refused when it comes too late.
+
 ## 1.15.0 (2026-10-28)
 
 ### Added

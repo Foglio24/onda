@@ -1,7 +1,9 @@
 // Renders AutoMix mixes between songs made here and measures them: the mix starts exactly where the
 // playing song is at the handover and ends exactly where the next song carries on (no jump on
 // either side), it never goes silent, and the two songs' beats stay together through the overlap,
-// also while their tempos glide (124 → 126 and 124 → 100 BPM).
+// also while their tempos glide (124 → 126 and 124 → 100 BPM). The handover itself is played as
+// the player makes it: the song fading out in its own audio processing (`HandoverFader`) as the
+// mix fades in, which together sound as the song.
 // Run from the repository root: bash Tools/AutoMixRenderCheck/run.sh
 import AVFoundation
 import Foundation
@@ -98,6 +100,36 @@ func alignment(_ a: ArraySlice<Float>, _ b: ArraySlice<Float>, range: Double) ->
     return (Double(best.lag) / rate, best.value)
 }
 
+/// A song as its player passes it through its audio processing: in buffers of uneven sizes, each
+/// with its time, through `fader`. `program` runs once the audio has gone through up to `index`
+/// (AutoMix sets the fade while the song plays, ahead of the music).
+func throughFader(_ samples: [Float], fader: HandoverFader, programAt index: Int, program: () -> Void) -> [Float] {
+    var out = samples
+    let sizes = [4096, 1024, 333, 2048, 77, 512, 1500]
+    var fade = HandoverFader.Fade()
+    let list = AudioBufferList.allocate(maximumBuffers: 1)
+    defer { free(list.unsafeMutablePointer) }
+    var position = 0
+    var step = 0
+    var programmed = false
+    out.withUnsafeMutableBufferPointer { buffer in
+        guard let base = buffer.baseAddress else { return }
+        while position < buffer.count {
+            if !programmed, position >= index {
+                program()
+                programmed = true
+            }
+            let count = min(sizes[step % sizes.count], buffer.count - position)
+            list[0] = AudioBuffer(mNumberChannels: 1, mDataByteSize: UInt32(count * MemoryLayout<Float>.size),
+                                  mData: UnsafeMutableRawPointer(base + position))
+            fader.process(list, frames: count, time: Double(position) / rate, sampleRate: rate, fade: &fade)
+            position += count
+            step += 1
+        }
+    }
+    return out
+}
+
 /// Kick onsets: where the 2 ms energy jumps to a local peak well above the second before.
 func onsets(_ x: [Float]) -> [Double] {
     let window = Int(0.002 * rate)
@@ -175,6 +207,27 @@ struct AutoMixRenderCheck {
             let head = alignment(full[0..<Int(0.6 * rate)], a.samples[handover..<(handover + Int(0.6 * rate))], range: 0.02)
             expect(abs(head.lag) <= 0.0012 && head.correlation > 0.9,
                    "\(name): the mix starts where the song is (lag \(format(head.lag * 1000)) ms, match \(format(head.correlation)))")
+            // Handed over as the player does it: the song fades out in its audio processing over
+            // the quarter of a second the mix fades in on. As loud as the song through the fade and
+            // after it, and never a gap.
+            let fader = HandoverFader()
+            var accepted = false
+            let faded = throughFader(a.samples, fader: fader, programAt: max(0, handover - Int(rate))) {
+                accepted = fader.fadeOut(at: plan.handover, over: 0.25, now: plan.handover - 1.5)
+            }
+            let heard = (handover..<(handover + Int(0.5 * rate))).map { index -> Float in
+                faded[index] + full[index - handover] * Float(min(1, Double(index - handover) / (0.25 * rate)))
+            }
+            func level(_ range: Range<Int>) -> Double {
+                let own = range.reduce(0.0) { $0 + Double(a.samples[handover + $1] * a.samples[handover + $1]) }
+                let mixed = range.reduce(0.0) { $0 + Double(heard[$1] * heard[$1]) }
+                return 10 * log10((mixed + 1e-12) / (own + 1e-12))
+            }
+            let quarter = Int(0.25 * rate), short = Int(0.01 * rate)
+            let during = level(0..<quarter), after = level(quarter..<heard.count)
+            let gap = stride(from: 0, to: heard.count - short, by: short).map { level($0..<($0 + short)) }.min() ?? -99
+            expect(accepted && abs(during) < 1.5 && abs(after) < 1.5 && gap > -10,
+                   "\(name): handed over as loud as the song (\(format(during, 1)) dB in the fade, \(format(after, 1)) dB after, quietest 10 ms \(format(gap, 1)) dB)")
             // Ends exactly where the next song carries on.
             let tailLength = Int(1.0 * rate)
             let joinIndex = Int((joins["full"] ?? schedule.join) * rate)
@@ -207,6 +260,36 @@ struct AutoMixRenderCheck {
             let most = distances.isEmpty ? 1 : distances[distances.count * 9 / 10]
             expect(distances.count >= 8 && median < 0.004 && most < 0.010,
                    "\(name): \(distances.count) kicks together (median \(format(median * 1000, 1)) ms, 90 % within \(format(most * 1000, 1)) ms)")
+        }
+
+        // The handover's fade on its own: exact whatever the buffers, set only ahead of the music.
+        if let a = songs[124.0] {
+            let handover = 20.0, fade = 0.25
+            let fader = HandoverFader()
+            expect(!fader.fadeOut(at: handover, over: fade, now: handover - 1),
+                   "handover: no fade set before the song's audio goes through")
+            var accepted = false
+            var ahead: Double?
+            let faded = throughFader(a.samples, fader: fader, programAt: Int((handover - 0.6) * rate)) {
+                // The audio processing runs ahead of what is heard, here by 0.4 s and a buffer.
+                ahead = fader.ahead(of: handover - 1)
+                accepted = fader.fadeOut(at: handover, over: fade, now: handover - 1)
+            }
+            expect((ahead ?? 0) >= 0.39 && (ahead ?? 1) < 0.6,
+                   "handover: how far the audio processing is ahead of the music is known (\(format(ahead ?? -1)) s)")
+            let start = Int(handover * rate), end = Int((handover + fade) * rate)
+            let before = (0..<start).allSatisfy { faded[$0] == a.samples[$0] }
+            let after = ((end + 1)..<faded.count).allSatisfy { faded[$0] == 0 }
+            // The mix starts as a copy of the song and ramps in: the two add up to the song.
+            var worst: Float = 0
+            for index in start...end {
+                let ramp = Float(Double(index - start) / (fade * rate))
+                worst = max(worst, abs(faded[index] + a.samples[index] * ramp - a.samples[index]))
+            }
+            expect(accepted && before && after && worst < 1e-4,
+                   "handover: the song is untouched before, silent after, and with the mix the song itself (error \(worst))")
+            expect(!fader.fadeOut(at: 40, over: fade, now: 59.9),
+                   "handover: a fade the music has already gone past is refused (the player's volume does it then)")
         }
 
         // A song muted in the mix isn't heard: the end of the mix, where only the next song

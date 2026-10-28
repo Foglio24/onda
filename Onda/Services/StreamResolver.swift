@@ -38,6 +38,12 @@ actor StreamResolver {
         return try await self.stream(for: videoId, quality: quality == .medium ? .low : .high)
     }
 
+    /// The rendition a stream address belongs to, while the video's links are known.
+    func stream(for videoId: String, at url: URL) -> ResolvedStream? {
+        guard let rendition = cache[videoId]?.renditions.first(where: { $0.url == url }) else { return nil }
+        return ResolvedStream(url: rendition.url, format: rendition.format, bitrate: rendition.bitrate)
+    }
+
     /// Whether the video's links are already known, so playing it needs no request.
     func isCached(_ videoId: String) -> Bool {
         (cache[videoId]?.expires ?? .distantPast) > .now

@@ -218,6 +218,9 @@ final class PlayerController: ObservableObject {
     /// song's time.
     private var mixItem: (item: AVPlayerItem, length: Double, join: Double, file: URL, label: String)?
     private var itemOffset: TimeInterval = 0
+    /// What the current item plays with: its "Volume uniforme" gain and, when AutoMix may hand over
+    /// from it, the fader in its audio processing (see `audioMix(for:track:)` and `startOnTime`).
+    private var itemEffects: (item: AVPlayerItem, gain: Float, fader: HandoverFader?)?
     /// Between the start of a mix and the end of the song it takes over from.
     private var mixHandover = false
     /// The playlist the queue was started from, whose Mix then plays (see `playlistMix`).
@@ -714,6 +717,7 @@ final class PlayerController: ObservableObject {
             player.replaceCurrentItem(with: nil)
             mixItem = nil
             itemOffset = 0
+            itemEffects = nil
         }
         progress.currentTime = 0
         progress.duration = track.duration ?? 0
@@ -871,6 +875,12 @@ final class PlayerController: ObservableObject {
         streamInfo = label
         // Karaoke stems carry their own mix of vocal and instrumental volumes (and the equalizer).
         if !(newItem.asset is AVMutableComposition) { applyAudioEffects(to: newItem, track: track) }
+        // The mix into the next song is made from the audio that plays (see `outgoingFile`):
+        // another file of the song needs a mix of its own.
+        if let autoMix, autoMix.trackID == track.id, (newItem.asset as? AVURLAsset)?.url != autoMix.outgoingFile {
+            resetAutoMix()
+            prepareAutoMix()
+        }
     }
 
     /// "Volume uniforme" and the equalizer, through the item's audio mix, so the player's own
@@ -878,17 +888,37 @@ final class PlayerController: ObservableObject {
     /// reference level.
     private func applyAudioEffects(to item: AVPlayerItem, track: Track) {
         Task {
-            let mix = await self.audioMix(for: item, track: track)
+            let effects = await self.audioMix(for: item, track: track)
             guard self.player.currentItem === item else { return }
-            item.audioMix = mix
+            item.audioMix = effects.mix
+            self.noteEffects(effects, of: item, track: track)
         }
     }
 
-    private func audioMix(for item: AVPlayerItem, track: Track) async -> AVAudioMix? {
-        let videoId = Preferences.normalizesVolume ? track.videoId : nil
-        guard videoId != nil || EqualizerParameters.shared.isOn else { return nil }
+    /// With AutoMix, also the fader of the handover from this song into the next (see `startOnTime`):
+    /// it has to be in the item's audio mix from the start, as changing the mix of a song that plays
+    /// is heard as a gap.
+    private func audioMix(for item: AVPlayerItem, track: Track) async -> (mix: AVAudioMix?, gain: Float, fader: HandoverFader?) {
         let gain = await volumeGain(for: track)
-        return await AudioEffects.mix(for: item, gain: gain)
+        let effects = await AudioEffects.mix(for: item, gain: gain, fades: mixesTransitions)
+        return (effects.mix, gain, effects.fader)
+    }
+
+    /// Keeps what the current item now plays with. A mix into the next song made at another gain
+    /// would be louder or quieter than the song where it takes over: it is made again.
+    private func noteEffects(_ effects: (mix: AVAudioMix?, gain: Float, fader: HandoverFader?),
+                             of item: AVPlayerItem, track: Track) {
+        itemEffects = (item, effects.gain, effects.fader)
+        if let autoMix, autoMix.trackID == track.id, autoMix.outgoingGain != effects.gain {
+            resetAutoMix()
+            prepareAutoMix()
+        }
+    }
+
+    /// The "Volume uniforme" gain the current item plays with, once its audio mix is on.
+    private var playingGain: Float? {
+        guard let itemEffects, itemEffects.item === player.currentItem else { return nil }
+        return itemEffects.gain
     }
 
     /// The "Volume uniforme" gain of a song (1 with it off).
@@ -913,9 +943,10 @@ final class PlayerController: ObservableObject {
             self.player.playImmediately(atRate: 1)
         }
         Task {
-            let mix = await self.audioMix(for: item, track: track)
+            let effects = await self.audioMix(for: item, track: track)
             guard self.player.currentItem === item else { return }
-            item.audioMix = mix
+            item.audioMix = effects.mix
+            self.noteEffects(effects, of: item, track: track)
             start()
         }
         Task {
@@ -1288,12 +1319,13 @@ final class PlayerController: ObservableObject {
         // A transition designed in the playlist's Mix, when there is one for these two songs.
         let design = playlistMix?.transitions[PlaylistMix.key(from: track.id, to: next.id)]
         autoMixTask = Task {
-            let outgoingFile = await self.analysisFile(for: track, videoId: videoId)
+            let source = self.playingSource
+            let outgoingFile = await self.outgoingFile(for: track, videoId: videoId, source: source)
             let incomingFile = await self.analysisFile(for: next, videoId: nextVideoId)
             guard !Task.isCancelled, self.autoMixPair == pair else { return }
             var analyses: (TrackAnalysis?, TrackAnalysis?) = (nil, nil)
             if let outgoingFile, let incomingFile {
-                async let outgoingAnalysis = AutoMixLibrary.shared.analysis(of: outgoingFile.url)
+                async let outgoingAnalysis = AutoMixLibrary.shared.analysis(of: outgoingFile)
                 async let incomingAnalysis = AutoMixLibrary.shared.analysis(of: incomingFile.url)
                 analyses = await (outgoingAnalysis, incomingAnalysis)
             }
@@ -1306,12 +1338,14 @@ final class PlayerController: ObservableObject {
             let plan = design.map { MixDesigner.plan(from: outgoing, to: incoming, design: $0) }
                 ?? TransitionPlanner.plan(from: outgoing, to: incoming)
             self.autoMixNote = String(localized: "Preparazione del mix…")
-            let outgoingGain = await self.volumeGain(for: track)
+            // At the gain the song plays with, so the mix takes over at its very level.
+            let outgoingGain: Float
+            if let gain = self.playingGain { outgoingGain = gain } else { outgoingGain = await self.volumeGain(for: track) }
             let incomingGain = await self.volumeGain(for: next)
             let destination = AutoMixLibrary.newMixFile()
             let mix: AutoMixRenderer.Mix
             do {
-                mix = try await AutoMixRenderer.render(MixSchedule(plan: plan), outgoing: outgoingFile.url,
+                mix = try await AutoMixRenderer.render(MixSchedule(plan: plan), outgoing: outgoingFile,
                                                        incoming: incomingFile.url, outgoingGain: outgoingGain,
                                                        incomingGain: incomingGain, to: destination)
             } catch {
@@ -1322,8 +1356,16 @@ final class PlayerController: ObservableObject {
             }
             guard !Task.isCancelled, self.requests.isCurrentLoad(generation), self.autoMixPair == pair else { return }
             self.autoMixTask = nil
+            // Meanwhile the song moved to another file (a seek, karaoke) or gain: made again.
+            let playing = self.playingSource
+            guard playing == source || playing == outgoingFile, (self.playingGain ?? outgoingGain) == outgoingGain else {
+                self.autoMixPair = nil
+                self.prepareAutoMix()
+                return
+            }
             self.autoMix = PlannedTransition(trackID: track.id, nextID: next.id, plan: plan, mix: mix,
-                                             file: incomingFile.url, label: incomingFile.label, incomingGain: incomingGain)
+                                             file: incomingFile.url, label: incomingFile.label, incomingGain: incomingGain,
+                                             outgoingFile: outgoingFile, outgoingGain: outgoingGain)
             self.autoMixNote = Self.describe(plan, from: outgoing, to: incoming)
         }
     }
@@ -1366,6 +1408,26 @@ final class PlayerController: ObservableObject {
         return try? await Self.prepareCopy(videoId: videoId, quality: Preferences.streamingQuality)
     }
 
+    /// What the current song's audio comes from: its file, or the address of its stream.
+    private var playingSource: URL? {
+        if let mixItem, player.currentItem === mixItem.item { return mixItem.file }
+        return (player.currentItem?.asset as? AVURLAsset)?.url
+    }
+
+    /// The file the playing song's part of the mix is made from: the very audio the player plays
+    /// (`source`: its file, or a copy of the same stream), so the mix carries on exactly where the
+    /// song is when it takes over. Another file of the song (decoded Opus, AAC 256, made meanwhile
+    /// for the next listen) is encoded differently: its music lands some milliseconds off, which is
+    /// heard as a jump at the handover.
+    private func outgoingFile(for track: Track, videoId: String, source: URL?) async -> URL? {
+        if let source, source.isFileURL { return source }
+        if let source, let stream = await StreamResolver.shared.stream(for: videoId, at: source),
+           let copy = try? await OpusPipeline.shared.localCopy(videoId: videoId, stream: stream) {
+            return copy
+        }
+        return await analysisFile(for: track, videoId: videoId)?.url
+    }
+
     /// The AutoMix plan from the current song into the next, unless its moment was missed.
     private func plannedTransition() -> PlannedTransition? {
         guard let autoMix, !autoMix.missed, mixesTransitions, karaokeMode == .off,
@@ -1399,11 +1461,13 @@ final class PlayerController: ObservableObject {
         let transition = ArmedTransition(planned: planned, player: incoming, track: next, outgoingTrackID: track.id)
         armed = transition
         armTask = Task {
-            guard let item = await Self.makeMixItem(for: planned) else { return self.abandon(transition) }
+            guard let made = await Self.makeMixItem(for: planned) else { return self.abandon(transition) }
             guard !Task.isCancelled, self.armed === transition else { return }
+            let item = made.item
             item.allowedAudioSpatializationFormats = Self.spatializationFormats
             incoming.replaceCurrentItem(with: item)
             transition.item = item
+            transition.fader = made.fader
             var waited = 0
             while item.status == .unknown, waited < 50, !Task.isCancelled {
                 try? await Task.sleep(for: .milliseconds(100))
@@ -1417,7 +1481,8 @@ final class PlayerController: ObservableObject {
         }
     }
 
-    nonisolated private static func makeMixItem(for planned: PlannedTransition) async -> AVPlayerItem? {
+    /// The mix's item, and the fader for the handover from it into the song after (see `startOnTime`).
+    nonisolated private static func makeMixItem(for planned: PlannedTransition) async -> (item: AVPlayerItem, fader: HandoverFader?)? {
         let mixAsset = AVURLAsset(url: planned.mix.url)
         let songAsset = AVURLAsset(url: planned.file)
         guard let mixTrack = try? await mixAsset.loadTracks(withMediaType: .audio).first,
@@ -1447,15 +1512,17 @@ final class PlayerController: ObservableObject {
         mixPart.setVolumeRamp(fromStartVolume: 1, toEndVolume: 0, timeRange: seam)
         let songPart = AVMutableAudioMixInputParameters(track: second)
         songPart.setVolumeRamp(fromStartVolume: 0, toEndVolume: planned.incomingGain, timeRange: seam)
-        if EqualizerParameters.shared.isOn {
-            mixPart.audioTapProcessor = EqualizerTap.make()
-            songPart.audioTapProcessor = EqualizerTap.make()
+        // The equalizer, and the fade of the next handover over both parts (it is in the item's time).
+        let fader = await AudioEffects.isDolby([songTrack]) ? nil : HandoverFader()
+        if fader != nil || EqualizerParameters.shared.isOn {
+            mixPart.audioTapProcessor = EqualizerTap.make(fader: fader)
+            songPart.audioTapProcessor = EqualizerTap.make(fader: fader)
         }
         let audioMix = AVMutableAudioMix()
         audioMix.inputParameters = [mixPart, songPart]
         let item = AVPlayerItem(asset: composition)
         item.audioMix = audioMix
-        return item
+        return (item, fader)
     }
 
     /// How long the playing song and the mix overlap at the handover. There both play the same
@@ -1463,11 +1530,26 @@ final class PlayerController: ObservableObject {
     /// (two players never start on the very same sample: switched at once, it is heard as a cut).
     nonisolated private static let handoverFade = 0.25
 
+    /// How long after the audio is made it is heard: a few milliseconds on the iPhone's speaker,
+    /// a fifth of a second or more with AirPods, about two seconds over AirPlay.
+    private static var outputLatency: TimeInterval {
+        let session = AVAudioSession.sharedInstance()
+        return max(0, session.outputLatency) + max(0, session.ioBufferDuration)
+    }
+
     /// Waits until the playing song is about to reach the handover, then has AVPlayer start the mix
     /// at that exact moment of the system clock, fading in while the playing song fades out.
+    ///
+    /// The song fades out inside its own audio processing (`HandoverFader`), over the very stretch
+    /// of the music the mix fades in on: the two add up to the song, whatever the output. That
+    /// processing runs ahead of what is heard (by the output's latency, more with the screen
+    /// locked), so both are set at least a second before it gets there. A song without the fader
+    /// (one that started before AutoMix was turned on, or Dolby) fades out with the player's
+    /// volume, set ahead by the output's latency.
     private func startOnTime(_ transition: ArmedTransition) async {
         let handover = transition.planned.plan.handover
         let outgoing = player
+        let latency = Self.outputLatency
         while true {
             guard !Task.isCancelled, armed === transition, player === outgoing,
                   current?.id == transition.outgoingTrackID, karaokeMode == .off else { return abandon(transition) }
@@ -1476,9 +1558,12 @@ final class PlayerController: ObservableObject {
                 try? await Task.sleep(for: .milliseconds(250))
                 continue
             }
-            let wait = handover + itemOffset - item.currentTime().seconds
-            if wait <= 0.4 { break }
-            try? await Task.sleep(for: .seconds(min(wait - 0.35, 1)))
+            let time = item.currentTime().seconds
+            let ahead = handoverFader(of: item)?.ahead(of: time) ?? 0
+            let lead = max(1, latency + 0.6, ahead + 0.6)
+            let wait = handover + itemOffset - time
+            if wait <= lead { break }
+            try? await Task.sleep(for: .seconds(min(wait - lead + 0.05, 1)))
         }
         guard let item = outgoing.currentItem, let timebase = item.timebase, transition.item != nil else {
             return abandon(transition)
@@ -1487,28 +1572,38 @@ final class PlayerController: ObservableObject {
         let now = CMTimebaseGetTime(timebase).seconds
         let target = handover + itemOffset
         guard rate > 0, now.isFinite, now <= target + 0.02 else { return abandon(transition) }
+        let delay = max(0, (target - now) / rate)
         let start = CMTimeAdd(CMClockGetTime(CMClockGetHostTimeClock()),
-                              CMTime(seconds: (target - now) / rate, preferredTimescale: 1_000_000_000))
-        transition.player.setRate(1, time: .zero, atHostTime: start)
-        // The playing song goes on under the mix's first moments, then stops.
+                              CMTime(seconds: delay, preferredTimescale: 1_000_000_000))
         let fade = Self.handoverFade
-        item.forwardPlaybackEndTime = CMTime(seconds: target + fade + 0.05, preferredTimescale: 44_100)
+        let exact = handoverFader(of: item)?.fadeOut(at: target, over: fade, now: now) == true
+        transition.player.setRate(1, time: .zero, atHostTime: start)
         transition.scheduled = true
-        beginTransition(transition)
+        // The playing song goes on under the mix's first moments, and stops once its fade is heard.
+        beginTransition(transition, outgoingFor: delay + fade + latency + 0.3)
+        guard !exact else { return }
         fadeOutTask = Task {
-            // Down in step with the mix coming up (same music: the two add up to the song).
+            // Down in step with the mix coming up (same music: the two add up to the song). What is
+            // set now is heard `latency` later.
             while !Task.isCancelled {
-                let elapsed = CMTimeSubtract(CMClockGetTime(CMClockGetHostTimeClock()), start).seconds
-                outgoing.volume = Float(max(0, min(1, 1 - elapsed / fade)))
-                if elapsed >= fade { break }
-                try? await Task.sleep(for: .milliseconds(elapsed < 0 ? max(1, Int(-elapsed * 1000)) : 8))
+                let heard = CMTimeSubtract(CMClockGetTime(CMClockGetHostTimeClock()), start).seconds + latency
+                outgoing.volume = Float(max(0, min(1, 1 - heard / fade)))
+                if heard >= fade { break }
+                try? await Task.sleep(for: .milliseconds(heard < 0 ? max(1, Int(-heard * 1000)) : 8))
             }
         }
     }
 
+    /// The fader in the item's audio processing, if it has one (`itemEffects` are the current item's).
+    private func handoverFader(of item: AVPlayerItem) -> HandoverFader? {
+        guard let itemEffects, itemEffects.item === item else { return nil }
+        return itemEffects.fader
+    }
+
     /// The mix is starting: the next song becomes the current song (its player plays the mix and
-    /// then the song), while the playing one runs to the handover (as `outgoingPlayer`).
-    private func beginTransition(_ transition: ArmedTransition) {
+    /// then the song), while the playing one runs to the handover and fades out (as
+    /// `outgoingPlayer`), stopping `seconds` from now.
+    private func beginTransition(_ transition: ArmedTransition, outgoingFor seconds: TimeInterval) {
         guard let item = transition.item else { return }
         let planned = transition.planned
         armed = nil
@@ -1528,10 +1623,9 @@ final class PlayerController: ObservableObject {
         loadCurrent(crossfading: true, reason: .automatic, adopting: transition)
         mixItem = (item, planned.mix.length, planned.mix.join, planned.file, planned.label)
         itemOffset = planned.mix.length - planned.mix.join
-        // Should the playing song not reach its end point (a stalled stream), it stops anyway.
-        let overlap = planned.mix.length
+        itemEffects = (item, planned.incomingGain, transition.fader)
         Task {
-            try? await Task.sleep(for: .seconds(min(3, overlap)))
+            try? await Task.sleep(for: .seconds(seconds))
             if self.outgoingPlayer === outgoing { self.endCrossfade(interrupted: false) }
         }
     }
@@ -2019,6 +2113,9 @@ private struct PlannedTransition {
     let file: URL
     let label: String
     let incomingGain: Float
+    /// The playing song's file and gain the mix was made from (see `outgoingFile`).
+    let outgoingFile: URL
+    let outgoingGain: Float
     /// Its moment passed without the mix.
     var missed = false
 }
@@ -2030,6 +2127,8 @@ private final class ArmedTransition {
     let track: Track
     let outgoingTrackID: String
     var item: AVPlayerItem?
+    /// The fader in the mix's item: it fades the next song out when that one hands over in turn.
+    var fader: HandoverFader?
     /// Its start has been set on the system clock.
     var scheduled = false
 

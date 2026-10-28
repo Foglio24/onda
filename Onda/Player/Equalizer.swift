@@ -120,8 +120,8 @@ final class EqualizerProcessor {
     /// Two values of filter memory per section and channel.
     private let memory = UnsafeMutablePointer<Double>.allocate(capacity: maxChannels * EqualizerBands.count * 2)
     private var memoryCount: Int { Self.maxChannels * EqualizerBands.count * 2 }
-    private var sampleRate = 44_100.0
-    private var isFloat = false
+    private(set) var sampleRate = 44_100.0
+    private(set) var isFloat = false
     private var version = -1
     private var isActive = false
     private var preamp: Float = 1
@@ -198,55 +198,90 @@ final class EqualizerProcessor {
     }
 }
 
-/// An audio processing tap that runs an `EqualizerProcessor` on a track of an AVPlayerItem.
+/// An audio processing tap on a track of an AVPlayerItem: the equalizer (`EqualizerProcessor`),
+/// then, on songs AutoMix may hand over from, the handover's fade (`HandoverFader`).
 enum EqualizerTap {
-    static func make() -> MTAudioProcessingTap? {
-        let processor = EqualizerProcessor(parameters: .shared)
-        let context = Unmanaged.passRetained(processor).toOpaque()
+    private final class Context {
+        let equalizer = EqualizerProcessor(parameters: .shared)
+        let fader: HandoverFader?
+        /// The fade as last read, on the audio thread only.
+        var fade = HandoverFader.Fade()
+
+        init(fader: HandoverFader?) {
+            self.fader = fader
+        }
+    }
+
+    static func make(fader: HandoverFader? = nil) -> MTAudioProcessingTap? {
+        let context = Unmanaged.passRetained(Context(fader: fader)).toOpaque()
         var callbacks = MTAudioProcessingTapCallbacks(
             version: kMTAudioProcessingTapCallbacksVersion_0,
             clientInfo: context,
             init: { _, clientInfo, storage in storage.pointee = clientInfo },
             finalize: { tap in
-                Unmanaged<EqualizerProcessor>.fromOpaque(MTAudioProcessingTapGetStorage(tap)).release()
+                Unmanaged<Context>.fromOpaque(MTAudioProcessingTapGetStorage(tap)).release()
             },
             prepare: { tap, _, format in
-                Unmanaged<EqualizerProcessor>.fromOpaque(MTAudioProcessingTapGetStorage(tap))
-                    .takeUnretainedValue().prepare(format: format.pointee)
+                Unmanaged<Context>.fromOpaque(MTAudioProcessingTapGetStorage(tap))
+                    .takeUnretainedValue().equalizer.prepare(format: format.pointee)
             },
             unprepare: { _ in },
             process: { tap, frames, _, buffers, framesOut, flagsOut in
-                guard MTAudioProcessingTapGetSourceAudio(tap, frames, buffers, flagsOut, nil, framesOut) == noErr
+                // Where the audio is in the item's time, for the handover's fade.
+                var range = CMTimeRange()
+                guard MTAudioProcessingTapGetSourceAudio(tap, frames, buffers, flagsOut, &range, framesOut) == noErr
                 else { return }
-                Unmanaged<EqualizerProcessor>.fromOpaque(MTAudioProcessingTapGetStorage(tap))
-                    .takeUnretainedValue()
-                    .process(UnsafeMutableAudioBufferListPointer(buffers), frames: Int(framesOut.pointee))
+                let context = Unmanaged<Context>.fromOpaque(MTAudioProcessingTapGetStorage(tap)).takeUnretainedValue()
+                let list = UnsafeMutableAudioBufferListPointer(buffers)
+                let count = Int(framesOut.pointee)
+                context.equalizer.process(list, frames: count)
+                if let fader = context.fader, context.equalizer.isFloat, range.start.isNumeric {
+                    fader.process(list, frames: count, time: range.start.seconds,
+                                  sampleRate: context.equalizer.sampleRate, fade: &context.fade)
+                }
             })
         var tap: MTAudioProcessingTap?
         let status = MTAudioProcessingTapCreate(kCFAllocatorDefault, &callbacks,
                                                 kMTAudioProcessingTapCreationFlag_PostEffects, &tap)
         guard status == noErr, let tap else {
-            Unmanaged<EqualizerProcessor>.fromOpaque(context).release()
+            Unmanaged<Context>.fromOpaque(context).release()
             return nil
         }
         return tap
     }
 }
 
-/// A song's audio mix: the "Volume uniforme" gain and the equalizer.
+/// A song's audio mix: the "Volume uniforme" gain and the equalizer, and the fade of AutoMix's
+/// handover when asked for (`fades`).
 enum AudioEffects {
-    /// Nil when neither changes anything.
-    static func mix(for item: AVPlayerItem, gain: Float) async -> AVAudioMix? {
+    /// The mix, nil when nothing changes anything, and the fader inside it, when there is one: not
+    /// on Dolby Digital Plus, left to play as it does without a tap (unless the equalizer is on).
+    static func mix(for item: AVPlayerItem, gain: Float, fades: Bool = false) async -> (mix: AVAudioMix?, fader: HandoverFader?) {
         let equalizer = EqualizerParameters.shared.isOn
-        guard gain < 0.999 || equalizer,
-              let tracks = try? await item.asset.loadTracks(withMediaType: .audio), !tracks.isEmpty else { return nil }
+        guard gain < 0.999 || equalizer || fades,
+              let tracks = try? await item.asset.loadTracks(withMediaType: .audio), !tracks.isEmpty else { return (nil, nil) }
+        var dolby = false
+        if fades { dolby = await isDolby(tracks) }
+        let fader = fades && !dolby ? HandoverFader() : nil
+        guard gain < 0.999 || equalizer || fader != nil else { return (nil, nil) }
         let mix = AVMutableAudioMix()
         mix.inputParameters = tracks.map { track in
             let parameters = AVMutableAudioMixInputParameters(track: track)
             if gain < 0.999 { parameters.setVolume(gain, at: .zero) }
-            if equalizer { parameters.audioTapProcessor = EqualizerTap.make() }
+            if equalizer || fader != nil { parameters.audioTapProcessor = EqualizerTap.make(fader: fader) }
             return parameters
         }
-        return mix
+        return (mix, fader)
+    }
+
+    /// Whether the audio is Dolby (AC-3 or Dolby Digital Plus).
+    static func isDolby(_ tracks: [AVAssetTrack]) async -> Bool {
+        for track in tracks {
+            let formats = (try? await track.load(.formatDescriptions)) ?? []
+            if formats.contains(where: { [kAudioFormatAC3, kAudioFormatEnhancedAC3].contains(CMFormatDescriptionGetMediaSubType($0)) }) {
+                return true
+            }
+        }
+        return false
     }
 }
