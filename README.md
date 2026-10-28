@@ -98,7 +98,8 @@ GitHub Actions builds the IPA on a cloud Mac:
 1. Push to `main` or a `feature/**` branch, or run **Build IPA** manually from the **Actions** tab.
 2. After a few minutes, download the **Onda-ipa** artifact from the finished run.
 
-Pushing a tag like `v1.2.0` also attaches the IPA to a release.
+Pushing a tag like `v1.2.0`, or running **Build IPA** by hand with **release** ticked, publishes a
+release with the IPA, named and described from `CHANGELOG.md`: that is what the app's updater finds.
 
 ### Sideload it with Sideloadly (Windows or macOS)
 
