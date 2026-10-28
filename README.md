@@ -1,11 +1,46 @@
-# Onda
+# Onda — YouTube Music player for iPhone
 
-A music player for iPhone, inspired by [LastWave](https://github.com/Clash-Projects/LastWave-Native) for Android.
-It is written from scratch in Swift/SwiftUI and contains no code from the original project.
-It runs on iOS 26 and later, including iPhone 17 Pro on iOS 27, and uses the Liquid Glass design.
-The app's interface is in Italian and English and follows the iPhone's language (English for any other language).
+[![Latest release](https://img.shields.io/github/v/release/Foglio24/onda?label=release)](../../releases/latest)
+[![Build IPA](https://github.com/Foglio24/onda/actions/workflows/build.yml/badge.svg)](https://github.com/Foglio24/onda/actions/workflows/build.yml)
+![iOS 26+](https://img.shields.io/badge/iOS-26%2B-black?logo=apple)
+![Swift and SwiftUI](https://img.shields.io/badge/Swift-SwiftUI-orange?logo=swift)
+
+**Onda** is a music player for iPhone that streams the YouTube Music catalogue: ad-free background
+playback, **AutoMix** transitions between songs, Opus and Dolby audio, offline downloads, synced
+lyrics, an equalizer, AI karaoke, smart radios and a **Last.fm scrobbler**, in Apple's Liquid Glass
+design. It is installed as an **IPA** with Sideloadly, AltStore or SideStore (no App Store, no Mac
+needed).
+
+It is inspired by [LastWave](https://github.com/Clash-Projects/LastWave-Native) for Android and
+written from scratch in Swift/SwiftUI, with no code from the original project. It runs on iOS 26
+and later, including iPhone 17 Pro on iOS 27. The interface is in Italian and English and follows
+the iPhone's language (English for any other language).
 
 See [CHANGELOG.md](CHANGELOG.md) for what changed in each version.
+
+## Screenshots
+
+<table>
+  <tr>
+    <td align="center"><img src="docs/screenshots/home.jpg" width="200" alt="Home: moods, picks and daily mixes"><br><sub>Home</sub></td>
+    <td align="center"><img src="docs/screenshots/search.jpg" width="200" alt="Search: top result, artists, albums and songs"><br><sub>Search</sub></td>
+    <td align="center"><img src="docs/screenshots/player.jpg" width="200" alt="Player with artwork colours and Spatial Audio"><br><sub>Player</sub></td>
+    <td align="center"><img src="docs/screenshots/artist.jpg" width="200" alt="Artist page"><br><sub>Artist</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/screenshots/album.jpg" width="200" alt="Album page"><br><sub>Album</sub></td>
+    <td align="center"><img src="docs/screenshots/mix.jpg" width="200" alt="Playlist Mix editor with waveforms and curves"><br><sub>Playlist Mix editor</sub></td>
+    <td align="center"><img src="docs/screenshots/equalizer.jpg" width="200" alt="Six-band equalizer with presets"><br><sub>Equalizer</sub></td>
+    <td align="center"><img src="docs/screenshots/settings.jpg" width="200" alt="Audio settings: quality, Dolby, Opus, Spatial Audio"><br><sub>Settings</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/screenshots/home-english.jpg" width="200" alt="Home in English"><br><sub>In English</sub></td>
+    <td align="center"><img src="docs/screenshots/song-info.jpg" width="200" alt="Song details: credits, format and loudness"><br><sub>Song details</sub></td>
+    <td colspan="2"></td>
+  </tr>
+</table>
+
+<sub>Taken on the iOS simulator by the build workflow (`Tools/Screenshots`). Artwork, names and music belong to their rights holders.</sub>
 
 ## Features
 
@@ -18,7 +53,7 @@ See [CHANGELOG.md](CHANGELOG.md) for what changed in each version.
 | Song details | ✅ Release date, label, ℗ and credits from YouTube Music's catalogue, plus format and loudness |
 | Quality and codecs | ✅ Four levels, set separately for Wi-Fi, cellular and downloads (details below) |
 | Dolby Atmos | ✅ Dolby Digital Plus when YouTube offers it, plus Apple's Spatial Audio with AirPods/Beats |
-| Song transitions | ✅ AutoMix like Apple Music: every pair mixed, rendered ahead (time stretch, tempos meeting halfway up to 30 % apart, beat-matched up to 16 bars, intros skipped, filters, never a cut), or a 1–12 s crossfade |
+| Song transitions | ✅ AutoMix, inspired by Apple Music's: for each pair Onda weighs many transitions (beat-matched over 2–16 bars, short crossfades, into a fade-out, without silence, one after the other) by how steady the beats are where the songs meet, whether keys clash or two voices sing at once, loudness and how much tempo changes (at most 5 % per song), then renders the best ahead; albums played in order stay as they are. Or a 1–12 s crossfade |
 | Playlist Mix | ✅ Like Spotify's Mix, for downloaded playlists: 2–16 bars, presets, volume, EQ, filters, reverb/echo, loops, beatmatching, lines drawn by hand, waveform editor with preview |
 | Smart radios and mixes | ✅ A radio from any song, auto-radio when the queue ends, and recommendations that change every day from what you play, skip and like: six daily mixes, *Scelti per te* and moods; plus *Taste Mix* / *Rediscover* from Last.fm |
 | Playlists | ✅ Create, rename, reorder, set a custom cover from Photos, download a whole playlist in one tap |

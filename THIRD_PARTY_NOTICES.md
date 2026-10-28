@@ -11,8 +11,9 @@ work by others, which keeps its own licence or terms.
 - **Licence:** MIT. Copyright (c) 2022 Alexander Eichhorn.
 
 ### UVR-MDX-NET Voc_FT (AI karaoke model)
-- **What:** the vocal separation model used by the karaoke mode, bundled in the IPA as a Core ML
-  model. It is converted in CI from ONNX to Core ML; the weights are not changed.
+- **What:** the vocal separation model used by the karaoke mode, and by AutoMix to find where songs
+  are sung near where they meet, bundled in the IPA as a Core ML model. It is converted in CI from
+  ONNX to Core ML; the weights are not changed.
 - **Authors:** trained by the [Ultimate Vocal Remover](https://github.com/Anjok07/ultimatevocalremovergui)
   project (MIT), on the MDX-Net architecture by [KUIELab](https://github.com/kuielab/mdx-net) (MIT).
 - **Downloaded from:** the ONNX version published by
@@ -27,6 +28,10 @@ work by others, which keeps its own licence or terms.
   [ONNX](https://github.com/onnx/onnx) and [ONNX Runtime](https://github.com/microsoft/onnxruntime)
   (MIT/Apache-2.0), [NumPy](https://github.com/numpy/numpy) (BSD-3-Clause), to convert and check the karaoke model.
 - [XcodeGen](https://github.com/yonaskolb/XcodeGen) (MIT), to generate the Xcode project.
+- [JamendoLyrics](https://github.com/f90/jamendolyrics) (code MIT; each song under its own Creative
+  Commons licence), downloaded by the "AutoMix on real songs" workflow to check AutoMix's voice
+  detection against the timed lyrics and to render test transitions. Only the songs whose licence
+  allows derivative works are mixed; the excerpts stay in that workflow's artifacts, with credits.
 
 ## Services Onda connects to
 Onda is not affiliated with, endorsed by or sponsored by any of these services. Their names and

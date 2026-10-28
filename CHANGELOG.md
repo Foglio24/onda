@@ -1,5 +1,30 @@
 # Changelog
 
+## 1.17.0 (2026-10-28)
+
+### Changed
+- **AutoMix chooses each transition instead of taking the longest that fits.** Up to 1.16 it always tried 16, then 8, then 4 bars of beat-matched mix, with both songs' tempos meeting halfway up to 30 % apart. Now, for each pair of songs, it builds many candidates and weighs them, without rendering any, from what it knows of the two songs where they would actually play together:
+  - the candidates: beats matched over 2, 4, 8 or 16 bars (at the tempo of the song playing, of the next one, or meeting between), crossfades of 2 to 12 seconds at the songs' own tempos, the next song coming in during a fade-out, the next song starting as this one's sound ends (the silence left out), or one after the other with a short breath;
+  - what each costs: beats that drift off the grid in that stretch (live and freely played songs), two beats heard together without being matched, keys that clash (the more the longer and the more melodic the overlap), two voices singing at once, a phrase faded or cut, the next song's first words buried or left out, jumps and holes in the loudness, how much the tempo changes and whether a voice is heard meanwhile, a mix that doesn't start or end on a phrase, and loud music of either song left out;
+  - a long transition is played only when it is better: each bar of length beyond eight costs a little, and every risk grows with the overlap. When nothing is good enough, a three-second crossfade.
+- **Voices.** Before choosing, AutoMix looks for where the two songs are sung near where they meet (the last minute of the song playing, the first 45 seconds of the next) with the karaoke's vocal model, which is trained on singing in music. So a song that ends its phrase lets the next one's instrumental bars come in under its end, the next voice arriving after it has gone; two songs sung right up to the junction aren't laid over each other. Each stretch is measured once per song and kept. It needs the energy for it (not in Low Power Mode or with a hot iPhone) and the time (it gives up a minute and a half before the song's end); without it AutoMix plans as if voices could be anywhere, which keeps overlaps short.
+- **Tempo.** Each song's tempo changes by 5 % at most (it was up to 15 %); further apart, the songs are crossfaded at their own tempos. The song whose voice is heard keeps its tempo and the other adapts to it; with no voice on either side they meet halfway.
+- **Volumes.** Crossfades are equal-power over the same stretch: until now the next song was at full volume half way through while the first was still at 71 %, 1.76 dB louder than either. Where both songs play at full, their levels (measured in the analysis, with "Volume uniforme") hold them down so that together they are never louder than the louder alone, the song leaving only going down and the next only up, so neither pumps and the limiter has less to do.
+- **Bass and filters.** The bass passes from one song to the other, gradually over a bar, only when both are carried by it; the song leaving thins out with a high-pass only when it is. Acoustic songs are no longer cut.
+- **Albums.** Two songs that follow each other on their album, played in order without shuffle, are played as the album has them: the first to its last sample, the next from its first, nothing faded or left out.
+- Settings → Diagnostica shows the last choice: the candidate played with its cost and main problems, how many were weighed, whether the voices were measured, and why the best of the other kinds weren't chosen.
+- Playlist Mixes are unchanged: they still start from the timing of up to 1.16.
+- The analyses are made again (version 2): they now also hold each beat's share of bass, how far each beat's onset is from the grid, and each bar's harmony.
+
+### What still has to be checked
+- How it sounds: the choices follow measurable criteria, checked on test songs and on Creative Commons songs, but their weights are a starting point to tune by listening. No comparison with Apple Music has been made: its transitions can't be rendered outside an iPhone.
+- The voice detection's time on an iPhone and how often it can't finish before the mix is due.
+
+### For development
+- `Tools/AutoMixCheck` checks the choice on songs made for it, with voices given: beats matched only within 5 % per song; no two voices together when both songs are sung at the junction; the next song's instrumental bars under the end of a phrase and its words after it; the sung song's tempo kept; clashing keys kept short; no bass cut for a song light on bass; a fade-out mixed into; a long intro skipped; an album as it is; the curves never pumping, never louder together than the louder alone; the plan of up to 1.16 unchanged.
+- `Tools/AutoMixRenderCheck` renders beat-matched mixes within the new tempo limit and a crossfade, and checks the voice detection's arithmetic with a stand-in for the model.
+- `Tools/AutoMixRealMusic` and the "AutoMix on real songs" workflow try it on the Creative Commons songs of [JamendoLyrics](https://github.com/f90/jamendolyrics) whose licence allows derivative works: the voice detection against the timed lyrics, and representative pairs (dance, sung pop, rap, acoustic, tempos far apart, rock, reggae) rendered as 1.16 did and as now, from the same files at the same gains, as X and Y for blind listening, with a report of the choices and of the loudness.
+
 ## 1.16.0 (2026-10-28)
 
 ### Added
