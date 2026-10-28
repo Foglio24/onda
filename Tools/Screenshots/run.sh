@@ -63,8 +63,8 @@ shot 18-mix-options en 25 "mix:options"
 shot 19-mix-edit en 25 "mix:edit"
 
 # A system banner ("Ready for Apple Intelligence") can come down over the first ones, a minute or
-# so after the simulator starts: these are taken again, long after.
-shot 1-home en 14 home
+# so after the simulator starts: these are taken again, long after. (Not Home: by now it shows the
+# Mix demo's playlists.)
 shot 2-search en 12 "search:daft punk"
 shot 3-artist en 10 "artist:UCRr1xG_2WIDs18a6cIiCxeA"
 

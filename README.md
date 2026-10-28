@@ -34,7 +34,7 @@ See [CHANGELOG.md](CHANGELOG.md) for what changed in each version.
     <td align="center"><img src="docs/screenshots/settings.jpg" width="200" alt="Audio settings: quality, Dolby, Opus, Spatial Audio"><br><sub>Settings</sub></td>
   </tr>
   <tr>
-    <td align="center"><img src="docs/screenshots/home-english.jpg" width="200" alt="Home in English"><br><sub>In English</sub></td>
+    <td align="center"><img src="docs/screenshots/home-italian.jpg" width="200" alt="Home in Italian"><br><sub>In Italian</sub></td>
     <td align="center"><img src="docs/screenshots/song-info.jpg" width="200" alt="Song details: credits, format and loudness"><br><sub>Song details</sub></td>
     <td colspan="2"></td>
   </tr>
