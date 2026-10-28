@@ -12,7 +12,7 @@ import Foundation
 /// file (`completedFile()`). A prepared stream (`start(prepareOnly: true)`) reads only its first
 /// range, then waits for `resume()`.
 final class OpusStream: NSObject, @unchecked Sendable {
-    static let scheme = "onda-opus"
+    static let scheme = "seaglass-opus"
     static let sampleRate = 48_000
     /// Silence served after the song: before it plays, AVFoundation reads the last block of the
     /// file (64 KB-aligned on a Mac), which would otherwise wait for the whole song to be decoded.
@@ -97,13 +97,13 @@ final class OpusStream: NSObject, @unchecked Sendable {
     private var state = State()
     /// Parsing, decoding and writing, in order: the first range urgently (the song is waiting for
     /// it), the rest in the background, which is enough to keep well ahead of playback.
-    private let work = DispatchQueue(label: "onda.opus-stream", qos: .utility)
+    private let work = DispatchQueue(label: "seaglass.opus-stream", qos: .utility)
     private var parser = WebMStreamParser()
     private var decoder: OpusPacketDecoder?
     private var writer: FileHandle?
     private var network: Task<Void, Never>?
     /// The resource loader's requests and file reader, on `loaderQueue` only.
-    private let loaderQueue = DispatchQueue(label: "onda.opus-stream.loader", qos: .userInitiated)
+    private let loaderQueue = DispatchQueue(label: "seaglass.opus-stream.loader", qos: .userInitiated)
     private var requests: [AVAssetResourceLoadingRequest] = []
     private var reader: FileHandle?
     /// The item playing the stream (on the main thread), stopped at the song's own end.

@@ -61,7 +61,7 @@ struct LyricsService {
         // URLComponents leaves "+" alone, which servers read as a space.
         components.percentEncodedQuery = components.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B")
         var request = URLRequest(url: components.url!)
-        request.setValue("Onda/1.0 (personal iOS build)", forHTTPHeaderField: "User-Agent")
+        request.setValue("Seaglass/1.0 (personal iOS build)", forHTTPHeaderField: "User-Agent")
         let (data, response) = try await URLSession.shared.data(for: request)
         guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw URLError(.fileDoesNotExist) }
         return try JSONDecoder().decode(T.self, from: data)

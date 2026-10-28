@@ -2,6 +2,9 @@
 
 ## 1.18.0 (2026-10-28)
 
+### Changed
+- **Onda is now Seaglass.** A new name, in English: sea glass is glass smoothed by the waves. It is the same app: it installs over Onda and keeps your library, downloads, playlists, Mixes and settings (its identifier and data are unchanged). In the Files app its folder is now called Seaglass, and the IPA is `Seaglass.ipa`.
+
 ### Added
 - **Mix from the playlist's page.** Under "Riproduci" and "Casuale", "Attiva il Mix" turns the playlist's Mix on (or off) in one tap, and "Transizioni" opens its transitions. With the Mix on, every song of the playlist is mixed into the next when you listen to it, even with AutoMix off: with the transitions you designed, and with AutoMix's choice for the others.
 - **Reorder a playlist's songs.** "Riordina i brani" in the playlist's ··· menu shows a handle on each song: drag it up or down (or tap the red button to remove it), then "Fine". Holding a song opens its menu, which is why dragging it didn't work.
@@ -11,6 +14,9 @@
 - Two songs at full together for long now costs too (two whole arrangements at once), so a long mix brings the next song's main part in as the first one leaves; and the next song's voice is kept from coming in over the first one while that is still up.
 - Phrases are counted from the start of each section (where the harmony and the loudness change), so an intro of odd length doesn't shift them.
 - Choosing among the candidates (now up to about 1,700 for two four-minute songs) runs away from the main thread.
+
+### Fixed
+- **AutoMix: kicks on kicks when both songs change tempo.** Time stretching moves high, short sounds (hi-hats) differently from low ones, more so when both songs are stretched (each by a few per cent, meeting halfway): the mix lined up all onsets and could leave the kick drums some 18 ms apart. It now lines up the low ones (kick and bass) as a DJ does, within 80 ms either way, and all onsets only when the low ones don't line up clearly.
 
 ### Fixed
 - **Playlist Mixes that didn't play:**

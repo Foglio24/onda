@@ -440,7 +440,7 @@ struct DeviceSpace {
     }
 }
 
-/// Like the bar in Settings → General → iPhone Storage: Onda's downloads, everything else, free space.
+/// Like the bar in Settings → General → iPhone Storage: Seaglass's downloads, everything else, free space.
 private struct StorageBar: View {
     let downloads: Int64
     let device: DeviceSpace?
@@ -464,7 +464,7 @@ private struct StorageBar: View {
                 }
                 .frame(height: 14)
                 HStack(spacing: 14) {
-                    legend("Download di Onda", value: downloads, style: AnyShapeStyle(.tint))
+                    legend("Download di Seaglass", value: downloads, style: AnyShapeStyle(.tint))
                     legend("Altro", value: max(0, device.total - device.available - downloads),
                            style: AnyShapeStyle(Color.secondary.opacity(0.55)))
                     legend("Disponibile", value: device.available,
@@ -472,7 +472,7 @@ private struct StorageBar: View {
                 }
                 .font(.caption)
             } else {
-                LabeledContent("Download di Onda", value: DownloadStorageView.bytes(downloads))
+                LabeledContent("Download di Seaglass", value: DownloadStorageView.bytes(downloads))
             }
         }
         .padding(16)

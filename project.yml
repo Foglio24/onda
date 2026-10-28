@@ -1,11 +1,11 @@
-# XcodeGen spec: `xcodegen generate` turns this into Onda.xcodeproj (done automatically in CI).
-name: Onda
+# XcodeGen spec: `xcodegen generate` turns this into Seaglass.xcodeproj (done automatically in CI).
+name: Seaglass
 options:
   bundleIdPrefix: com.onda
   deploymentTarget:
     iOS: "26.0"
   createIntermediateGroups: true
-  # The code's text is Italian (it.lproj stays empty); English is in Onda/Resources/en.lproj.
+  # The code's text is Italian (it.lproj stays empty); English is in Seaglass/Resources/en.lproj.
   # English is the fallback for iPhones in any other language.
   developmentLanguage: en
 
@@ -24,12 +24,12 @@ packages:
     from: "0.4.9"
 
 targets:
-  Onda:
+  Seaglass:
     type: application
     platform: iOS
     deploymentTarget: "26.0"
     sources:
-      - path: Onda
+      - path: Seaglass
       # The karaoke's Core ML model (VocFT.mlmodelc), converted by CI: see build.yml.
       - path: Generated/Karaoke
         type: folder
@@ -41,7 +41,7 @@ targets:
     info:
       path: Support/Info.plist
       properties:
-        CFBundleDisplayName: Onda
+        CFBundleDisplayName: Seaglass
         CFBundleDevelopmentRegion: en
         CFBundleLocalizations:
           - it
@@ -52,7 +52,7 @@ targets:
         UILaunchScreen: {}
         UIBackgroundModes:
           - audio
-        # Shows Documents in the Files app (Sul mio iPhone › Onda), where app updates are saved.
+        # Shows Documents in the Files app (Sul mio iPhone › Seaglass), where app updates are saved.
         UIFileSharingEnabled: true
         LSSupportsOpeningDocumentsInPlace: true
         UIApplicationSceneManifest:
@@ -64,7 +64,8 @@ targets:
         ITSAppUsesNonExemptEncryption: false
     settings:
       base:
-        PRODUCT_NAME: Onda
+        PRODUCT_NAME: Seaglass
+        # The identifier of when the app was called Onda: the same app, so updates keep its data.
         PRODUCT_BUNDLE_IDENTIFIER: com.onda.player
         TARGETED_DEVICE_FAMILY: "1"
         GENERATE_INFOPLIST_FILE: NO

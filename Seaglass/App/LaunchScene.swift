@@ -2,7 +2,7 @@ import AVFoundation
 import SwiftUI
 
 /// Opens a given screen at launch, for the screenshots CI takes on a simulator
-/// (Tools/Screenshots/run.sh): `-OndaScene home | library | settings | search:<query> |
+/// (Tools/Screenshots/run.sh): `-SeaglassScene home | library | settings | search:<query> |
 /// artist:<browseId> | album:<browseId> | player:<videoId> | downloads:<videoId> | storage |
 /// equalizer | info:<album browseId> | mix | mix:options | mix:edit`.
 /// `mix` makes two short songs and a playlist of them, and opens their transition in the Mix editor
@@ -12,7 +12,7 @@ import SwiftUI
 /// Launch arguments are never passed in normal use, so this does nothing then.
 @MainActor
 enum LaunchScene {
-    private static var scene: String? { UserDefaults.standard.string(forKey: "OndaScene") }
+    private static var scene: String? { UserDefaults.standard.string(forKey: "SeaglassScene") }
 
     /// Library → Download is opened at launch.
     static var opensDownloads: Bool {
@@ -25,10 +25,10 @@ enum LaunchScene {
     /// Settings → Equalizzatore is opened at launch.
     static var opensEqualizer: Bool { scene == "equalizer" }
 
-    /// `-OndaCardProgress 0.55`: the player card stops part of the way, to see it over the app.
+    /// `-SeaglassCardProgress 0.55`: the player card stops part of the way, to see it over the app.
     static var playerCardProgress: CGFloat? {
-        guard scene != nil, let value = UserDefaults.standard.object(forKey: "OndaCardProgress") as? Double
-                ?? UserDefaults.standard.string(forKey: "OndaCardProgress").flatMap({ Double($0) }) else { return nil }
+        guard scene != nil, let value = UserDefaults.standard.object(forKey: "SeaglassCardProgress") as? Double
+                ?? UserDefaults.standard.string(forKey: "SeaglassCardProgress").flatMap({ Double($0) }) else { return nil }
         return CGFloat(max(0, min(1, value)))
     }
 
@@ -66,11 +66,11 @@ enum LaunchScene {
         case "mix":
             select(.library)
             Task {
-                let first = Track(videoId: "OndaMixDemoA", title: "Neon Drive", artists: ["Onda Demo"], duration: 72)
-                let second = Track(videoId: "OndaMixDemoB", title: "Night Run", artists: ["Onda Demo"], duration: 72)
+                let first = Track(videoId: "SeaglassMixDemoA", title: "Neon Drive", artists: ["Seaglass Demo"], duration: 72)
+                let second = Track(videoId: "SeaglassMixDemoB", title: "Night Run", artists: ["Seaglass Demo"], duration: 72)
                 await Task.detached(priority: .userInitiated) {
-                    try? Self.writeDemoSong(to: Storage.audioFile(for: "OndaMixDemoA"), bpm: 124, root: 57, introBars: 0)
-                    try? Self.writeDemoSong(to: Storage.audioFile(for: "OndaMixDemoB"), bpm: 128, root: 60, introBars: 8)
+                    try? Self.writeDemoSong(to: Storage.audioFile(for: "SeaglassMixDemoA"), bpm: 124, root: 57, introBars: 0)
+                    try? Self.writeDemoSong(to: Storage.audioFile(for: "SeaglassMixDemoB"), bpm: 128, root: 60, introBars: 8)
                 }.value
                 let playlist = Library.shared.createPlaylist(named: "Mix demo", tracks: [first, second])
                 router.mixTarget = MixTarget(playlistID: playlist.id, opensFirst: true,

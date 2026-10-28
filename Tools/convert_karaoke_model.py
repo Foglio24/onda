@@ -1,10 +1,10 @@
 """Converts the UVR MDX-Net "Voc_FT" vocal model (ONNX, from sherpa-onnx's model release) to Core ML
-for Onda's karaoke, checks the result against onnxruntime and writes a fixture for Tools/KaraokeCheck.
+for Seaglass's karaoke, checks the result against onnxruntime and writes a fixture for Tools/KaraokeCheck.
 
 Runs in CI (see .github/workflows/build.yml):
     python Tools/convert_karaoke_model.py UVR-MDX-NET-Voc_FT.onnx Generated/VocFT.mlpackage Generated/karaoke-fixture.bin
 
-The spectrogram code below is the reference that Onda/Player/MDXSeparator.swift follows. It matches
+The spectrogram code below is the reference that Seaglass/Player/MDXSeparator.swift follows. It matches
 sherpa-onnx's own UVR processing to within 1e-7.
 """
 import sys

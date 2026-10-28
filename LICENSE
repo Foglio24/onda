@@ -1,8 +1,8 @@
-Onda
+Seaglass (formerly Onda)
 Copyright (c) 2026 Foglio24. All rights reserved.
 
 This repository is public so that anyone can read its source code and release notes, and so that
-the Onda app can check GitHub for new versions. Publishing the code does not make it open source:
+the Seaglass app can check GitHub for new versions. Publishing the code does not make it open source:
 no licence to use, copy, modify or distribute it is granted, except as written below.
 
 You may:
@@ -18,12 +18,12 @@ You may not, without prior written permission from the copyright holder:
    whole or in part, or use them to make other software.
 2. Publish the app, or any app built from this code, on an app store, a website, an AltStore or
    SideStore source, or any other channel.
-3. Use the name "Onda" or its icon for another app or service.
+3. Use the name "Seaglass" (or "Onda", its former name) or its icon for another app or service.
 4. Remove or change this notice or the copyright notices in the files.
 
 Components made by others keep their own licences and are listed in THIRD_PARTY_NOTICES.md.
 Nothing in this file applies to them, and nothing in it gives any right to the music, artwork,
-lyrics or trademarks of the services Onda connects to.
+lyrics or trademarks of the services Seaglass connects to.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT
 NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND

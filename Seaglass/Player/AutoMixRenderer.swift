@@ -73,49 +73,68 @@ enum AutoMixRenderer {
         return end - start >= 3 ? start..<end : nil
     }
 
-    /// How much later (seconds) the onsets of `b` are than those of `a`: the lag, within 80 ms
-    /// either way (a sixth of a beat at 120 BPM: never the next beat), at which their onset curves
-    /// line up best. Nil when they don't line up clearly.
+    /// How much later (seconds) the beats of `b` are than those of `a`: the lag, within 80 ms
+    /// either way (a sixth of a beat at 120 BPM: never the next beat), at which their onsets line
+    /// up best. The low onsets (kick drum and bass) count, as a DJ lines up kicks: the time stretch
+    /// moves high, short sounds (hi-hats) differently from low ones, more so when both songs are
+    /// stretched. Only when the low ones don't line up clearly do all onsets count. Nil when
+    /// nothing lines up clearly.
     private static func onsetLag(_ a: [Float], _ b: [Float]) -> Double? {
         let rate = MixSchedule.sampleRate
         let hop = Int(rate / 1000)
         let window = 5 * hop
-        func onsets(_ x: [Float]) -> [Float] {
-            let count = max(0, (x.count - window) / hop)
-            var energy = [Float](repeating: 0, count: count)
-            x.withUnsafeBufferPointer { samples in
+        /// How much the sound grows every millisecond: in amplitude below about 150 Hz, or in
+        /// loudness (dB) over all frequencies.
+        func onsets(_ x: [Float], low: Bool) -> [Float] {
+            var signal = x
+            if low {
+                // Two one-pole low-passes at 150 Hz.
+                let alpha = Float(1 - exp(-2 * Double.pi * 150 / rate))
+                var first: Float = 0, second: Float = 0
+                for index in signal.indices {
+                    first += alpha * (signal[index] - first)
+                    second += alpha * (first - second)
+                    signal[index] = second
+                }
+            }
+            let count = max(0, (signal.count - window) / hop)
+            var level = [Float](repeating: 0, count: count)
+            signal.withUnsafeBufferPointer { samples in
                 guard let base = samples.baseAddress else { return }
                 for frame in 0..<count {
                     var sum: Float = 0
                     vDSP_svesq(base + frame * hop, 1, &sum, vDSP_Length(window))
-                    energy[frame] = log10(sum + 1e-9)
+                    level[frame] = low ? sum.squareRoot() : log10(sum + 1e-9)
                 }
             }
-            return (0..<count).map { $0 >= 3 ? max(0, energy[$0] - energy[$0 - 3]) : 0 }
+            return (0..<count).map { $0 >= 3 ? max(0, level[$0] - level[$0 - 3]) : 0 }
         }
-        let curveA = onsets(a), curveB = onsets(b)
-        let range = 80
-        let length = min(curveA.count, curveB.count) - 2 * range
-        guard length > 500 else { return nil }
-        var scores: [Double] = []
-        for lag in -range...range {
-            var dot = 0.0, energyA = 0.0, energyB = 0.0
-            for frame in range..<(range + length) {
-                let x = Double(curveA[frame]), y = Double(curveB[frame + lag])
-                dot += x * y
-                energyA += x * x
-                energyB += y * y
+        func lag(low: Bool) -> Double? {
+            let curveA = onsets(a, low: low), curveB = onsets(b, low: low)
+            let range = 80
+            let length = min(curveA.count, curveB.count) - 2 * range
+            guard length > 500 else { return nil }
+            var scores: [Double] = []
+            for lag in -range...range {
+                var dot = 0.0, energyA = 0.0, energyB = 0.0
+                for frame in range..<(range + length) {
+                    let x = Double(curveA[frame]), y = Double(curveB[frame + lag])
+                    dot += x * y
+                    energyA += x * x
+                    energyB += y * y
+                }
+                scores.append(dot / ((energyA * energyB).squareRoot() + 1e-12))
             }
-            scores.append(dot / ((energyA * energyB).squareRoot() + 1e-12))
+            guard let best = scores.indices.max(by: { scores[$0] < scores[$1] }), scores[best] > 0.3 else { return nil }
+            var shift = 0.0
+            if best > 0, best < scores.count - 1 {
+                let left = scores[best - 1], centre = scores[best], right = scores[best + 1]
+                let denominator = left - 2 * centre + right
+                if denominator < 0 { shift = 0.5 * (left - right) / denominator }
+            }
+            return (Double(best - range) + shift) * Double(hop) / rate
         }
-        guard let best = scores.indices.max(by: { scores[$0] < scores[$1] }), scores[best] > 0.3 else { return nil }
-        var shift = 0.0
-        if best > 0, best < scores.count - 1 {
-            let left = scores[best - 1], centre = scores[best], right = scores[best + 1]
-            let denominator = left - 2 * centre + right
-            if denominator < 0 { shift = 0.5 * (left - right) / denominator }
-        }
-        return (Double(best - range) + shift) * Double(hop) / rate
+        return lag(low: true) ?? lag(low: false)
     }
 
     /// One rendering of the mix, into `destination` when there is one, the next song starting

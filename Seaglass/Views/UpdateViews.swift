@@ -41,7 +41,7 @@ struct UpdateSheet: View {
                 .frame(width: 64, height: 64)
                 .background(accent.color.gradient, in: .rect(cornerRadius: 16))
             VStack(alignment: .leading, spacing: 2) {
-                Text("Onda \(release.version)")
+                Text("Seaglass \(release.version)")
                     .font(.title2.bold())
                 Text("Hai la versione \(AppUpdater.currentVersion)")
                     .font(.subheadline)
@@ -53,7 +53,7 @@ struct UpdateSheet: View {
     private func actions(_ release: AppUpdater.Release) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             if let file = updater.downloadedFile {
-                Label("Scaricata in File › Sul mio iPhone › Onda › \(Storage.updatesFolderName)",
+                Label("Scaricata in File › Sul mio iPhone › Seaglass › \(Storage.updatesFolderName)",
                       systemImage: "checkmark.circle.fill")
                     .font(.subheadline)
                 ShareLink(item: file) {

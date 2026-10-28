@@ -2,7 +2,7 @@ import Combine
 import Foundation
 import MetricKit
 
-/// Crash and hang reports that iOS collects about Onda (MetricKit), saved so they can be shared
+/// Crash and hang reports that iOS collects about Seaglass (MetricKit), saved so they can be shared
 /// from Settings → Diagnostica. iOS hands them over at a later launch, not at the moment it happens.
 @MainActor
 final class Diagnostics: NSObject, ObservableObject {

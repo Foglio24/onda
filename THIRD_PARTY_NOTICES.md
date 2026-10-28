@@ -1,6 +1,6 @@
 # Third-party notices
 
-Onda's own code is covered by [LICENSE](LICENSE). It uses, includes or talks to the following
+Seaglass's own code is covered by [LICENSE](LICENSE). It uses, includes or talks to the following
 work by others, which keeps its own licence or terms.
 
 ## Included in the app
@@ -33,8 +33,8 @@ work by others, which keeps its own licence or terms.
   detection against the timed lyrics and to render test transitions. Only the songs whose licence
   allows derivative works are mixed; the excerpts stay in that workflow's artifacts, with credits.
 
-## Services Onda connects to
-Onda is not affiliated with, endorsed by or sponsored by any of these services. Their names and
+## Services Seaglass connects to
+Seaglass is not affiliated with, endorsed by or sponsored by any of these services. Their names and
 logos are trademarks of their owners, and the music, artwork, lyrics and data they provide belong
 to their respective rights holders.
 

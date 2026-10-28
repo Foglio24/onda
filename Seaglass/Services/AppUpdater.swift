@@ -1,11 +1,11 @@
 import Combine
 import Foundation
 
-/// What happens when a newer version of Onda is published on GitHub (Settings → Aggiornamenti).
+/// What happens when a newer version of Seaglass is published on GitHub (Settings → Aggiornamenti).
 enum UpdateMode: String, CaseIterable, Identifiable {
     /// Shows the new version and its changelog.
     case notify
-    /// Saves the new IPA in Files (Sul mio iPhone › Onda › Aggiornamenti), then shows it.
+    /// Saves the new IPA in Files (Sul mio iPhone › Seaglass › Aggiornamenti), then shows it.
     case download
 
     var id: Self { self }
@@ -30,7 +30,7 @@ enum UpdateError: LocalizedError {
     }
 }
 
-/// Checks GitHub for a newer stable release of Onda at launch or on request, and either shows it
+/// Checks GitHub for a newer stable release of Seaglass at launch or on request, and either shows it
 /// or downloads its IPA, as chosen in Settings. Installing stays manual (Sideloadly, AltStore…):
 /// iOS doesn't let a sideloaded app replace itself.
 @MainActor
@@ -127,6 +127,7 @@ final class AppUpdater: ObservableObject {
     private func removeInstalledUpdates() {
         for file in Self.savedIPAs() {
             let version = file.deletingPathExtension().lastPathComponent.replacingOccurrences(of: "Onda-", with: "")
+                .replacingOccurrences(of: "Seaglass-", with: "")
             if !AppVersion.isNewer(version, than: Self.currentVersion) {
                 try? FileManager.default.removeItem(at: file)
                 if downloadedFile == file { downloadedFile = nil }
@@ -135,7 +136,7 @@ final class AppUpdater: ObservableObject {
     }
 
     private static func file(for release: Release) -> URL? {
-        release.ipa == nil ? nil : Storage.updates.appending(path: "Onda-\(release.version).ipa")
+        release.ipa == nil ? nil : Storage.updates.appending(path: "Seaglass-\(release.version).ipa")
     }
 
     private static func savedIPAs() -> [URL] {

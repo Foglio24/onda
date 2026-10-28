@@ -58,7 +58,7 @@ final class PreparedPlayback {
                 self?.refreshBudget()
             }
         }
-        network.start(queue: DispatchQueue(label: "onda.prepared-playback.network", qos: .utility))
+        network.start(queue: DispatchQueue(label: "seaglass.prepared-playback.network", qos: .utility))
         _ = EnergyPolicy.current
         NotificationCenter.default.publisher(for: ProcessInfo.thermalStateDidChangeNotification)
             .merge(with: NotificationCenter.default.publisher(for: .NSProcessInfoPowerStateDidChange))

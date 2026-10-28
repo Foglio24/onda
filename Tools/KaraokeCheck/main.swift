@@ -1,7 +1,7 @@
-// Runs Onda's MDXSeparator (the app's own Swift code) on the fixture written by
+// Runs Seaglass's MDXSeparator (the app's own Swift code) on the fixture written by
 // Tools/convert_karaoke_model.py and compares its vocals with onnxruntime's.
 // CI builds and runs it on macOS before building the app:
-//   swiftc -O Onda/Player/MDXSeparator.swift Tools/KaraokeCheck/main.swift -o karaoke-check
+//   swiftc -O Seaglass/Player/MDXSeparator.swift Tools/KaraokeCheck/main.swift -o karaoke-check
 //   ./karaoke-check Generated/Karaoke/VocFT.mlmodelc Generated/karaoke-fixture.bin
 import CoreML
 import Foundation

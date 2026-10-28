@@ -1,6 +1,6 @@
 """Checks the app's English text against the strings the Swift compiler found in the code.
 
-Usage: check_localization.py <derived data dir> <en Localizable.strings> <Onda.app>
+Usage: check_localization.py <derived data dir> <en Localizable.strings> <Seaglass.app>
 
 With SWIFT_EMIT_LOC_STRINGS the compiler writes a .stringsdata file for each Swift file,
 listing its localizable strings (Text("…"), Label("…"), String(localized: "…")…) with
@@ -62,7 +62,7 @@ def parse_strings(text):
 def compiler_keys(derived_data):
     """Localizable keys of the app target, with the Swift file each comes from."""
     paths = [p for p in glob.glob(os.path.join(derived_data, "**", "*.stringsdata"), recursive=True)
-             if f"{os.sep}Onda.build{os.sep}" in p]
+             if f"{os.sep}Seaglass.build{os.sep}" in p]
     if not paths:
         sys.exit(f"::error::No .stringsdata files under {derived_data}: is SWIFT_EMIT_LOC_STRINGS on?")
     keys = {}

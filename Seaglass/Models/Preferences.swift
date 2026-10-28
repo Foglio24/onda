@@ -280,7 +280,7 @@ final class NetworkMonitor: @unchecked Sendable {
         monitor.pathUpdateHandler = { [unowned self] path in
             self.update(path.isExpensive || path.usesInterfaceType(.cellular))
         }
-        monitor.start(queue: DispatchQueue(label: "onda.network-monitor"))
+        monitor.start(queue: DispatchQueue(label: "seaglass.network-monitor"))
     }
 
     private func update(_ metered: Bool) {

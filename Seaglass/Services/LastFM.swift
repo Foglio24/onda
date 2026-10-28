@@ -235,7 +235,7 @@ final class LastFM: ObservableObject {
         } else {
             request = URLRequest(url: URL(string: "\(endpoint.absoluteString)?\(body)")!)
         }
-        request.setValue("Onda/1.0 (iOS)", forHTTPHeaderField: "User-Agent")
+        request.setValue("Seaglass/1.0 (iOS)", forHTTPHeaderField: "User-Agent")
 
         let (data, _) = try await URLSession.shared.data(for: request)
         guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {

@@ -133,9 +133,9 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Volume uniforme abbassa i brani più forti al livello di riferimento di YouTube (-14 LUFS), come la normalizzazione di Spotify, così passando da un brano all'altro il volume resta simile.")
                 if opusFromStart {
-                    Text("Massima usa Opus 160 kbps, il formato migliore che YouTube dà senza Premium. Con «Opus dal primo suono» Onda lo scarica a blocchi e lo decodifica sull'iPhone mentre suona, dal primo secondo; il brano successivo e quello che stai per toccare hanno i primi secondi già pronti (solo in Wi-Fi). Se Opus non può partire (un errore, il risparmio energetico, un brano oltre 20 minuti) suona AAC, e accanto al formato è scritto perché. Se un video ha l'audio Dolby Digital Plus o AAC 256 kbps, viene usato quello. L'Audio spaziale funziona con AirPods e cuffie Beats compatibili.")
+                    Text("Massima usa Opus 160 kbps, il formato migliore che YouTube dà senza Premium. Con «Opus dal primo suono» Seaglass lo scarica a blocchi e lo decodifica sull'iPhone mentre suona, dal primo secondo; il brano successivo e quello che stai per toccare hanno i primi secondi già pronti (solo in Wi-Fi). Se Opus non può partire (un errore, il risparmio energetico, un brano oltre 20 minuti) suona AAC, e accanto al formato è scritto perché. Se un video ha l'audio Dolby Digital Plus o AAC 256 kbps, viene usato quello. L'Audio spaziale funziona con AirPods e cuffie Beats compatibili.")
                 } else {
-                    Text("Massima usa Opus 160 kbps, il formato migliore che YouTube dà senza Premium: Onda lo decodifica sull'iPhone e lo riproduce senza perdite. Il brano parte subito in AAC e lo tiene fino alla fine, senza salti: Opus viene preparato intanto e suona dal riascolto successivo (o da quando sposti la barra). Se un video ha l'audio Dolby Digital Plus o AAC 256 kbps, viene usato quello. L'Audio spaziale funziona con AirPods e cuffie Beats compatibili.")
+                    Text("Massima usa Opus 160 kbps, il formato migliore che YouTube dà senza Premium: Seaglass lo decodifica sull'iPhone e lo riproduce senza perdite. Il brano parte subito in AAC e lo tiene fino alla fine, senza salti: Opus viene preparato intanto e suona dal riascolto successivo (o da quando sposti la barra). Se un video ha l'audio Dolby Digital Plus o AAC 256 kbps, viene usato quello. L'Audio spaziale funziona con AirPods e cuffie Beats compatibili.")
                 }
                 if !opusLastError.isEmpty {
                     Text("Ultimo errore Opus: \(opusLastError)")
@@ -179,7 +179,7 @@ struct SettingsView: View {
         } header: {
             Text("Riproduzione")
         } footer: {
-            Text("AutoMix sceglie per ogni coppia di brani la transizione migliore e la prepara in anticipo: a tempo come un DJ (da 2 a 16 battute), una dissolvenza breve, l'ingresso nella dissolvenza finale, oppure i due brani uno dopo l'altro senza silenzio, anche fino a 40 secondi prima della fine del brano o dopo l'inizio del successivo. Valuta dove i brani si incontrano: se il ritmo è stabile, se le tonalità stonano, se due voci canterebbero insieme o una frase verrebbe tagliata, il volume e quanto cambierebbe il tempo (al massimo il 5 per cento per brano, mantenendo quello del brano cantato). Le voci le trova con il modello AI del karaoke, quando c'è energia e tempo. Due brani dello stesso album in ordine restano come nell'album. Nella coda vedi cosa farà; mentre il mix suona, il player mostra \"AutoMix\". Il brano successivo viene analizzato e mixato dalla copia che Onda scarica comunque, senza dati in più. La radio automatica continua con brani simili quando la coda finisce. Le compilation da più di 15 minuti vengono escluse da radio, mood e \"Scelti per te\". Il timer di spegnimento è nel menu ··· del player.")
+            Text("AutoMix sceglie per ogni coppia di brani la transizione migliore e la prepara in anticipo: a tempo come un DJ (da 2 a 16 battute), una dissolvenza breve, l'ingresso nella dissolvenza finale, oppure i due brani uno dopo l'altro senza silenzio, anche fino a 40 secondi prima della fine del brano o dopo l'inizio del successivo. Valuta dove i brani si incontrano: se il ritmo è stabile, se le tonalità stonano, se due voci canterebbero insieme o una frase verrebbe tagliata, il volume e quanto cambierebbe il tempo (al massimo il 5 per cento per brano, mantenendo quello del brano cantato). Le voci le trova con il modello AI del karaoke, quando c'è energia e tempo. Due brani dello stesso album in ordine restano come nell'album. Nella coda vedi cosa farà; mentre il mix suona, il player mostra \"AutoMix\". Il brano successivo viene analizzato e mixato dalla copia che Seaglass scarica comunque, senza dati in più. La radio automatica continua con brani simili quando la coda finisce. Le compilation da più di 15 minuti vengono escluse da radio, mood e \"Scelti per te\". Il timer di spegnimento è nel menu ··· del player.")
         }
     }
 
@@ -302,7 +302,7 @@ struct SettingsView: View {
                 }
             }
         } footer: {
-            Text("Onda è in italiano e in inglese e segue la lingua dell'iPhone. Per cambiarla solo in Onda, tocca Lingua: si aprono le impostazioni dell'app, dove la scelta compare se sull'iPhone c'è più di una lingua preferita.")
+            Text("Seaglass è in italiano e in inglese e segue la lingua dell'iPhone. Per cambiarla solo in Seaglass, tocca Lingua: si aprono le impostazioni dell'app, dove la scelta compare se sull'iPhone c'è più di una lingua preferita.")
         }
     }
 
@@ -414,7 +414,7 @@ struct SettingsView: View {
         } header: {
             Text("Aggiornamenti")
         } footer: {
-            Text("Onda controlla le nuove versioni su GitHub a ogni avvio, oppure quando tocchi Cerca aggiornamenti. Con «Scarica in automatico» il file IPA viene salvato nell'app File, in Sul mio iPhone › Onda › \(Storage.updatesFolderName): da lì lo installi con Sideloadly, AltStore o SideStore, perché iOS non permette a un'app installata così di aggiornarsi da sola.")
+            Text("Seaglass controlla le nuove versioni su GitHub a ogni avvio, oppure quando tocchi Cerca aggiornamenti. Con «Scarica in automatico» il file IPA viene salvato nell'app File, in Sul mio iPhone › Seaglass › \(Storage.updatesFolderName): da lì lo installi con Sideloadly, AltStore o SideStore, perché iOS non permette a un'app installata così di aggiornarsi da sola.")
         }
     }
 
@@ -447,7 +447,7 @@ struct SettingsView: View {
         } footer: {
             VStack(alignment: .leading, spacing: 6) {
                 Text("I tempi di avvio vanno dal tocco su un brano a quando il player lo fa suonare, sugli ultimi 20 avvii, divisi per come parte il brano (Opus o no, già preparato o no), e restano sull'iPhone. Per Opus l'ultimo avvio dice anche quando sono arrivati il primo byte e il primo audio decodificato; «primo audio» è quando il suono è passato per l'elaborazione audio (con AutoMix o l'equalizzatore), un attimo prima di sentirlo.")
-                Text("Se Onda si chiude da sola o si blocca, iOS prepara un rapporto tecnico e lo consegna all'app a un avvio successivo, di solito entro un giorno. Toccalo per condividerlo: contiene solo dati tecnici dell'app, non la tua musica né i tuoi account.")
+                Text("Se Seaglass si chiude da sola o si blocca, iOS prepara un rapporto tecnico e lo consegna all'app a un avvio successivo, di solito entro un giorno. Toccalo per condividerlo: contiene solo dati tecnici dell'app, non la tua musica né i tuoi account.")
             }
         }
     }
@@ -553,7 +553,7 @@ struct SettingsView: View {
 
     private var nowPlayingStatus: String {
         switch nowPlayingAccepted {
-        case 1: return String(localized: "Onda (accettato da iOS)")
+        case 1: return String(localized: "Seaglass (accettato da iOS)")
         case 0: return String(localized: "Rifiutato da iOS")
         default: return "—"
         }

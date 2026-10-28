@@ -6,8 +6,8 @@ cd "$(dirname "$0")/../.."
 binary="$(mktemp "${TMPDIR:-/tmp}/onda-opus-startup-probe.XXXXXX")"
 trap 'rm -f "$binary"' EXIT
 swiftc -O -parse-as-library -target "$(uname -m)-apple-macosx14.0" \
-  Onda/Services/JSON.swift Onda/Services/SongDetails.swift Onda/Services/DirectStreams.swift \
-  Onda/Services/ChunkedDownload.swift Onda/Services/SharedAudioWork.swift Onda/Services/EnergyPolicy.swift \
-  Onda/Services/OpusPipeline.swift Onda/Services/WebMStream.swift Onda/Services/OpusStream.swift \
+  Seaglass/Services/JSON.swift Seaglass/Services/SongDetails.swift Seaglass/Services/DirectStreams.swift \
+  Seaglass/Services/ChunkedDownload.swift Seaglass/Services/SharedAudioWork.swift Seaglass/Services/EnergyPolicy.swift \
+  Seaglass/Services/OpusPipeline.swift Seaglass/Services/WebMStream.swift Seaglass/Services/OpusStream.swift \
   Tools/OpusStartupProbe/main.swift -o "$binary"
 "$binary" "$@"

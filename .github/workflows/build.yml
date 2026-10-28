@@ -1,4 +1,4 @@
-# Builds an unsigned Onda.ipa on a macOS runner, ready to be signed and installed
+# Builds an unsigned Seaglass.ipa on a macOS runner, ready to be signed and installed
 # with Sideloadly, AltStore or SideStore.
 name: Build IPA
 
@@ -109,7 +109,7 @@ jobs:
       # Runs the app's own Swift separation code on macOS against onnxruntime's result.
       - name: Check the karaoke separation
         run: |
-          swiftc -O Onda/Player/MDXSeparator.swift Tools/KaraokeCheck/main.swift -o build-karaoke-check
+          swiftc -O Seaglass/Player/MDXSeparator.swift Tools/KaraokeCheck/main.swift -o build-karaoke-check
           ./build-karaoke-check Generated/Karaoke/VocFT.mlmodelc Generated/karaoke-fixture.bin
           rm build-karaoke-check
 
@@ -121,8 +121,8 @@ jobs:
       - name: Build (unsigned)
         run: |
           xcodebuild \
-            -project Onda.xcodeproj \
-            -scheme Onda \
+            -project Seaglass.xcodeproj \
+            -scheme Seaglass \
             -configuration Release \
             -sdk iphoneos \
             -destination 'generic/platform=iOS' \
@@ -138,39 +138,39 @@ jobs:
       # Every text the compiler finds in the code needs an English entry in en.lproj.
       - name: Check the English translation
         run: |
-          plutil -lint Onda/Resources/*.lproj/Localizable.strings
-          python3 Tools/check_localization.py build Onda/Resources/en.lproj/Localizable.strings \
-            build/Build/Products/Release-iphoneos/Onda.app
+          plutil -lint Seaglass/Resources/*.lproj/Localizable.strings
+          python3 Tools/check_localization.py build Seaglass/Resources/en.lproj/Localizable.strings \
+            build/Build/Products/Release-iphoneos/Seaglass.app
 
       - name: Package IPA
         run: |
           mkdir -p Payload
-          cp -R build/Build/Products/Release-iphoneos/Onda.app Payload/
-          zip -qry Onda.ipa Payload
-          ls -lh Onda.ipa
+          cp -R build/Build/Products/Release-iphoneos/Seaglass.app Payload/
+          zip -qry Seaglass.ipa Payload
+          ls -lh Seaglass.ipa
 
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
-          name: Onda-ipa
-          path: Onda.ipa
+          name: Seaglass-ipa
+          path: Seaglass.ipa
           retention-days: 30
 
       # Debug symbols, to read the crash reports shared from Settings → Diagnostica.
       - name: Package debug symbols
         run: |
           cd build/Build/Products/Release-iphoneos
-          if [ -d Onda.app.dSYM ]; then
-            zip -qry "$GITHUB_WORKSPACE/Onda.app.dSYM.zip" Onda.app.dSYM
+          if [ -d Seaglass.app.dSYM ]; then
+            zip -qry "$GITHUB_WORKSPACE/Seaglass.app.dSYM.zip" Seaglass.app.dSYM
           else
-            echo "::warning::No Onda.app.dSYM in the build products"
+            echo "::warning::No Seaglass.app.dSYM in the build products"
           fi
 
       - name: Upload debug symbols
         uses: actions/upload-artifact@v4
         with:
-          name: Onda-dSYM
-          path: Onda.app.dSYM.zip
+          name: Seaglass-dSYM
+          path: Seaglass.app.dSYM.zip
           if-no-files-found: ignore
           retention-days: 90
 
@@ -192,7 +192,7 @@ jobs:
           previous=$(gh api "repos/${{ github.repository }}/releases/latest" --jq .tag_name 2>/dev/null || true)
           python3 Tools/release_notes.py CHANGELOG.md "${tag#v}" "${previous#v}" > release-notes.md
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          echo "name=Onda ${tag#v}" >> "$GITHUB_OUTPUT"
+          echo "name=Seaglass ${tag#v}" >> "$GITHUB_OUTPUT"
           head -20 release-notes.md
 
       - name: Attach IPA and debug symbols to the release
@@ -204,8 +204,8 @@ jobs:
           name: ${{ steps.notes.outputs.name }}
           body_path: release-notes.md
           files: |
-            Onda.ipa
-            Onda.app.dSYM.zip
+            Seaglass.ipa
+            Seaglass.app.dSYM.zip
 
       # Screenshots of the main screens on an iPhone simulator, to check the UI without a device.
       - name: Build for the simulator
@@ -213,8 +213,8 @@ jobs:
         continue-on-error: true
         run: |
           xcodebuild \
-            -project Onda.xcodeproj \
-            -scheme Onda \
+            -project Seaglass.xcodeproj \
+            -scheme Seaglass \
             -configuration Debug \
             -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' \
@@ -230,13 +230,13 @@ jobs:
         if: ${{ !startsWith(github.ref, 'refs/tags/') }}
         continue-on-error: true
         timeout-minutes: 20
-        run: bash Tools/Screenshots/run.sh build-sim/Build/Products/Debug-iphonesimulator/Onda.app screenshots
+        run: bash Tools/Screenshots/run.sh build-sim/Build/Products/Debug-iphonesimulator/Seaglass.app screenshots
 
       - name: Upload screenshots
         if: ${{ !startsWith(github.ref, 'refs/tags/') }}
         continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
-          name: Onda-screenshots
+          name: Seaglass-screenshots
           path: screenshots
           retention-days: 14

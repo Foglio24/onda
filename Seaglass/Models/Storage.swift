@@ -3,6 +3,7 @@ import Foundation
 /// File locations used by the app.
 enum Storage {
     static let support: URL = makeDirectory(
+        // The app was called Onda: its folder keeps that name, so nothing is lost.
         URL.applicationSupportDirectory.appending(path: "Onda", directoryHint: .isDirectory))
     /// Downloaded songs. Up to 1.5.0 they were in Documents, which is now shown in the Files app
     /// (for app updates), so they move here once; if the move fails, the old folder is kept.
@@ -19,7 +20,7 @@ enum Storage {
         }
         return makeDirectory(current)
     }()
-    /// App updates downloaded from GitHub; Documents is visible in Files (Sul mio iPhone › Onda).
+    /// App updates downloaded from GitHub; Documents is visible in Files (Sul mio iPhone › Seaglass).
     static let updates: URL = makeDirectory(
         URL.documentsDirectory.appending(path: updatesFolderName, directoryHint: .isDirectory))
     static let updatesFolderName = String(localized: "Aggiornamenti")

@@ -96,7 +96,7 @@
 "In attesa" = "Waiting";
 "Musica scaricata" = "Downloaded music";
 "Scorri a sinistra su un artista o su un brano per toglierlo dall'iPhone: resta nei preferiti e nelle playlist, e si può riscaricare." = "Swipe left on an artist or a song to remove it from this iPhone: it stays in your favorites and playlists, and can be downloaded again.";
-"Download di Onda" = "Onda downloads";
+"Download di Seaglass" = "Seaglass downloads";
 "Altro" = "Other";
 "Disponibile" = "Available";
 
@@ -221,11 +221,11 @@
 "Streaming su rete cellulare" = "Streaming on cellular";
 "Dolby quando disponibile" = "Dolby when available";
 "Opus dal primo suono" = "Opus from the first note";
-"Massima usa Opus 160 kbps, il formato migliore che YouTube dà senza Premium. Con «Opus dal primo suono» Onda lo scarica a blocchi e lo decodifica sull'iPhone mentre suona, dal primo secondo; il brano successivo e quello che stai per toccare hanno i primi secondi già pronti (solo in Wi-Fi). Se Opus non può partire (un errore, il risparmio energetico, un brano oltre 20 minuti) suona AAC, e accanto al formato è scritto perché. Se un video ha l'audio Dolby Digital Plus o AAC 256 kbps, viene usato quello. L'Audio spaziale funziona con AirPods e cuffie Beats compatibili." = "Maximum uses Opus 160 kbps, the best format YouTube offers without Premium. With “Opus from the first note” Onda downloads it in pieces and decodes it on the iPhone as it plays, from the first second; the next song and the one you are about to tap have their first seconds ready (on Wi-Fi only). If Opus can't start (an error, energy saving, a song over 20 minutes), AAC plays, and the reason is written next to the format. If a video has Dolby Digital Plus or AAC 256 kbps audio, that is used. Spatial Audio works with compatible AirPods and Beats headphones.";
+"Massima usa Opus 160 kbps, il formato migliore che YouTube dà senza Premium. Con «Opus dal primo suono» Seaglass lo scarica a blocchi e lo decodifica sull'iPhone mentre suona, dal primo secondo; il brano successivo e quello che stai per toccare hanno i primi secondi già pronti (solo in Wi-Fi). Se Opus non può partire (un errore, il risparmio energetico, un brano oltre 20 minuti) suona AAC, e accanto al formato è scritto perché. Se un video ha l'audio Dolby Digital Plus o AAC 256 kbps, viene usato quello. L'Audio spaziale funziona con AirPods e cuffie Beats compatibili." = "Maximum uses Opus 160 kbps, the best format YouTube offers without Premium. With “Opus from the first note” Seaglass downloads it in pieces and decodes it on the iPhone as it plays, from the first second; the next song and the one you are about to tap have their first seconds ready (on Wi-Fi only). If Opus can't start (an error, energy saving, a song over 20 minutes), AAC plays, and the reason is written next to the format. If a video has Dolby Digital Plus or AAC 256 kbps audio, that is used. Spatial Audio works with compatible AirPods and Beats headphones.";
 "Audio spaziale" = "Spatial Audio";
 "Volume uniforme" = "Normalize volume";
 "Volume uniforme abbassa i brani più forti al livello di riferimento di YouTube (-14 LUFS), come la normalizzazione di Spotify, così passando da un brano all'altro il volume resta simile." = "Normalize volume lowers louder songs to YouTube's reference level (-14 LUFS), like Spotify's normalization, so the volume stays similar from one song to the next.";
-"Massima usa Opus 160 kbps, il formato migliore che YouTube dà senza Premium: Onda lo decodifica sull'iPhone e lo riproduce senza perdite. Il brano parte subito in AAC e lo tiene fino alla fine, senza salti: Opus viene preparato intanto e suona dal riascolto successivo (o da quando sposti la barra). Se un video ha l'audio Dolby Digital Plus o AAC 256 kbps, viene usato quello. L'Audio spaziale funziona con AirPods e cuffie Beats compatibili." = "Maximum uses Opus 160 kbps, the best format YouTube gives without Premium: Onda decodes it on the iPhone and plays it losslessly. The song starts right away in AAC and keeps it to the end, without gaps: Opus is prepared meanwhile and plays from the next listen (or from when you move the bar). If a video has Dolby Digital Plus or AAC 256 kbps audio, that is used instead. Spatial Audio works with compatible AirPods and Beats headphones.";
+"Massima usa Opus 160 kbps, il formato migliore che YouTube dà senza Premium: Seaglass lo decodifica sull'iPhone e lo riproduce senza perdite. Il brano parte subito in AAC e lo tiene fino alla fine, senza salti: Opus viene preparato intanto e suona dal riascolto successivo (o da quando sposti la barra). Se un video ha l'audio Dolby Digital Plus o AAC 256 kbps, viene usato quello. L'Audio spaziale funziona con AirPods e cuffie Beats compatibili." = "Maximum uses Opus 160 kbps, the best format YouTube gives without Premium: Seaglass decodes it on the iPhone and plays it losslessly. The song starts right away in AAC and keeps it to the end, without gaps: Opus is prepared meanwhile and plays from the next listen (or from when you move the bar). If a video has Dolby Digital Plus or AAC 256 kbps audio, that is used instead. Spatial Audio works with compatible AirPods and Beats headphones.";
 "Ultimo errore Opus: %@" = "Last Opus error: %@";
 "Massima · Opus 160 kbps" = "Maximum · Opus 160 kbps";
 "Alta · AAC 128 kbps" = "High · AAC 128 kbps";
@@ -301,7 +301,7 @@
 "il prossimo parte da %@" = "the next one starts at %@";
 "%lld s" = "%lld s";
 "Salta le compilation lunghe" = "Skip long compilations";
-"AutoMix sceglie per ogni coppia di brani la transizione migliore e la prepara in anticipo: a tempo come un DJ (da 2 a 16 battute), una dissolvenza breve, l'ingresso nella dissolvenza finale, oppure i due brani uno dopo l'altro senza silenzio, anche fino a 40 secondi prima della fine del brano o dopo l'inizio del successivo. Valuta dove i brani si incontrano: se il ritmo è stabile, se le tonalità stonano, se due voci canterebbero insieme o una frase verrebbe tagliata, il volume e quanto cambierebbe il tempo (al massimo il 5 per cento per brano, mantenendo quello del brano cantato). Le voci le trova con il modello AI del karaoke, quando c'è energia e tempo. Due brani dello stesso album in ordine restano come nell'album. Nella coda vedi cosa farà; mentre il mix suona, il player mostra \"AutoMix\". Il brano successivo viene analizzato e mixato dalla copia che Onda scarica comunque, senza dati in più. La radio automatica continua con brani simili quando la coda finisce. Le compilation da più di 15 minuti vengono escluse da radio, mood e \"Scelti per te\". Il timer di spegnimento è nel menu ··· del player." = "For each pair of songs AutoMix chooses the best transition and prepares it ahead: beat-matched like a DJ (2 to 16 bars), a short crossfade, coming in during the fade-out, or the two songs one after the other without silence, even up to 40 seconds before the song's end or after the next one's start. It weighs where the songs meet: whether the beat is steady, whether the keys clash, whether two voices would sing together or a phrase would be cut, the volume, and how much the tempo would change (at most 5 percent per song, keeping the sung song's). It finds the voices with the karaoke's AI model, when there is the energy and the time. Two songs of the same album in order stay as on the album. The queue shows what it will do; while the mix plays, the player shows \"AutoMix\". The next song is analysed and mixed from the copy Onda downloads anyway, with no extra data. Automatic radio keeps going with similar songs when the queue ends. Compilations longer than 15 minutes are left out of radios, moods and \"Picked for you\". The sleep timer is in the player's ··· menu.";
+"AutoMix sceglie per ogni coppia di brani la transizione migliore e la prepara in anticipo: a tempo come un DJ (da 2 a 16 battute), una dissolvenza breve, l'ingresso nella dissolvenza finale, oppure i due brani uno dopo l'altro senza silenzio, anche fino a 40 secondi prima della fine del brano o dopo l'inizio del successivo. Valuta dove i brani si incontrano: se il ritmo è stabile, se le tonalità stonano, se due voci canterebbero insieme o una frase verrebbe tagliata, il volume e quanto cambierebbe il tempo (al massimo il 5 per cento per brano, mantenendo quello del brano cantato). Le voci le trova con il modello AI del karaoke, quando c'è energia e tempo. Due brani dello stesso album in ordine restano come nell'album. Nella coda vedi cosa farà; mentre il mix suona, il player mostra \"AutoMix\". Il brano successivo viene analizzato e mixato dalla copia che Seaglass scarica comunque, senza dati in più. La radio automatica continua con brani simili quando la coda finisce. Le compilation da più di 15 minuti vengono escluse da radio, mood e \"Scelti per te\". Il timer di spegnimento è nel menu ··· del player." = "For each pair of songs AutoMix chooses the best transition and prepares it ahead: beat-matched like a DJ (2 to 16 bars), a short crossfade, coming in during the fade-out, or the two songs one after the other without silence, even up to 40 seconds before the song's end or after the next one's start. It weighs where the songs meet: whether the beat is steady, whether the keys clash, whether two voices would sing together or a phrase would be cut, the volume, and how much the tempo would change (at most 5 percent per song, keeping the sung song's). It finds the voices with the karaoke's AI model, when there is the energy and the time. Two songs of the same album in order stay as on the album. The queue shows what it will do; while the mix plays, the player shows \"AutoMix\". The next song is analysed and mixed from the copy Seaglass downloads anyway, with no extra data. Automatic radio keeps going with similar songs when the queue ends. Compilations longer than 15 minutes are left out of radios, moods and \"Picked for you\". The sleep timer is in the player's ··· menu.";
 
 /* Settings: karaoke */
 "Modello AI (UVR MDX-Net)" = "AI model (UVR MDX-Net)";
@@ -346,7 +346,7 @@
 
 /* Settings: language */
 "Lingua" = "Language";
-"Onda è in italiano e in inglese e segue la lingua dell'iPhone. Per cambiarla solo in Onda, tocca Lingua: si aprono le impostazioni dell'app, dove la scelta compare se sull'iPhone c'è più di una lingua preferita." = "Onda is in Italian and English and follows the iPhone's language. To change it just for Onda, tap Language: the app's settings open, where the choice shows up if the iPhone has more than one preferred language.";
+"Seaglass è in italiano e in inglese e segue la lingua dell'iPhone. Per cambiarla solo in Seaglass, tocca Lingua: si aprono le impostazioni dell'app, dove la scelta compare se sull'iPhone c'è più di una lingua preferita." = "Seaglass is in Italian and English and follows the iPhone's language. To change it just for Seaglass, tap Language: the app's settings open, where the choice shows up if the iPhone has more than one preferred language.";
 
 /* Settings: Last.fm */
 "API key" = "API key";
@@ -386,7 +386,7 @@
 "Nuova versione" = "New version";
 "Non riuscito" = "Failed";
 "Novità della %@" = "What's new in %@";
-"Onda controlla le nuove versioni su GitHub a ogni avvio, oppure quando tocchi Cerca aggiornamenti. Con «Scarica in automatico» il file IPA viene salvato nell'app File, in Sul mio iPhone › Onda › %@: da lì lo installi con Sideloadly, AltStore o SideStore, perché iOS non permette a un'app installata così di aggiornarsi da sola." = "Onda checks GitHub for new versions at every launch, or when you tap Check for updates. With “Download automatically” the IPA file is saved in the Files app, in On My iPhone › Onda › %@: install it from there with Sideloadly, AltStore or SideStore, because iOS doesn't let an app installed this way update itself.";
+"Seaglass controlla le nuove versioni su GitHub a ogni avvio, oppure quando tocchi Cerca aggiornamenti. Con «Scarica in automatico» il file IPA viene salvato nell'app File, in Sul mio iPhone › Seaglass › %@: da lì lo installi con Sideloadly, AltStore o SideStore, perché iOS non permette a un'app installata così di aggiornarsi da sola." = "Seaglass checks GitHub for new versions at every launch, or when you tap Check for updates. With “Download automatically” the IPA file is saved in the Files app, in On My iPhone › Seaglass › %@: install it from there with Sideloadly, AltStore or SideStore, because iOS doesn't let an app installed this way update itself.";
 "GitHub non ha risposto correttamente (%lld)." = "GitHub didn't respond correctly (%lld).";
 "Questa versione non ha un file IPA da scaricare." = "This version has no IPA file to download.";
 
@@ -394,9 +394,9 @@
 "Aggiornamento" = "Update";
 "Più tardi" = "Later";
 "Novità" = "What's new";
-"Onda %@" = "Onda %@";
+"Seaglass %@" = "Seaglass %@";
 "Hai la versione %@" = "You have version %@";
-"Scaricata in File › Sul mio iPhone › Onda › %@" = "Saved in Files › On My iPhone › Onda › %@";
+"Scaricata in File › Sul mio iPhone › Seaglass › %@" = "Saved in Files › On My iPhone › Seaglass › %@";
 "Condividi l'IPA" = "Share the IPA";
 "Download in corso…" = "Downloading…";
 "Apri su GitHub" = "Open on GitHub";
@@ -405,7 +405,7 @@
 "Diagnostica" = "Diagnostics";
 "Nessun rapporto" = "No reports";
 "Elimina i rapporti" = "Delete reports";
-"Se Onda si chiude da sola o si blocca, iOS prepara un rapporto tecnico e lo consegna all'app a un avvio successivo, di solito entro un giorno. Toccalo per condividerlo: contiene solo dati tecnici dell'app, non la tua musica né i tuoi account." = "If Onda closes by itself or freezes, iOS prepares a technical report and hands it to the app at a later launch, usually within a day. Tap it to share it: it only contains technical data about the app, not your music or your accounts.";
+"Se Seaglass si chiude da sola o si blocca, iOS prepara un rapporto tecnico e lo consegna all'app a un avvio successivo, di solito entro un giorno. Toccalo per condividerlo: contiene solo dati tecnici dell'app, non la tua musica né i tuoi account." = "If Seaglass closes by itself or freezes, iOS prepares a technical report and hands it to the app at a later launch, usually within a day. Tap it to share it: it only contains technical data about the app, not your music or your accounts.";
 
 /* Settings: about */
 "Informazioni" = "About";
@@ -416,7 +416,7 @@
 "Bundle ID" = "Bundle ID";
 "Player di sistema" = "System player";
 "Sistema usato" = "System used";
-"Onda (accettato da iOS)" = "Onda (accepted by iOS)";
+"Seaglass (accettato da iOS)" = "Seaglass (accepted by iOS)";
 "Rifiutato da iOS" = "Refused by iOS";
 "Catalogo: YouTube Music · Testi: LRCLIB · Scrobbling: Last.fm" = "Catalog: YouTube Music · Lyrics: LRCLIB · Scrobbling: Last.fm";
 "Progetto personale, non affiliato a Google, YouTube o Last.fm." = "Personal project, not affiliated with Google, YouTube or Last.fm.";

@@ -6,7 +6,7 @@ import Observation
 
 /// What iOS 27's NowPlaying framework reads to draw the lock screen and Dynamic Island player.
 /// On iOS 27 this replaces MPNowPlayingInfoCenter / MPRemoteCommandCenter entirely: Apple documents
-/// mixing the two for local playback as undefined, and with the old path iOS shows Onda's song
+/// mixing the two for local playback as undefined, and with the old path iOS shows Seaglass's song
 /// but hands the player (and taps on it) to another music app.
 ///
 /// Framework structs (Artwork, content) are only built inside computed properties, never stored,
@@ -14,7 +14,7 @@ import Observation
 @available(iOS 27, *)
 @Observable
 @MainActor
-final class OndaMediaSessionModel: @MainActor MediaSessionRepresentable {
+final class SeaglassMediaSessionModel: @MainActor MediaSessionRepresentable {
     struct Handlers {
         let play: @MainActor () -> Void
         let pause: @MainActor () -> Void
@@ -66,12 +66,12 @@ final class OndaMediaSessionModel: @MainActor MediaSessionRepresentable {
     }
 }
 
-/// Owns Onda's MediaSession and asks iOS to make it the primary one once music plays.
+/// Owns Seaglass's MediaSession and asks iOS to make it the primary one once music plays.
 @available(iOS 27, *)
 @MainActor
 final class SystemNowPlaying {
-    let model = OndaMediaSessionModel()
-    private var session: MediaSession<OndaMediaSessionModel>?
+    let model = SeaglassMediaSessionModel()
+    private var session: MediaSession<SeaglassMediaSessionModel>?
     private var primaryRequest: Task<Void, Never>?
 
     /// Called right after the audio session is activated for playback, the order Apple asks for.

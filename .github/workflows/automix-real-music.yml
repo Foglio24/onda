@@ -10,8 +10,8 @@ on:
   # started by hand once it is on the default branch).
   push:
     paths:
-      - "Onda/Player/AutoMixSelection.swift"
-      - "Onda/Player/VocalDetector.swift"
+      - "Seaglass/Player/AutoMixSelection.swift"
+      - "Seaglass/Player/VocalDetector.swift"
       - "Tools/AutoMixRealMusic/**"
       - ".github/workflows/automix-real-music.yml"
   workflow_dispatch:

@@ -244,7 +244,7 @@ final class PlayerController: ObservableObject {
         #if canImport(NowPlaying)
         if #available(iOS 27, *) {
             let system = SystemNowPlaying()
-            system.model.handlers = OndaMediaSessionModel.Handlers(
+            system.model.handlers = SeaglassMediaSessionModel.Handlers(
                 play: { self.resume() },
                 pause: { self.pause() },
                 togglePlayPause: { self.togglePlayPause() },

@@ -35,7 +35,7 @@ def notes(changelog, version, previous):
         text = chosen[0][2]
     else:
         text = "\n\n".join(f"{heading}\n\n{body}" for _, heading, body in chosen)
-    return text + "\n\n**Install:** download `Onda.ipa` below and sideload it as usual.\n"
+    return text + "\n\n**Install:** download `Seaglass.ipa` below and sideload it as usual.\n"
 
 
 if __name__ == "__main__":

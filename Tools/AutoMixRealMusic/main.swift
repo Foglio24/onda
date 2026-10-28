@@ -237,7 +237,7 @@ note("   (No live recordings in this set: they are still to be tried.)")
 let rate = MixSchedule.sampleRate
 var key = "Which is which (open after listening):\n"
 var credits = "Songs (Creative Commons, from the JamendoLyrics dataset; the excerpts are mixes of them, made to\n"
-    + "evaluate Onda's AutoMix, not for any commercial use):\n"
+    + "evaluate Seaglass's AutoMix, not for any commercial use):\n"
 var creditedSongs = Set<Int>()
 let work = FileManager.default.temporaryDirectory.appending(path: "automix-real-\(UUID().uuidString)")
 try? FileManager.default.createDirectory(at: work, withIntermediateDirectories: true)

@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct OndaApp: App {
+struct SeaglassApp: App {
     // Plain references to the app-wide objects, not @StateObject: the views that show their state
     // observe them, while the app itself doesn't need to re-run its body every time one changes.
     // Computed, so they are still created after `init` has set up the URL cache.

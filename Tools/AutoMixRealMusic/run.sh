@@ -6,7 +6,7 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 binary="$(mktemp "${TMPDIR:-/tmp}/onda-automix-real.XXXXXX")"
 trap 'rm -f "$binary"' EXIT
-swiftc -O -target "$(uname -m)-apple-macosx14.0" Onda/Player/AutoMixAnalysis.swift Onda/Player/AutoMixPlanner.swift \
-  Onda/Player/AutoMixSelection.swift Onda/Player/MixDesign.swift Onda/Player/AutoMixRenderer.swift Onda/Player/AutoMix.swift \
-  Onda/Player/VocalDetector.swift Onda/Player/MDXSeparator.swift Tools/AutoMixRealMusic/main.swift -o "$binary"
+swiftc -O -target "$(uname -m)-apple-macosx14.0" Seaglass/Player/AutoMixAnalysis.swift Seaglass/Player/AutoMixPlanner.swift \
+  Seaglass/Player/AutoMixSelection.swift Seaglass/Player/MixDesign.swift Seaglass/Player/AutoMixRenderer.swift Seaglass/Player/AutoMix.swift \
+  Seaglass/Player/VocalDetector.swift Seaglass/Player/MDXSeparator.swift Tools/AutoMixRealMusic/main.swift -o "$binary"
 "$binary" "$@"

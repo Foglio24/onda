@@ -106,7 +106,7 @@ actor StemSeparator {
     private static let memoryReserve = 300 << 20
     /// One separation at a time. The model is used, loaded and freed only on this queue, so
     /// freeing it (on a memory warning) waits for the separation in progress.
-    private static let workQueue = DispatchQueue(label: "onda.karaoke.separation", qos: .utility)
+    private static let workQueue = DispatchQueue(label: "seaglass.karaoke.separation", qos: .utility)
     private static let wanted = WantedSongs()
     private static let lastRunKey = "karaoke.lastRun"
     /// The sherpa-onnx model that 1.4.0 test builds downloaded; Core ML has replaced it.

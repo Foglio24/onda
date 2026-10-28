@@ -1254,7 +1254,7 @@ final class MixPreview: ObservableObject {
         PlayerController.shared.pause()
         isPreparing = true
         task = Task {
-            let url = FileManager.default.temporaryDirectory.appending(path: "onda-mix-preview.caf")
+            let url = FileManager.default.temporaryDirectory.appending(path: "seaglass-mix-preview.caf")
             do {
                 _ = try await AutoMixRenderer.render(MixSchedule(plan: plan), outgoing: outgoing, incoming: incoming,
                                                      outgoingGain: 1, incomingGain: 1, to: url)
