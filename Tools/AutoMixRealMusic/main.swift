@@ -260,30 +260,58 @@ func write(_ parts: [AVAudioPCMBuffer], to url: URL) throws {
     for part in parts where part.frameLength > 0 { try file.write(from: part) }
 }
 
-/// Loudness every 0.4 s (dB), the peak, and the largest rise and fall within two seconds.
-func measure(_ parts: [AVAudioPCMBuffer]) -> (peak: Float, rise: Double, fall: Double) {
-    var mono: [Float] = []
-    for part in parts {
-        guard let channels = part.floatChannelData else { continue }
-        for frame in 0..<Int(part.frameLength) { mono.append((channels[0][frame] + channels[1][frame]) / 2) }
-    }
-    let window = Int(0.4 * rate)
-    var levels: [Double] = []
-    var start = 0
-    while start + window <= mono.count {
-        let power = mono[start..<(start + window)].reduce(0.0) { $0 + Double($1 * $1) } / Double(window)
-        levels.append(10 * log10(power + 1e-12))
-        start += window / 2
-    }
-    var rise = 0.0, fall = 0.0
-    let reach = 10
-    for index in levels.indices {
-        for other in index..<min(levels.count, index + reach) {
-            rise = max(rise, levels[other] - levels[index])
-            fall = max(fall, levels[index] - levels[other])
+/// Loudness (dB) of each second of a buffer, half a second apart.
+func levels(_ buffer: AVAudioPCMBuffer, from start: Double = 0, to end: Double = .infinity) -> [Double] {
+    guard let channels = buffer.floatChannelData else { return [] }
+    let count = Int(buffer.frameLength), window = Int(rate)
+    var result: [Double] = []
+    var frame = max(0, Int(start * rate))
+    while frame + window <= min(count, end.isFinite ? Int(end * rate) : count) {
+        var power = 0.0
+        for index in frame..<(frame + window) {
+            let value = Double((channels[0][index] + channels[1][index]) / 2)
+            power += value * value
         }
+        result.append(10 * log10(power / Double(window) + 1e-12))
+        frame += window / 2
     }
-    return (mono.map(abs).max() ?? 0, rise, fall)
+    return result
+}
+
+/// The mix against the songs around it: how much louder than the louder of the two (the last
+/// four seconds before it, the first four after) and how much quieter than the quieter it gets,
+/// over seconds; and its peak.
+func measure(before: AVAudioPCMBuffer, mix: AVAudioPCMBuffer, after: AVAudioPCMBuffer) -> (bump: Double, dip: Double, peak: Float) {
+    func mean(_ values: [Double]) -> Double {
+        10 * log10(values.map { pow(10, $0 / 10) }.reduce(0, +) / Double(max(1, values.count)) + 1e-12)
+    }
+    let length = Double(before.frameLength) / rate
+    let levelA = mean(levels(before, from: max(0, length - 4))), levelB = mean(levels(after, to: 4))
+    let mixed = levels(mix)
+    var peak: Float = 0
+    if let channels = mix.floatChannelData {
+        for index in 0..<Int(mix.frameLength) { peak = max(peak, abs(channels[0][index]), abs(channels[1][index])) }
+    }
+    return ((mixed.max() ?? -100) - max(levelA, levelB), min(levelA, levelB) - (mixed.min() ?? -100), peak)
+}
+
+/// What a plan does to the songs' sung words (the timed lyrics, not the detection): seconds of
+/// two voices heard at once (both at least at 0.3), of the first song's words while it is taken
+/// away or left out, and of the next song's words while it is still low or left out.
+func words(_ plan: TransitionPlan, _ a: Song, _ b: Song) -> (together: Double, faded: Double, buried: Double) {
+    var together = 0.0, faded = 0.0, buried = 0.0
+    let step = 0.05
+    for time in stride(from: plan.outStart, to: plan.outEnd, by: step) {
+        let levels = plan.levels(at: plan.progress(atOutgoingTime: time))
+        let incoming = plan.inStart + (time - plan.outStart) * plan.tempoOut / plan.tempoIn
+        let sungA = a.sung(at: time), sungB = b.sung(at: incoming)
+        if sungA, sungB, levels.outgoing >= 0.3, levels.incoming >= 0.3 { together += step }
+        if sungA, levels.outgoing < 0.9 { faded += step }
+        if sungB, levels.incoming < 0.7 { buried += step }
+    }
+    for time in stride(from: plan.outEnd, to: a.analysis.soundEnd, by: step) where a.sung(at: time) { faded += step }
+    for time in stride(from: 0, to: plan.inStart, by: step) where b.sung(at: time) { buried += step }
+    return (together, faded, buried)
 }
 
 for (number, pair) in pairs.enumerated() {
@@ -304,6 +332,11 @@ for (number, pair) in pairs.enumerated() {
     note("      \(measured.plan.style.rawValue), \(format(measured.plan.overlap, 1)) s together, rates "
         + "\(format(measured.plan.outgoingRate, 3))/\(format(measured.plan.incomingRate, 3)), from \(format(measured.plan.outStart, 1)) s")
     note("   new, voices not measured: \(unknown.chosen.title) (\(format(unknown.chosen.total)))")
+    for (name, plan) in [("1.16", old), ("new", measured.plan)] {
+        let sung = words(plan, a, b)
+        note("   \(name), timed words: two voices at once \(format(sung.together, 1)) s, the first song's words faded or "
+             + "left out \(format(sung.faded, 1)) s, the next song's under 70 % or left out \(format(sung.buried, 1)) s")
+    }
     // The same stretch of both songs around either mix.
     var mixes: [(name: String, plan: TransitionPlan, mix: AutoMixRenderer.Mix)] = []
     for (name, plan) in [("1.16", old), ("new", measured.plan)] {
@@ -329,10 +362,11 @@ for (number, pair) in pairs.enumerated() {
             let parts = [before, mixed, after]
             let url = output.appending(path: "pair-\(label)-\(names[index]).m4a")
             try write(parts, to: url)
-            let levels = measure(parts)
+            let loudness = measure(before: before, mix: mixed, after: after)
             files[entry.name] = names[index]
-            note("   \(entry.name): peak \(format(20 * log10(Double(max(levels.peak, 1e-9))), 1)) dBFS, "
-                + "largest rise \(format(levels.rise, 1)) dB and fall \(format(levels.fall, 1)) dB within 2 s")
+            note("   \(entry.name), rendered: at most \(format(loudness.bump, 1)) dB over the louder song and "
+                + "\(format(loudness.dip, 1)) dB under the quieter (second by second), peak "
+                + "\(format(20 * log10(Double(max(loudness.peak, 1e-9))), 1)) dBFS")
         } catch {
             note("   \(entry.name): excerpt not written (\(error))")
         }

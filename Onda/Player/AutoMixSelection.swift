@@ -146,8 +146,10 @@ struct AutoMixTuning: Sendable {
     /// How far (dB) the two together may go above the louder of the two alone.
     var headroom = 1.0
     /// The beat-matched length that costs nothing (bars): shorter or longer costs `lengthCost`
-    /// per halving or doubling.
+    /// per halving or doubling (so equally good candidates don't default to the shortest).
     var preferredBars = 8.0
+    /// The same for crossfades without beatmatching (seconds).
+    var preferredCrossfade = 4.0
     var lengthCost = 0.15
     /// Above this total no candidate is good enough: a short plain crossfade instead.
     var acceptableCost = 3.0
@@ -406,19 +408,27 @@ extension TransitionPlanner {
 
     // MARK: Crossfades
 
-    /// Crossfades of 2 to 12 seconds on the song's ending, at its own tempo, starting on a downbeat
-    /// when it has a beat.
+    /// Crossfades of 2 to 12 seconds at the songs' own tempos: ending as the song's sound does, or,
+    /// when it winds down slowly, starting where it begins to (so its quieter ending isn't heard
+    /// alone before the next song comes in); on a downbeat when it has a beat.
     private static func blendOptions(_ a: TrackAnalysis, _ b: TrackAnalysis, judge: TransitionJudge) -> [Option] {
         let tuning = judge.context.tuning
-        let end = a.audibleEnd
+        let audibleEnd = a.audibleEnd
         let earliest = earliestExit(a)
-        let lastBars = a.beat(atOrAfter: end - 8 * a.beatLength)..<a.beat(atOrAfter: end)
+        let lastBars = a.beat(atOrAfter: audibleEnd - 8 * a.beatLength)..<a.beat(atOrAfter: audibleEnd)
         let rhythmic = a.isGridLocked && a.timing(lastBars).marked >= 0.5
         let inStart = max(0, b.soundStart - 0.01)
+        var spans: [(start: Double, end: Double, seconds: Int)] = [2, 4, 6, 8, 12].map {
+            (audibleEnd - Double($0), audibleEnd, $0)
+        }
+        if let decline = declineStart(of: a), audibleEnd - decline >= 2 {
+            for seconds in [2, 4, 6, 8] where decline + Double(seconds) < audibleEnd {
+                spans.append((decline, decline + Double(seconds), seconds))
+            }
+        }
         var options: [Option] = []
-        for seconds in [2, 4, 6, 8, 12] {
-            let length = Double(seconds)
-            var outStart = end - length
+        for span in spans {
+            var outStart = span.start, end = span.end
             var alignment: Double?
             if rhythmic {
                 // The downbeat at (or within a bar before) where the crossfade would start.
@@ -427,10 +437,13 @@ extension TransitionPlanner {
                 while downbeat > 0, a.beatTime(downbeat) > latest || !a.isDownbeat(downbeat) { downbeat -= 1 }
                 if downbeat > 0, outStart - a.beatTime(downbeat) < 4 * a.beatLength, a.beatTime(downbeat) >= earliest,
                    end - a.beatTime(downbeat) >= 1 {
+                    // A crossfade starting where the song winds down moves with its start.
+                    if span.end < audibleEnd { end -= outStart - a.beatTime(downbeat) }
                     outStart = a.beatTime(downbeat)
                     alignment = outStart
                 }
             }
+            let seconds = span.seconds
             guard outStart >= earliest, end - outStart >= 1 else { continue }
             let incomingEnd = inStart + (end - outStart)
             let bassOut = a.bassShare(a.beat(atOrAfter: outStart)..<a.beat(atOrAfter: end)) >= tuning.bassRich
@@ -446,6 +459,18 @@ extension TransitionPlanner {
             options.append((plan, .blend(seconds: seconds)))
         }
         return options
+    }
+
+    /// The last moment, within the half minute before the song's audible end, at which it still
+    /// plays at nearly full loudness (over a second, not beat by beat).
+    private static func declineStart(of a: TrackAnalysis) -> Double? {
+        let full = Double(a.bodyLoudness) - 3
+        var time = a.audibleEnd - 1
+        while time >= max(earliestExit(a), a.audibleEnd - 30) {
+            if 10 * log10(max(a.power(from: time - 0.5, to: time + 0.5), 1e-12)) >= full { return time }
+            time -= TrackAnalysis.loudnessStep
+        }
+        return nil
     }
 
     /// Where the song fades out on its own: back from its end to the last moment at nearly full
@@ -819,7 +844,7 @@ struct TransitionJudge {
         where Self.decibels(Self.power(b, time) * gainB) < reference - 8 {
             hole += step
         }
-        costs[.gap] = hole / 2 * (0.3 + 0.7 * min(rhythmicA, rhythmicB))
+        costs[.gap] = hole / 2 * (0.5 + 0.5 * min(rhythmicA, rhythmicB))
 
         // Tempo: how much each song changes, the more where its voice is heard meanwhile.
         var veto: String?
@@ -865,7 +890,7 @@ struct TransitionJudge {
         case .beatMatched(let bars, _):
             costs[.length] = tuning.lengthCost * abs(log2(Double(bars) / tuning.preferredBars))
         case .blend(let seconds):
-            costs[.length] = seconds <= 4 ? 0 : (seconds <= 8 ? 0.05 * Double(seconds - 4) / 2 : 0.2)
+            costs[.length] = tuning.lengthCost * abs(log2(Double(seconds) / tuning.preferredCrossfade))
         case .gapless:
             costs[.length] = 0.1
         case .sequence:
