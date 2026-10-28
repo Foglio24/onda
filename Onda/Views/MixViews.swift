@@ -81,8 +81,9 @@ struct MixTarget: Identifiable {
 // MARK: Playlist
 
 /// A playlist's Mix: on or off, and the transition between each pair of songs, each opened in
-/// `TransitionEditorView`. Only for downloaded playlists: the songs are analysed and mixed from
-/// their files, with no data used.
+/// `TransitionEditorView`. It plays on any playlist (songs not downloaded are mixed as AutoMix
+/// mixes them, from the copy streamed anyway); a transition is edited from the two songs' files,
+/// so only between downloaded songs.
 struct PlaylistMixView: View {
     let playlistID: UUID
     var opensFirst = false
@@ -126,6 +127,9 @@ struct PlaylistMixView: View {
 
     private func content(_ playlist: Playlist) -> some View {
         let downloaded = !playlist.tracks.isEmpty && playlist.tracks.allSatisfy { downloads.isDownloaded($0) }
+        func editable(_ index: Int) -> Bool {
+            downloads.isDownloaded(playlist.tracks[index]) && downloads.isDownloaded(playlist.tracks[index + 1])
+        }
         let enabled = Binding {
             playlist.mix?.enabled ?? false
         } set: { isOn in
@@ -139,8 +143,7 @@ struct PlaylistMixView: View {
                         Label("Mix attivo", systemImage: "slider.horizontal.3")
                             .font(.headline)
                     }
-                    .disabled(!downloaded)
-                    Text("Le transizioni tra i brani della playlist come le scegli tu: preset, volume, EQ, filtri, effetti e loop. Suonano quando ascolti la playlist; dove non cambi nulla decide AutoMix.")
+                    Text("Le transizioni tra i brani della playlist come le scegli tu: preset, volume, EQ, filtri, effetti e loop. Suonano quando ascolti la playlist, anche con AutoMix spento; dove non cambi nulla decide AutoMix.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
@@ -153,7 +156,7 @@ struct PlaylistMixView: View {
             if !downloaded {
                 Section {
                     VStack(spacing: 12) {
-                        Text("Il Mix funziona con le playlist scaricate: i brani vengono analizzati e mixati dai loro file, senza usare dati.")
+                        Text("Per modificare una transizione servono i due brani scaricati: vengono analizzati dai loro file, senza usare dati. Gli altri brani sono mixati mentre li ascolti, come fa AutoMix.")
                             .font(.subheadline)
                             .multilineTextAlignment(.center)
                             .foregroundStyle(.secondary)
@@ -175,7 +178,7 @@ struct PlaylistMixView: View {
                     NavigationLink(value: index) {
                         TransitionRow(from: from, to: to, preset: design?.preset ?? .auto)
                     }
-                    .disabled(!downloaded)
+                    .disabled(!editable(index))
                     .listRowBackground(Color.white.opacity(0.06))
                 }
             }

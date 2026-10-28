@@ -33,6 +33,7 @@ struct PlaylistDetailView: View {
     @State private var showPhotoPicker = false
     @State private var photoItem: PhotosPickerItem?
     @State private var showMix = false
+    @AppStorage(Preferences.accent) private var accent: AccentChoice = .pink
 
     var body: some View {
         Group {
@@ -166,11 +167,54 @@ struct PlaylistDetailView: View {
             }
             if !playlist.tracks.isEmpty {
                 PlayShuffleButtons(tracks: playlist.tracks, source: playlist.name, playlist: playlist.id)
+                if playlist.tracks.count >= 2 { mixRow(playlist) }
                 downloadButton(playlist)
             }
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
+    }
+
+    /// The playlist's Mix on or off in one tap, and its transitions (the Mix sheet). On, every
+    /// transition of the playlist is mixed when it plays: the ones designed in the sheet, AutoMix's
+    /// choice for the others, whatever "Transizioni tra brani" says.
+    private func mixRow(_ playlist: Playlist) -> some View {
+        let isOn = playlist.mix?.enabled ?? false
+        let glass: Glass = isOn ? .regular.tint(accent.color.opacity(0.55)).interactive() : .regular.interactive()
+        return VStack(spacing: 6) {
+            HStack(spacing: 12) {
+                Button {
+                    library.setMixEnabled(!isOn, for: playlistID)
+                    player.applyTransitionPreference()
+                } label: {
+                    Label(isOn ? "Mix attivo" : "Attiva il Mix",
+                          systemImage: isOn ? "checkmark.circle.fill" : "slider.horizontal.3")
+                        .font(.subheadline.weight(.semibold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 11)
+                        .contentShape(.capsule)
+                }
+                .buttonStyle(.plain)
+                .glassEffect(glass, in: .capsule)
+                .accessibilityAddTraits(isOn ? .isSelected : [])
+
+                Button { showMix = true } label: {
+                    Label("Transizioni", systemImage: "arrow.left.arrow.right")
+                        .font(.subheadline.weight(.semibold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 11)
+                        .contentShape(.capsule)
+                }
+                .buttonStyle(.plain)
+                .glassEffect(.regular.interactive(), in: .capsule)
+            }
+            Text(isOn
+                 ? "Quando ascolti questa playlist i brani sono mixati: con le transizioni che hai creato, e con AutoMix dove non ne hai create."
+                 : "Mixa tutti i brani di questa playlist quando la ascolti, anche con AutoMix spento.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
     }
 
     /// One tap saves the whole playlist, with the Music app's progress ring while it runs.

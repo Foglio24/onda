@@ -130,6 +130,8 @@ final class PlayerController: ObservableObject {
         let source: String
         let shuffled: Bool
         let unshuffled: [Track]
+        /// The playlist the queue was started from, so its Mix plays after a relaunch too.
+        var playlist: UUID?
     }
 
     private static var queueFile: URL { Storage.support.appending(path: "queue.json") }
@@ -336,6 +338,7 @@ final class PlayerController: ObservableObject {
         source = saved.source
         shuffleEnabled = saved.shuffled
         unshuffledUpcoming = saved.unshuffled
+        playlistContext = saved.playlist
         playWhenReady = false
         isRestoredSession = true
         let track = saved.tracks[saved.index]
@@ -364,7 +367,8 @@ final class PlayerController: ObservableObject {
         }
         let range = max(0, index - 50)..<min(queue.count, index + 201)
         let saved = SavedQueue(tracks: Array(queue[range]), index: index - range.lowerBound, source: source,
-                               shuffled: shuffleEnabled, unshuffled: Array(unshuffledUpcoming.prefix(200)))
+                               shuffled: shuffleEnabled, unshuffled: Array(unshuffledUpcoming.prefix(200)),
+                               playlist: playlistContext)
         guard let data = try? JSONEncoder().encode(saved) else { return }
         try? data.write(to: Self.queueFile, options: .atomic)
     }
@@ -1455,8 +1459,9 @@ final class PlayerController: ObservableObject {
             if let gain = self.playingGain { outgoingGain = gain } else { outgoingGain = await self.volumeGain(for: track) }
             let incomingGain = await self.volumeGain(for: next)
             guard !Task.isCancelled, self.autoMixPair == pair else { return }
-            // Two songs that follow each other on their album, played in order, stay as the album has them.
-            let albumOrder = !self.shuffleEnabled && track.albumID != nil && track.albumID == next.albumID
+            // Two songs that follow each other on their album, played in order (an album's songs, not
+            // a playlist), stay as the album has them.
+            let albumOrder = self.isPlayingAlbumInOrder(from: track, to: next)
             // Their voices where they meet (this song's end, the next one's start), with the
             // karaoke's vocal model, when there is the energy and the time for it: by a minute and a
             // half before this song's end the mix must be planned and rendered. Without them AutoMix
@@ -1518,6 +1523,15 @@ final class PlayerController: ObservableObject {
                                              outgoingFile: outgoingFile, outgoingGain: outgoingGain)
             self.autoMixNote = Self.describe(plan, from: outgoing, to: incoming)
         }
+    }
+
+    /// The queue is an album played in order, and the two songs follow each other on it: not a
+    /// playlist (whose Mix, or AutoMix, mixes everything), not shuffled, and most of the queue
+    /// from that album.
+    private func isPlayingAlbumInOrder(from track: Track, to next: Track) -> Bool {
+        guard playlistContext == nil, !shuffleEnabled, let album = track.albumID, next.albumID == album else { return false }
+        let fromAlbum = queue.filter { $0.albumID == album }.count
+        return fromAlbum >= 2 && fromAlbum * 2 >= queue.count
     }
 
     /// The result of `work`, unless it takes longer than `seconds` (it is cancelled then).

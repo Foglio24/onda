@@ -54,7 +54,7 @@ See [CHANGELOG.md](CHANGELOG.md) for what changed in each version.
 | Quality and codecs | ✅ Four levels, set separately for Wi-Fi, cellular and downloads (details below) |
 | Dolby Atmos | ✅ Dolby Digital Plus when YouTube offers it, plus Apple's Spatial Audio with AirPods/Beats |
 | Song transitions | ✅ AutoMix, inspired by Apple Music's: for each pair Onda weighs many transitions (beat-matched over 2–16 bars, short crossfades, into a fade-out, without silence, one after the other) by how steady the beats are where the songs meet, whether keys clash or two voices sing at once, loudness and how much tempo changes (at most 5 % per song), then renders the best ahead; albums played in order stay as they are. Or a 1–12 s crossfade |
-| Playlist Mix | ✅ Like Spotify's Mix, for downloaded playlists: 2–16 bars, presets, volume, EQ, filters, reverb/echo, loops, beatmatching, lines drawn by hand, waveform editor with preview |
+| Playlist Mix | ✅ Like Spotify's Mix: turned on with one tap on the playlist's page, every song mixed into the next (AutoMix where you design nothing); between downloaded songs, design each transition: 2–16 bars, presets, volume, EQ, filters, reverb/echo, loops, beatmatching, lines drawn by hand, waveform editor with preview |
 | Smart radios and mixes | ✅ A radio from any song, auto-radio when the queue ends, and recommendations that change every day from what you play, skip and like: six daily mixes, *Scelti per te* and moods; plus *Taste Mix* / *Rediscover* from Last.fm |
 | Playlists | ✅ Create, rename, reorder, set a custom cover from Photos, download a whole playlist in one tap |
 | Playlist import | ✅ From Spotify (up to 100 songs), Apple Music, YouTube and YouTube Music links; each song is matched on YouTube Music |

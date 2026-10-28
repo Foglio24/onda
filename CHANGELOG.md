@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.17.1 (2026-10-28)
+
+### Added
+- **Mix from the playlist's page.** Under "Riproduci" and "Casuale", "Attiva il Mix" turns the playlist's Mix on (or off) in one tap, and "Transizioni" opens its transitions. With the Mix on, every song of the playlist is mixed into the next when you listen to it, even with AutoMix off: with the transitions you designed, and with AutoMix's choice for the others.
+
+### Fixed
+- **Playlist Mixes that didn't play:**
+  - The Mix could only be turned on once every song of the playlist was downloaded: with a single song missing, the switch stayed grey. Now it turns on for any playlist; songs not downloaded are mixed as AutoMix mixes them, from the copy streamed anyway. Designing a transition still needs its two songs downloaded (they are analysed from their files), and only those transitions are greyed out.
+  - After the app was closed and opened again, the queue came back without knowing which playlist it was playing, so its Mix no longer played. The queue now remembers it.
+  - In 1.17.0, two songs of the same album one after the other in a playlist were played as on the album, without mixing. That now happens only when an album is played in order, not in a playlist.
+
 ## 1.17.0 (2026-10-28)
 
 ### Changed

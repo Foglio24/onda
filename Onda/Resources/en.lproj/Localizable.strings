@@ -527,9 +527,12 @@
 /* Playlist Mix */
 "Mix" = "Mix";
 "Mix attivo" = "Mix on";
-"Le transizioni tra i brani della playlist come le scegli tu: preset, volume, EQ, filtri, effetti e loop. Suonano quando ascolti la playlist; dove non cambi nulla decide AutoMix." = "The transitions between the playlist's songs, the way you choose them: preset, volume, EQ, filters, effects and loops. They play when you listen to the playlist; where you change nothing, AutoMix decides.";
-"Il Mix funziona con le playlist scaricate: i brani vengono analizzati e mixati dai loro file, senza usare dati." = "Mix works with downloaded playlists: the songs are analysed and mixed from their files, with no data used.";
+"Le transizioni tra i brani della playlist come le scegli tu: preset, volume, EQ, filtri, effetti e loop. Suonano quando ascolti la playlist, anche con AutoMix spento; dove non cambi nulla decide AutoMix." = "The transitions between the playlist's songs as you choose them: presets, volume, EQ, filters, effects and loops. They play when you listen to the playlist, even with AutoMix off; wherever you change nothing, AutoMix decides.";
+"Per modificare una transizione servono i due brani scaricati: vengono analizzati dai loro file, senza usare dati. Gli altri brani sono mixati mentre li ascolti, come fa AutoMix." = "Editing a transition needs both songs downloaded: they are analysed from their files, with no data used. The other songs are mixed as you listen to them, as AutoMix does.";
 "Transizioni" = "Transitions";
+"Attiva il Mix" = "Turn on Mix";
+"Quando ascolti questa playlist i brani sono mixati: con le transizioni che hai creato, e con AutoMix dove non ne hai create." = "When you listen to this playlist its songs are mixed: with the transitions you made, and with AutoMix where you made none.";
+"Mixa tutti i brani di questa playlist quando la ascolti, anche con AutoMix spento." = "Mixes all of this playlist's songs when you listen to it, even with AutoMix off.";
 "Transizione" = "Transition";
 "Non è stato possibile analizzare questi brani." = "These songs couldn't be analysed.";
 "Torna ad Auto" = "Back to Auto";
