@@ -14,6 +14,15 @@ do {
     let catalog = try await tube.searchCatalog("daft punk")
     expect(catalog.top?.isArtist == true, "top result is an artist: \(catalog.top?.title ?? "none")")
     expect(!catalog.albums.isEmpty, "search finds albums: \(catalog.albums.prefix(3).map(\.title))")
+    // Typing the artist's name puts the artist first; a song title doesn't.
+    expect(catalog.artist(named: "Daft  punk")?.id == "UCRr1xG_2WIDs18a6cIiCxeA", "the search names the artist")
+    let byTitle = try await tube.searchCatalog("get lucky daft punk")
+    expect(byTitle.artist(named: "get lucky daft punk") == nil, "a song's title names no artist")
+    expect(try await tube.searchCatalog("ac dc").artist(named: "ac dc")?.title == "AC/DC", "\"ac dc\" names AC/DC")
+
+    let playlists = try await tube.searchPlaylists("daft punk")
+    expect(playlists.count >= 3 && playlists.allSatisfy { $0.kind == .playlist && $0.id.hasPrefix("VL") },
+           "search finds playlists: \(playlists.prefix(3).map(\.title))")
 
     let songs = try await tube.searchSongs("daft punk")
     expect(!songs.isEmpty, "search finds songs: \(songs.prefix(3).map(\.title))")

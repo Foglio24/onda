@@ -25,7 +25,7 @@
 "Nome" = "Name";
 "Svuota" = "Clear";
 "Non disponibile" = "Not available";
-"Playlist" = "Playlist";
+"Playlist" = "Playlists";
 "Karaoke" = "Karaoke";
 "Last.fm" = "Last.fm";
 
@@ -136,8 +136,8 @@
 "Artista sconosciuto" = "Unknown artist";
 
 /* Search */
-"Brani, artisti e album" = "Songs, artists and albums";
-"Risultato migliore" = "Top result";
+"Brani, playlist e artisti" = "Songs, playlists and artists";
+"Mostra tutti i brani (%lld)" = "Show all songs (%lld)";
 "Artisti" = "Artists";
 "Album" = "Albums";
 "Brani" = "Songs";

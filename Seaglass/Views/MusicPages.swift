@@ -180,9 +180,17 @@ struct ArtistView: View {
     private func load() async {
         guard page == nil else { return }
         do {
-            var browseId = id
-            if browseId == nil { browseId = try await InnerTube.shared.artistID(named: name) }
-            guard let browseId else { throw InnerTubeError.notFound }
+            if let id {
+                do {
+                    page = try await InnerTube.shared.artist(id)
+                    return
+                } catch where !name.isEmpty {
+                    // A song's channel isn't always an artist page: look the name up instead.
+                }
+            }
+            guard let browseId = try await InnerTube.shared.artistID(named: name), browseId != id else {
+                throw InnerTubeError.notFound
+            }
             page = try await InnerTube.shared.artist(browseId)
         } catch {
             failure = error.localizedDescription

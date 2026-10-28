@@ -47,17 +47,29 @@ struct AlbumPage {
     let tracks: [Track]
 }
 
-/// Artists and albums found by a search, with YouTube Music's top result when it is one of them.
+/// Artists, albums and playlists found by a search, with YouTube Music's top result when it is one
+/// of them.
 struct CatalogResults {
     var top: MusicItem?
     var artists: [MusicItem] = []
     var albums: [MusicItem] = []
+    var playlists: [MusicItem] = []
 
-    var isEmpty: Bool { top == nil && artists.isEmpty && albums.isEmpty }
+    var isEmpty: Bool { top == nil && artists.isEmpty && albums.isEmpty && playlists.isEmpty }
+
+    /// The artist the search names, when it is one: YouTube's top result or first artist, called
+    /// what was typed give or take case, accents, spaces and punctuation ("ac dc" names AC/DC).
+    func artist(named query: String) -> MusicItem? {
+        let wanted = InnerTube.nameKey(query)
+        guard !wanted.isEmpty else { return nil }
+        let candidates = [top, artists.first].compactMap { $0 }
+        return candidates.first { $0.isArtist && InnerTube.nameKey($0.title) == wanted }
+    }
 }
 
 extension InnerTube {
     private static let artistsFilter = "EgWKAQIgAWoMEA4QChADEAQQCRAF"
+    private static let playlistsFilter = "EgWKAQIoAWoMEA4QChADEAQQCRAF"
 
     /// The unfiltered search, which ranks artists and albums well; songs come from `searchSongs`.
     func searchCatalog(_ query: String) async throws -> CatalogResults {
@@ -72,6 +84,7 @@ extension InnerTube {
             switch item.kind {
             case .artist: results.artists.append(item)
             case .album: results.albums.append(item)
+            case .playlist: results.playlists.append(item)
             default: break
             }
         }
@@ -86,9 +99,23 @@ extension InnerTube {
         return results
     }
 
+    /// Playlists found by a search (YouTube Music's playlists filter): a bonus, empty when it fails.
+    func searchPlaylists(_ query: String) async throws -> [MusicItem] {
+        let json = try await post("search", ["query": query, "params": Self.playlistsFilter])
+        var seen = Set<String>()
+        return J.findAll("musicResponsiveListItemRenderer", in: json["contents"])
+            .compactMap(Self.listItem)
+            .filter { $0.kind == .playlist && seen.insert($0.id).inserted }
+    }
+
     private static func folded(_ text: String) -> String {
         text.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
             .trimmingCharacters(in: .whitespaces)
+    }
+
+    /// Only the letters and digits, folded: "AC/DC" and "ac dc" are both "acdc".
+    static func nameKey(_ text: String) -> String {
+        String(String.UnicodeScalarView(folded(text).unicodeScalars.filter(CharacterSet.alphanumerics.contains)))
     }
 
     /// "Album • Daft Punk • 2013" for "daft punk" scores 3; "Singolo • Someone else • 2021" scores 0.

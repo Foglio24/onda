@@ -4,21 +4,20 @@
 
 ### Changed
 - **Onda is now Seaglass.** A new name, in English: sea glass is glass smoothed by the waves. It is the same app: it installs over Onda and keeps your library, downloads, playlists, Mixes and settings (its identifier and data are unchanged). In the Files app its folder is now called Seaglass, and the IPA is `Seaglass.ipa`.
-
-### Added
-- **Mix from the playlist's page.** Under "Riproduci" and "Casuale", "Attiva il Mix" turns the playlist's Mix on (or off) in one tap, and "Transizioni" opens its transitions. With the Mix on, every song of the playlist is mixed into the next when you listen to it, even with AutoMix off: with the transitions you designed, and with AutoMix's choice for the others.
-- **Reorder a playlist's songs.** "Riordina i brani" in the playlist's ··· menu shows a handle on each song: drag it up or down (or tap the red button to remove it), then "Fine". Holding a song opens its menu, which is why dragging it didn't work.
-
-### Changed
+- **Search: songs first.** Results start with the songs (the first six; "Mostra tutti i brani" shows the rest), then playlists, then artists and albums. When what you type is an artist's name (give or take capitals, accents, spaces and punctuation: "ac dc" is AC/DC), that artist comes first.
 - **AutoMix up to 40 seconds from the ends.** It can now finish the mix up to 40 seconds before the end of the song playing (leaving its outro out) and start the next song up to 40 seconds in (leaving its intro out). These are weighed with the others, on phrases where a section starts, and chosen when they sound better: a quieter or longer ending, a long intro. Leaving loud music out still costs a little, and leaving words out a lot.
 - Two songs at full together for long now costs too (two whole arrangements at once), so a long mix brings the next song's main part in as the first one leaves; and the next song's voice is kept from coming in over the first one while that is still up.
 - Phrases are counted from the start of each section (where the harmony and the loudness change), so an intro of odd length doesn't shift them.
 - Choosing among the candidates (now up to about 1,700 for two four-minute songs) runs away from the main thread.
 
-### Fixed
-- **AutoMix: kicks on kicks when both songs change tempo.** Time stretching moves high, short sounds (hi-hats) differently from low ones, more so when both songs are stretched (each by a few per cent, meeting halfway): the mix lined up all onsets and could leave the kick drums some 18 ms apart. It now lines up the low ones (kick and bass) as a DJ does, within 80 ms either way, and all onsets only when the low ones don't line up clearly.
+### Added
+- **Mix from the playlist's page.** Under "Riproduci" and "Casuale", "Attiva il Mix" turns the playlist's Mix on (or off) in one tap, and "Transizioni" opens its transitions. With the Mix on, every song of the playlist is mixed into the next when you listen to it, even with AutoMix off: with the transitions you designed, and with AutoMix's choice for the others.
+- **Reorder a playlist's songs.** "Riordina i brani" in the playlist's ··· menu shows a handle on each song: drag it up or down (or tap the red button to remove it), then "Fine". Holding a song opens its menu, which is why dragging it didn't work.
+- **Playlists in search**, from YouTube Music's playlist search, in a row after the songs.
 
 ### Fixed
+- **Artists in search didn't open.** Tapping an artist (or an album) in the search results could do nothing: the tap that saves the search to "Ricerche recenti" could keep the link from opening. Results are now buttons that save the search and open the page. And an artist page opened from a song whose channel isn't an artist's page now looks the artist up by name instead of failing.
+- **AutoMix: kicks on kicks when both songs change tempo.** Time stretching moves high, short sounds (hi-hats) differently from low ones, more so when both songs are stretched (each by a few per cent, meeting halfway): the mix lined up all onsets and could leave the kick drums some 18 ms apart. It now lines up the low ones (kick and bass) as a DJ does, within 80 ms either way, and all onsets only when the low ones don't line up clearly.
 - **Playlist Mixes that didn't play:**
   - The Mix could only be turned on once every song of the playlist was downloaded: with a single song missing, the switch stayed grey. Now it turns on for any playlist; songs not downloaded are mixed as AutoMix mixes them, from the copy streamed anyway. Designing a transition still needs its two songs downloaded (they are analysed from their files), and only those transitions are greyed out.
   - After the app was closed and opened again, the queue came back without knowing which playlist it was playing, so its Mix no longer played. The queue now remembers it.
