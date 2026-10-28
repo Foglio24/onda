@@ -356,18 +356,26 @@ struct AutoMixRenderCheck {
                 let takeOver = decibels(samples[0..<second], loudA[handover..<(handover + second)])
                 let joinIndex = Int(mix.join * rate)
                 let handBack = decibels(samples[(samples.count - second)..<samples.count], loudB[(joinIndex - second)..<joinIndex])
-                // Where both are clearly heard.
+                // Where both are clearly heard, at the mix's own rate (resampled, as `samples` are,
+                // a limited peak comes out a little over).
+                let file = try AVAudioFile(forReading: url, commonFormat: .pcmFormatFloat32, interleaved: false)
+                let native = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: AVAudioFrameCount(file.length))!
+                try file.read(into: native)
+                let mixRate = file.processingFormat.sampleRate
                 var peakTogether: Float = 0
                 for time in stride(from: loudSchedule.entry, to: loudSchedule.length - 0.05, by: 0.05) {
                     let levels = loudSchedule.step(at: time).levels
                     guard levels.outgoing >= 0.3, levels.incoming >= 0.3 else { continue }
-                    let range = Int(time * rate)..<min(samples.count, Int((time + 0.05) * rate))
-                    peakTogether = max(peakTogether, samples[range].map { abs($0) }.max() ?? 0)
+                    for frame in Int(time * mixRate)..<min(Int(native.frameLength), Int((time + 0.05) * mixRate)) {
+                        for channel in 0..<Int(native.format.channelCount) {
+                            peakTogether = max(peakTogether, abs(native.floatChannelData![channel][frame]))
+                        }
+                    }
                 }
                 let peakAlone = samples[0..<second].map { abs($0) }.max() ?? 0
                 expect(abs(takeOver) < 0.1 && abs(handBack) < 0.05 && peakTogether <= 1.0001 && peakAlone > 1,
                        "loud songs: the mix takes over \(format(takeOver)) dB and hands back \(format(handBack)) dB from the songs, "
-                       + "peaks \(format(Double(peakAlone))) alone (kept) and \(format(Double(peakTogether))) together")
+                       + "peaks \(format(Double(peakAlone))) alone (kept) and \(format(Double(peakTogether), 4)) together")
             } catch {
                 expect(false, "loud songs: rendered (\(error))")
             }
