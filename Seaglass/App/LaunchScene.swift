@@ -8,7 +8,8 @@ import SwiftUI
 /// `mix` makes two short songs and a playlist of them, and opens their transition in the Mix editor
 /// (`mix:options` with the options sheet too, `mix:edit` drawing the volume lines by hand).
 /// `downloads` downloads the first songs of a song's radio and shows them downloading;
-/// `storage` shows the space they take; `info` plays an album and opens its first song's details.
+/// `storage` shows the space they take; `info` plays an album and opens its first song's details;
+/// `player` shows a song's radio paused on it.
 /// Launch arguments are never passed in normal use, so this does nothing then.
 @MainActor
 enum LaunchScene {
@@ -80,7 +81,7 @@ enum LaunchScene {
         case "player":
             Task {
                 guard let tracks = try? await InnerTube.shared.radio(for: value), !tracks.isEmpty else { return }
-                PlayerController.shared.play(tracks, source: "Radio")
+                PlayerController.shared.cue(tracks, source: "Radio")
                 router.openPlayer()
             }
         default:

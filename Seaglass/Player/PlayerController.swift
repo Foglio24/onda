@@ -350,6 +350,23 @@ final class PlayerController: ObservableObject {
         loadArtwork(for: track)
     }
 
+    /// Shows a queue paused on its first song without loading anything, as after a relaunch: for
+    /// the screenshots (see `LaunchScene`), as YouTube doesn't hand audio to CI's machines.
+    func cue(_ tracks: [Track], source: String) {
+        guard let first = tracks.first else { return }
+        requests.replaceQueue()
+        advanceTask?.cancel()
+        queue = tracks
+        index = 0
+        self.source = source
+        unshuffledUpcoming = []
+        playlistContext = nil
+        playWhenReady = false
+        isRestoredSession = true
+        progress.duration = first.duration ?? 0
+        loadArtwork(for: first)
+    }
+
     private func scheduleQueueSave() {
         saveQueueTask?.cancel()
         saveQueueTask = Task {
