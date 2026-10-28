@@ -614,6 +614,30 @@ if let a = analyze(song(bpm: 124, seconds: 120).samples, "124 BPM, 2 minutes"),
     expect(false, "bars: the two-minute songs were analysed")
 }
 
+// MARK: Up to 40 seconds from the ends
+
+// The mix may be over up to 40 s before the song's end (its outro left out) and start up to 40 s
+// into the next song (its intro left out), never more; a song whose last half minute is quieter
+// is left as that part starts, not played to its end.
+if let a = analyze(song(bpm: 124, seconds: 120).samples, "124 BPM, 2 minutes, again"),
+   let b = analyze(song(bpm: 126, seconds: 120).samples, "126 BPM, 2 minutes, again") {
+    let context = TransitionContext(outgoingVocals: instrumental(a), incomingVocals: instrumental(b))
+    let all = TransitionPlanner.candidates(from: a, to: b, context: context)
+    let skipOut = all.map { a.audibleEnd - $0.plan.outEnd }.max() ?? 0
+    let skipIn = all.map { $0.plan.inStart - b.soundStart }.max() ?? 0
+    expect(skipOut >= 30 && skipOut <= 40.01 && skipIn >= 30 && skipIn <= 40.01,
+           "\(all.count) candidates: this song left up to \(format(skipOut, 1)) s before its end, the next entered up to \(format(skipIn, 1)) s in (40 at most)")
+    var quieter = song(bpm: 124, seconds: 120).samples
+    for index in quieter.indices where Double(index) / rate > 83 { quieter[index] *= 0.25 }
+    if let outro = analyze(quieter, "124 BPM with a quieter outro") {
+        let plan = TransitionPlanner.plan(from: outro, to: b, context: TransitionContext(outgoingVocals: instrumental(outro),
+                                                                                        incomingVocals: instrumental(b)))
+        expect(plan.outStart <= 90 && outro.audibleEnd - plan.outEnd >= 20,
+               "quieter outro from 83 s: mixed from \(format(plan.outStart, 1)) s, over \(format(outro.audibleEnd - plan.outEnd, 1)) s before the end (\(plan.style.rawValue))")
+        checkLevels(plan, outro, b, "quieter outro")
+    }
+}
+
 // MARK: Lines drawn by hand
 
 /// A design with its parts' options drawn as lines: what the editor starts from.

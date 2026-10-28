@@ -33,7 +33,12 @@ struct PlaylistDetailView: View {
     @State private var showPhotoPicker = false
     @State private var photoItem: PhotosPickerItem?
     @State private var showMix = false
+    /// Reordering: the songs show handles to drag them by (and the delete button), and are not
+    /// played, swiped or long-pressed meanwhile.
+    @State private var editMode: EditMode = .inactive
     @AppStorage(Preferences.accent) private var accent: AccentChoice = .pink
+
+    private var isEditing: Bool { editMode.isEditing }
 
     var body: some View {
         Group {
@@ -59,6 +64,7 @@ struct PlaylistDetailView: View {
                         }) {
                             player.play(playlist.tracks, startAt: position, source: playlist.name, playlist: playlist.id)
                         }
+                        .allowsHitTesting(!isEditing)
                         .listRowBackground(Color.clear)
                     }
                     .onDelete { library.removeTracks(atOffsets: $0, from: playlistID) }
@@ -66,15 +72,22 @@ struct PlaylistDetailView: View {
                 }
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
+                .environment(\.editMode, $editMode)
                 .toolbar {
-                    if playlist.tracks.count >= 2 {
+                    if isEditing {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Fine") { withAnimation { editMode = .inactive } }
+                        }
+                    } else if playlist.tracks.count >= 2 {
                         ToolbarItem(placement: .topBarTrailing) {
                             Button { showMix = true } label: {
                                 Label("Mix", systemImage: "slider.horizontal.3")
                             }
                         }
                     }
-                    ToolbarItem(placement: .topBarTrailing) { toolbarMenu(playlist) }
+                    if !isEditing {
+                        ToolbarItem(placement: .topBarTrailing) { toolbarMenu(playlist) }
+                    }
                 }
             } else {
                 ContentUnavailableView("Playlist eliminata", systemImage: "music.note.list")
@@ -128,6 +141,11 @@ struct PlaylistDetailView: View {
                 showRename = true
             } label: {
                 Label("Rinomina", systemImage: "pencil")
+            }
+            if playlist.tracks.count >= 2 {
+                Button { withAnimation { editMode = .active } } label: {
+                    Label("Riordina i brani", systemImage: "arrow.up.arrow.down")
+                }
             }
             if playlist.tracks.contains(where: { downloads.isDownloaded($0) }) {
                 Button(role: .destructive) { confirmRemoveDownloads = true } label: {

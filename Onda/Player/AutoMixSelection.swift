@@ -93,8 +93,11 @@ enum TransitionCriterion: String, CaseIterable, Sendable {
     case vocalClash
     /// The song leaving faded or left out while it sings.
     case vocalCut
-    /// The next song's voice coming in while it is still low, or its first words left out.
+    /// The next song's voice coming in while it is still low, or over the song leaving while that
+    /// is still up, or its first words left out.
     case buriedEntry
+    /// Both songs at full for a while: two whole arrangements at once.
+    case crowded
     /// A jump in loudness from the song leaving to the next one.
     case energy
     /// A hole in the sound: quieter than either song for a while (worse between songs with a beat).
@@ -118,6 +121,7 @@ enum TransitionCriterion: String, CaseIterable, Sendable {
         case .vocalClash: return String(localized: "voci sovrapposte")
         case .vocalCut: return String(localized: "frase tagliata")
         case .buriedEntry: return String(localized: "voce in entrata coperta")
+        case .crowded: return String(localized: "due brani pieni insieme")
         case .energy: return String(localized: "salto di volume")
         case .gap: return String(localized: "calo di energia")
         case .tempo: return String(localized: "cambio di tempo")
@@ -150,12 +154,15 @@ struct AutoMixTuning: Sendable {
     var preferredBars = 8.0
     /// The same for crossfades without beatmatching (seconds).
     var preferredCrossfade = 4.0
+    /// How long before the end of the song playing the mix may be over (its outro left out), and
+    /// how far into the next song it may start (its intro left out), in seconds.
+    var longestSkip = 40.0
     var lengthCost = 0.15
     /// Above this total no candidate is good enough: a short plain crossfade instead.
     var acceptableCost = 3.0
     var weights: [TransitionCriterion: Double] = [
         .rhythm: 1.5, .unsyncedBeats: 1.2, .grooveBreak: 1.5, .abruptEnd: 1.2, .harmony: 1.5, .vocalClash: 2.0, .vocalCut: 1.0,
-        .buriedEntry: 0.6, .energy: 0.8, .gap: 1.0, .tempo: 0.8, .phrase: 0.6, .skipped: 1.0, .length: 1.0,
+        .buriedEntry: 0.6, .crowded: 0.6, .energy: 0.8, .gap: 1.0, .tempo: 0.8, .phrase: 0.6, .skipped: 1.0, .length: 1.0,
     ]
 
     static let standard = AutoMixTuning()
@@ -282,11 +289,7 @@ extension TransitionPlanner {
             return TransitionChoice(chosen: candidate, runnersUp: [], considered: 1, fallback: false,
                                     outgoingVocalsMeasured: outgoingMeasured, incomingVocalsMeasured: incomingMeasured)
         }
-        var options = beatMatchedOptions(a, b, judge: judge)
-        options += blendOptions(a, b, judge: judge)
-        options += fadeOptions(a, b)
-        options += pauseOptions(a, b)
-        let candidates = options.map { judge.evaluate($0.plan, $0.kind) }
+        let candidates = candidates(a, b, judge: judge)
         let playable = candidates.filter { $0.veto == nil }.sorted { $0.total < $1.total }
         var runnersUp: [TransitionCandidate] = []
         guard let best = playable.first, best.total <= context.tuning.acceptableCost else {
@@ -314,28 +317,43 @@ extension TransitionPlanner {
 
     typealias Option = (plan: TransitionPlan, kind: TransitionCandidate.Kind)
 
+    /// Every candidate for the two songs (not for an album in order), weighed.
+    static func candidates(from a: TrackAnalysis, to b: TrackAnalysis,
+                           context: TransitionContext = TransitionContext()) -> [TransitionCandidate] {
+        candidates(a, b, judge: TransitionJudge(a, b, context))
+    }
+
+    private static func candidates(_ a: TrackAnalysis, _ b: TrackAnalysis, judge: TransitionJudge) -> [TransitionCandidate] {
+        var options = beatMatchedOptions(a, b, judge: judge)
+        options += blendOptions(a, b, judge: judge)
+        options += fadeOptions(a, b)
+        options += pauseOptions(a, b)
+        return options.map { judge.evaluate($0.plan, $0.kind) }
+    }
+
     /// The earliest the song leaving may start to go: it keeps its first ten seconds and half.
     private static func earliestExit(_ a: TrackAnalysis) -> Double { max(a.soundStart + 10, a.duration * 0.5) }
 
     // MARK: Beat-matched
 
     /// Beats matched over 2, 4, 8 and 16 bars; the overlap ending on the downbeat by the song's end
-    /// or on a phrase up to 24 bars before it; the next song coming in from its first downbeat, so
-    /// that its main part or its first words arrive as the overlap ends; the two at the tempo of
-    /// either or meeting between. Only within `maximumRateChange` for each song.
+    /// or on a phrase up to `longestSkip` seconds before it; the next song coming in from its first
+    /// downbeat, so that its main part or its first words arrive as the overlap ends, or from a
+    /// phrase up to `longestSkip` seconds into it; the two at the tempo of either or meeting
+    /// between. Only within `maximumRateChange` for each song.
     private static func beatMatchedOptions(_ a: TrackAnalysis, _ b: TrackAnalysis, judge: TransitionJudge) -> [Option] {
         let tuning = judge.context.tuning
         guard a.isGridLocked, b.isGridLocked, let match = tempoMatch(a, b) else { return [] }
         let limit = log(1 + tuning.maximumRateChange)
         guard abs(log(match.ratio)) <= 2 * limit + 1e-9 else { return [] }
-        let beat = a.beatLength, bar = 4 * beat
+        let beat = a.beatLength
         let latestEnd = a.audibleEnd + 0.5 * beat
         var latest = a.beat(atOrAfter: latestEnd)
         while latest > 0, a.beatTime(latest) > latestEnd || !a.isDownbeat(latest) { latest -= 1 }
         guard latest > 0 else { return [] }
         var ends: [Int] = []
         var end = latest
-        while end > 0, a.beatTime(end) >= latestEnd - 24 * bar, ends.count < 8 {
+        while end > 0, a.beatTime(end) >= latestEnd - tuning.longestSkip, ends.count < 10 {
             if end == latest || judge.shapeA.phrase(atBeat: end) >= 0.75 { ends.append(end) }
             end -= 4
         }
@@ -348,6 +366,13 @@ extension TransitionPlanner {
             meets.append(((tempoOut * tempoIn).squareRoot(), .both))
         }
         let voice = judge.context.incomingVocals?.firstVoice(after: b.soundStart)
+        // The next song's phrases it may start on, up to `longestSkip` seconds in.
+        var phrases: [Int] = []
+        var downbeat = b.firstDownbeat + 4
+        while b.beatTime(downbeat) <= b.soundStart + tuning.longestSkip, downbeat < b.beatCount {
+            if judge.shapeB.phrase(atBeat: downbeat) >= 0.75 { phrases.append(downbeat) }
+            downbeat += 4
+        }
         var options: [Option] = []
         for bars in [2, 4, 8, 16] {
             let incomingBeats = Int((Double(bars * 4) / match.octave).rounded())
@@ -359,10 +384,17 @@ extension TransitionPlanner {
                 while words > 0, b.beatTime(words) > voice + 0.05 || !b.isDownbeat(words) { words -= 1 }
                 if words - incomingBeats >= b.firstDownbeat { entries.append(words - incomingBeats) }
             }
+            entries += phrases
+            // At most `longestSkip` seconds of the next song left out, and a few entries.
+            var seen = Set<Int>()
+            entries = entries.filter {
+                b.beatTime($0) - b.soundStart <= tuning.longestSkip + 0.05 && seen.insert($0).inserted
+            }
+            entries = Array(entries.prefix(6))
             for end in ends {
                 let start = end - 4 * bars
                 guard start > 0 else { continue }
-                for entry in Set(entries).sorted() {
+                for entry in entries {
                     for meet in meets {
                         guard let plan = beatMatched(a, b, bars: bars, from: start, to: entry, minimumHandover: 30,
                                                      meet: meet.tempo) else { continue }
@@ -421,11 +453,33 @@ extension TransitionPlanner {
         var spans: [(start: Double, end: Double, seconds: Int)] = [2, 4, 6, 8, 12].map {
             (audibleEnd - Double($0), audibleEnd, $0)
         }
-        if let decline = declineStart(of: a), audibleEnd - decline >= 2 {
+        if let decline = declineStart(of: a, within: tuning.longestSkip), audibleEnd - decline >= 2 {
             for seconds in [2, 4, 6, 8] where decline + Double(seconds) < audibleEnd {
                 spans.append((decline, decline + Double(seconds), seconds))
             }
         }
+        // With a beat, also from the phrases where a new section starts in the song's last
+        // `longestSkip` seconds (its outro left out).
+        if rhythmic {
+            var sections: [(beat: Int, novelty: Double)] = []
+            var downbeat = a.beat(atOrAfter: audibleEnd - tuning.longestSkip)
+            while a.beatTime(downbeat) < audibleEnd - 4 {
+                if a.isDownbeat(downbeat), judge.shapeA.phrase(atBeat: downbeat) >= 0.75 {
+                    sections.append((downbeat, judge.shapeA.novelty(atBeat: downbeat)))
+                }
+                downbeat += 1
+            }
+            for section in sections.sorted(by: { $0.novelty > $1.novelty }).prefix(3) {
+                let start = a.beatTime(section.beat)
+                for seconds in [4, 8] where start + Double(seconds) < audibleEnd {
+                    spans.append((start, start + Double(seconds), seconds))
+                }
+            }
+        }
+        // Where the next song may start: at its sound, at its main part, or so that its first words
+        // arrive as this song has gone (each at most `longestSkip` seconds in).
+        let voice = judge.context.incomingVocals?.firstVoice(after: b.soundStart)
+        let main = b.mainStart().map { b.beatTime($0) }
         var options: [Option] = []
         for span in spans {
             var outStart = span.start, end = span.end
@@ -445,28 +499,40 @@ extension TransitionPlanner {
             }
             let seconds = span.seconds
             guard outStart >= earliest, end - outStart >= 1 else { continue }
-            let incomingEnd = inStart + (end - outStart)
-            let bassOut = a.bassShare(a.beat(atOrAfter: outStart)..<a.beat(atOrAfter: end)) >= tuning.bassRich
-            let bassIn = b.bassShare(b.beat(atOrAfter: inStart)..<b.beat(atOrAfter: incomingEnd)) >= tuning.bassRich
-            let swap = bassOut && bassIn && seconds >= 4
-            let tempo = a.tempo
-            var plan = TransitionPlan(style: .blend, handover: max(0, outStart - 2), outStart: outStart, outEnd: end,
-                                      inStart: inStart, tempoOut: tempo, tempoMeet: tempo, tempoIn: tempo,
-                                      alignment: alignment, swapStart: swap ? 0.4 : nil, swapEnd: swap ? 0.6 : nil,
-                                      fadeIn: 1, filterOut: bassOut && rhythmic && seconds >= 6 ? 0.4 : nil, bars: nil)
-            plan.fadeInFrom = 0
-            plan.fadeOutFrom = 0
-            options.append((plan, .blend(seconds: seconds)))
+            var starts = [inStart]
+            if let main, main - 0.01 > inStart + 2 { starts.append(main - 0.01) }
+            if let voice, voice - (end - outStart) > inStart + 2 { starts.append(voice - (end - outStart)) }
+            for start in starts where start - b.soundStart <= tuning.longestSkip + 0.05 {
+                options.append(blend(a, b, outStart: outStart, end: end, inStart: start, alignment: alignment,
+                                     seconds: seconds, rhythmic: rhythmic, tuning: tuning))
+            }
         }
         return options
     }
 
-    /// The last moment, within the half minute before the song's audible end, at which it still
+    /// A crossfade at the songs' own tempos.
+    private static func blend(_ a: TrackAnalysis, _ b: TrackAnalysis, outStart: Double, end: Double, inStart: Double,
+                              alignment: Double?, seconds: Int, rhythmic: Bool, tuning: AutoMixTuning) -> Option {
+        let incomingEnd = inStart + (end - outStart)
+        let bassOut = a.bassShare(a.beat(atOrAfter: outStart)..<a.beat(atOrAfter: end)) >= tuning.bassRich
+        let bassIn = b.bassShare(b.beat(atOrAfter: inStart)..<b.beat(atOrAfter: incomingEnd)) >= tuning.bassRich
+        let swap = bassOut && bassIn && seconds >= 4
+        let tempo = a.tempo
+        var plan = TransitionPlan(style: .blend, handover: max(0, outStart - 2), outStart: outStart, outEnd: end,
+                                  inStart: inStart, tempoOut: tempo, tempoMeet: tempo, tempoIn: tempo,
+                                  alignment: alignment, swapStart: swap ? 0.4 : nil, swapEnd: swap ? 0.6 : nil,
+                                  fadeIn: 1, filterOut: bassOut && rhythmic && seconds >= 6 ? 0.4 : nil, bars: nil)
+        plan.fadeInFrom = 0
+        plan.fadeOutFrom = 0
+        return (plan, .blend(seconds: seconds))
+    }
+
+    /// The last moment, within `window` seconds before the song's audible end, at which it still
     /// plays at nearly full loudness (over a second, not beat by beat).
-    private static func declineStart(of a: TrackAnalysis) -> Double? {
+    private static func declineStart(of a: TrackAnalysis, within window: Double) -> Double? {
         let full = Double(a.bodyLoudness) - 3
         var time = a.audibleEnd - 1
-        while time >= max(earliestExit(a), a.audibleEnd - 30) {
+        while time >= max(earliestExit(a), a.audibleEnd - window) {
             if 10 * log10(max(a.power(from: time - 0.5, to: time + 0.5), 1e-12)) >= full { return time }
             time -= TrackAnalysis.loudnessStep
         }
@@ -561,11 +627,12 @@ extension TransitionPlanner {
 
 // MARK: Judging
 
-/// A song's phrases: bars counted from where its sections change most regularly, every four bars.
+/// A song's phrases: bars counted from the start of the section they are in (where the harmony and
+/// the loudness change clearly), so a section of odd length or a pickup doesn't shift the rest.
 struct SongShape {
     let analysis: TrackAnalysis
-    /// The bar (0…3) from which four-bar phrases are counted.
-    let origin: Int
+    /// The bars where sections start (the first bar among them).
+    let sectionStarts: [Int]
     /// For each bar: how much the harmony and the loudness change there (a new section).
     let novelty: [Double]
 
@@ -595,11 +662,17 @@ struct SongShape {
             return harmony + abs(after - before) / 6
         }
         self.novelty = novelty
-        let scores = (0..<4).map { offset -> Double in
-            let values = stride(from: offset + 4, to: bars, by: 4).map { novelty[$0] }
-            return values.isEmpty ? 0 : values.reduce(0, +) / Double(values.count)
+        // A section starts where the change stands out: a peak at least one deviation above the mean.
+        let mean = novelty.isEmpty ? 0 : novelty.reduce(0, +) / Double(novelty.count)
+        let deviation = novelty.isEmpty ? 0
+            : (novelty.reduce(0) { $0 + ($1 - mean) * ($1 - mean) } / Double(novelty.count)).squareRoot()
+        var starts = [0]
+        for bar in novelty.indices where bar >= 2 && bar + 1 < novelty.count {
+            if novelty[bar] >= mean + deviation, novelty[bar] >= novelty[bar - 1], novelty[bar] >= novelty[bar + 1] {
+                starts.append(bar)
+            }
         }
-        origin = scores.indices.max { scores[$0] < scores[$1] } ?? 0
+        sectionStarts = starts
     }
 
     private func bar(ofBeat beat: Int) -> Int? {
@@ -607,11 +680,11 @@ struct SongShape {
         return (beat - analysis.firstBarBeat) / 4
     }
 
-    /// How well a beat starts a phrase: 1 on an eight-bar boundary, 0.75 on a four-bar one, 0.35
-    /// every two bars, 0 elsewhere (and off a downbeat).
+    /// How well a beat starts a phrase: 1 on an eight-bar boundary of its section (or where a section
+    /// starts), 0.75 on a four-bar one, 0.35 every two bars, 0 elsewhere (and off a downbeat).
     func phrase(atBeat beat: Int) -> Double {
         guard let bar = bar(ofBeat: beat) else { return 0 }
-        let counted = bar - origin
+        let counted = bar - (sectionStarts.last { $0 <= bar } ?? 0)
         if counted % 8 == 0 { return 1 }
         if counted % 4 == 0 { return 0.75 }
         if counted % 2 == 0 { return 0.35 }
@@ -763,7 +836,8 @@ struct TransitionJudge {
         let incomingEnd = plan.inStart + overlap * ratio
         // Seconds where both are clearly heard (each at least a tenth of the sound).
         var together = 0.0
-        var clash = 0.0, cut = 0.0, buried = 0.0
+        var clash = 0.0, cut = 0.0, buried = 0.0, crowded = 0.0
+        let fullA = Double(a.bodyLoudness) - 6 + Self.decibels(gainA), fullB = Double(b.bodyLoudness) - 6 + Self.decibels(gainB)
         for (index, sample) in samples.enumerated() {
             let gainA = trimOut[index], gainB = trimIn[index]
             let o = Double(sample.levels.outgoing), i = Double(sample.levels.incoming)
@@ -774,7 +848,15 @@ struct TransitionJudge {
             let va = voiceA(sample.outgoing), vb = sample.incoming >= b.soundStart ? voiceB(sample.incoming) : 0
             if o * gainA >= 0.3, i * gainB >= 0.3 { clash += va * vb * weight }
             if o > 0.05, o < 0.9 { cut += va * weight }
-            if i > 0.02, i < 0.7 { buried += vb * weight }
+            if i > 0.02, i < 0.7 {
+                buried += vb * weight
+            } else if o * gainA >= 0.5 {
+                // Its words over the song leaving, still up.
+                buried += 0.5 * vb * weight
+            }
+            if o * gainA >= 0.6, i * gainB >= 0.6, Self.decibels(sample.alone.0) >= fullA, Self.decibels(sample.alone.1) >= fullB {
+                crowded += weight
+            }
         }
         // The words left out: the end of the song leaving, the start of the next.
         for time in stride(from: plan.outEnd, to: a.audibleEnd, by: step) { cut += 2 * voiceA(time) * step }
@@ -782,6 +864,7 @@ struct TransitionJudge {
         costs[.vocalClash] = clash / 3
         costs[.vocalCut] = cut / 3
         costs[.buriedEntry] = buried / 3
+        costs[.crowded] = crowded / 8
 
         // Rhythm where they play together.
         let beatsA = a.beat(atOrAfter: plan.outStart)..<max(a.beat(atOrAfter: plan.outStart), a.beat(atOrAfter: plan.outEnd))
@@ -884,7 +967,7 @@ struct TransitionJudge {
                 sum + step * max(0, min(1, (Double(song.level(at: time)) - Double(song.bodyLoudness) + 12) / 12))
             }
         }
-        costs[.skipped] = loud(a, from: plan.outEnd, to: a.audibleEnd) / 8 + loud(b, from: b.soundStart, to: plan.inStart) / 12
+        costs[.skipped] = loud(a, from: plan.outEnd, to: a.audibleEnd) / 20 + loud(b, from: b.soundStart, to: plan.inStart) / 20
 
         switch kind {
         case .beatMatched(let bars, _):

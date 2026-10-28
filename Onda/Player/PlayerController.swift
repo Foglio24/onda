@@ -1491,7 +1491,11 @@ final class PlayerController: ObservableObject {
                 let context = TransitionContext(outgoingGain: outgoingGain, incomingGain: incomingGain,
                                                 outgoingVocals: outgoingVocals, incomingVocals: incomingVocals,
                                                 albumOrder: albumOrder)
-                let choice = TransitionPlanner.choose(from: outgoing, to: incoming, context: context)
+                // Hundreds of candidates are weighed: away from the main thread.
+                let choice = await Task.detached(priority: .userInitiated) {
+                    TransitionPlanner.choose(from: outgoing, to: incoming, context: context)
+                }.value
+                guard !Task.isCancelled, self.requests.isCurrentLoad(generation), self.autoMixPair == pair else { return }
                 plan = choice.plan
                 UserDefaults.standard.set("\(track.title) → \(next.title)\n" + choice.summary,
                                           forKey: Preferences.lastAutoMixChoice)

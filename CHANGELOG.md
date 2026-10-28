@@ -1,9 +1,16 @@
 # Changelog
 
-## 1.17.1 (2026-10-28)
+## 1.18.0 (2026-10-28)
 
 ### Added
 - **Mix from the playlist's page.** Under "Riproduci" and "Casuale", "Attiva il Mix" turns the playlist's Mix on (or off) in one tap, and "Transizioni" opens its transitions. With the Mix on, every song of the playlist is mixed into the next when you listen to it, even with AutoMix off: with the transitions you designed, and with AutoMix's choice for the others.
+- **Reorder a playlist's songs.** "Riordina i brani" in the playlist's ··· menu shows a handle on each song: drag it up or down (or tap the red button to remove it), then "Fine". Holding a song opens its menu, which is why dragging it didn't work.
+
+### Changed
+- **AutoMix up to 40 seconds from the ends.** It can now finish the mix up to 40 seconds before the end of the song playing (leaving its outro out) and start the next song up to 40 seconds in (leaving its intro out). These are weighed with the others, on phrases where a section starts, and chosen when they sound better: a quieter or longer ending, a long intro. Leaving loud music out still costs a little, and leaving words out a lot.
+- Two songs at full together for long now costs too (two whole arrangements at once), so a long mix brings the next song's main part in as the first one leaves; and the next song's voice is kept from coming in over the first one while that is still up.
+- Phrases are counted from the start of each section (where the harmony and the loudness change), so an intro of odd length doesn't shift them.
+- Choosing among the candidates (now up to about 1,700 for two four-minute songs) runs away from the main thread.
 
 ### Fixed
 - **Playlist Mixes that didn't play:**
