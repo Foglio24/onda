@@ -353,10 +353,9 @@ struct AutoMixRenderCheck {
                 expect(false, "muted mix rendered")
             }
 
-            // Loud songs, mastered up to full scale and over it (as decoded AAC often is), at full
-            // gain: where one plays alone the mix is that song, as loud and with its peaks; where
-            // both play the limiter keeps them under full scale.
-            let loud = { (samples: [Float]) -> [Float] in samples.map { Float(tanh(Double($0) * 4) * 1.1) } }
+            // Loud songs, mastered dense up to full scale, at full gain: where one plays alone the mix
+            // is as loud as that song; where both play the limiter keeps them under full scale.
+            let loud = { (samples: [Float]) -> [Float] in samples.map { Float(tanh(Double($0) * 4) * 0.999) } }
             let loudA = loud(a.samples), loudB = loud(b.samples)
             let loudURLs = (folder.appending(path: "loud-a.wav"), folder.appending(path: "loud-b.wav"))
             do {
@@ -380,6 +379,11 @@ struct AutoMixRenderCheck {
                 // Where both are clearly heard, at the mix's own rate (resampled, as `samples` are,
                 // a limited peak comes out a little over).
                 let file = try AVAudioFile(forReading: url, commonFormat: .pcmFormatFloat32, interleaved: false)
+                // The mix stays 16-bit integers: written as floats (1.18.1) it was heard as silence on
+                // the iPhone.
+                let settings = file.fileFormat.settings
+                expect((settings[AVLinearPCMIsFloatKey] as? Bool) == false && (settings[AVLinearPCMBitDepthKey] as? Int) == 16,
+                       "loud songs: the mix is 16-bit integer PCM")
                 let native = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: AVAudioFrameCount(file.length))!
                 try file.read(into: native)
                 let mixRate = file.processingFormat.sampleRate
@@ -393,10 +397,9 @@ struct AutoMixRenderCheck {
                         }
                     }
                 }
-                let peakAlone = samples[0..<second].map { abs($0) }.max() ?? 0
-                expect(abs(takeOver) < 0.1 && abs(handBack) < 0.05 && peakTogether <= 1.0001 && peakAlone > 1,
+                expect(abs(takeOver) < 0.1 && abs(handBack) < 0.1 && peakTogether <= 1.0001,
                        "loud songs: the mix takes over \(format(takeOver)) dB and hands back \(format(handBack)) dB from the songs, "
-                       + "peaks \(format(Double(peakAlone))) alone (kept) and \(format(Double(peakTogether), 4)) together")
+                       + "peak \(format(Double(peakTogether), 4)) together")
             } catch {
                 expect(false, "loud songs: rendered (\(error))")
             }

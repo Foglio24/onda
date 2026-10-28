@@ -150,7 +150,13 @@ enum AutoMixRenderer {
         let engine = AVAudioEngine()
         let block = MixSchedule.blockFrames
         try engine.enableManualRenderingMode(.offline, format: format, maximumFrameCount: AVAudioFrameCount(block))
-        engine.connect(engine.mainMixerNode, to: engine.outputNode, format: format)
+        // Two songs at once can go over full scale: a peak limiter keeps them from clipping.
+        let limiter = AVAudioUnitEffect(audioComponentDescription: AudioComponentDescription(
+            componentType: kAudioUnitType_Effect, componentSubType: kAudioUnitSubType_PeakLimiter,
+            componentManufacturer: kAudioUnitManufacturer_Apple, componentFlags: 0, componentFlagsMask: 0))
+        engine.attach(limiter)
+        engine.connect(engine.mainMixerNode, to: limiter, format: format)
+        engine.connect(limiter, to: engine.outputNode, format: format)
         let decks = [Deck(), Deck()]
         for (deck, gain) in zip(decks, [gains.0, gains.1]) {
             deck.attach(to: engine, format: format, gain: gain)
@@ -191,20 +197,23 @@ enum AutoMixRenderer {
         // The stretchers hold back a little audio: that much is rendered extra at the start and left
         // out, so the file begins exactly at the handover. Rates follow the mix clock; volumes,
         // filters and effects follow what is being heard.
-        let latency = decks[0].latency
+        let latency = decks[0].latency + limiter.latency
         let latencyFrames = max(0, Int((latency * rate).rounded()))
         let total = schedule.steps.count * block + latencyFrames
         guard let output = AVAudioPCMBuffer(pcmFormat: engine.manualRenderingFormat,
                                             frameCapacity: AVAudioFrameCount(block)) else { throw RenderError.engine }
-        // The mix is kept whole, for the limiter to look ahead, then written as floats: where one
-        // song plays alone the file is that song, its peaks over full scale included.
-        var left: [Float] = [], right: [Float] = []
-        var together: [Bool] = []
-        if destination != nil {
-            let capacity = schedule.steps.count * block
-            left.reserveCapacity(capacity)
-            right.reserveCapacity(capacity)
-            together.reserveCapacity(capacity)
+        var file: AVAudioFile?
+        if let destination {
+            try? FileManager.default.removeItem(at: destination)
+            file = try AVAudioFile(forWriting: destination, settings: [
+                AVFormatIDKey: kAudioFormatLinearPCM,
+                AVSampleRateKey: rate,
+                AVNumberOfChannelsKey: 2,
+                AVLinearPCMBitDepthKey: 16,
+                AVLinearPCMIsFloatKey: false,
+                AVLinearPCMIsBigEndianKey: false,
+                AVLinearPCMIsNonInterleaved: false,
+            ], commonFormat: .pcmFormatFloat32, interleaved: false)
         }
         let captureFrames = capture.map { Int(($0.lowerBound * rate).rounded())..<Int(($0.upperBound * rate).rounded()) }
         var captured: [Float] = []
@@ -232,14 +241,7 @@ enum AutoMixRenderer {
             guard status == .success, let channels = output.floatChannelData else { throw RenderError.engine }
             let skip = max(0, latencyFrames - rendered)
             if skip < frames {
-                if destination != nil {
-                    left.append(contentsOf: UnsafeBufferPointer(start: channels[0] + skip, count: frames - skip))
-                    right.append(contentsOf: UnsafeBufferPointer(start: channels[1] + skip, count: frames - skip))
-                    // Both songs heard (or the noise sweep): together they can go over full scale.
-                    let outgoingHeard = heard.outgoing > 0.001 || heard.reverb > 0 || heard.echo > 0
-                    let both = (outgoingHeard && heard.incoming > 0.001) || (effects && heard.noise > 0)
-                    together.append(contentsOf: repeatElement(both, count: frames - skip))
-                }
+                if let file { try write(output, from: skip, count: frames - skip, to: file) }
                 // Keep the last half second, and the stretch asked for, as mono.
                 for frame in skip..<frames {
                     let value = (channels[0][frame] + channels[1][frame]) / 2
@@ -249,10 +251,6 @@ enum AutoMixRenderer {
                 }
             }
             rendered += frames
-        }
-        if let destination {
-            limit(&left, &right, where: together)
-            try write(left, right, to: destination)
         }
         let start = written % tailLength
         let ordered = Array(tail[start...]) + Array(tail[..<start])
@@ -402,79 +400,15 @@ enum AutoMixRenderer {
         return out
     }
 
-    /// Keeps the two songs together under full scale (stereo-linked), the gain coming down over a
-    /// couple of milliseconds before a peak and back up over about 60 ms; elsewhere (one song
-    /// alone, `together` false) the audio is left exactly as it is. A song alone plays as it does
-    /// on its own, its peaks over full scale included: anything else would make the mix quieter
-    /// than the song where it hands back (heard as the next song jumping up when the mix ends).
-    static func limit(_ left: inout [Float], _ right: inout [Float], where together: [Bool], ceiling: Float = 1) {
-        let count = min(left.count, right.count, together.count)
-        let reach = max(1, Int((0.0015 * MixSchedule.sampleRate).rounded()))
-        // The gain each peak needs, held over the frames around it.
-        var hold = [Float](repeating: 1, count: count)
-        var any = false
-        for index in 0..<count where together[index] {
-            let peak = max(abs(left[index]), abs(right[index]))
-            guard peak > ceiling else { continue }
-            any = true
-            let needed = ceiling / peak
-            for near in max(0, index - reach)...min(count - 1, index + reach) where hold[near] > needed { hold[near] = needed }
+    private static func write(_ buffer: AVAudioPCMBuffer, from start: Int, count: Int, to file: AVAudioFile) throws {
+        guard start > 0 || count < Int(buffer.frameLength) else { return try file.write(from: buffer) }
+        guard let part = AVAudioPCMBuffer(pcmFormat: buffer.format, frameCapacity: AVAudioFrameCount(count)),
+              let source = buffer.floatChannelData, let target = part.floatChannelData else { throw RenderError.engine }
+        part.frameLength = AVAudioFrameCount(count)
+        for channel in 0..<Int(buffer.format.channelCount) {
+            (target[channel]).update(from: source[channel] + start, count: count)
         }
-        guard any else { return }
-        // Averaged over as many frames around (each peak still gets the gain it needs), then let
-        // back up over about 60 ms.
-        let width = 2 * reach + 1
-        func held(_ index: Int) -> Float { hold[max(0, min(count - 1, index))] }
-        var sum = 0.0, lowered = 0
-        for index in -reach...reach {
-            sum += Double(held(index))
-            if held(index) < 1 { lowered += 1 }
-        }
-        let release = 1 - exp(-1 / (0.06 * MixSchedule.sampleRate))
-        var current = 1.0
-        for centre in 0..<count {
-            if centre > 0 {
-                let leaving = held(centre - reach - 1), entering = held(centre + reach)
-                sum += Double(entering) - Double(leaving)
-                if leaving < 1 { lowered -= 1 }
-                if entering < 1 { lowered += 1 }
-            }
-            let smoothed = lowered == 0 ? 1 : sum / Double(width)
-            current = min(smoothed, current + (1 - current) * release)
-            if current > 0.999_99 { current = 1 }
-            if current < 1 {
-                left[centre] *= Float(current)
-                right[centre] *= Float(current)
-            }
-        }
-    }
-
-    /// The mix as a 32-bit float file.
-    private static func write(_ left: [Float], _ right: [Float], to destination: URL) throws {
-        try? FileManager.default.removeItem(at: destination)
-        let rate = MixSchedule.sampleRate
-        let file = try AVAudioFile(forWriting: destination, settings: [
-            AVFormatIDKey: kAudioFormatLinearPCM,
-            AVSampleRateKey: rate,
-            AVNumberOfChannelsKey: 2,
-            AVLinearPCMBitDepthKey: 32,
-            AVLinearPCMIsFloatKey: true,
-            AVLinearPCMIsBigEndianKey: false,
-            AVLinearPCMIsNonInterleaved: false,
-        ], commonFormat: .pcmFormatFloat32, interleaved: false)
-        guard let format = AVAudioFormat(standardFormatWithSampleRate: rate, channels: 2) else { throw RenderError.engine }
-        let chunk = 65_536
-        var position = 0
-        while position < left.count {
-            let count = min(chunk, left.count - position)
-            guard let part = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(count)),
-                  let target = part.floatChannelData else { throw RenderError.engine }
-            part.frameLength = AVAudioFrameCount(count)
-            left.withUnsafeBufferPointer { target[0].update(from: $0.baseAddress! + position, count: count) }
-            right.withUnsafeBufferPointer { target[1].update(from: $0.baseAddress! + position, count: count) }
-            try file.write(from: part)
-            position += count
-        }
+        try file.write(from: part)
     }
 
     /// A stretch of a song's audio as 44.1 kHz stereo, starting exactly at `start` (its own time).

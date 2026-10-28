@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.18.2 (2026-10-28)
+
+### Fixed
+- **No sound during AutoMix's mixes in 1.18.1.** 1.18.1 saved the rendered mix as 32-bit floating point (to keep the songs' peaks over full scale), and on the iPhone the mix was heard as silence: from the handover to where the next song carries on by itself, nothing. The mix is saved as 16-bit again, with the limiter of 1.18.0, as up to 1.18.0 (measured on real songs, it takes over within 0.06 dB of the song's level). The shorter, quieter crossing of 1.18.1 stays. The render check now makes sure the mix stays 16-bit.
+
 ## 1.18.1 (2026-10-28)
 
 ### Fixed
