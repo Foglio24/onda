@@ -235,6 +235,7 @@
 "File WebM non valido." = "Invalid WebM file.";
 "Nessun audio Opus nel file." = "No Opus audio in the file.";
 "Decoder Opus non disponibile." = "Opus decoder not available.";
+"Risposta non valida dal server audio." = "Invalid answer from the audio server.";
 "Nessuno stream audio riproducibile per questo brano." = "No playable audio stream for this song.";
 
 /* Settings: playback */
