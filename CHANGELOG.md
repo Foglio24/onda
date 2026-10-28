@@ -16,6 +16,13 @@
 - Playlist Mixes are unchanged: they still start from the timing of up to 1.16.
 - The analyses are made again (version 2): they now also hold each beat's share of bass, how far each beat's onset is from the grid, and each bar's harmony.
 
+### Measured on real songs
+Eight pairs of Creative Commons songs (dance, sung pop, rap, acoustic, tempos far apart, rock, reggae and one more), rendered as 1.16 did and as now from the same files, and compared with their hand-timed lyrics (not with the voice detection):
+- two voices heard at once: 8.1 s over the eight pairs with 1.16 (6.6 s in the dance pair), none now;
+- the first song's words faded or left out: 14.8 s with 1.16, 7.8 s now (more in one pair, the acoustic one: 2.2 s against none);
+- the next song's first words under 70 % or left out: 2.2 s with 1.16, none now.
+The excerpts (X and Y in random order, for blind listening) are in the "AutoMix on real songs" workflow's artifact.
+
 ### What still has to be checked
 - How it sounds: the choices follow measurable criteria, checked on test songs and on Creative Commons songs, but their weights are a starting point to tune by listening. No comparison with Apple Music has been made: its transitions can't be rendered outside an iPhone.
 - The voice detection's time on an iPhone (on the build Mac it takes about 1 s per 5.8 s of music, about 20 s for a pair of songs) and how often it can't finish before the mix is due.
