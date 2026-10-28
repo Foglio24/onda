@@ -1463,7 +1463,7 @@ final class PlayerController: ObservableObject {
             // plans carefully.
             var outgoingVocals: VocalActivity?
             var incomingVocals: VocalActivity?
-            let remaining = (track.duration ?? outgoing.duration) - self.currentTime
+            let remaining = (track.duration ?? outgoing.duration) - self.progress.currentTime
             let budget = min(120, remaining - 90)
             if design == nil, !albumOrder, StemSeparator.isAvailable, EnergyPolicy.current.allowsKaraoke, budget >= 10 {
                 self.autoMixNote = String(localized: "Ascolto delle voci…")
