@@ -15,8 +15,8 @@
   - the progressive parser finds the whole-file packets for pieces of 1 byte to 1 MB;
   - the PCM decoded piece by piece is the PCM of the whole-file Apple Lossless conversion;
   - the first audio's timing, and prepared and cancelled streams;
-  - AVFoundation opens, plays and seeks the stream through the resource loader.
-- `Tools/OpusStartupProbe` (a live CI step that never blocks the build; also runs on a Mac) times the visionOS links, AAC, progressive Opus, prepared Opus and the whole-file Opus of up to 1.15, from the "tap".
+  - AVFoundation opens, plays and seeks the stream through the resource loader while the data is still arriving. Before it plays, AVFoundation reads the file's last block: the stream answers it at once with silence after the song (never heard, since the item stops at the song's end), so it doesn't wait for the whole song to be decoded.
+- `Tools/OpusStartupProbe` (a live CI step that never blocks the build; also runs on a Mac) times each way of starting, from the "tap": a new song (links, then AAC or Opus), AAC and Opus with their link known, AAC and Opus prepared, and the whole-file Opus of up to 1.15. It also times a seek far ahead right after the start.
 - `Tools/StartupMetricsCheck` checks the timings by source, the Opus steps and the fallbacks.
 
 ## 1.15.1 (2026-10-28)

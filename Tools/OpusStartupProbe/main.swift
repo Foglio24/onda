@@ -1,9 +1,10 @@
 // Measures, with the real network and the app's own code, how long each way of starting a song
 // takes, from the "tap" (the start of the step) to:
-//   - links: the visionOS player request (DirectStreams), done once per song;
-//   - AAC: AVPlayer on the AAC stream, until it is ready and until it reports playing;
-//   - Opus, progressive (OpusStream): first byte, head, first decoded audio, item ready, playing;
-//   - Opus, prepared: the first range read and decoded beforehand, then from the tap;
+//   - a new song: the visionOS player request (DirectStreams), then AAC or Opus;
+//   - AAC with its link known: AVPlayer on the AAC stream, until it is ready and until it plays;
+//   - AAC prepared: a player prerolled beforehand (as PreparedPlayback does), from the tap;
+//   - Opus with its link known (OpusStream): first byte, head, first decoded audio, ready, playing;
+//   - Opus prepared: the first range read and decoded, and the player prerolled, beforehand;
 //   - Opus, whole file (up to 1.15): download and conversion to Apple Lossless before it can play.
 // "Playing" is AVPlayer's state, not sound from a speaker (on a build machine without a sound card
 // AVPlayer may never get there: the times up to "ready" still count). It runs on a Mac, not an
@@ -18,6 +19,29 @@ func ms(_ seconds: TimeInterval?) -> String {
 }
 
 func uptime() -> TimeInterval { ProcessInfo.processInfo.systemUptime }
+
+/// A player made and prerolled before the tap, as PreparedPlayback does; then from the tap until it plays.
+func preparedStart(_ item: AVPlayerItem) async -> TimeInterval? {
+    let player = AVPlayer(playerItem: item)
+    player.automaticallyWaitsToMinimizeStalling = false
+    var waited = 0
+    while item.status == .unknown, waited < 300 {
+        try? await Task.sleep(for: .milliseconds(10))
+        waited += 1
+    }
+    guard item.status == .readyToPlay else { return nil }
+    _ = await player.preroll(atRate: 1)
+    let start = uptime()
+    player.playImmediately(atRate: 1)
+    var playing: TimeInterval?
+    while uptime() - start < 4, playing == nil {
+        if player.timeControlStatus == .playing, player.currentTime().seconds > 0 { playing = uptime() - start }
+        try? await Task.sleep(for: .milliseconds(2))
+    }
+    player.pause()
+    player.replaceCurrentItem(with: nil)
+    return playing
+}
 
 /// Until the item is ready and the player reports playing (each nil if it doesn't within the limit).
 func startPlayer(_ item: AVPlayerItem, from start: TimeInterval, limit: TimeInterval = 8) async -> (ready: TimeInterval?, playing: TimeInterval?) {
@@ -55,11 +79,34 @@ struct OpusStartupProbe {
             let aac = result.renditions.filter { $0.format == .aac && $0.isNative }.max { $0.bitrate < $1.bitrate }
             let opus = result.renditions.filter { $0.format == .opus }.max { $0.bitrate < $1.bitrate }
 
+            // A new song: the links first, then the start (AAC as today, then Opus).
+            start = uptime()
+            if let fresh = try? await DirectStreams.fetch(video),
+               let link = fresh.renditions.filter({ $0.format == .aac && $0.isNative }).max(by: { $0.bitrate < $1.bitrate }) {
+                let links = uptime() - start
+                let (_, playing) = await startPlayer(AVPlayerItem(url: link.url), from: start)
+                print("   new song, AAC: links \(ms(links)), playing \(ms(playing))")
+            }
+            start = uptime()
+            if let fresh = try? await DirectStreams.fetch(video),
+               let link = fresh.renditions.filter({ $0.format == .opus }).max(by: { $0.bitrate < $1.bitrate }) {
+                let links = uptime() - start
+                let stream = OpusStream(source: .remote(link.url), destination: nil, duration: nil)
+                stream.start()
+                let (_, playing) = await startPlayer(stream.makeItem(), from: start)
+                print("   new song, Opus: links \(ms(links)), first audio \(ms(stream.timing.firstAudio.map { $0 - start })), playing \(ms(playing))")
+                stream.cancel()
+            }
+
             for round in 1...2 {
                 if let aac {
                     start = uptime()
                     let (ready, playing) = await startPlayer(AVPlayerItem(url: aac.url), from: start)
                     print("   [\(round)] AAC \(aac.bitrate / 1000) kbps, link known: ready \(ms(ready)), playing \(ms(playing))")
+                    let item = AVPlayerItem(url: aac.url)
+                    item.preferredForwardBufferDuration = 2
+                    let prepared = await preparedStart(item)
+                    print("   [\(round)] AAC prepared: from the tap, playing \(ms(prepared))")
                 }
                 guard let opus else { continue }
                 start = uptime()
