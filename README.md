@@ -23,7 +23,7 @@ See [CHANGELOG.md](CHANGELOG.md) for what changed in each version.
 <table>
   <tr>
     <td align="center"><img src="docs/screenshots/home.jpg" width="200" alt="Home: moods, picks and daily mixes"><br><sub>Home</sub></td>
-    <td align="center"><img src="docs/screenshots/search.jpg" width="200" alt="Search: top result, artists, albums and songs"><br><sub>Search</sub></td>
+    <td align="center"><img src="docs/screenshots/search.jpg" width="200" alt="Search: songs first, then playlists, artists and albums"><br><sub>Search</sub></td>
     <td align="center"><img src="docs/screenshots/player.jpg" width="200" alt="Player with artwork colours and Spatial Audio"><br><sub>Player</sub></td>
     <td align="center"><img src="docs/screenshots/artist.jpg" width="200" alt="Artist page"><br><sub>Artist</sub></td>
   </tr>
@@ -47,7 +47,7 @@ See [CHANGELOG.md](CHANGELOG.md) for what changed in each version.
 | LastWave (Android) | Seaglass (iOS) |
 |---|---|
 | Streams the YouTube Music catalogue, in the background and ad-free | ✅ |
-| Search, artists and albums | ✅ Top result, artists, albums and songs; artist pages (top songs, albums, singles, videos, similar artists) and album pages |
+| Search, artists and albums | ✅ Songs first, then playlists, artists and albums (an artist first when you type their name); artist pages (top songs, albums, singles, videos, similar artists) and album pages |
 | Volume normalization | ✅ Louder songs are turned down to YouTube's -14 LUFS reference, using YouTube's own loudness data |
 | Equalizer | ✅ Spotify's presets on a six-band curve you can drag, on every song |
 | Song details | ✅ Release date, label, ℗ and credits from YouTube Music's catalogue, plus format and loudness |
