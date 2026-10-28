@@ -3,18 +3,17 @@ import Foundation
 
 /// Plays a WebM/Opus stream from its first seconds while the rest downloads. The file comes in
 /// ranges (the first one read as it arrives), `WebMStreamParser` takes the Opus packets out of it,
-/// Apple's Opus decoder turns them into 16-bit PCM, and the PCM goes into a WAV file that grows,
+/// Apple's Opus decoder turns them into 16-bit PCM, and the PCM goes into an audio file that grows,
 /// which AVPlayer reads through a resource loader (`makeItem()`), waiting where it isn't decoded
 /// yet. So the song is an ordinary AVPlayer item (seeks, audio mix, AutoMix, the system's
 /// controls), and nothing is converted ahead: the first seconds play once a few kilobytes are in.
 ///
-/// When the whole song is in, the WAV is complete and moves to `destination`, the song's cached
+/// When the whole song is in, the file is complete and moves to `destination`, the song's cached
 /// file (`completedFile()`). A prepared stream (`start(prepareOnly: true)`) reads only its first
 /// range, then waits for `resume()`.
 final class OpusStream: NSObject, @unchecked Sendable {
     static let scheme = "onda-opus"
     static let sampleRate = 48_000
-    private static let headerSize = 44
     /// Ranges after the first, fetched four at a time: YouTube serves ranges at full speed, a
     /// whole-file request only at about playback speed (see `ChunkedDownload`).
     private static let rangeSize = 1 << 20
@@ -23,8 +22,21 @@ final class OpusStream: NSObject, @unchecked Sendable {
     enum Source: Sendable {
         /// A web address, read in ranges.
         case remote(URL)
-        /// A file's bytes in memory, handed over `chunk` at a time (for the checks).
-        case local(Data, chunk: Int)
+        /// A file's bytes in memory, handed over `chunk` at a time, `pace` seconds apart (for the checks).
+        case local(Data, chunk: Int, pace: Double = 0)
+    }
+
+    /// How the PCM is wrapped for AVPlayer.
+    enum Container: Sendable {
+        /// WAV: AVFoundation reads the end of the file before it plays (for chunks after the audio).
+        case wav
+        /// Core Audio Format with the audio chunk's size unknown (it runs to the end of the file),
+        /// as for a recording in progress: nothing after the audio to look for.
+        case caf
+
+        var headerSize: Int { self == .wav ? 44 : 68 }
+        var fileType: AVFileType { self == .wav ? .wav : .caf }
+        var pathExtension: String { self == .wav ? "wav" : "caf" }
     }
 
     enum StreamError: LocalizedError {
@@ -53,7 +65,7 @@ final class OpusStream: NSObject, @unchecked Sendable {
     private struct State {
         var timing = Timing()
         var channels = 2
-        /// Frames the WAV says it holds (from the file's length), known with the first packets.
+        /// Frames the file says it holds (from the song's length), known with the first packets.
         var declaredFrames: Int?
         /// PCM bytes in the file after its header.
         var decodedBytes = 0
@@ -64,6 +76,8 @@ final class OpusStream: NSObject, @unchecked Sendable {
         var audioWaiters: [(bytes: Int, continuation: CheckedContinuation<Void, Error>)] = []
         var prepareOnly = false
         var resumeWaiter: CheckedContinuation<Void, Error>?
+        /// The first requests AVFoundation made to the resource loader, for the checks.
+        var requestLog: [String] = []
     }
 
     /// The address AVPlayer reads the song from (served by the resource loader).
@@ -73,6 +87,7 @@ final class OpusStream: NSObject, @unchecked Sendable {
     private let fallbackDuration: Double?
     private let firstRange: Int
     private let file: URL
+    let container: Container
     private let lock = NSLock()
     private var state = State()
     /// Parsing, decoding and writing, in order: the first range urgently (the song is waiting for
@@ -89,15 +104,16 @@ final class OpusStream: NSObject, @unchecked Sendable {
 
     /// `duration` (seconds) stands in for the file's own length when it doesn't give one;
     /// `firstRange` is the first range's size in bytes.
-    init(source: Source, destination: URL?, duration: Double?, firstRange: Int = 512 << 10) {
+    init(source: Source, destination: URL?, duration: Double?, firstRange: Int = 512 << 10, container: Container = .caf) {
         self.source = source
         self.destination = destination
         fallbackDuration = duration
         self.firstRange = firstRange
+        self.container = container
         let id = UUID().uuidString
-        playbackURL = URL(string: "\(Self.scheme)://stream/\(id).wav")!
+        playbackURL = URL(string: "\(Self.scheme)://stream/\(id).\(container.pathExtension)")!
         let folder = destination?.deletingLastPathComponent() ?? FileManager.default.temporaryDirectory
-        file = folder.appending(path: ".\(id).streaming.wav")
+        file = folder.appending(path: ".\(id).streaming.\(container.pathExtension)")
         super.init()
     }
 
@@ -137,6 +153,7 @@ final class OpusStream: NSObject, @unchecked Sendable {
     }
 
     var timing: Timing { withState { $0.timing } }
+    var loaderRequests: [String] { withState { $0.requestLog } }
     var failure: Error? { withState { $0.failure } }
     var completedURL: URL? { withState { $0.completed } }
     /// Seconds of audio decoded so far.
@@ -158,7 +175,7 @@ final class OpusStream: NSObject, @unchecked Sendable {
         }
     }
 
-    /// The finished WAV file, once the whole song is in.
+    /// The finished file, once the whole song is in.
     func completedFile() async throws -> URL {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<URL, Error>) in
             let done = withState { state -> Result<URL, Error>? in
@@ -194,10 +211,11 @@ final class OpusStream: NSObject, @unchecked Sendable {
                 let total = try await streamFirstRange(of: url)
                 try await waitIfPrepared()
                 if total > firstRange { try await fetchRest(of: url, from: firstRange, total: total) }
-            case .local(let data, let chunk):
+            case .local(let data, let chunk, let pace):
                 var offset = 0
                 while offset < data.count {
                     try Task.checkCancellation()
+                    if pace > 0, offset > 0 { try await Task.sleep(for: .seconds(pace)) }
                     let end = min(data.count, offset + max(1, chunk))
                     let piece = data.subdata(in: offset..<end)
                     work.async { self.feed(piece) }
@@ -326,7 +344,7 @@ final class OpusStream: NSObject, @unchecked Sendable {
         }
     }
 
-    /// The decoder and the file, with the length the WAV declares.
+    /// The decoder and the file, with the length it declares.
     private func open(first packet: Data) throws {
         let head = parser.head
         let channels = max(1, min(head.channels, 2))
@@ -334,7 +352,7 @@ final class OpusStream: NSObject, @unchecked Sendable {
                                         framesPerPacket: WebMStreamParser.framesPerPacket(packet))
         let duration = head.duration ?? fallbackDuration ?? 0
         let frames = max(0, Int((duration * Double(Self.sampleRate)).rounded()) - head.preSkip)
-        FileManager.default.createFile(atPath: file.path, contents: Self.header(frames: frames, channels: channels))
+        FileManager.default.createFile(atPath: file.path, contents: header(frames: frames, channels: channels, final: false))
         writer = try FileHandle(forWritingTo: file)
         try writer?.seekToEnd()
         withState { state in
@@ -374,7 +392,7 @@ final class OpusStream: NSObject, @unchecked Sendable {
             // The header with the real length, then the file where it is kept.
             let (channels, bytes) = withState { ($0.channels, $0.decodedBytes) }
             try writer?.seek(toOffset: 0)
-            try writer?.write(contentsOf: Self.header(frames: bytes / (2 * channels), channels: channels))
+            try writer?.write(contentsOf: header(frames: bytes / (2 * channels), channels: channels, final: true))
             try writer?.close()
             writer = nil
             var completed = file
@@ -425,24 +443,46 @@ final class OpusStream: NSObject, @unchecked Sendable {
         dataAvailable()
     }
 
-    /// A canonical 44-byte WAV header: 16-bit PCM at 48 kHz.
-    private static func header(frames: Int, channels: Int) -> Data {
+    /// The file's header, 16-bit PCM at 48 kHz: a canonical 44-byte WAV, or a CAF whose audio
+    /// chunk runs to the end of the file until it is `final`.
+    private func header(frames: Int, channels: Int, final: Bool) -> Data {
         let blockAlign = 2 * channels
-        let dataSize = UInt32(clamping: frames * blockAlign)
+        let dataSize = frames * blockAlign
         var data = Data()
-        func append<T: FixedWidthInteger>(_ value: T) { withUnsafeBytes(of: value.littleEndian) { data.append(contentsOf: $0) } }
-        data.append(contentsOf: Array("RIFF".utf8))
-        append(UInt32(clamping: 36 + Int(dataSize)))
-        data.append(contentsOf: Array("WAVEfmt ".utf8))
-        append(UInt32(16))
-        append(UInt16(1))
-        append(UInt16(channels))
-        append(UInt32(sampleRate))
-        append(UInt32(sampleRate * blockAlign))
-        append(UInt16(blockAlign))
-        append(UInt16(16))
-        data.append(contentsOf: Array("data".utf8))
-        append(dataSize)
+        func little<T: FixedWidthInteger>(_ value: T) { withUnsafeBytes(of: value.littleEndian) { data.append(contentsOf: $0) } }
+        func big<T: FixedWidthInteger>(_ value: T) { withUnsafeBytes(of: value.bigEndian) { data.append(contentsOf: $0) } }
+        switch container {
+        case .wav:
+            data.append(contentsOf: Array("RIFF".utf8))
+            little(UInt32(clamping: 36 + dataSize))
+            data.append(contentsOf: Array("WAVEfmt ".utf8))
+            little(UInt32(16))
+            little(UInt16(1))
+            little(UInt16(channels))
+            little(UInt32(Self.sampleRate))
+            little(UInt32(Self.sampleRate * blockAlign))
+            little(UInt16(blockAlign))
+            little(UInt16(16))
+            data.append(contentsOf: Array("data".utf8))
+            little(UInt32(clamping: dataSize))
+        case .caf:
+            data.append(contentsOf: Array("caff".utf8))
+            big(UInt16(1))
+            big(UInt16(0))
+            data.append(contentsOf: Array("desc".utf8))
+            big(Int64(32))
+            big(Double(Self.sampleRate).bitPattern)
+            data.append(contentsOf: Array("lpcm".utf8))
+            big(UInt32(2)) // little-endian integers
+            big(UInt32(blockAlign))
+            big(UInt32(1))
+            big(UInt32(channels))
+            big(UInt32(16))
+            data.append(contentsOf: Array("data".utf8))
+            // -1: the audio runs to the end of the file.
+            big(final ? Int64(4 + dataSize) : Int64(-1))
+            big(UInt32(0)) // edit count
+        }
         return data
     }
 
@@ -464,9 +504,9 @@ final class OpusStream: NSObject, @unchecked Sendable {
             // The length is known with the first packets.
             guard let declared else { return false }
             let dataSize = declared * 2 * channels
-            let total = Self.headerSize + dataSize
+            let total = container.headerSize + dataSize
             if let information = request.contentInformationRequest {
-                information.contentType = AVFileType.wav.rawValue
+                information.contentType = container.fileType.rawValue
                 information.contentLength = Int64(total)
                 information.isByteRangeAccessSupported = true
             }
@@ -491,13 +531,14 @@ final class OpusStream: NSObject, @unchecked Sendable {
         }
     }
 
-    /// The WAV's bytes from `offset`: the header, then the PCM decoded so far (silence past the
+    /// The file's bytes from `offset`: the header, then the PCM decoded so far (silence past the
     /// end of a song shorter than it said). Nil while they aren't decoded yet.
     private func bytes(at offset: Int, upTo end: Int, declared: Int, channels: Int, decoded: Int, finished: Bool) -> Data? {
-        if offset < Self.headerSize {
-            return Self.header(frames: declared, channels: channels).subdata(in: offset..<min(Self.headerSize, end))
+        let headerSize = container.headerSize
+        if offset < headerSize {
+            return header(frames: declared, channels: channels, final: false).subdata(in: offset..<min(headerSize, end))
         }
-        let position = offset - Self.headerSize
+        let position = offset - headerSize
         if position < decoded {
             let count = min(end - offset, decoded - position)
             do {
@@ -519,6 +560,13 @@ extension OpusStream: AVAssetResourceLoaderDelegate {
     func resourceLoader(_ resourceLoader: AVAssetResourceLoader,
                         shouldWaitForLoadingOfRequestedResource loadingRequest: AVAssetResourceLoadingRequest) -> Bool {
         guard loadingRequest.request.url == playbackURL else { return false }
+        if let data = loadingRequest.dataRequest {
+            let entry = data.requestsAllDataToEndOfResource
+                ? "\(data.requestedOffset)-" : "\(data.requestedOffset)+\(data.requestedLength)"
+            withState { state in
+                if state.requestLog.count < 30 { state.requestLog.append(entry) }
+            }
+        }
         requests.append(loadingRequest)
         serve()
         return true

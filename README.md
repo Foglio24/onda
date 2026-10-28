@@ -111,7 +111,7 @@ project.yml   XcodeGen project (the .xcodeproj is generated in CI)
 
 - **Search, radios and playlists** use YouTube Music's web API (the `WEB_REMIX` client).
 - **Audio URLs** come from [YouTubeKit](https://github.com/alexeichhorn/YouTubeKit). Extraction runs on the phone. Only if that fails does it use the library author's server, which receives the video ID.
-- **Opus** (WebM) is read as it downloads: the app takes the packets out of each piece, decodes them with Apple's own Opus decoder into PCM and serves a growing WAV to AVPlayer through a resource loader (`OpusStream`). Downloads are decoded into Apple Lossless.
+- **Opus** (WebM) is read as it downloads: the app takes the packets out of each piece, decodes them with Apple's own Opus decoder into PCM and serves a growing Core Audio file to AVPlayer through a resource loader (`OpusStream`). Downloads are decoded into Apple Lossless.
 - **Lyrics** come from [LRCLIB](https://lrclib.net). **Scrobbling** uses the [Last.fm API](https://www.last.fm/api).
 
 ## License

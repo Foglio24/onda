@@ -4,7 +4,7 @@
 // PCM decoded piece by piece is the PCM of the whole-file conversion (to Apple Lossless); the
 // first half second is ready after the first kilobytes; a prepared stream stops after its first
 // range and carries on when resumed; and AVPlayer opens the stream through the resource loader
-// (WAV, its length, a seek), where it can play here.
+// (its length, before all of it is in, and a seek), where it can play here.
 // Run from the repository root: bash Tools/OpusStreamCheck/run.sh
 import AVFoundation
 import Foundation
@@ -193,7 +193,7 @@ struct OpusStreamCheck {
 
         // Piece by piece: the same PCM, the first half second after a few kilobytes.
         for chunk in [997, 16_384] {
-            let destination = folder.appending(path: "stream-\(chunk).wav")
+            let destination = folder.appending(path: "stream-\(chunk).caf")
             let stream = OpusStream(source: .local(file, chunk: chunk), destination: destination, duration: nil,
                                     firstRange: 64 << 10)
             stream.start()
@@ -237,32 +237,45 @@ struct OpusStreamCheck {
         let refused = (try? await cancelled.completedFile()) == nil
         expect(refused && cancelled.failure != nil, "a cancelled stream ends with an error")
 
-        // AVPlayer through the resource loader: a WAV of the right length, opened while it decodes.
-        let playing = OpusStream(source: .local(file, chunk: 8_192), destination: nil, duration: nil, firstRange: 64 << 10)
-        playing.start()
-        let item = playing.makeItem()
-        let opened = Date()
-        let duration = try? await item.asset.load(.duration)
-        let tracks = (try? await item.asset.loadTracks(withMediaType: .audio)) ?? []
-        expect(abs((duration?.seconds ?? 0) - seconds) < 0.05 && tracks.count == 1,
-               "AVFoundation opens the stream: \(format(duration?.seconds ?? 0, 3)) s, \(tracks.count) audio track, "
-               + "in \(milliseconds(Date().timeIntervalSince(opened)))")
-        let player = AVPlayer(playerItem: item)
-        var waited = 0
-        while item.status == .unknown, waited < 50 {
-            try? await Task.sleep(for: .milliseconds(100))
-            waited += 1
+        // AVPlayer through the resource loader while the song is still arriving (2 KB every 20 ms,
+        // about a second for all of it): ready, and playing, long before it is all in. AVFoundation
+        // looks after the audio of a WAV for more chunks, so a WAV waits for the end (reported);
+        // a CAF whose audio runs to the end of the file doesn't.
+        for container in [OpusStream.Container.caf, .wav] {
+            let playing = OpusStream(source: .local(file, chunk: 2_048, pace: 0.02), destination: nil, duration: nil,
+                                     firstRange: 64 << 10, container: container)
+            playing.start()
+            let item = playing.makeItem()
+            let opened = Date()
+            let duration = try? await item.asset.load(.duration)
+            let tracks = (try? await item.asset.loadTracks(withMediaType: .audio)) ?? []
+            let player = AVPlayer(playerItem: item)
+            player.playImmediately(atRate: 1)
+            while item.status == .unknown, Date().timeIntervalSince(opened) < 5 {
+                try? await Task.sleep(for: .milliseconds(5))
+            }
+            let ready = Date().timeIntervalSince(opened)
+            let early = playing.completedURL == nil
+            print("     \(container): requests \(playing.loaderRequests.joined(separator: ", "))")
+            let name = container == .caf ? "CAF" : "WAV"
+            let summary = "\(name): \(String(format: "%.3f", duration?.seconds ?? 0)) s, \(tracks.count) audio track, "
+                + "ready after \(milliseconds(ready)) \(early ? "while the song was still arriving" : "once all of it was in")"
+                + " (\(item.error.map { "\($0)" } ?? "no error"))"
+            if container == .caf {
+                expect(abs((duration?.seconds ?? 0) - seconds) < 0.05 && tracks.count == 1 && item.status == .readyToPlay && early,
+                       summary)
+                try? await Task.sleep(for: .seconds(1.5))
+                // Without a sound card (some build machines) AVPlayer doesn't move: only reported.
+                print("     playing: \(format(player.currentTime().seconds, 2)) s after 1.5 s"
+                      + " (\(player.timeControlStatus == .playing ? "playing" : "not playing"))")
+                let sought = await item.seek(to: CMTime(seconds: 8, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
+                expect(sought, "seeks to 8 s in the stream")
+            } else {
+                print("     \(summary)")
+            }
+            player.pause()
+            _ = try? await playing.completedFile()
         }
-        expect(item.status == .readyToPlay, "the item is ready to play after \(waited * 100) ms (\(item.error.map { "\($0)" } ?? "no error"))")
-        player.playImmediately(atRate: 1)
-        try? await Task.sleep(for: .seconds(1.5))
-        let advanced = player.currentTime().seconds
-        // Without a sound card (some build machines) AVPlayer doesn't move: only reported.
-        print("     playing: \(format(advanced, 2)) s after 1.5 s (\(player.timeControlStatus == .playing ? "playing" : "not playing"))")
-        let sought = await item.seek(to: CMTime(seconds: 8, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
-        expect(sought, "seeks to 8 s in the stream")
-        player.pause()
-        _ = try? await playing.completedFile()
 
         print(failures == 0 ? "OpusStreamCheck: all checks passed" : "OpusStreamCheck: \(failures) failed")
         exit(failures == 0 ? 0 : 1)

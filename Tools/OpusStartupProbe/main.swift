@@ -73,7 +73,8 @@ struct OpusStartupProbe {
                       + " head \(ms(since(timing.head))), first audio \(ms(since(timing.firstAudio))),"
                       + " ready \(ms(ready)), playing \(ms(playing))")
                 _ = try? await stream.completedFile()
-                print("        whole song in after \(ms(since(stream.timing.completed)))")
+                print("        whole song in after \(ms(since(stream.timing.completed)));"
+                      + " requests \(stream.loaderRequests.prefix(8).joined(separator: ", "))")
 
                 // A seek far ahead right after the start: AVPlayer waits until the audio there is decoded.
                 let seeking = OpusStream(source: .remote(opus.url), destination: nil, duration: nil)

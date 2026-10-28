@@ -1553,7 +1553,7 @@ final class PlayerController: ObservableObject {
     /// heard as a jump at the handover.
     private func outgoingFile(for track: Track, videoId: String, source: URL?) async -> URL? {
         if let source, source.isFileURL { return source }
-        // An Opus stream: its decoded WAV, once the whole song is in.
+        // An Opus stream: its decoded file, once the whole song is in.
         if let source, source.scheme == OpusStream.scheme, let opus = opusPlayback?.stream, opus.playbackURL == source,
            let file = try? await opus.completedFile() {
             return file
