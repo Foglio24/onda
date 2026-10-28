@@ -153,6 +153,8 @@ enum Preferences {
     static let nowPlayingBackend = "diagnostics.nowPlayingBackend"
     /// The last change of audio output (headphones in or out) and what the player did.
     static let lastRouteChange = "diagnostics.lastRouteChange"
+    /// The last AutoMix handover and how it went.
+    static let lastHandover = "diagnostics.lastHandover"
     static let interactiveArtwork = "player.interactiveArtwork"
     static let lyricsTranslate = "lyrics.translate"
     static let updateMode = "updates.mode"

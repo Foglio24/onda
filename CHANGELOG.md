@@ -3,13 +3,16 @@
 ## 1.15.1 (2026-10-28)
 
 ### Fixed
-- **AutoMix: no more cut where the mix takes over, also with AirPods.** In 1.15.0 the playing song faded out with the player's volume, which acts on the sound as it is made: with AirPods, which play it about a fifth of a second later, the song was still at full volume while the mix came in, and was then stopped while still loud, which was heard as a cut. Now the song fades out inside its own audio processing, over the very quarter of a second of music the mix fades in on, so the two always add up to the song: on the iPhone's speaker, AirPods, Bluetooth or AirPlay, and however busy the iPhone is while the screen moves to the next song. Both are set more than a second ahead.
+- **AutoMix: no more cut where the mix takes over, also with AirPods.** In 1.15.0 the playing song faded out with the player's volume, which acts on the sound as it is made: with AirPods, which play it about a fifth of a second later, the song was still at full volume while the mix came in, and was then stopped while still loud, which was heard as a cut. Nothing checked either that the mix had really started: had it started late, the song would have gone quiet anyway. Now:
+  - The mix starts silent, on the exact moment of the song. A moment later Onda checks that it is playing, in step with the song; only then, about half a second in (where the mix is still the song alone), the song fades out as the mix fades in. (Over AirPlay, where the sound is heard about two seconds later, there is no time to look: the two cross where the mix starts.) A mix that didn't get ready, didn't start or isn't in step is dropped before it is ever heard, and the song ends with a plain crossfade.
+  - The song fades out inside its own audio processing, over the very quarter of a second of music the mix fades in on, so the two always add up to the song: on the iPhone's speaker, AirPods, Bluetooth or AirPlay, and however busy the iPhone is while the screen moves to the next song. The song stops only once its fade has been heard.
   - The mix is made from the very audio that plays: the song's file, or a copy of the same stream. At "Massima" it could be made from the song's decoded Opus (or its AAC 256) while the AAC stream was playing: encoded differently, its music landed some milliseconds off.
   - The mix is made at the volume the song plays with ("Volume uniforme"), and made again if that changes or the song moves to another file.
   - A song that started before AutoMix was turned on (and Dolby Digital Plus) still fades with the player's volume, now set ahead by the time the sound takes to be heard.
+- Settings → Informazioni shows the last AutoMix handover: whether the mix started and how far off, the output's latency and how the song faded out, or why it fell back to a crossfade.
 
 ### For development
-- `Tools/AutoMixRenderCheck` plays the handover as the player makes it: the song through the fade in buffers of uneven sizes while the mix fades in (as loud as the song during the fade and after it, never a gap), the fade exact, set only ahead of the music and refused when it comes too late.
+- `Tools/AutoMixRenderCheck` plays the handover as the player makes it: the mix silent at first, then the song through the fade in buffers of uneven sizes while the mix fades in (as loud as the song before, during and after the fade, never a gap), the fade exact, set only ahead of the music and refused when it comes too late. It can't play the two players on an iPhone: that is what the line in Settings is for.
 
 ## 1.15.0 (2026-10-28)
 

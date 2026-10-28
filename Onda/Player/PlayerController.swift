@@ -1458,10 +1458,15 @@ final class PlayerController: ObservableObject {
         let incoming = AVPlayer()
         // AVPlayer starts at an exact moment (see `startOnTime`) only without its own waiting.
         incoming.automaticallyWaitsToMinimizeStalling = false
-        let transition = ArmedTransition(planned: planned, player: incoming, track: next, outgoingTrackID: track.id)
+        let crossing = self.crossing(for: player.currentItem)
+        let transition = ArmedTransition(planned: planned, player: incoming, track: next, outgoingTrackID: track.id,
+                                         crossing: crossing)
         armed = transition
         armTask = Task {
-            guard let made = await Self.makeMixItem(for: planned) else { return self.abandon(transition) }
+            guard let made = await Self.makeMixItem(for: planned, crossing: crossing) else {
+                self.noteHandover(String(localized: "mix non pronto: dissolvenza semplice"))
+                return self.abandon(transition)
+            }
             guard !Task.isCancelled, self.armed === transition else { return }
             let item = made.item
             item.allowedAudioSpatializationFormats = Self.spatializationFormats
@@ -1474,15 +1479,25 @@ final class PlayerController: ObservableObject {
                 waited += 1
             }
             guard !Task.isCancelled, self.armed === transition else { return }
-            guard item.status == .readyToPlay, incoming.status == .readyToPlay else { return self.abandon(transition) }
-            _ = await incoming.preroll(atRate: 1)
+            // Its audio ready to play at once (a preroll that didn't finish is tried once more).
+            var ready = item.status == .readyToPlay && incoming.status == .readyToPlay
+            if ready {
+                ready = await incoming.preroll(atRate: 1)
+                if !ready, !Task.isCancelled, self.armed === transition { ready = await incoming.preroll(atRate: 1) }
+            }
             guard !Task.isCancelled, self.armed === transition else { return }
+            guard ready else {
+                self.noteHandover(String(localized: "mix non pronto: dissolvenza semplice"))
+                return self.abandon(transition)
+            }
             await self.startOnTime(transition)
         }
     }
 
-    /// The mix's item, and the fader for the handover from it into the song after (see `startOnTime`).
-    nonisolated private static func makeMixItem(for planned: PlannedTransition) async -> (item: AVPlayerItem, fader: HandoverFader?)? {
+    /// The mix's item, silent until `crossing` (see `startOnTime`), and the fader for the handover
+    /// from it into the song after.
+    nonisolated private static func makeMixItem(for planned: PlannedTransition,
+                                                crossing: Double) async -> (item: AVPlayerItem, fader: HandoverFader?)? {
         let mixAsset = AVURLAsset(url: planned.mix.url)
         let songAsset = AVURLAsset(url: planned.file)
         guard let mixTrack = try? await mixAsset.loadTracks(withMediaType: .audio).first,
@@ -1506,9 +1521,11 @@ final class PlayerController: ObservableObject {
         }
         let seam = CMTimeRange(start: CMTimeSubtract(length, overlap), duration: overlap)
         let mixPart = AVMutableAudioMixInputParameters(track: first)
-        // The mix comes in under the playing song, which fades out over it (see `startOnTime`).
+        // Silent until the crossing, then in under the playing song, which fades out over it (see `startOnTime`).
+        if crossing > 0 { mixPart.setVolume(0, at: .zero) }
         mixPart.setVolumeRamp(fromStartVolume: 0, toEndVolume: 1,
-                              timeRange: CMTimeRange(start: .zero, duration: CMTime(seconds: handoverFade, preferredTimescale: scale)))
+                              timeRange: CMTimeRange(start: CMTime(seconds: crossing, preferredTimescale: scale),
+                                                     duration: CMTime(seconds: handoverFade, preferredTimescale: scale)))
         mixPart.setVolumeRamp(fromStartVolume: 1, toEndVolume: 0, timeRange: seam)
         let songPart = AVMutableAudioMixInputParameters(track: second)
         songPart.setVolumeRamp(fromStartVolume: 0, toEndVolume: planned.incomingGain, timeRange: seam)
@@ -1537,19 +1554,34 @@ final class PlayerController: ObservableObject {
         return max(0, session.outputLatency) + max(0, session.ioBufferDuration)
     }
 
+    /// Where the playing song and the mix cross, in seconds of the mix (it is still the song alone
+    /// there, at its own tempo): late enough for the mix to be seen playing first, and early enough
+    /// for the song's audio processing, which runs ahead of what is heard, not to be there yet.
+    /// Zero when the sound is heard so late (AirPlay, about two seconds) that there is no time to
+    /// look: they cross where the mix starts.
+    private func crossing(for item: AVPlayerItem?) -> Double {
+        let time = item?.currentTime().seconds ?? 0
+        let ahead = item.flatMap { handoverFader(of: $0)?.ahead(of: time) } ?? Self.outputLatency
+        let crossing = max(0.45, ahead + 0.35)
+        return crossing <= 0.9 ? crossing : 0
+    }
+
     /// Waits until the playing song is about to reach the handover, then has AVPlayer start the mix
-    /// at that exact moment of the system clock, fading in while the playing song fades out.
+    /// at that exact moment of the system clock. The mix is silent until the crossing: a moment
+    /// after its start, it has to be playing, in step with the song; only then the song fades out
+    /// as the mix fades in. A mix that didn't start, or not in step, is dropped before it is ever
+    /// heard, and the song ends with a plain crossfade instead (the reason is shown in Settings →
+    /// Informazioni).
     ///
     /// The song fades out inside its own audio processing (`HandoverFader`), over the very stretch
-    /// of the music the mix fades in on: the two add up to the song, whatever the output. That
-    /// processing runs ahead of what is heard (by the output's latency, more with the screen
-    /// locked), so both are set at least a second before it gets there. A song without the fader
-    /// (one that started before AutoMix was turned on, or Dolby) fades out with the player's
-    /// volume, set ahead by the output's latency.
+    /// of the music the mix fades in on: the two add up to the song, whatever the output. A song
+    /// without the fader (one that started before AutoMix was turned on, or Dolby) fades out with
+    /// the player's volume, set ahead by the output's latency.
     private func startOnTime(_ transition: ArmedTransition) async {
         let handover = transition.planned.plan.handover
         let outgoing = player
         let latency = Self.outputLatency
+        let crossing = transition.crossing
         while true {
             guard !Task.isCancelled, armed === transition, player === outgoing,
                   current?.id == transition.outgoingTrackID, karaokeMode == .off else { return abandon(transition) }
@@ -1559,13 +1591,14 @@ final class PlayerController: ObservableObject {
                 continue
             }
             let time = item.currentTime().seconds
-            let ahead = handoverFader(of: item)?.ahead(of: time) ?? 0
+            // Crossing where the mix starts, the fade is set before the song's audio processing gets there.
+            let ahead = crossing > 0 ? 0 : handoverFader(of: item)?.ahead(of: time) ?? 0
             let lead = max(1, latency + 0.6, ahead + 0.6)
             let wait = handover + itemOffset - time
             if wait <= lead { break }
             try? await Task.sleep(for: .seconds(min(wait - lead + 0.05, 1)))
         }
-        guard let item = outgoing.currentItem, let timebase = item.timebase, transition.item != nil else {
+        guard let item = outgoing.currentItem, let timebase = item.timebase, let mixItem = transition.item else {
             return abandon(transition)
         }
         let rate = CMTimebaseGetRate(timebase)
@@ -1575,23 +1608,74 @@ final class PlayerController: ObservableObject {
         let delay = max(0, (target - now) / rate)
         let start = CMTimeAdd(CMClockGetTime(CMClockGetHostTimeClock()),
                               CMTime(seconds: delay, preferredTimescale: 1_000_000_000))
-        let fade = Self.handoverFade
-        let exact = handoverFader(of: item)?.fadeOut(at: target, over: fade, now: now) == true
         transition.player.setRate(1, time: .zero, atHostTime: start)
         transition.scheduled = true
-        // The playing song goes on under the mix's first moments, and stops once its fade is heard.
-        beginTransition(transition, outgoingFor: delay + fade + latency + 0.3)
-        guard !exact else { return }
+        guard crossing > 0 else {
+            let exact = cross(transition, from: outgoing, item: item, at: target, heardAt: start, now: now, latency: latency)
+            noteHandover([String(localized: "mix avviato senza controllo"), Self.describeCrossing(exact, latency)]
+                .joined(separator: " · "))
+            return
+        }
+        // A moment after its start (still silent): does it play, in step with the song?
+        try? await Task.sleep(for: .seconds(delay + 0.12))
+        guard !Task.isCancelled, armed === transition, player === outgoing, outgoing.currentItem === item,
+              current?.id == transition.outgoingTrackID, karaokeMode == .off else { return abandon(transition) }
+        let mixTime = mixItem.currentTime().seconds
+        let songTime = item.currentTime().seconds
+        let offset = mixTime - (songTime - target)
+        guard transition.player.timeControlStatus == .playing, mixItem.status == .readyToPlay, mixTime > 0.02 else {
+            noteHandover(String(localized: "mix non partito: dissolvenza semplice"))
+            return abandon(transition)
+        }
+        guard outgoing.timeControlStatus == .playing, abs(offset) < 0.05 else {
+            noteHandover(String(localized: "mix fuori tempo: dissolvenza semplice"))
+            return abandon(transition)
+        }
+        guard mixTime < crossing - 0.1 else {
+            noteHandover(String(localized: "controllo in ritardo: dissolvenza semplice"))
+            return abandon(transition)
+        }
+        let moment = CMTimeAdd(start, CMTime(seconds: crossing, preferredTimescale: 1_000_000_000))
+        let exact = cross(transition, from: outgoing, item: item, at: target + crossing, heardAt: moment,
+                          now: songTime, latency: latency)
+        noteHandover([String(localized: "mix partito, scarto \(Int((offset * 1000).rounded())) ms"),
+                      Self.describeCrossing(exact, latency)].joined(separator: " · "))
+    }
+
+    /// The playing song fades out from `time` (its item's time), heard at the host time `moment`,
+    /// as the mix fades in there, and the next song becomes the current one. True when the fade is
+    /// in the song's audio processing.
+    private func cross(_ transition: ArmedTransition, from outgoing: AVPlayer, item: AVPlayerItem, at time: Double,
+                       heardAt moment: CMTime, now: Double, latency: Double) -> Bool {
+        let fade = Self.handoverFade
+        let exact = handoverFader(of: item)?.fadeOut(at: time, over: fade, now: now) == true
+        let wait = CMTimeSubtract(moment, CMClockGetTime(CMClockGetHostTimeClock())).seconds
+        // The playing song stops once its fade has been heard.
+        beginTransition(transition, outgoingFor: max(0, wait) + fade + latency + 0.3)
+        guard !exact else { return true }
         fadeOutTask = Task {
             // Down in step with the mix coming up (same music: the two add up to the song). What is
             // set now is heard `latency` later.
             while !Task.isCancelled {
-                let heard = CMTimeSubtract(CMClockGetTime(CMClockGetHostTimeClock()), start).seconds + latency
+                let heard = CMTimeSubtract(CMClockGetTime(CMClockGetHostTimeClock()), moment).seconds + latency
                 outgoing.volume = Float(max(0, min(1, 1 - heard / fade)))
                 if heard >= fade { break }
                 try? await Task.sleep(for: .milliseconds(heard < 0 ? max(1, Int(-heard * 1000)) : 8))
             }
         }
+        return false
+    }
+
+    /// How the playing song faded out, and the output's latency, for `noteHandover`.
+    private static func describeCrossing(_ exact: Bool, _ latency: Double) -> String {
+        let output = String(localized: "uscita \(Int((latency * 1000).rounded())) ms")
+        return output + " · " + (exact ? String(localized: "sfumatura nel brano") : String(localized: "sfumatura col volume"))
+    }
+
+    /// The last AutoMix handover and how it went, for Settings → Informazioni.
+    private func noteHandover(_ text: String) {
+        let time = Date.now.formatted(date: .omitted, time: .standard)
+        UserDefaults.standard.set("\(time) · \(text)", forKey: Preferences.lastHandover)
     }
 
     /// The fader in the item's audio processing, if it has one (`itemEffects` are the current item's).
@@ -2126,16 +2210,19 @@ private final class ArmedTransition {
     let player: AVPlayer
     let track: Track
     let outgoingTrackID: String
+    /// Seconds into the mix where the playing song and the mix cross (see `PlayerController.crossing(for:)`).
+    let crossing: Double
     var item: AVPlayerItem?
     /// The fader in the mix's item: it fades the next song out when that one hands over in turn.
     var fader: HandoverFader?
     /// Its start has been set on the system clock.
     var scheduled = false
 
-    init(planned: PlannedTransition, player: AVPlayer, track: Track, outgoingTrackID: String) {
+    init(planned: PlannedTransition, player: AVPlayer, track: Track, outgoingTrackID: String, crossing: Double) {
         self.planned = planned
         self.player = player
         self.track = track
         self.outgoingTrackID = outgoingTrackID
+        self.crossing = crossing
     }
 }

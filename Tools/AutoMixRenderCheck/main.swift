@@ -2,8 +2,8 @@
 // playing song is at the handover and ends exactly where the next song carries on (no jump on
 // either side), it never goes silent, and the two songs' beats stay together through the overlap,
 // also while their tempos glide (124 → 126 and 124 → 100 BPM). The handover itself is played as
-// the player makes it: the song fading out in its own audio processing (`HandoverFader`) as the
-// mix fades in, which together sound as the song.
+// the player makes it: the mix silent at first, then the song fading out in its own audio
+// processing (`HandoverFader`) as the mix fades in, which together sound as the song.
 // Run from the repository root: bash Tools/AutoMixRenderCheck/run.sh
 import AVFoundation
 import Foundation
@@ -207,26 +207,30 @@ struct AutoMixRenderCheck {
             let head = alignment(full[0..<Int(0.6 * rate)], a.samples[handover..<(handover + Int(0.6 * rate))], range: 0.02)
             expect(abs(head.lag) <= 0.0012 && head.correlation > 0.9,
                    "\(name): the mix starts where the song is (lag \(format(head.lag * 1000)) ms, match \(format(head.correlation)))")
-            // Handed over as the player does it: the song fades out in its audio processing over
-            // the quarter of a second the mix fades in on. As loud as the song through the fade and
-            // after it, and never a gap.
+            // Handed over as the player does it: the mix starts silent at the handover and, once it
+            // is seen playing, the two cross half a second in (the mix still the song alone, at its
+            // tempo), the song fading out in its audio processing as the mix fades in. As loud as the
+            // song before, during and after the fade, and never a gap.
+            let crossing = 0.5
             let fader = HandoverFader()
             var accepted = false
-            let faded = throughFader(a.samples, fader: fader, programAt: max(0, handover - Int(rate))) {
-                accepted = fader.fadeOut(at: plan.handover, over: 0.25, now: plan.handover - 1.5)
+            let faded = throughFader(a.samples, fader: fader, programAt: handover + Int(0.1 * rate)) {
+                accepted = fader.fadeOut(at: plan.handover + crossing, over: 0.25, now: plan.handover)
             }
-            let heard = (handover..<(handover + Int(0.5 * rate))).map { index -> Float in
-                faded[index] + full[index - handover] * Float(min(1, Double(index - handover) / (0.25 * rate)))
+            let heard = (handover..<(handover + Int(1.0 * rate))).map { index -> Float in
+                let ramp = max(0, min(1, (Double(index - handover) / rate - crossing) / 0.25))
+                return faded[index] + full[index - handover] * Float(ramp)
             }
             func level(_ range: Range<Int>) -> Double {
                 let own = range.reduce(0.0) { $0 + Double(a.samples[handover + $1] * a.samples[handover + $1]) }
                 let mixed = range.reduce(0.0) { $0 + Double(heard[$1] * heard[$1]) }
                 return 10 * log10((mixed + 1e-12) / (own + 1e-12))
             }
-            let quarter = Int(0.25 * rate), short = Int(0.01 * rate)
-            let during = level(0..<quarter), after = level(quarter..<heard.count)
+            let crossAt = Int(crossing * rate), quarter = Int(0.25 * rate), short = Int(0.01 * rate)
+            let before = level(0..<crossAt), during = level(crossAt..<(crossAt + quarter))
+            let after = level((crossAt + quarter)..<heard.count)
             let gap = stride(from: 0, to: heard.count - short, by: short).map { level($0..<($0 + short)) }.min() ?? -99
-            expect(accepted && abs(during) < 1.5 && abs(after) < 1.5 && gap > -10,
+            expect(accepted && abs(before) < 0.01 && abs(during) < 1.5 && abs(after) < 1.5 && gap > -10,
                    "\(name): handed over as loud as the song (\(format(during, 1)) dB in the fade, \(format(after, 1)) dB after, quietest 10 ms \(format(gap, 1)) dB)")
             // Ends exactly where the next song carries on.
             let tailLength = Int(1.0 * rate)

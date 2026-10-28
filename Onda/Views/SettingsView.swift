@@ -24,6 +24,7 @@ struct SettingsView: View {
     @AppStorage(Preferences.nowPlayingAccepted) private var nowPlayingAccepted = -1
     @AppStorage(Preferences.nowPlayingBackend) private var nowPlayingBackend = ""
     @AppStorage(Preferences.lastRouteChange) private var lastRouteChange = ""
+    @AppStorage(Preferences.lastHandover) private var lastHandover = ""
     @AppStorage(Preferences.lyricsTranslate) private var translateLyrics = false
     @AppStorage(Preferences.interactiveArtwork) private var interactiveArtwork = true
     @AppStorage(Preferences.lyricsTranslationTarget) private var translationTarget = Preferences.defaultTranslationTarget
@@ -495,6 +496,8 @@ struct SettingsView: View {
             LabeledContent("Player di sistema", value: nowPlayingStatus)
             LabeledContent("Sistema usato", value: nowPlayingBackend.isEmpty ? "—" : nowPlayingBackend)
             LabeledContent("Ultimo cambio di uscita audio", value: lastRouteChange.isEmpty ? "—" : lastRouteChange)
+                .textSelection(.enabled)
+            LabeledContent("Ultimo passaggio AutoMix", value: lastHandover.isEmpty ? "—" : lastHandover)
                 .textSelection(.enabled)
             Text("Catalogo: YouTube Music · Testi: LRCLIB · Scrobbling: Last.fm")
             Text("Progetto personale, non affiliato a Google, YouTube o Last.fm.")
