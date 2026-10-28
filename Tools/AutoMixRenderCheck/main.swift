@@ -225,13 +225,14 @@ struct AutoMixRenderCheck {
             expect(abs(head.lag) <= 0.0012 && head.correlation > 0.9,
                    "\(name): the mix starts where the song is (lag \(format(head.lag * 1000)) ms, match \(format(head.correlation)))")
             // Handed over as the player does it: the mix starts silent at the handover and, once it
-            // is seen playing, the two cross half a second in (the mix still the song alone, at its
-            // tempo), the song fading out in its audio processing as the mix fades in. As loud as the
-            // song before, during and after the fade, and never a gap.
-            let crossing = 0.5, fade = HandoverFader.exactLength
+            // is seen playing, the two cross at the quietest moment from 0.45 s on (the mix still the
+            // song alone, at its tempo), the song fading out in its audio processing as the mix fades
+            // in. As loud as the song before, during and after the fade, and never a gap.
+            let fade = HandoverFader.exactLength
+            let quiet = HandoverFader.quietMoment(in: full, rate: rate, from: 0.45, to: 0.9 + fade, length: fade)
             /// What is heard through the handover with the mix `lag` frames ahead of the song (the
-            /// two players are never on the very same sample), crossing over `length` seconds.
-            func handedOver(lag: Int, over length: Double) -> (heard: [Float], accepted: Bool) {
+            /// two players are never on the very same sample), crossing at `crossing` over `length` seconds.
+            func handedOver(lag: Int, at crossing: Double, over length: Double) -> (heard: [Float], accepted: Bool) {
                 let fader = HandoverFader()
                 var accepted = false
                 let faded = throughFader(a.samples, fader: fader, programAt: handover + Int(0.1 * rate)) {
@@ -243,7 +244,8 @@ struct AutoMixRenderCheck {
                 }
                 return (heard, accepted)
             }
-            let (heard, accepted) = handedOver(lag: 0, over: fade)
+            let (heard, accepted) = handedOver(lag: 0, at: quiet, over: fade)
+            let crossing = quiet
             func level(_ range: Range<Int>, of heard: [Float]) -> Double {
                 let own = range.reduce(0.0) { $0 + Double(a.samples[handover + $1] * a.samples[handover + $1]) }
                 let mixed = range.reduce(0.0) { $0 + Double(heard[$1] * heard[$1]) }
@@ -258,15 +260,16 @@ struct AutoMixRenderCheck {
             // With the players a few milliseconds apart the same music, half and half, partly cancels
             // out: the quietest tenth of a second (about what the ear goes by) against the song's.
             let tenth = Int(0.1 * rate)
-            func dip(lag milliseconds: Double, over length: Double) -> Double {
-                let heard = handedOver(lag: Int(milliseconds / 1000 * rate), over: length).heard
+            func dip(lag milliseconds: Double, at crossing: Double, over length: Double) -> Double {
+                let heard = handedOver(lag: Int(milliseconds / 1000 * rate), at: crossing, over: length).heard
                 return stride(from: 0, to: heard.count - tenth, by: short).map { level($0..<($0 + tenth), of: heard) }.min() ?? -99
             }
-            let dips = [1.0, 2, 5].map { (lag: $0, short: dip(lag: $0, over: fade), long: dip(lag: $0, over: HandoverFader.volumeLength)) }
-            expect(dips.allSatisfy { $0.short > -1.5 },
-                   "\(name): players 1, 2 and 5 ms apart, at most "
-                   + dips.map { format(-$0.short, 1) }.joined(separator: ", ") + " dB down over a tenth of a second (crossing over "
-                   + dips.map { format(-$0.long, 1) }.joined(separator: ", ") + " dB down)")
+            // Now, and as up to 1.18 (half a second in, over a quarter of a second).
+            let dips = [1.0, 2, 5].map { (now: dip(lag: $0, at: quiet, over: fade), before: dip(lag: $0, at: 0.5, over: 0.25)) }
+            expect(dips.allSatisfy { $0.now > -1.5 },
+                   "\(name): players 1, 2 and 5 ms apart, crossing at \(format(quiet)) s: at most "
+                   + dips.map { format(-$0.now, 1) }.joined(separator: ", ") + " dB down over a tenth of a second (up to 1.18: "
+                   + dips.map { format(-$0.before, 1) }.joined(separator: ", ") + " dB)")
             // Ends exactly where the next song carries on.
             let tailLength = Int(1.0 * rate)
             let joinIndex = Int((joins["full"] ?? schedule.join) * rate)

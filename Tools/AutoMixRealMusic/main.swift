@@ -328,10 +328,11 @@ func seams(_ mix: AutoMixRenderer.Mix, _ plan: TransitionPlan, from a: Song, to 
 }
 
 /// The handover as the player makes it, the mix (a copy of the song there) `lag` seconds ahead of
-/// the song, crossing over `length` seconds: the quietest tenth of a second against the song's (dB).
-func handoverDip(_ song: MonoStretch, lag: Double, over length: Double) -> Double {
+/// the song, crossing at `crossing` over `length` seconds: the quietest tenth of a second against
+/// the song's (dB).
+func handoverDip(_ song: MonoStretch, lag: Double, at crossing: Double, over length: Double) -> Double {
     let x = song.mono
-    let start = Int(0.3 * rate), span = Int(length * rate), shift = Int(lag * rate), tenth = Int(0.1 * rate)
+    let start = Int(crossing * rate), span = Int(length * rate), shift = Int(lag * rate), tenth = Int(0.1 * rate)
     guard x.count > start + span + shift + 2 * tenth else { return 0 }
     var worst = 0.0
     var frame = start - tenth
@@ -480,12 +481,14 @@ for (number, pair) in pairs.enumerated() {
             let half = try await seams(down, entry.plan, from: a, to: b, gain: 0.5)
             if entry.name == "new" {
                 let song = MonoStretch(try await AutoMixRenderer.decode(a.file, from: entry.plan.handover, duration: 1.5))
+                let fade = HandoverFader.exactLength
+                let quiet = HandoverFader.quietMoment(in: song.mono, rate: rate, from: 0.45, to: 0.9 + fade, length: fade)
                 let lags = [0.001, 0.002, 0.005]
-                let short = lags.map { handoverDip(song, lag: $0, over: HandoverFader.exactLength) }
-                let long = lags.map { handoverDip(song, lag: $0, over: HandoverFader.volumeLength) }
+                let now = lags.map { handoverDip(song, lag: $0, at: quiet, over: fade) }
+                let before = lags.map { handoverDip(song, lag: $0, at: 0.5, over: 0.25) }
                 note("   handover with the players 1, 2 and 5 ms apart: down at most "
-                    + short.map { format(-$0, 1) }.joined(separator: ", ") + " dB over a tenth of a second (crossing over "
-                    + long.map { format(-$0, 1) }.joined(separator: ", ") + " dB as before)")
+                    + now.map { format(-$0, 1) }.joined(separator: ", ") + " dB over a tenth of a second (up to 1.18: "
+                    + before.map { format(-$0, 1) }.joined(separator: ", ") + " dB)")
             }
             note("   \(entry.name), seams (the mix against the same second of the song): taking over \(format(full.start, 2)) dB, "
                 + "handing back \(format(full.end, 2)) dB; 6 dB down: \(format(half.start, 2)) and \(format(half.end, 2)) dB; "

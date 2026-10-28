@@ -18,6 +18,24 @@ final class HandoverFader: @unchecked Sendable {
     /// whose timing is only as good as the output's latency is known: longer.
     static let volumeLength = 0.25
 
+    /// Where to cross within `from`…`to` seconds of `samples` (mono, at `rate`): the start of the
+    /// quietest stretch `length` long. What partly cancels out there (the players a few milliseconds
+    /// apart) is the least heard: between the beats rather than on a kick.
+    static func quietMoment(in samples: [Float], rate: Double, from: Double, to: Double, length: Double) -> Double {
+        let first = max(0, Int((from * rate).rounded(.up))), last = min(samples.count, Int(to * rate))
+        let span = max(1, Int(length * rate))
+        guard last - first > span else { return from }
+        var energy = 0.0
+        for index in first..<(first + span) { energy += Double(samples[index] * samples[index]) }
+        var best = (start: first, energy: energy)
+        for start in (first + 1)...(last - span) {
+            let entering = samples[start + span - 1], leaving = samples[start - 1]
+            energy += Double(entering * entering) - Double(leaving * leaving)
+            if energy < best.energy { best = (start, energy) }
+        }
+        return Double(best.start) / rate
+    }
+
     /// Where the fade starts in the song's time (infinity: never) and how long it lasts.
     struct Fade: Equatable, Sendable {
         var start = Double.infinity

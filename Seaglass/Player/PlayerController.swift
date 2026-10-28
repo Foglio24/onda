@@ -1693,14 +1693,17 @@ final class PlayerController: ObservableObject {
         let incoming = AVPlayer()
         // AVPlayer starts at an exact moment (see `startOnTime`) only without its own waiting.
         incoming.automaticallyWaitsToMinimizeStalling = false
-        let crossing = self.crossing(for: player.currentItem)
+        let earliest = self.crossing(for: player.currentItem)
         // Short where the song fades out in its own audio processing, longer with its volume.
         let fade = player.currentItem.flatMap { handoverFader(of: $0) } != nil ? HandoverFader.exactLength
             : HandoverFader.volumeLength
         let transition = ArmedTransition(planned: planned, player: incoming, track: next, outgoingTrackID: track.id,
-                                         crossing: crossing, fade: fade)
+                                         crossing: earliest, fade: fade)
         armed = transition
         armTask = Task {
+            // Between the beats, where the song is quietest.
+            let crossing = earliest > 0 ? await Self.quietCrossing(in: planned.mix.url, from: earliest, fade: fade) : 0
+            transition.crossing = crossing
             guard let made = await Self.makeMixItem(for: planned, crossing: crossing, fade: fade) else {
                 self.noteHandover(String(localized: "mix non pronto: dissolvenza semplice"))
                 return self.abandon(transition)
@@ -1780,6 +1783,29 @@ final class PlayerController: ObservableObject {
         return (item, fader)
     }
 
+    /// The quietest moment to cross, from `earliest` to `latestCrossing` seconds of the mix (the
+    /// song alone there, at its own tempo): see `HandoverFader.quietMoment`.
+    nonisolated private static func quietCrossing(in mix: URL, from earliest: Double, fade: Double) async -> Double {
+        await Task.detached(priority: .userInitiated) {
+            guard let file = try? AVAudioFile(forReading: mix) else { return earliest }
+            let format = file.processingFormat
+            let frames = AVAudioFrameCount(min(Double(file.length), (Self.latestCrossing + fade + 0.05) * format.sampleRate))
+            guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frames),
+                  (try? file.read(into: buffer, frameCount: frames)) != nil, let channels = buffer.floatChannelData
+            else { return earliest }
+            let count = Int(buffer.frameLength), channelCount = Int(format.channelCount)
+            let mono = (0..<count).map { frame in
+                (0..<channelCount).reduce(Float(0)) { $0 + channels[$1][frame] } / Float(max(1, channelCount))
+            }
+            return HandoverFader.quietMoment(in: mono, rate: format.sampleRate, from: earliest,
+                                             to: Self.latestCrossing + fade, length: fade)
+        }.value
+    }
+
+    /// The latest the playing song and the mix cross, in seconds of the mix: within its first second,
+    /// where it is still the song alone at its own tempo.
+    nonisolated private static let latestCrossing = 0.9
+
     /// How long after the audio is made it is heard: a few milliseconds on the iPhone's speaker,
     /// a fifth of a second or more with AirPods, about two seconds over AirPlay.
     private static var outputLatency: TimeInterval {
@@ -1787,16 +1813,16 @@ final class PlayerController: ObservableObject {
         return max(0, session.outputLatency) + max(0, session.ioBufferDuration)
     }
 
-    /// Where the playing song and the mix cross, in seconds of the mix (it is still the song alone
-    /// there, at its own tempo): late enough for the mix to be seen playing first, and early enough
-    /// for the song's audio processing, which runs ahead of what is heard, not to be there yet.
-    /// Zero when the sound is heard so late (AirPlay, about two seconds) that there is no time to
-    /// look: they cross where the mix starts.
+    /// The earliest the playing song and the mix can cross, in seconds of the mix (it is still the
+    /// song alone there, at its own tempo): late enough for the mix to be seen playing first, and for
+    /// the song's audio processing, which runs ahead of what is heard, not to be there yet. Zero when
+    /// the sound is heard so late (AirPlay, about two seconds) that there is no time to look: they
+    /// cross where the mix starts.
     private func crossing(for item: AVPlayerItem?) -> Double {
         let time = item?.currentTime().seconds ?? 0
         let ahead = item.flatMap { handoverFader(of: $0)?.ahead(of: time) } ?? Self.outputLatency
         let crossing = max(0.45, ahead + 0.35)
-        return crossing <= 0.9 ? crossing : 0
+        return crossing <= Self.latestCrossing ? crossing : 0
     }
 
     /// Waits until the playing song is about to reach the handover, then has AVPlayer start the mix
@@ -2462,7 +2488,7 @@ private final class ArmedTransition {
     let outgoingTrackID: String
     /// Seconds into the mix where the playing song and the mix cross (see `PlayerController.crossing(for:)`),
     /// and over how long.
-    let crossing: Double
+    var crossing: Double
     let fade: Double
     var item: AVPlayerItem?
     /// The fader in the mix's item: it fades the next song out when that one hands over in turn.
