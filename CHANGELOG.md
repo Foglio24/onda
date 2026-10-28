@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.18.1 (2026-10-28)
+
+### Fixed
+- **AutoMix: the volume dipping for a moment as the mix takes over.** At the handover the song and the mix (which starts as a copy of it) crossed over a quarter of a second, each in its own player. Two players are never on the very same sample, and the same music a few milliseconds apart, half and half, partly cancels out: on real songs, with the players 1 to 5 ms apart, the volume dipped by 1 to 3.6 dB for a moment (up to 5.6). They now cross over 40 ms, at the quietest moment of the mix's first second (between the beats rather than on a kick): 0.2 to 0.7 dB over a tenth of a second (median), about 1 dB at worst. Songs that fade out with the player's volume (Dolby, or one started before AutoMix was turned on) still cross over a quarter of a second, as their timing is looser.
+
+### Changed
+- The mix's limiter now works only where both songs play together, and the mix is saved as floating point: where one song plays alone the mix is exactly that song, its peaks included. Measured on 8 pairs of real songs, at full volume and 6 dB down, the mix takes over within 0.06 dB of the song and hands the next one back within 0.01 dB.
+- Settings → Informazioni → "Ultima scelta AutoMix" also shows the "Volume uniforme" of the two songs (how much each is turned down), and "Ultimo passaggio AutoMix" still shows how far apart the two players started ("scarto"): if a jump in volume is still heard at a transition, those two say where it comes from.
+
 ## 1.18.0 (2026-10-28)
 
 ### Changed
