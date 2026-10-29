@@ -225,6 +225,8 @@
 "Audio spaziale" = "Spatial Audio";
 "Volume uniforme" = "Normalize volume";
 "Volume uniforme: %@ → %@" = "Normalize volume: %@ → %@";
+"Transizione disegnata nel Mix della playlist" = "Transition designed in the playlist's Mix";
+"Livelli: entrata %@, uscita %@; durante il mix %@ / %@ sul brano più forte" = "Levels: in %@, out %@; during the mix %@ / %@ against the louder song";
 "Volume uniforme abbassa i brani più forti al livello di riferimento di YouTube (-14 LUFS), come la normalizzazione di Spotify, così passando da un brano all'altro il volume resta simile." = "Normalize volume lowers louder songs to YouTube's reference level (-14 LUFS), like Spotify's normalization, so the volume stays similar from one song to the next.";
 "Massima usa Opus 160 kbps, il formato migliore che YouTube dà senza Premium: Seaglass lo decodifica sull'iPhone e lo riproduce senza perdite. Il brano parte subito in AAC e lo tiene fino alla fine, senza salti: Opus viene preparato intanto e suona dal riascolto successivo (o da quando sposti la barra). Se un video ha l'audio Dolby Digital Plus o AAC 256 kbps, viene usato quello. L'Audio spaziale funziona con AirPods e cuffie Beats compatibili." = "Maximum uses Opus 160 kbps, the best format YouTube gives without Premium: Seaglass decodes it on the iPhone and plays it losslessly. The song starts right away in AAC and keeps it to the end, without gaps: Opus is prepared meanwhile and plays from the next listen (or from when you move the bar). If a video has Dolby Digital Plus or AAC 256 kbps audio, that is used instead. Spatial Audio works with compatible AirPods and Beats headphones.";
 "Ultimo errore Opus: %@" = "Last Opus error: %@";

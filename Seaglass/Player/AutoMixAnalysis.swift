@@ -6,7 +6,7 @@ import Foundation
 /// how bass-heavy each beat is, the harmony of each bar, and its key.
 struct TrackAnalysis: Codable, Equatable, Sendable {
     /// Raised whenever the analysis changes, so older results are made again.
-    static let currentVersion = 2
+    static let currentVersion = 4
     /// Seconds between the values of `loudness`.
     static let loudnessStep = 0.25
 
@@ -44,6 +44,12 @@ struct TrackAnalysis: Codable, Equatable, Sendable {
     /// Each bar's pitch classes (12 values, 0…255, the strongest 255), bar k starting on beat
     /// `firstBarBeat + 4k`: the harmony of a stretch, for what two songs sound like together.
     var barChroma: [UInt8]
+    /// For each beat: how loud it sounds (K-weighted, ITU-R BS.1770) against its unweighted power,
+    /// in tenths of a decibel from -16 dB (0…255 for -16…+9.5 dB), and the share of that below
+    /// 150 Hz (0…255 for 0…1): for the planner to know what the filters take off as heard (see
+    /// `MixFilters`). Nil in analyses made before 1.19.
+    var beatHeard: [UInt8]? = nil
+    var beatHeardBass: [UInt8]? = nil
 
     var tempo: Double { 60 / beatLength }
     var beatCount: Int { beatLoudness.count }
@@ -71,17 +77,45 @@ struct TrackAnalysis: Codable, Equatable, Sendable {
         return loudness[max(0, min(loudness.count - 1, index))]
     }
 
-    /// Mean power (linear) between two times, from `loudness`; 0 outside the sound.
+    /// Mean power (linear) between two times. Each stored quarter-second contributes only
+    /// for the part intersecting the requested window; time outside the song is silent.
     func power(from start: Double, to end: Double) -> Double {
-        guard !loudness.isEmpty else { return 0 }
-        let first = max(0, min(loudness.count - 1, Int(start / Self.loudnessStep)))
-        let last = max(first + 1, min(loudness.count, Int((end / Self.loudnessStep).rounded(.up))))
-        let total = loudness[first..<last].reduce(0.0) { $0 + pow(10, Double($1) / 10) }
-        return total / Double(last - first)
+        guard !loudness.isEmpty, start.isFinite, end.isFinite, end > start else { return 0 }
+        let step = Self.loudnessStep
+        let first = max(0, min(loudness.count, Int((start / step).rounded(.down))))
+        let last = max(first, min(loudness.count, Int((end / step).rounded(.up))))
+        guard first < last else { return 0 }
+        var total = 0.0
+        for index in first..<last {
+            let lower = max(start, Double(index) * step, 0)
+            let upper = min(end, Double(index + 1) * step, duration)
+            if upper > lower {
+                total += (upper - lower) * pow(10, Double(loudness[index]) / 10)
+            }
+        }
+        return total / (end - start)
     }
 
     /// The first beat of the first whole bar (bars start every four beats from it).
     var firstBarBeat: Int { ((downbeat % 4) + 4) % 4 }
+
+    /// Over a range of beats (weighted by their power): how loud they sound against their
+    /// unweighted power (a factor), and the share of that below 150 Hz. Nil without the measure.
+    func heard(_ beats: Range<Int>) -> (factor: Double, bass: Double)? {
+        guard let beatHeard, let beatHeardBass else { return nil }
+        let range = beats.clamped(to: 0..<min(beatHeard.count, beatHeardBass.count, beatLoudness.count))
+        guard !range.isEmpty else { return nil }
+        var power = 0.0, heard = 0.0, heardBass = 0.0
+        for beat in range {
+            let value = pow(10, Double(beatLoudness[beat]) / 10)
+            let factor = pow(10, (Double(beatHeard[beat]) / 10 - 16) / 10)
+            power += value
+            heard += value * factor
+            heardBass += value * factor * Double(beatHeardBass[beat]) / 255
+        }
+        guard power > 0, heard > 0 else { return nil }
+        return (heard / power, heardBass / heard)
+    }
 
     /// The share (0…1) of the sound below 150 Hz over a range of beats, weighted by their power.
     func bassShare(_ beats: Range<Int>) -> Double {
@@ -201,6 +235,22 @@ enum TrackAnalyzer {
             let low = curves.lowPower[start..<end].reduce(0, +), total = curves.totalPower[start..<end].reduce(0, +)
             return UInt8(max(0, min(255, (total > 0 ? low / total : 0) * 255)).rounded())
         }
+        // How each beat sounds as heard: against its power, and its share of bass.
+        var beatHeard: [UInt8] = [], beatHeardBass: [UInt8] = []
+        for beat in 0..<beatCount {
+            let start = max(0, frameOf(gridStart + Double(beat) * beatLength))
+            let end = min(curves.heardPower.count, max(start + 1, frameOf(gridStart + Double(beat + 1) * beatLength)))
+            guard start < end else {
+                beatHeard.append(160)
+                beatHeardBass.append(0)
+                continue
+            }
+            let total = curves.heardTotalPower[start..<end].reduce(0, +), heard = curves.heardPower[start..<end].reduce(0, +)
+            let low = curves.heardLowPower[start..<end].reduce(0, +)
+            let decibels = total > 0 && heard > 0 ? 10 * log10(Double(heard / total)) : 0
+            beatHeard.append(UInt8(max(0, min(255, ((decibels + 16) * 10).rounded()))))
+            beatHeardBass.append(UInt8(max(0, min(255, (heard > 0 ? low / heard : 0) * 255)).rounded()))
+        }
         // Where the strongest onset near each beat falls: within a tenth of a second (a quarter
         // of a beat at fast tempos).
         let reach = max(1, min(Int(0.1 * frameRate), Int(0.25 * grid.period)))
@@ -230,7 +280,8 @@ enum TrackAnalyzer {
                              gridStart: gridStart, beatLength: beatLength, gridFit: grid.fit, downbeat: downbeat,
                              beatLoudness: beatLoudness, beatPulse: beatPulse, loudness: level.envelope,
                              bodyLoudness: level.body, key: key.tonic, minor: key.minor, keyClarity: key.clarity,
-                             beatBass: beatBass, beatOffset: beatOffset, barChroma: barChroma)
+                             beatBass: beatBass, beatOffset: beatOffset, barChroma: barChroma,
+                             beatHeard: beatHeard, beatHeardBass: beatHeardBass)
     }
 
     // MARK: Loudness and silence
@@ -292,9 +343,13 @@ enum TrackAnalyzer {
     private struct Curves {
         var full: [Float]
         var low: [Float]
-        /// Each frame's power below 150 Hz, and in all bands.
+        /// Each frame's power below 150 Hz, and in all bands; and the same as heard (K-weighted).
         var lowPower: [Float] = []
         var totalPower: [Float] = []
+        var heardLowPower: [Float] = []
+        var heardPower: [Float] = []
+        /// Unweighted power over the same complete spectrum as `heardPower`.
+        var heardTotalPower: [Float] = []
     }
 
     private static func onsets(_ samples: [Float], sampleRate: Double) -> Curves {
@@ -325,11 +380,19 @@ enum TrackAnalyzer {
         bandOfBin = bandOfBin.map { $0 >= 0 ? position[$0] : -1 }
         let bands = used.count
         let isLow = used.map { sqrt(edges[$0] * edges[$0 + 1]) < 150 }
+        // Loudness is measured from every FFT bin, not only the onset bands (30 Hz–8 kHz).
+        // The time-domain reference contains sub-bass and high frequencies too; excluding them
+        // from this ratio overestimates the heard level of bass-heavy songs.
+        let heardWeight = (0..<half).map { Float(MixFilters.heardWeight(at: Double($0) * binWidth)) }
+        let nyquistWeight = Float(MixFilters.heardWeight(at: sampleRate / 2))
         let lowCount = max(1, isLow.filter { $0 }.count)
 
         var levels = [Float](repeating: 0, count: frames * bands)
         var lowPower = [Float](repeating: 0, count: frames)
         var totalPower = [Float](repeating: 0, count: frames)
+        var heardLowPower = [Float](repeating: 0, count: frames)
+        var heardPower = [Float](repeating: 0, count: frames)
+        var heardTotalPower = [Float](repeating: 0, count: frames)
         var frame = [Float](repeating: 0, count: length)
         var real = [Float](repeating: 0, count: half)
         var imaginary = [Float](repeating: 0, count: half)
@@ -358,6 +421,18 @@ enum TrackAnalyzer {
                     totalPower[index] += bandPower[band]
                     if isLow[band] { lowPower[index] += bandPower[band] }
                 }
+                // vDSP packs DC and Nyquist into bin zero. They each count once; the other
+                // positive-frequency bins stand for both sides of the real signal's spectrum.
+                let dc = real[0] * real[0], nyquist = imaginary[0] * imaginary[0]
+                heardTotalPower[index] = 0.5 * (dc + nyquist)
+                heardPower[index] = 0.5 * nyquist * nyquistWeight
+                for bin in 1..<half {
+                    let value = power[bin]
+                    let weighted = value * heardWeight[bin]
+                    heardTotalPower[index] += value
+                    heardPower[index] += weighted
+                    if Double(bin) * binWidth < 150 { heardLowPower[index] += weighted }
+                }
             }
         }
         // Nothing counts below 80 dB under the loudest band.
@@ -385,7 +460,8 @@ enum TrackAnalyzer {
         // Only what stands out from the last second counts.
         let width = max(1, Int(sampleRate / Double(hop)))
         return Curves(full: detrended(full, width: width), low: detrended(low, width: width),
-                      lowPower: lowPower, totalPower: totalPower)
+                      lowPower: lowPower, totalPower: totalPower, heardLowPower: heardLowPower, heardPower: heardPower,
+                      heardTotalPower: heardTotalPower)
     }
 
     private static func detrended(_ values: [Float], width: Int) -> [Float] {

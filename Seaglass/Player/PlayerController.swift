@@ -1502,8 +1502,12 @@ final class PlayerController: ObservableObject {
                 guard !Task.isCancelled, self.requests.isCurrentLoad(generation), self.autoMixPair == pair else { return }
             }
             let plan: TransitionPlan
+            // What Settings → Informazioni shows of this transition ("Ultima scelta AutoMix").
+            var diagnostics = "\(track.title) → \(next.title)\n"
+            let volumes = String(localized: "Volume uniforme: \(Self.decibels(outgoingGain)) → \(Self.decibels(incomingGain))")
             if let design {
                 plan = MixDesigner.plan(from: outgoing, to: incoming, design: design)
+                diagnostics += String(localized: "Transizione disegnata nel Mix della playlist") + "\n" + volumes
             } else {
                 let context = TransitionContext(outgoingGain: outgoingGain, incomingGain: incomingGain,
                                                 outgoingVocals: outgoingVocals, incomingVocals: incomingVocals,
@@ -1514,11 +1518,9 @@ final class PlayerController: ObservableObject {
                 }.value
                 guard !Task.isCancelled, self.requests.isCurrentLoad(generation), self.autoMixPair == pair else { return }
                 plan = choice.plan
-                // With the gains it is made at: a jump in volume where it hands back would show here.
-                let volumes = String(localized: "Volume uniforme: \(Self.decibels(outgoingGain)) → \(Self.decibels(incomingGain))")
-                UserDefaults.standard.set("\(track.title) → \(next.title)\n" + choice.summary + "\n" + volumes,
-                                          forKey: Preferences.lastAutoMixChoice)
+                diagnostics += choice.summary + "\n" + volumes
             }
+            UserDefaults.standard.set(diagnostics, forKey: Preferences.lastAutoMixChoice)
             self.autoMixNote = String(localized: "Preparazione del mix…")
             let destination = AutoMixLibrary.newMixFile()
             let mix: AutoMixRenderer.Mix
@@ -1534,6 +1536,15 @@ final class PlayerController: ObservableObject {
             }
             guard !Task.isCancelled, self.requests.isCurrentLoad(generation), self.autoMixPair == pair else { return }
             self.autoMixTask = nil
+            // How loud the mix is: where it takes over and hands back, against the songs as they
+            // play (measured on the rendered audio), and through the overlap against the louder song
+            // alone (as planned). A jump in volume would show here.
+            let planned = TransitionJudge(outgoing, incoming, TransitionContext(outgoingGain: outgoingGain, incomingGain: incomingGain))
+                .loudness(of: plan).map { $0.together - $0.louder }
+            let entry = mix.takeOver.map(Self.decibels(change:)) ?? "—", exit = mix.handBack.map(Self.decibels(change:)) ?? "—"
+            let rise = Self.decibels(change: planned.max() ?? 0), dip = Self.decibels(change: planned.min() ?? 0)
+            UserDefaults.standard.set(diagnostics + "\n" + String(localized: "Livelli: entrata \(entry), uscita \(exit); durante il mix \(rise) / \(dip) sul brano più forte"),
+                                      forKey: Preferences.lastAutoMixChoice)
             // Meanwhile the song moved to another file (a seek, karaoke) or gain: made again.
             let playing = self.playingSource
             guard playing == source || playing == outgoingFile, (self.playingGain ?? outgoingGain) == outgoingGain else {
@@ -1551,6 +1562,11 @@ final class PlayerController: ObservableObject {
     /// A gain as "-4.2 dB".
     private static func decibels(_ gain: Float) -> String {
         String(format: "%.1f dB", 20 * log10(Double(max(gain, 1e-6))))
+    }
+
+    /// A change in decibels as "+0.3 dB".
+    private static func decibels(change: Double) -> String {
+        String(format: "%+.1f dB", change)
     }
 
     /// The queue is an album played in order, and the two songs follow each other on it: not a

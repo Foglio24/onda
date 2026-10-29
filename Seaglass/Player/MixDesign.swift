@@ -418,10 +418,11 @@ struct MixDesign: Codable, Hashable, Sendable {
 
         var levels = TransitionLevels(outgoing: 0, incoming: 0, outgoingBassCut: 0, incomingBassCut: 0, outgoingHighPass: 0)
         let swapWidth = max(edge, bar / 4)
+        // The bass passes over at equal power (each at -3 dB half way: no hole in the low end).
         func swap(at centre: Double) {
             let x = rise(centre - swapWidth / 2, centre + swapWidth / 2)
-            levels.outgoingBassCut = Float(x)
-            levels.incomingBassCut = Float(1 - x)
+            levels.outgoingBassCut = MixFilters.bassCut(keeping: cos(x * .pi / 2))
+            levels.incomingBassCut = MixFilters.bassCut(keeping: sin(x * .pi / 2))
         }
         switch eq {
         case .bassSwapCenter: swap(at: 0.5)
