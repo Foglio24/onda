@@ -1,0 +1,16 @@
+name: Stop duplicate AutoMix benchmark
+on:
+  push:
+    branches: [release-trigger/v1.19.1]
+    paths: [.github/workflows/stop-duplicate-automix.yml]
+permissions:
+  actions: write
+  contents: read
+jobs:
+  stop:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Stop the older duplicate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run cancel 40903653890 --repo "$GITHUB_REPOSITORY"
