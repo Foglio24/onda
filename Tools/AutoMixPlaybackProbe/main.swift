@@ -95,7 +95,8 @@ func writeTone(_ url: URL, frequency: Double, seconds: Double) throws {
     try file.write(from: buffer)
 }
 
-func makeItem(_ mixURL: URL, _ songURL: URL, firstCapture: Capture, secondCapture: Capture) async throws -> AVPlayerItem {
+func makeItem(_ mixURL: URL, _ songURL: URL, lengthSeconds: Double = 6, joinSeconds: Double = 2,
+              firstCapture: Capture, secondCapture: Capture) async throws -> AVPlayerItem {
     let mixAsset = AVURLAsset(url: mixURL), songAsset = AVURLAsset(url: songURL)
     let mixTrack = try await mixAsset.loadTracks(withMediaType: .audio).first!
     let songTrack = try await songAsset.loadTracks(withMediaType: .audio).first!
@@ -105,8 +106,8 @@ func makeItem(_ mixURL: URL, _ songURL: URL, firstCapture: Capture, secondCaptur
     let second = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid)!
     let scale: CMTimeScale = 44_100
     let overlap = CMTime(seconds: 0.03, preferredTimescale: scale)
-    let length = CMTime(seconds: 6, preferredTimescale: scale)
-    let join = CMTime(seconds: 2, preferredTimescale: scale)
+    let length = CMTime(seconds: lengthSeconds, preferredTimescale: scale)
+    let join = CMTime(seconds: joinSeconds, preferredTimescale: scale)
     try first.insertTimeRange(CMTimeRange(start: .zero, duration: length), of: mixTrack, at: .zero)
     try second.insertTimeRange(CMTimeRange(start: CMTimeSubtract(join, overlap), end: songDuration),
                                of: songTrack, at: CMTimeSubtract(length, overlap))
@@ -179,5 +180,43 @@ func makeItem(_ mixURL: URL, _ songURL: URL, firstCapture: Capture, secondCaptur
         liveFirst.report("PLAYER first track tap")
         liveSecond.report("PLAYER second track tap")
         player.pause()
+
+        // Use the actual app renderer with a gapless transition and the user's approximate
+        // normalized gains. Check the bytes read from disk as well as the in-memory levels.
+        let outgoingURL = folder.appendingPathComponent("outgoing.caf")
+        let renderedURL = folder.appendingPathComponent("rendered.caf")
+        try writeTone(outgoingURL, frequency: 440, seconds: 10)
+        var plan = TransitionPlan(style: .gapless, handover: 4, outStart: 6, outEnd: 6.25,
+            inStart: 0.5, tempoOut: 120, tempoMeet: 120, tempoIn: 120, alignment: nil,
+            swapStart: nil, swapEnd: nil, fadeIn: 1, filterOut: nil, bars: nil)
+        plan.fadeInFrom = 0
+        plan.fadeOutFrom = 0
+        let rendered = try await AutoMixRenderer.render(MixSchedule(plan: plan), outgoing: outgoingURL,
+            incoming: songURL, outgoingGain: Float(pow(10, -6.9 / 20)), incomingGain: Float(pow(10, -8.0 / 20)), to: renderedURL)
+        print("RENDER actual length=\(rendered.length) join=\(rendered.join) takeOver=\(String(describing: rendered.takeOver)) handBack=\(String(describing: rendered.handBack))")
+        let actualFile = try AVAudioFile(forReading: renderedURL, commonFormat: .pcmFormatFloat32, interleaved: false)
+        let actualBuffer = AVAudioPCMBuffer(pcmFormat: actualFile.processingFormat, frameCapacity: AVAudioFrameCount(actualFile.length))!
+        try actualFile.read(into: actualBuffer)
+        let actualChannels = actualBuffer.floatChannelData!
+        let actualRate = actualFile.processingFormat.sampleRate
+        var actualRMS: [Double] = []
+        for second in 0..<Int(rendered.length) {
+            let start = Int(Double(second) * actualRate), end = min(Int(Double(second + 1) * actualRate), Int(actualBuffer.frameLength))
+            var sum = 0.0
+            for index in start..<end { let x = Double(actualChannels[0][index]); sum += x * x }
+            actualRMS.append(sqrt(sum / Double(max(1, end - start))))
+        }
+        print("RENDER file RMS per second: \(actualRMS)")
+        guard actualRMS.count >= 3, actualRMS.allSatisfy({ $0 > 0.01 }) else { fatalError("Actual rendered file is silent") }
+        let realFirst = Capture(), realSecond = Capture()
+        let realItem = try await makeItem(renderedURL, songURL, lengthSeconds: rendered.length, joinSeconds: rendered.join,
+                                          firstCapture: realFirst, secondCapture: realSecond)
+        let realPlayer = AVPlayer(playerItem: realItem)
+        realPlayer.play()
+        try await Task.sleep(for: .seconds(5))
+        print("RENDER PLAYER time=\(realItem.currentTime().seconds) status=\(realItem.status.rawValue) error=\(String(describing: realItem.error))")
+        realFirst.report("RENDER PLAYER first track tap")
+        realSecond.report("RENDER PLAYER second track tap")
+        realPlayer.pause()
     }
 }

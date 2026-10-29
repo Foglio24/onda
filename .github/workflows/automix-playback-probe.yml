@@ -16,14 +16,14 @@ jobs:
           xcode-version: latest
       - name: Exercise composition and player on macOS
         run: |
-          swiftc -parse-as-library Tools/AutoMixPlaybackProbe/main.swift -o /tmp/automix-playback-probe
+          swiftc -O -parse-as-library Seaglass/Player/AutoMixAnalysis.swift Seaglass/Player/AutoMixPlanner.swift Seaglass/Player/AutoMixFilters.swift Seaglass/Player/AutoMixSelection.swift Seaglass/Player/MixDesign.swift Seaglass/Player/AutoMixRenderer.swift Seaglass/Player/AutoMix.swift Seaglass/Player/VocalDetector.swift Seaglass/Player/MDXSeparator.swift Seaglass/Player/HandoverFade.swift Tools/AutoMixPlaybackProbe/main.swift -o /tmp/automix-playback-probe
           /tmp/automix-playback-probe
       - name: Exercise the same path on an iPhone simulator
         timeout-minutes: 8
         run: |
-          xcrun --sdk iphonesimulator swiftc -parse-as-library \
+          xcrun --sdk iphonesimulator swiftc -O -parse-as-library \
             -target arm64-apple-ios17.0-simulator -sdk "$(xcrun --sdk iphonesimulator --show-sdk-path)" \
-            Tools/AutoMixPlaybackProbe/main.swift -o /tmp/automix-playback-probe-ios
+            Seaglass/Player/AutoMixAnalysis.swift Seaglass/Player/AutoMixPlanner.swift Seaglass/Player/AutoMixFilters.swift Seaglass/Player/AutoMixSelection.swift Seaglass/Player/MixDesign.swift Seaglass/Player/AutoMixRenderer.swift Seaglass/Player/AutoMix.swift Seaglass/Player/VocalDetector.swift Seaglass/Player/MDXSeparator.swift Seaglass/Player/HandoverFade.swift Tools/AutoMixPlaybackProbe/main.swift -o /tmp/automix-playback-probe-ios
           device="$(xcrun simctl list devices available --json | python3 -c 'import sys,json; d=json.load(sys.stdin); print(next(v["udid"] for group in d["devices"].values() for v in group if "iPhone" in v["name"]))')"
           xcrun simctl boot "$device"
           xcrun simctl bootstatus "$device" -b
