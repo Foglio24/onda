@@ -184,6 +184,10 @@ struct MixLevels {
     var bassDip = 0.0
     var swapBassRise: Double?
     var swapBassDip: Double?
+    /// Where the bass passes over: how far it drops under the lower of the bass just before and
+    /// just after (a hole), and how far it goes over the higher (a pile-up).
+    var swapHole: Double?
+    var swapPileUp: Double?
     /// The planner's expectation (loudness against the louder song alone) against the same
     /// measured, through the overlap: the median and the largest difference (dB).
     var predictionError = 0.0
@@ -201,6 +205,9 @@ struct MixLevels {
                      "overlap \(f(rise)) / \(f(dip)) dB against the louder song alone (\(f(riseOverCurves)) / \(f(dipUnderCurves)) against the curves alone)",
                      "bass \(f(bassRise)) / \(f(bassDip)) dB"]
         if let up = swapBassRise, let down = swapBassDip { parts.append("in the bass swap \(f(up)) / \(f(down)) dB") }
+        if let hole = swapHole, let pile = swapPileUp {
+            parts.append("against the bass before and after it \(f(pile)) / \(f(hole)) dB")
+        }
         parts.append("planner off by \(String(format: "%.1f", predictionError)) dB (median), \(String(format: "%.1f", predictionWorst)) at most")
         parts.append("peak \(String(format: "%.1f", peak)) dBFS, limiter \(String(format: "%.1f", limiterMost)) dB at most, "
                      + "\(String(format: "%.1f", limiterSeconds)) s over 0.5 dB, \(String(format: "%.2f", limiterAtEnds)) dB near the ends")
@@ -237,6 +244,7 @@ struct MixLevels {
 
         // Through the overlap.
         var rises: [Double] = [], dips: [Double] = [], overCurves: [Double] = [], bassChanges: [(Double, Bool)] = []
+        var bassLevels: [(level: Double, swapping: Bool)] = []
         var errors: [Double] = []
         let predicted = judge.loudness(of: plan)
         let window = 0.4
@@ -262,6 +270,7 @@ struct MixLevels {
             let swapping = min(curves.outgoingBassCut, curves.incomingBassCut) > 0.02
                 && max(curves.outgoingBassCut, curves.incomingBassCut) < 0.98
             if bassLouder > -60 { bassChanges.append((bassHeard - bassLouder, swapping)) }
+            bassLevels.append((bassHeard, swapping))
             // The planner's figures are loudness as heard (K-weighted), a second at a time, against
             // the louder alone.
             if let nearest = predicted.min(by: { abs($0.progress - p) < abs($1.progress - p) }), p > 0.02, p < 0.98 {
@@ -283,6 +292,13 @@ struct MixLevels {
         if !swap.isEmpty {
             levels.swapBassRise = swap.max()
             levels.swapBassDip = swap.min()
+        }
+        if let first = bassLevels.firstIndex(where: { $0.swapping }), let last = bassLevels.lastIndex(where: { $0.swapping }) {
+            // The windows 0.4 s before and after (they don't overlap the swap).
+            let before = bassLevels[max(0, first - 4)].level, after = bassLevels[min(bassLevels.count - 1, last + 4)].level
+            let during = bassLevels[first...last].map { $0.level }
+            levels.swapHole = (during.min() ?? 0) - min(before, after)
+            levels.swapPileUp = (during.max() ?? 0) - max(before, after)
         }
         let sorted = errors.sorted()
         levels.predictionError = sorted.isEmpty ? 0 : sorted[sorted.count / 2]

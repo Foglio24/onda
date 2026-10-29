@@ -748,22 +748,27 @@ struct TransitionJudge {
         return values.reduce(0, +) / Double(values.count)
     }
 
-    /// Its share of bass over the beats around a time (as `power`, a second or less).
-    private static func bass(_ song: TrackAnalysis, _ time: Double, over window: Double = 1) -> Double {
+    /// A song over the second around a time (as `power`, or less), at `gain` (power): its loudness
+    /// alone and through its filters as the ear weighs it (K-weighted power: from the beats'
+    /// measure when the analysis has it, see `MixFilters`), its unweighted power through the
+    /// filters, and alone.
+    private static func heard(_ song: TrackAnalysis, _ time: Double, over window: Double, gain: Double, bassCut: Float,
+                              highPass: Float) -> (alone: Double, heard: Double, unweighted: Double, power: Double) {
+        let power = Self.power(song, time, over: window) * gain
         let span = max(TrackAnalysis.loudnessStep, min(1, window)) / 2
         let first = Int(((time - span - song.gridStart) / song.beatLength).rounded(.down))
         let last = Int(((time + span - song.gridStart) / song.beatLength).rounded(.down))
-        return song.bassShare(first..<max(first + 1, last + 1))
-    }
-
-    /// A song of unweighted `power` (as the analysis measures it) with `bass` of it below 150 Hz,
-    /// heard alone and through its filters (see `MixFilters`): loudness as the ear weighs it
-    /// (K-weighted power), and through the filters unweighted too.
-    private static func heard(_ power: Double, bass: Double, bassCut: Float,
-                              highPass: Float) -> (alone: Double, heard: Double, unweighted: Double) {
-        let filters = MixFilters.response(bassCut: bassCut, highPass: highPass)
-        return (MixFilters.heard(power, bass: bass, through: MixFilters.open), MixFilters.heard(power, bass: bass, through: filters),
-                MixFilters.heard(power, bass: bass, through: filters, weighted: false))
+        let beats = first..<max(first + 1, last + 1)
+        let bass = song.bassShare(beats)
+        let filters = MixFilters.response(bassCut: bassCut, highPass: highPass), open = MixFilters.open
+        let unweighted = MixFilters.heard(power, bass: bass, through: filters, weighted: false)
+        if let measured = song.heard(beats) {
+            let alone = power * measured.factor
+            let kept = measured.bass * filters.bass / open.bass + (1 - measured.bass) * filters.rest / open.rest
+            return (alone, alone * kept, unweighted, power)
+        }
+        return (MixFilters.heard(power, bass: bass, through: open), MixFilters.heard(power, bass: bass, through: filters),
+                unweighted, power)
     }
 
     private static func decibels(_ power: Double) -> Double { 10 * log10(max(power, 1e-12)) }
@@ -798,13 +803,12 @@ struct TransitionJudge {
             let timeA = plan.outStart + p * overlap
             let timeB = plan.inStart + p * overlap * ratio
             let levels = plan.levels(at: p)
-            let powerA = Self.power(a, timeA, over: overlap) * gainA, powerB = Self.power(b, timeB, over: overlap) * gainB
-            let songA = Self.heard(powerA, bass: Self.bass(a, timeA, over: overlap), bassCut: levels.outgoingBassCut,
+            let songA = Self.heard(a, timeA, over: overlap, gain: gainA, bassCut: levels.outgoingBassCut,
                                    highPass: levels.outgoingHighPass)
-            let songB = Self.heard(powerB, bass: Self.bass(b, timeB, over: overlap), bassCut: levels.incomingBassCut,
+            let songB = Self.heard(b, timeB, over: overlap, gain: gainB, bassCut: levels.incomingBassCut,
                                    highPass: levels.incomingHighPass)
             samples.append(Sample(outgoing: timeA, incoming: timeB, levels: levels, alone: (songA.alone, songB.alone),
-                                  heard: (songA.heard, songB.heard), unweighted: (powerA, powerB),
+                                  heard: (songA.heard, songB.heard), unweighted: (songA.power, songB.power),
                                   heardUnweighted: (songA.unweighted, songB.unweighted)))
         }
 
@@ -1031,10 +1035,10 @@ struct TransitionJudge {
             let p = Double(index) / Double(count - 1)
             let timeA = plan.outStart + p * overlap, timeB = plan.inStart + p * overlap * ratio
             let levels = plan.levels(at: p)
-            let songA = Self.heard(Self.power(a, timeA, over: overlap) * gainA, bass: Self.bass(a, timeA, over: overlap),
-                                   bassCut: levels.outgoingBassCut, highPass: levels.outgoingHighPass)
-            let songB = Self.heard(Self.power(b, timeB, over: overlap) * gainB, bass: Self.bass(b, timeB, over: overlap),
-                                   bassCut: levels.incomingBassCut, highPass: levels.incomingHighPass)
+            let songA = Self.heard(a, timeA, over: overlap, gain: gainA, bassCut: levels.outgoingBassCut,
+                                   highPass: levels.outgoingHighPass)
+            let songB = Self.heard(b, timeB, over: overlap, gain: gainB, bassCut: levels.incomingBassCut,
+                                   highPass: levels.incomingHighPass)
             let o = Double(levels.outgoing), i = Double(levels.incoming)
             return (p, Self.decibels(o * o * songA.heard + i * i * songB.heard), Self.decibels(max(songA.alone, songB.alone)))
         }

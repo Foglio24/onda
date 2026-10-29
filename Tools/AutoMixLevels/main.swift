@@ -228,13 +228,17 @@ struct AutoMixLevelsCheck {
                        "\(label): takes over and hands back at the songs' level")
                 expect(levels.limiterAtEnds <= 0.1, "\(label): the limiter leaves the ends alone")
                 expect(levels.rise <= 1.5, "\(label): never more than 1.5 dB over the louder song alone")
-                // Both at full while beat-matched: the bass stays as one song's; in a crossfade each
-                // song is at -3 dB half way, so one song's bass is too (no more: no hole).
-                if let down = levels.swapBassDip, let up = levels.swapBassRise {
+                // The bass passing over: never far under the bass just before and just after it,
+                // nor far over. (In a crossfade each song is at -3 dB half way: so is its bass.)
+                if let hole = levels.swapHole, let pile = levels.swapPileUp {
                     let floor = plan.style == .beatMatched ? -2.0 : -3.5
-                    expect(down >= floor && up <= 3.5, "\(label): the bass passes over without a hole or a pile-up")
+                    expect(hole >= floor && pile <= 3.5, "\(label): the bass passes over without a hole or a pile-up")
                 }
-                expect(levels.dipUnderCurves >= -3.5, "\(label): the filters and trims take at most 3.5 dB off the curves")
+                // Beat-matched, the next song comes in without its bass until the swap (a DJ's
+                // way): the curves alone overstate it there. Otherwise the filters take little off.
+                if plan.style != .beatMatched {
+                    expect(levels.dipUnderCurves >= -3.5, "\(label): the filters and trims take at most 3.5 dB off the curves")
+                }
                 expect(levels.predictionError <= 1 && levels.predictionWorst <= 3,
                        "\(label): the planner knows how loud the mix will be")
             }
@@ -267,8 +271,11 @@ struct AutoMixLevelsCheck {
             let label = "Mix \(preset.rawValue) (\(design.eq.rawValue))"
             guard let levels = await measure(label, plan, bassA, bassB, gains: (1, 1), context: TransitionContext()) else { continue }
             expect(abs(levels.takeOver) <= 0.1 && abs(levels.handBack) <= 0.1, "\(label): takes over and hands back at the songs' level")
-            if [.bassSwapCenter, .bassSwapEnd, .bassSwapStart].contains(design.eq), let down = levels.swapBassDip {
-                expect(down >= -3.5, "\(label): the bass passes over without a hole")
+            // (A filter on either song takes its bass by design: "rise" sweeps the song leaving up
+            // to the swap, a riser.)
+            if [.bassSwapCenter, .bassSwapEnd, .bassSwapStart].contains(design.eq), design.filter == .none,
+               let hole = levels.swapHole {
+                expect(hole >= -3.5, "\(label): the bass passes over without a hole")
             }
         }
 

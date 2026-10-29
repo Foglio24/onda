@@ -4,11 +4,12 @@ import Foundation
 /// and what they leave of a song's loudness, for the planner (`TransitionJudge`) to expect what the
 /// render will sound like rather than guess it.
 ///
-/// A song's sound is known from its analysis in two parts, below and above 150 Hz
-/// (`TrackAnalysis.bassShare`). Within each, a typical spread of music's power is assumed (even
-/// across octaves in the bass, below 40 Hz less; 2 dB less every octave above), weighted as the
-/// ear does (K-weighting, ITU-R BS.1770: the deep bass counts less, the treble more), and the
-/// filters' own responses are worked out on it, frequency by frequency.
+/// A song's sound is known from its analysis in two parts, below and above 150 Hz, unweighted and
+/// as the ear weighs it (K-weighting, ITU-R BS.1770: the deep bass counts less, the treble more),
+/// beat by beat (`TrackAnalysis.heard(near:)`). How the filters act within each part is worked out
+/// frequency by frequency on a typical spread of music's power there (even across octaves in the
+/// bass, below 40 Hz less; 2 dB less every octave above). Analyses made before 1.19, without the
+/// weighted parts, are taken to have that spread throughout.
 enum MixFilters {
     // MARK: As the renderer sets them
 
@@ -73,7 +74,7 @@ enum MixFilters {
     /// Every bass cut (half a decibel apart) by every high-pass setting (2 % of the sweep apart).
     private static let table: [Share] = {
         let grid = frequencies
-        let kWeight = grid.map { kWeighting($0) }
+        let kWeight = grid.map { heardWeight(at: $0) }
         var table: [Share] = []
         table.reserveCapacity((cutSteps + 1) * (sweepSteps + 1))
         for c in 0...cutSteps {
@@ -119,8 +120,9 @@ enum MixFilters {
         return pow(frequency / bassFrequency, -log2(pow(10, 0.2)))
     }
 
-    /// K-weighting's power gain at a frequency (BS.1770: a high shelf, then a low cut).
-    private static func kWeighting(_ frequency: Double) -> Double {
+    /// K-weighting's power gain at a frequency (BS.1770: a high shelf, then a low cut): how much
+    /// the ear makes of a frequency's power, for loudness.
+    static func heardWeight(at frequency: Double) -> Double {
         Biquad.highShelf(1_681.974450955533, gain: 3.999843853973347, q: 0.7071752369554196, rate: rate).power(at: frequency, rate: rate)
             * Biquad.highPass(38.13547087602444, q: 0.5003270373238773, rate: rate).power(at: frequency, rate: rate)
     }
