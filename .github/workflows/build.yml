@@ -42,6 +42,7 @@ jobs:
         run: |
           bash Tools/PlaybackCheck/run.sh
           bash Tools/LibraryCheck/run.sh
+          bash Tools/PlaylistImportCheck/run.sh
           bash Tools/ScrobbleCheck/run.sh
           bash Tools/UpdateCheck/run.sh
           bash Tools/EqualizerCheck/run.sh

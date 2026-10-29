@@ -118,6 +118,57 @@ struct InnerTube {
         return best.0
     }
 
+    /// Import is stricter than ordinary playback: never silently substitute an unrelated title,
+    /// artist or recognizable live/remix version. Try a second query before asking the user.
+    func bestImportMatch(for wanted: Track) async throws -> Track? {
+        let base = Self.baseTitle(wanted.title)
+        let first = "\(wanted.primaryArtist) \(base)".trimmingCharacters(in: .whitespaces)
+        let second = "\(wanted.title) \(wanted.primaryArtist)".trimmingCharacters(in: .whitespaces)
+        for query in [first, second].uniquedQueries() where !query.isEmpty {
+            let results = try await searchSongs(query)
+            if let found = Self.bestImportCandidate(in: results, wanted: wanted) { return found }
+        }
+        return nil
+    }
+
+    /// Suggestions are not automatic matches: the user can choose an alternate recording.
+    func importSuggestions(for wanted: Track, query: String? = nil) async throws -> [Track] {
+        let typed = query?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let search = typed.isEmpty ? "\(wanted.primaryArtist) \(wanted.title)" : typed
+        let results = try await searchSongs(search)
+        return results.filter { $0.videoId != nil }.sorted { Self.matchScore($0, wanted) > Self.matchScore($1, wanted) }
+    }
+
+    static func bestImportCandidate(in results: [Track], wanted: Track) -> Track? {
+        let wantedArtist = importKey(wanted.primaryArtist), wantedTitle = importKey(baseTitle(wanted.title))
+        guard wantedArtist.count >= 2, !wantedTitle.isEmpty else { return nil }
+        let variants = importVariants(wanted.title)
+        let compatible = results.prefix(25).filter { candidate in
+            guard candidate.videoId != nil, importVariants(candidate.title) == variants else { return false }
+            if let a = candidate.duration, let b = wanted.duration, abs(a - b) > max(15, b * 0.15) { return false }
+            let title = importKey(baseTitle(candidate.title)), artist = importKey(candidate.artist)
+            let primary = importKey(candidate.primaryArtist)
+            let shorter = min(title.count, wantedTitle.count), longer = max(title.count, wantedTitle.count)
+            let titleMatches = title == wantedTitle || (shorter >= 4 && Double(shorter) / Double(max(1, longer)) >= 0.65
+                && (title.contains(wantedTitle) || wantedTitle.contains(title)))
+            let artistMatches = wantedArtist.count < 3 ? primary == wantedArtist
+                : artist.contains(wantedArtist) || (primary.count >= 3 && wantedArtist.contains(primary))
+            return titleMatches && artistMatches
+        }
+        return compatible.max { matchScore($0, wanted) < matchScore($1, wanted) }
+    }
+
+    private static func importKey(_ text: String) -> String {
+        let folded = text.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
+        return String(String.UnicodeScalarView(folded.unicodeScalars.filter(CharacterSet.alphanumerics.contains)))
+    }
+
+    private static func importVariants(_ title: String) -> Set<String> {
+        let value = normalized(title)
+        let patterns = ["live", "remix", "acoustic", "instrumental", "karaoke", "sped up", "slowed", "cover"]
+        return Set(patterns.filter { value.range(of: "\\b" + NSRegularExpression.escapedPattern(for: $0) + "\\b", options: .regularExpression) != nil })
+    }
+
     private static func matchScore(_ candidate: Track, _ wanted: Track) -> Int {
         var score = 0
         let wantedArtist = normalized(wanted.primaryArtist)
@@ -286,5 +337,12 @@ struct InnerTube {
             total = total * 60 + value
         }
         return total
+    }
+}
+
+private extension Array where Element == String {
+    func uniquedQueries() -> [String] {
+        var seen = Set<String>()
+        return filter { seen.insert($0.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)).inserted }
     }
 }

@@ -9,6 +9,8 @@ struct Playlist: Codable, Hashable, Identifiable {
     var coverFile: String?
     /// The playlist's Mix: its designed transitions (see `PlaylistMixView`); nil until one is made.
     var mix: PlaylistMix?
+    /// Source rows that need attention after an import; optional so older libraries still open.
+    var importReport: PlaylistImportReport? = nil
 
     var countLabel: String {
         tracks.count == 1 ? String(localized: "1 brano") : String(localized: "\(tracks.count) brani")

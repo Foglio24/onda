@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct LibraryView: View {
     @EnvironmentObject private var library: Library
@@ -10,7 +11,11 @@ struct LibraryView: View {
     @State private var newName = ""
     @State private var importLink = ""
     @State private var errorText: String?
-    @State private var importResult: String?
+    @State private var importResult: Playlist?
+    @State private var importSuccess: String?
+    @State private var showImportFile = false
+    @State private var showFilePlaylists = false
+    @State private var filePlaylists: [PlaylistImportSource] = []
 
     var body: some View {
         NavigationStack {
@@ -60,6 +65,10 @@ struct LibraryView: View {
                         }
                     }
                     .disabled(importer.status != nil)
+                    Button { showImportFile = true } label: {
+                        Label("Importa playlist da file", systemImage: "doc.badge.plus")
+                    }
+                    .disabled(importer.status != nil)
 
                     ForEach(library.playlists) { playlist in
                         NavigationLink { PlaylistDetailView(playlistID: playlist.id) } label: {
@@ -70,8 +79,11 @@ struct LibraryView: View {
                 } header: {
                     Text("Playlist")
                 } footer: {
-                    if library.playlists.isEmpty {
-                        Text("Crea una playlist qui, oppure dal tasto ··· accanto a qualsiasi brano.")
+                    VStack(alignment: .leading, spacing: 6) {
+                        if library.playlists.isEmpty {
+                            Text("Crea una playlist qui, oppure dal tasto ··· accanto a qualsiasi brano.")
+                        }
+                        Text("Per playlist Spotify oltre 100 brani puoi importare un CSV o il file Playlist1.json dei tuoi dati Spotify.")
                     }
                 }
             }
@@ -93,18 +105,46 @@ struct LibraryView: View {
                 Button("Importa") { importPlaylist() }
                 Button("Annulla", role: .cancel) {}
             } message: {
-                Text("Incolla il link di una playlist o di un album pubblico di Spotify, Apple Music, YouTube o YouTube Music. Da Spotify arrivano al massimo 100 brani.")
+                Text("Incolla il link di una playlist o di un album pubblico di Spotify, Apple Music, YouTube o YouTube Music. Se Spotify mostra solo i primi 100 brani, puoi importare una lista completa da file.")
             }
             .alert("Ops", isPresented: Binding(get: { errorText != nil }, set: { if !$0 { errorText = nil } })) {
                 Button("OK", role: .cancel) {}
             } message: {
                 Text(errorText ?? "")
             }
-            .alert("Playlist importata", isPresented: Binding(get: { importResult != nil },
-                                                              set: { if !$0 { importResult = nil } })) {
+            .alert("Playlist importata", isPresented: Binding(get: { importSuccess != nil },
+                                                              set: { if !$0 { importSuccess = nil } })) {
                 Button("OK", role: .cancel) {}
             } message: {
-                Text(importResult ?? "")
+                Text(importSuccess ?? "")
+            }
+            .fileImporter(isPresented: $showImportFile, allowedContentTypes: [.json, .commaSeparatedText, .plainText]) { result in
+                importFile(result)
+            }
+            .sheet(item: $importResult) { playlist in
+                NavigationStack {
+                    PlaylistImportReviewView(playlistID: playlist.id)
+                        .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Fine") { importResult = nil } } }
+                }
+            }
+            .sheet(isPresented: $showFilePlaylists) {
+                NavigationStack {
+                    List(filePlaylists) { source in
+                        Button {
+                            showFilePlaylists = false
+                            importFilePlaylist(source)
+                        } label: {
+                            HStack {
+                                Text(source.name)
+                                Spacer()
+                                Text("\(source.rows.count) brani").foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                    .navigationTitle("Scegli una playlist")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Annulla") { showFilePlaylists = false } } }
+                }
             }
         }
     }
@@ -134,14 +174,34 @@ struct LibraryView: View {
         Task {
             do {
                 let outcome = try await importer.importPlaylist(from: link)
-                var message = "\"\(outcome.playlist.name)\": \(outcome.playlist.countLabel)."
-                if outcome.unmatched > 0 {
-                    message += " " + String(localized: "\(outcome.unmatched) non trovati su YouTube Music.")
-                }
-                importResult = message
+                if outcome.playlist.importReport != nil { importResult = outcome.playlist }
+                else { importSuccess = "\"\(outcome.playlist.name)\": \(outcome.playlist.countLabel)." }
             } catch {
                 errorText = error.localizedDescription
             }
+        }
+    }
+
+    private func importFile(_ result: Result<URL, Error>) {
+        do {
+            let url = try result.get()
+            let scoped = url.startAccessingSecurityScopedResource()
+            defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+            let sources = try PlaylistImportFile.read(Data(contentsOf: url), fileName: url.lastPathComponent)
+            guard !sources.isEmpty else { throw PlaylistImportFileError.unsupported }
+            if sources.count == 1 { importFilePlaylist(sources[0]) }
+            else { filePlaylists = sources; showFilePlaylists = true }
+        } catch let error as CocoaError where error.code == .userCancelled {
+            return
+        } catch {
+            errorText = error.localizedDescription
+        }
+    }
+
+    private func importFilePlaylist(_ source: PlaylistImportSource) {
+        Task {
+            do { importResult = try await importer.importPlaylist(from: source).playlist }
+            catch { errorText = error.localizedDescription }
         }
     }
 }

@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.21.0 (2026-10-29)
+
+### Improved
+- **Playlist import.** The app keeps a report of songs it couldn't match, searches that failed, unavailable entries and duplicates. Open the report after importing or from the playlist later, and choose a suggested YouTube Music recording for a missing song. A chosen alternative is placed near its original neighbors.
+- **Long Spotify playlists.** Public Spotify links may expose only their first 100 entries; the app now warns when the list may be incomplete. To import a longer list, choose a Spotify account-data playlist JSON file or a CSV containing song titles and artists in Library → Import playlist from file. The file is read on the device; song searches still use YouTube Music.
+- Matching tries a second search when needed and checks the title, artist, duration and recognizable versions such as live and remix before adding a result automatically.
+
 ## 1.20.0 (2026-10-29)
 
 ### Improved

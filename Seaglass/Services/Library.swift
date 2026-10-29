@@ -107,13 +107,41 @@ final class Library: ObservableObject {
     }
 
     @discardableResult
-    func createPlaylist(named name: String, tracks: [Track] = []) -> Playlist {
+    func createPlaylist(named name: String, tracks: [Track] = [], importReport: PlaylistImportReport? = nil) -> Playlist {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        let playlist = Playlist(id: UUID(), name: trimmed.isEmpty ? String(localized: "Nuova playlist") : trimmed,
+        var playlist = Playlist(id: UUID(), name: trimmed.isEmpty ? String(localized: "Nuova playlist") : trimmed,
                                 tracks: tracks.uniqued(), createdAt: .now)
+        playlist.importReport = importReport
         playlists.insert(playlist, at: 0)
         savePlaylists()
         return playlist
+    }
+
+    @discardableResult
+    func resolveImportedTrack(_ entryID: UUID, in playlistID: UUID, with track: Track) -> PlaylistImportReport.Resolution {
+        var result: PlaylistImportReport.Resolution = .missing
+        updatePlaylist(playlistID) { playlist in
+            guard var report = playlist.importReport else { return }
+            result = report.resolve(entryID, with: track, in: &playlist.tracks)
+            playlist.importReport = report
+        }
+        return result
+    }
+
+    func ignoreImportedTrack(_ entryID: UUID, in playlistID: UUID) {
+        updatePlaylist(playlistID) { playlist in
+            guard var report = playlist.importReport else { return }
+            report.ignore(entryID)
+            playlist.importReport = report
+        }
+    }
+
+    func restoreImportedTrack(_ entryID: UUID, in playlistID: UUID) {
+        updatePlaylist(playlistID) { playlist in
+            guard var report = playlist.importReport else { return }
+            report.restore(entryID)
+            playlist.importReport = report
+        }
     }
 
     func renamePlaylist(_ id: UUID, to name: String) {
