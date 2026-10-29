@@ -257,8 +257,10 @@ struct AutoMixLevelsCheck {
                 if plan.style != .beatMatched {
                     expect(levels.dipUnderCurves >= -3.5, "\(label): the filters and trims take at most 3.5 dB off the curves")
                 }
-                expect(levels.predictionError <= 1 && levels.predictionWorst <= 3,
-                       "\(label): the planner knows how loud the mix will be")
+                if plan.overlap >= 1.5 {
+                    expect(levels.predictionSamples >= 3 && levels.predictionError <= 1 && levels.predictionWorst <= 3,
+                           "\(label): the planner knows the one-second loudness (\(levels.predictionSamples) windows)")
+                }
             }
         }
 

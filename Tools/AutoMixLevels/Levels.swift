@@ -192,6 +192,8 @@ struct MixLevels {
     /// measured, through the overlap: the median and the largest difference (dB).
     var predictionError = 0.0
     var predictionWorst = 0.0
+    /// How many full one-second windows could be compared.
+    var predictionSamples = 0
     /// Peak (dBFS) and the limiter: how much it took off at most (dB, over 50 ms), for how long
     /// more than half a dB, and at most within two seconds of either end.
     var peak = 0.0
@@ -208,7 +210,11 @@ struct MixLevels {
         if let hole = swapHole, let pile = swapPileUp {
             parts.append("against the bass before and after it \(f(pile)) / \(f(hole)) dB")
         }
-        parts.append("planner off by \(String(format: "%.1f", predictionError)) dB (median), \(String(format: "%.1f", predictionWorst)) at most")
+        if predictionSamples > 0 {
+            parts.append("planner off by \(String(format: "%.1f", predictionError)) dB (median), \(String(format: "%.1f", predictionWorst)) at most")
+        } else {
+            parts.append("planner comparison unavailable: overlap shorter than one second")
+        }
         parts.append("peak \(String(format: "%.1f", peak)) dBFS, limiter \(String(format: "%.1f", limiterMost)) dB at most, "
                      + "\(String(format: "%.1f", limiterSeconds)) s over 0.5 dB, \(String(format: "%.2f", limiterAtEnds)) dB near the ends")
         return parts.joined(separator: "; ")
@@ -246,7 +252,10 @@ struct MixLevels {
         var rises: [Double] = [], dips: [Double] = [], overCurves: [Double] = [], bassChanges: [(Double, Bool)] = []
         var bassLevels: [(level: Double, swapping: Bool)] = []
         var errors: [Double] = []
-        let predicted = judge.loudness(of: plan)
+        // Compare the same one-second window on both sides. The planner gives momentary
+        // estimates: average their linear power over the window before comparing them with the
+        // rendered audio, instead of comparing a single centre point to a whole second.
+        let predicted = judge.loudness(of: plan, step: 0.05, window: 0.25)
         let window = 0.4
         var time = schedule.entry
         while time + window <= length {
@@ -271,22 +280,35 @@ struct MixLevels {
                 && max(curves.outgoingBassCut, curves.incomingBassCut) < 0.98
             if bassLouder > -60 { bassChanges.append((bassHeard - bassLouder, swapping)) }
             bassLevels.append((bassHeard, swapping))
-            // The planner's figures are loudness as heard (K-weighted), a second at a time, against
-            // the louder alone.
-            if let nearest = predicted.min(by: { abs($0.progress - p) < abs($1.progress - p) }), p > 0.02, p < 0.98 {
-                let second = 1.0
-                let m0 = centre - second / 2, a1 = position.outgoing - firstOut - second / 2, b1 = incomingTime - firstIn - second / 2
-                let measuredMix = mixK.level(from: m0, to: m0 + second)
-                let measuredA = aK.level(from: a1, to: a1 + second)
-                let measuredB = bK.level(from: b1, to: b1 + second)
-                let measured = measuredMix - max(measuredA, measuredB)
-                let error = abs((nearest.together - nearest.louder) - measured)
-                if error > 1.0, p > 0.2, p < 0.8 {
-                    print(String(format: "       DIAG p=%.2f predicted %.2f (mix %.2f reference %.2f), measured %.2f (mix %.2f A %.2f B %.2f), gains %.2f %.2f",
-                                 p, nearest.together - nearest.louder, nearest.together, nearest.louder,
-                                 measured, measuredMix, measuredA, measuredB, o, i))
+            // Only compare complete windows inside the overlap: otherwise one side includes
+            // audio before the next song starts or after the outgoing one has finished.
+            let second = 1.0
+            let speed = schedule.step(at: centre).outgoingRate
+            let windowStart = position.outgoing - second / 2 * speed
+            let windowEnd = position.outgoing + second / 2 * speed
+            if plan.overlap > 0, windowStart >= plan.outStart, windowEnd <= plan.outEnd {
+                var predictedMix = 0.0, predictedA = 0.0, predictedB = 0.0
+                let samples = 20
+                for frame in 0..<samples {
+                    let delta = (Double(frame) + 0.5) / Double(samples) - 0.5
+                    let progress = plan.progress(atOutgoingTime: position.outgoing + delta * speed)
+                    let index = progress * Double(predicted.count - 1)
+                    let lower = Int(index.rounded(.down)), upper = min(predicted.count - 1, lower + 1)
+                    let weight = index - Double(lower)
+                    func power(_ a: Double, _ b: Double) -> Double {
+                        pow(10, a / 10) * (1 - weight) + pow(10, b / 10) * weight
+                    }
+                    predictedMix += power(predicted[lower].together, predicted[upper].together)
+                    predictedA += power(predicted[lower].outgoing, predicted[upper].outgoing)
+                    predictedB += power(predicted[lower].incoming, predicted[upper].incoming)
                 }
-                errors.append(error)
+                let expected = 10 * log10(max(predictedMix, 1e-12) / max(predictedA, predictedB, 1e-12))
+                let m0 = centre - second / 2
+                let a1 = position.outgoing - firstOut - second / 2
+                let b1 = incomingTime - firstIn - second / 2
+                let measured = mixK.level(from: m0, to: m0 + second)
+                    - max(aK.level(from: a1, to: a1 + second), bK.level(from: b1, to: b1 + second))
+                errors.append(abs(expected - measured))
             }
             time += 0.1
         }
@@ -309,6 +331,7 @@ struct MixLevels {
             levels.swapPileUp = (during.max() ?? 0) - max(before, after)
         }
         let sorted = errors.sorted()
+        levels.predictionSamples = sorted.count
         levels.predictionError = sorted.isEmpty ? 0 : sorted[sorted.count / 2]
         levels.predictionWorst = sorted.last ?? 0
         // Peaks and the limiter as the mix is rendered (before the equalizer, which runs on playback).

@@ -1027,7 +1027,8 @@ struct TransitionJudge {
     /// How loud (dB, K-weighted power) the mix would sound through the overlap as planned (filters
     /// and trims included), and the louder of the two songs alone at each point: for the checks and
     /// the diagnostics.
-    func loudness(of plan: TransitionPlan, step: Double = 0.25) -> [(progress: Double, together: Double, louder: Double)] {
+    func loudness(of plan: TransitionPlan, step: Double = 0.25, window: Double = 1)
+        -> [(progress: Double, together: Double, louder: Double, outgoing: Double, incoming: Double)] {
         let overlap = max(0, plan.overlap)
         let count = max(2, Int((overlap / step).rounded(.up)) + 1)
         let ratio = plan.tempoOut / plan.tempoIn
@@ -1035,12 +1036,13 @@ struct TransitionJudge {
             let p = Double(index) / Double(count - 1)
             let timeA = plan.outStart + p * overlap, timeB = plan.inStart + p * overlap * ratio
             let levels = plan.levels(at: p)
-            let songA = Self.heard(a, timeA, over: overlap, gain: gainA, bassCut: levels.outgoingBassCut,
+            let songA = Self.heard(a, timeA, over: min(window, overlap), gain: gainA, bassCut: levels.outgoingBassCut,
                                    highPass: levels.outgoingHighPass)
-            let songB = Self.heard(b, timeB, over: overlap, gain: gainB, bassCut: levels.incomingBassCut,
+            let songB = Self.heard(b, timeB, over: min(window, overlap), gain: gainB, bassCut: levels.incomingBassCut,
                                    highPass: levels.incomingHighPass)
             let o = Double(levels.outgoing), i = Double(levels.incoming)
-            return (p, Self.decibels(o * o * songA.heard + i * i * songB.heard), Self.decibels(max(songA.alone, songB.alone)))
+            return (p, Self.decibels(o * o * songA.heard + i * i * songB.heard),
+                    Self.decibels(max(songA.alone, songB.alone)), Self.decibels(songA.alone), Self.decibels(songB.alone))
         }
     }
 
