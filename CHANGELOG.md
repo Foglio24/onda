@@ -4,7 +4,7 @@
 
 ### Changed
 - **AutoMix audio.** Restores the playback handover used in 1.15: the mix fades in immediately and the outgoing player fades out with its volume. When the equalizer is off, the mix no longer has an audio-processing tap solely for the handover. This addresses a possible cause of silence on iPhone; it still needs listening on the affected device. A brief volume dip at the change of players may return.
-- Checks the actual saved mix against the renderer's output. If the file lost its sound, the app uses a simple crossfade instead of handing over to a silent mix.
+- Checks the beginning and end of the saved mix against the renderer's output. If either loses nearly all its sound, the app uses a simple crossfade instead of handing over to a damaged mix.
 
 ## 1.19.0 (2026-10-29)
 
