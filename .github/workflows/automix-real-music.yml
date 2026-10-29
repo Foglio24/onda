@@ -10,6 +10,7 @@ on:
   # (a new workflow can only be started by hand once it is on the default branch).
   push:
     paths:
+      - "Seaglass/Player/AutoMixAnalysis.swift"
       - "Seaglass/Player/AutoMixSelection.swift"
       - "Seaglass/Player/AutoMixRenderer.swift"
       - "Seaglass/Player/HandoverFade.swift"

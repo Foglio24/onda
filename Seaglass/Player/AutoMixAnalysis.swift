@@ -6,7 +6,7 @@ import Foundation
 /// how bass-heavy each beat is, the harmony of each bar, and its key.
 struct TrackAnalysis: Codable, Equatable, Sendable {
     /// Raised whenever the analysis changes, so older results are made again.
-    static let currentVersion = 3
+    static let currentVersion = 4
     /// Seconds between the values of `loudness`.
     static let loudnessStep = 0.25
 
@@ -235,7 +235,7 @@ enum TrackAnalyzer {
                 beatHeardBass.append(0)
                 continue
             }
-            let total = curves.totalPower[start..<end].reduce(0, +), heard = curves.heardPower[start..<end].reduce(0, +)
+            let total = curves.heardTotalPower[start..<end].reduce(0, +), heard = curves.heardPower[start..<end].reduce(0, +)
             let low = curves.heardLowPower[start..<end].reduce(0, +)
             let decibels = total > 0 && heard > 0 ? 10 * log10(Double(heard / total)) : 0
             beatHeard.append(UInt8(max(0, min(255, ((decibels + 16) * 10).rounded()))))
@@ -338,6 +338,8 @@ enum TrackAnalyzer {
         var totalPower: [Float] = []
         var heardLowPower: [Float] = []
         var heardPower: [Float] = []
+        /// Unweighted power over the same complete spectrum as `heardPower`.
+        var heardTotalPower: [Float] = []
     }
 
     private static func onsets(_ samples: [Float], sampleRate: Double) -> Curves {
@@ -368,7 +370,11 @@ enum TrackAnalyzer {
         bandOfBin = bandOfBin.map { $0 >= 0 ? position[$0] : -1 }
         let bands = used.count
         let isLow = used.map { sqrt(edges[$0] * edges[$0 + 1]) < 150 }
-        let heardWeight = used.map { Float(MixFilters.heardWeight(at: sqrt(edges[$0] * edges[$0 + 1]))) }
+        // Loudness is measured from every FFT bin, not only the onset bands (30 Hz–8 kHz).
+        // The time-domain reference contains sub-bass and high frequencies too; excluding them
+        // from this ratio overestimates the heard level of bass-heavy songs.
+        let heardWeight = (0..<half).map { Float(MixFilters.heardWeight(at: Double($0) * binWidth)) }
+        let nyquistWeight = Float(MixFilters.heardWeight(at: sampleRate / 2))
         let lowCount = max(1, isLow.filter { $0 }.count)
 
         var levels = [Float](repeating: 0, count: frames * bands)
@@ -376,6 +382,7 @@ enum TrackAnalyzer {
         var totalPower = [Float](repeating: 0, count: frames)
         var heardLowPower = [Float](repeating: 0, count: frames)
         var heardPower = [Float](repeating: 0, count: frames)
+        var heardTotalPower = [Float](repeating: 0, count: frames)
         var frame = [Float](repeating: 0, count: length)
         var real = [Float](repeating: 0, count: half)
         var imaginary = [Float](repeating: 0, count: half)
@@ -402,11 +409,19 @@ enum TrackAnalyzer {
                 for band in 0..<bands {
                     levels[index * bands + band] = 10 * log10(bandPower[band] + 1e-10)
                     totalPower[index] += bandPower[band]
-                    heardPower[index] += bandPower[band] * heardWeight[band]
-                    if isLow[band] {
-                        lowPower[index] += bandPower[band]
-                        heardLowPower[index] += bandPower[band] * heardWeight[band]
-                    }
+                    if isLow[band] { lowPower[index] += bandPower[band] }
+                }
+                // vDSP packs DC and Nyquist into bin zero. They each count once; the other
+                // positive-frequency bins stand for both sides of the real signal's spectrum.
+                let dc = real[0] * real[0], nyquist = imaginary[0] * imaginary[0]
+                heardTotalPower[index] = 0.5 * (dc + nyquist)
+                heardPower[index] = 0.5 * nyquist * nyquistWeight
+                for bin in 1..<half {
+                    let value = power[bin]
+                    let weighted = value * heardWeight[bin]
+                    heardTotalPower[index] += value
+                    heardPower[index] += weighted
+                    if Double(bin) * binWidth < 150 { heardLowPower[index] += weighted }
                 }
             }
         }
@@ -435,7 +450,8 @@ enum TrackAnalyzer {
         // Only what stands out from the last second counts.
         let width = max(1, Int(sampleRate / Double(hop)))
         return Curves(full: detrended(full, width: width), low: detrended(low, width: width),
-                      lowPower: lowPower, totalPower: totalPower, heardLowPower: heardLowPower, heardPower: heardPower)
+                      lowPower: lowPower, totalPower: totalPower, heardLowPower: heardLowPower, heardPower: heardPower,
+                      heardTotalPower: heardTotalPower)
     }
 
     private static func detrended(_ values: [Float], width: Int) -> [Float] {

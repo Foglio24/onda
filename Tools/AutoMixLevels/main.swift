@@ -215,6 +215,24 @@ struct AutoMixLevelsCheck {
         guard let bassA = songs["bass 124"], let bassB = songs["bass 126"], let acoustic = songs["acoustic 100"],
               let quiet = songs["bass 126, 12 dB down"] else { exit(1) }
 
+        // The planner uses this K-weighted/unweighted ratio to predict the level of each
+        // song. Check it against filtering the actual samples, including bass below 30 Hz
+        // and an acoustic signal, rather than testing it against the planner's own formula.
+        for made in [bassA, bassB, acoustic, quiet] {
+            let a = made.analysis
+            let start = max(0, a.beatTime(0)), end = min(a.duration, a.beatTime(a.beatCount))
+            let stereo = Stereo(left: made.samples, right: made.samples, rate: rate)
+            let raw = stereo.level(from: start, to: end)
+            let actual = stereo.filtered(LevelFilter.kWeighting(rate: rate)).level(from: start, to: end) - raw
+            if let heard = a.heard(0..<a.beatCount) {
+                let predicted = 10 * log10(max(heard.factor, 1e-12))
+                expect(abs(predicted - actual) <= 1,
+                       String(format: "%@: K-weighted source estimate %.2f dB, measured %.2f dB", made.name, predicted, actual))
+            } else {
+                expect(false, "\(made.name): K-weighted source estimate available")
+            }
+        }
+
         // AutoMix's own choice, with "Volume uniforme" off and on.
         for (a, b) in [(bassA, bassB), (bassA, acoustic), (bassA, quiet), (quiet, bassA)] {
             for uniform in [false, true] {
