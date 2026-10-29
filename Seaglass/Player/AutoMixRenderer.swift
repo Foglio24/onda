@@ -87,7 +87,6 @@ enum AutoMixRenderer {
         guard heard > 1e-9, own > 1e-9 else { return nil }
         return 10 * log10(heard / own)
     }
-    }
 
     /// The stretch of the mix where both songs play clearly, for lining up their beats.
     private static func overlapWindow(_ schedule: MixSchedule) -> Range<Double>? {
