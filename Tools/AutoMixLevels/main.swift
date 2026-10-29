@@ -81,7 +81,7 @@ func write(_ samples: [Float], to url: URL) throws {
 /// The gain "Volume uniforme" gives a song: louder songs down to a reference (here -16 dB of
 /// K-weighted power), never up.
 func uniformGain(_ samples: [Float]) -> Float {
-    let stereo = Stereo(left: samples, right: samples, rate: rate).filtered(Biquad.kWeighting(rate: rate))
+    let stereo = Stereo(left: samples, right: samples, rate: rate).filtered(LevelFilter.kWeighting(rate: rate))
     let loudness = stereo.level(from: 0, to: Double(samples.count) / rate)
     return Float(min(1, pow(10, (-16 - loudness) / 20)))
 }
@@ -238,6 +238,26 @@ struct AutoMixLevelsCheck {
                 expect(levels.predictionError <= 1 && levels.predictionWorst <= 3,
                        "\(label): the planner knows how loud the mix will be")
             }
+        }
+
+        // With the app's equalizer on ("Più bassi", the strongest on the bass), which playback runs
+        // on the songs and on the mix alike: the mix still takes over and hands back at their level.
+        do {
+            let context = TransitionContext(outgoingVocals: instrumental(bassA.analysis), incomingVocals: instrumental(bassB.analysis))
+            let plan = TransitionPlanner.plan(from: bassA.analysis, to: bassB.analysis, context: context)
+            let schedule = MixSchedule(plan: plan)
+            let url = folder.appending(path: "equalized.caf")
+            let mix = try await AutoMixRenderer.render(schedule, outgoing: bassA.url, incoming: bassB.url, outgoingGain: 1,
+                                                       incomingGain: 1, to: url)
+            let gains = EqualizerPreset.bassBooster.gains ?? []
+            let levels = try await MixLevels.measure(try Stereo.read(url), unlimited: nil, schedule: schedule, join: mix.join,
+                                                     outgoing: bassA.url, incoming: bassB.url, gains: (1, 1),
+                                                     judge: TransitionJudge(bassA.analysis, bassB.analysis, context), equalizer: gains)
+            print("     equalizer \"Più bassi\": " + levels.summary)
+            expect(abs(levels.takeOver) <= 0.1 && abs(levels.handBack) <= 0.1,
+                   "equalizer on: the mix takes over and hands back at the songs' level")
+        } catch {
+            expect(false, "equalizer on: rendered and measured (\(error))")
         }
 
         // A playlist's Mix: its presets on the bass-rich pair.

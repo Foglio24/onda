@@ -53,8 +53,22 @@ struct Stereo {
         return song
     }
 
-    func filtered(_ sections: [Biquad]) -> Stereo {
-        Stereo(left: Biquad.run(sections, left), right: Biquad.run(sections, right), rate: rate)
+    func filtered(_ sections: [LevelFilter]) -> Stereo {
+        Stereo(left: LevelFilter.run(sections, left), right: LevelFilter.run(sections, right), rate: rate)
+    }
+
+    /// Through the app's equalizer at these six gains (dB), as playback runs it on every song and
+    /// on the mix alike (see `Equalizer`): the preamp, then the six sections.
+    func equalized(_ gains: [Float]) -> Stereo {
+        var vector = SIMD8<Float>()
+        for (band, gain) in gains.prefix(EqualizerBands.count).enumerated() { vector[band] = gain }
+        let preamp = EqualizerDesign.preamp(vector)
+        let sections = (0..<EqualizerBands.count).map { band -> LevelFilter in
+            let section = EqualizerDesign.section(band: band, gain: vector[band], sampleRate: rate)
+            return LevelFilter(b0: section.b0, b1: section.b1, b2: section.b2, a1: section.a1, a2: section.a2)
+        }
+        return Stereo(left: LevelFilter.run(sections, left.map { $0 * preamp }),
+                      right: LevelFilter.run(sections, right.map { $0 * preamp }), rate: rate)
     }
 
     /// Mean power over both channels between two times (seconds), as dB.
@@ -98,24 +112,24 @@ struct Stereo {
 }
 
 /// A second-order filter section (RBJ's cookbook; ITU-R BS.1770's K-weighting), run in direct form I.
-struct Biquad {
+struct LevelFilter {
     var b0, b1, b2, a1, a2: Double
 
-    private static func normalized(_ b: (Double, Double, Double), _ a: (Double, Double, Double)) -> Biquad {
-        Biquad(b0: b.0 / a.0, b1: b.1 / a.0, b2: b.2 / a.0, a1: a.1 / a.0, a2: a.2 / a.0)
+    private static func normalized(_ b: (Double, Double, Double), _ a: (Double, Double, Double)) -> LevelFilter {
+        LevelFilter(b0: b.0 / a.0, b1: b.1 / a.0, b2: b.2 / a.0, a1: a.1 / a.0, a2: a.2 / a.0)
     }
 
-    static func lowPass(_ frequency: Double, q: Double, rate: Double) -> Biquad {
+    static func lowPass(_ frequency: Double, q: Double, rate: Double) -> LevelFilter {
         let w = 2 * Double.pi * frequency / rate, alpha = sin(w) / (2 * q), c = cos(w)
         return normalized(((1 - c) / 2, 1 - c, (1 - c) / 2), (1 + alpha, -2 * c, 1 - alpha))
     }
 
-    static func highPass(_ frequency: Double, q: Double, rate: Double) -> Biquad {
+    static func highPass(_ frequency: Double, q: Double, rate: Double) -> LevelFilter {
         let w = 2 * Double.pi * frequency / rate, alpha = sin(w) / (2 * q), c = cos(w)
         return normalized(((1 + c) / 2, -(1 + c), (1 + c) / 2), (1 + alpha, -2 * c, 1 - alpha))
     }
 
-    static func highShelf(_ frequency: Double, gain: Double, q: Double, rate: Double) -> Biquad {
+    static func highShelf(_ frequency: Double, gain: Double, q: Double, rate: Double) -> LevelFilter {
         let a = pow(10, gain / 40), w = 2 * Double.pi * frequency / rate, alpha = sin(w) / (2 * q), c = cos(w)
         let root = 2 * a.squareRoot() * alpha
         return normalized((a * ((a + 1) + (a - 1) * c + root), -2 * a * ((a - 1) + (a + 1) * c), a * ((a + 1) + (a - 1) * c - root)),
@@ -123,17 +137,17 @@ struct Biquad {
     }
 
     /// K-weighting (BS.1770): the head's high shelf, then the low cut.
-    static func kWeighting(rate: Double) -> [Biquad] {
+    static func kWeighting(rate: Double) -> [LevelFilter] {
         [highShelf(1_681.974450955533, gain: 3.999843853973347, q: 0.7071752369554196, rate: rate),
          highPass(38.13547087602444, q: 0.5003270373238773, rate: rate)]
     }
 
     /// Below 150 Hz (the kick drum and the bass, as the analysis counts them): 4th-order Butterworth.
-    static func bass(rate: Double) -> [Biquad] {
+    static func bass(rate: Double) -> [LevelFilter] {
         [lowPass(150, q: 0.541_196_1, rate: rate), lowPass(150, q: 1.306_563, rate: rate)]
     }
 
-    static func run(_ sections: [Biquad], _ input: [Float]) -> [Float] {
+    static func run(_ sections: [LevelFilter], _ input: [Float]) -> [Float] {
         var signal = input
         for section in sections {
             var x1 = 0.0, x2 = 0.0, y1 = 0.0, y2 = 0.0
@@ -195,17 +209,25 @@ struct MixLevels {
 
     /// Measures `mix` (rendered from `schedule` at `gains`), and `unlimited`, the same rendered
     /// without the limiter, against the two songs' files.
-    static func measure(_ mix: Stereo, unlimited: Stereo?, schedule: MixSchedule, join: Double,
-                        outgoing: URL, incoming: URL, gains: (Float, Float), judge: TransitionJudge) async throws -> MixLevels {
+    /// With `equalizer` (six gains), the songs and the mix are heard through the app's equalizer.
+    static func measure(_ heardMix: Stereo, unlimited: Stereo?, schedule: MixSchedule, join: Double,
+                        outgoing: URL, incoming: URL, gains: (Float, Float), judge: TransitionJudge,
+                        equalizer: [Float]? = nil) async throws -> MixLevels {
         let plan = schedule.plan
-        let rate = mix.rate
-        let length = Double(mix.count) / rate
+        let rate = heardMix.rate
+        let length = Double(heardMix.count) / rate
         // Normal playback of each song over the stretch the mix covers (with a second either side).
         let firstOut = plan.handover - 1, firstIn = plan.inStart - 1
         let lastOut = schedule.positions(at: length).outgoing + 1
-        let songA = try await Stereo.decode(outgoing, from: firstOut, duration: lastOut - firstOut, gain: gains.0)
-        let songB = try await Stereo.decode(incoming, from: firstIn, duration: join - firstIn + 1, gain: gains.1)
-        let kWeights = Biquad.kWeighting(rate: rate), bassBand = Biquad.bass(rate: rate)
+        var songA = try await Stereo.decode(outgoing, from: firstOut, duration: lastOut - firstOut, gain: gains.0)
+        var songB = try await Stereo.decode(incoming, from: firstIn, duration: join - firstIn + 1, gain: gains.1)
+        var mix = heardMix
+        if let equalizer {
+            songA = songA.equalized(equalizer)
+            songB = songB.equalized(equalizer)
+            mix = mix.equalized(equalizer)
+        }
+        let kWeights = LevelFilter.kWeighting(rate: rate), bassBand = LevelFilter.bass(rate: rate)
         let mixK = mix.filtered(kWeights), aK = songA.filtered(kWeights), bK = songB.filtered(kWeights)
         let mixBass = mix.filtered(bassBand), aBass = songA.filtered(bassBand), bBass = songB.filtered(bassBand)
         var levels = MixLevels()
@@ -265,17 +287,18 @@ struct MixLevels {
         let sorted = errors.sorted()
         levels.predictionError = sorted.isEmpty ? 0 : sorted[sorted.count / 2]
         levels.predictionWorst = sorted.last ?? 0
-        levels.peak = 20 * log10(Double(max(mix.peak(from: 0, to: length), 1e-9)))
+        // Peaks and the limiter as the mix is rendered (before the equalizer, which runs on playback).
+        levels.peak = 20 * log10(Double(max(heardMix.peak(from: 0, to: length), 1e-9)))
 
         // The limiter: the mix against the same rendered without it (lined up: the limiter holds the
         // sound back a little), 50 ms at a time.
         if let unlimited {
-            let lag = Double(Stereo.lag(of: unlimited, behind: mix, around: length / 2)) / rate
+            let lag = Double(Stereo.lag(of: unlimited, behind: heardMix, around: length / 2)) / rate
             let step = 0.05
             var most = 0.0, over = 0.0, atEnds = 0.0
             var start = max(0, -lag)
             while start + step <= min(length, Double(unlimited.count) / rate - lag) {
-                let reduction = unlimited.level(from: start + lag, to: start + lag + step) - mix.level(from: start, to: start + step)
+                let reduction = unlimited.level(from: start + lag, to: start + lag + step) - heardMix.level(from: start, to: start + step)
                 if reduction.isFinite {
                     most = max(most, reduction)
                     if reduction > 0.5 { over += step }

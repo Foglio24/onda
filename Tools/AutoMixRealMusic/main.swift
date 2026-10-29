@@ -283,7 +283,7 @@ func read(_ url: URL) throws -> AVAudioPCMBuffer {
 /// K-weighted power, measured over the whole song), never up.
 func uniformGain(_ song: Song) -> Float {
     guard let whole = try? Stereo.read(song.file) else { return 1 }
-    let loudness = whole.filtered(Biquad.kWeighting(rate: whole.rate)).level(from: 0, to: Double(whole.count) / whole.rate)
+    let loudness = whole.filtered(LevelFilter.kWeighting(rate: whole.rate)).level(from: 0, to: Double(whole.count) / whole.rate)
     return Float(min(1, pow(10, (-16 - loudness) / 20)))
 }
 
