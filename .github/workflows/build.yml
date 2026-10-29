@@ -53,6 +53,7 @@ jobs:
           bash Tools/RecommendationCheck/run.sh
           bash Tools/AutoMixCheck/run.sh
           bash Tools/AutoMixRenderCheck/run.sh
+          bash Tools/AutoMixPlaybackProbe/run.sh
           bash Tools/OpusStreamCheck/run.sh
           bash Tools/AutoMixLevels/run.sh
 
