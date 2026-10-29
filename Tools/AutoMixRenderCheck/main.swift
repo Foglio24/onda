@@ -224,52 +224,36 @@ struct AutoMixRenderCheck {
             let head = alignment(full[0..<Int(0.6 * rate)], a.samples[handover..<(handover + Int(0.6 * rate))], range: 0.02)
             expect(abs(head.lag) <= 0.0012 && head.correlation > 0.9,
                    "\(name): the mix starts where the song is (lag \(format(head.lag * 1000)) ms, match \(format(head.correlation)))")
-            // Handed over as the player does it: the mix starts silent at the handover and, once it
-            // is seen playing, the two cross at the quietest moment from 0.45 s on (the mix still the
-            // song alone, at its tempo), the song fading out in its audio processing as the mix fades
-            // in. As loud as the song before, during and after the fade, and never a gap.
-            let fade = HandoverFader.exactLength
-            let quiet = HandoverFader.quietMoment(in: full, rate: rate, from: 0.45, to: 0.9 + fade, length: fade)
-            /// What is heard through the handover with the mix `lag` frames ahead of the song (the
-            /// two players are never on the very same sample), crossing at `crossing` over `length` seconds.
-            func handedOver(lag: Int, at crossing: Double, over length: Double) -> (heard: [Float], accepted: Bool) {
-                let fader = HandoverFader()
-                var accepted = false
-                let faded = throughFader(a.samples, fader: fader, programAt: handover + Int(0.1 * rate)) {
-                    accepted = fader.fadeOut(at: plan.handover + crossing, over: length, now: plan.handover)
+            // The 1.15 handover fades the mix in from time zero while the outgoing
+            // player's volume fades out. Model the same curves with small timing offsets.
+            let fade = AutoMixPlayback.handoverFade
+            func handedOver(lag: Int) -> [Float] {
+                (handover..<(handover + Int(1.0 * rate))).map { index -> Float in
+                    let ramp = max(0, min(1, Double(index - handover) / rate / fade))
+                    let mixedIndex = min(full.count - 1, index - handover + lag)
+                    return a.samples[index] * Float(1 - ramp) + full[mixedIndex] * Float(ramp)
                 }
-                let heard = (handover..<(handover + Int(1.0 * rate))).map { index -> Float in
-                    let ramp = max(0, min(1, (Double(index - handover) / rate - crossing) / length))
-                    return faded[index] + full[min(full.count - 1, index - handover + lag)] * Float(ramp)
-                }
-                return (heard, accepted)
             }
-            let (heard, accepted) = handedOver(lag: 0, at: quiet, over: fade)
-            let crossing = quiet
             func level(_ range: Range<Int>, of heard: [Float]) -> Double {
                 let own = range.reduce(0.0) { $0 + Double(a.samples[handover + $1] * a.samples[handover + $1]) }
                 let mixed = range.reduce(0.0) { $0 + Double(heard[$1] * heard[$1]) }
                 return 10 * log10((mixed + 1e-12) / (own + 1e-12))
             }
-            let crossAt = Int(crossing * rate), span = Int(fade * rate), short = Int(0.01 * rate)
-            let before = level(0..<crossAt, of: heard), during = level(crossAt..<(crossAt + span), of: heard)
-            let after = level((crossAt + span)..<heard.count, of: heard)
+            let heard = handedOver(lag: 0)
+            let span = Int(fade * rate), short = Int(0.01 * rate)
+            let during = level(0..<span, of: heard), after = level(span..<heard.count, of: heard)
             let gap = stride(from: 0, to: heard.count - short, by: short).map { level($0..<($0 + short), of: heard) }.min() ?? -99
-            expect(accepted && abs(before) < 0.01 && abs(during) < 1.5 && abs(after) < 1.5 && gap > -10,
-                   "\(name): handed over as loud as the song (\(format(during, 1)) dB in the fade, \(format(after, 1)) dB after, quietest 10 ms \(format(gap, 1)) dB)")
-            // With the players a few milliseconds apart the same music, half and half, partly cancels
-            // out: the quietest tenth of a second (about what the ear goes by) against the song's.
+            expect(abs(during) < 1.5 && abs(after) < 1.5 && gap > -10,
+                   "\(name): handover keeps the song audible (\(format(during, 1)) dB in the fade, \(format(after, 1)) dB after)")
+            // Offsets can cause a brief dip because the players do not share an exact sample clock.
             let tenth = Int(0.1 * rate)
-            func dip(lag milliseconds: Double, at crossing: Double, over length: Double) -> Double {
-                let heard = handedOver(lag: Int(milliseconds / 1000 * rate), at: crossing, over: length).heard
-                return stride(from: 0, to: heard.count - tenth, by: short).map { level($0..<($0 + tenth), of: heard) }.min() ?? -99
+            let dips = [1.0, 2, 5].map { milliseconds -> Double in
+                let offset = handedOver(lag: Int(milliseconds / 1000 * rate))
+                return stride(from: 0, to: offset.count - tenth, by: short)
+                    .map { level($0..<($0 + tenth), of: offset) }.min() ?? -99
             }
-            // Now, and as up to 1.18 (half a second in, over a quarter of a second).
-            let dips = [1.0, 2, 5].map { (now: dip(lag: $0, at: quiet, over: fade), before: dip(lag: $0, at: 0.5, over: 0.25)) }
-            expect(dips.allSatisfy { $0.now > -1.5 },
-                   "\(name): players 1, 2 and 5 ms apart, crossing at \(format(quiet)) s: at most "
-                   + dips.map { format(-$0.now, 1) }.joined(separator: ", ") + " dB down over a tenth of a second (up to 1.18: "
-                   + dips.map { format(-$0.before, 1) }.joined(separator: ", ") + " dB)")
+            expect(dips.allSatisfy { $0 > -10 },
+                   "\(name): players 1, 2 and 5 ms apart remain audible (dips \(dips.map { format($0, 1) }.joined(separator: ", ")) dB)")
             // Ends exactly where the next song carries on.
             let tailLength = Int(1.0 * rate)
             let joinIndex = Int((joins["full"] ?? schedule.join) * rate)
@@ -336,6 +320,35 @@ struct AutoMixRenderCheck {
                    "handover: the song is untouched before, silent after, and with the mix the song itself (error \(worst))")
             expect(!fader.fadeOut(at: 40, over: fade, now: 59.9),
                    "handover: a fade the music has already gone past is refused (the player's volume does it then)")
+        }
+
+        // The file check must reject a silent file when the renderer heard audio, while allowing
+        // a legitimately silent source. Both files have the same format as a real rendered mix.
+        do {
+            let url = folder.appending(path: "file-validation.caf")
+            let nativeRate = MixSchedule.sampleRate
+            let format = AVAudioFormat(standardFormatWithSampleRate: nativeRate, channels: 2)!
+            let count = AVAudioFrameCount(nativeRate)
+            do {
+                let file = try AVAudioFile(forWriting: url, settings: [AVFormatIDKey: kAudioFormatLinearPCM,
+                    AVSampleRateKey: nativeRate, AVNumberOfChannelsKey: 2, AVLinearPCMBitDepthKey: 16,
+                    AVLinearPCMIsFloatKey: false, AVLinearPCMIsBigEndianKey: false, AVLinearPCMIsNonInterleaved: false],
+                    commonFormat: .pcmFormatFloat32, interleaved: false)
+                let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: count)!
+                buffer.frameLength = count
+                for channel in 0..<2 { buffer.floatChannelData![channel].update(repeating: 0, count: Int(count)) }
+                try file.write(from: buffer)
+            }
+            let heard = [Float](repeating: 0.1, count: Int(nativeRate / 2))
+            var rejected = false
+            do { try AutoMixRenderer.validateFile(url, length: 1, head: heard, tail: heard) } catch { rejected = true }
+            expect(rejected, "a silent file is rejected when the renderer produced audio")
+            let quiet = [Float](repeating: 0, count: heard.count)
+            var accepted = true
+            do { try AutoMixRenderer.validateFile(url, length: 1, head: quiet, tail: quiet) } catch { accepted = false }
+            expect(accepted, "a genuinely silent source is not mistaken for a broken file")
+        } catch {
+            expect(false, "file validation setup (\(error))")
         }
 
         // A song muted in the mix isn't heard: the end of the mix, where only the next song

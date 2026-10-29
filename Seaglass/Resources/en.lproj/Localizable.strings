@@ -622,14 +622,7 @@
 "Ultimo passaggio AutoMix" = "Last AutoMix handover";
 "Ultima scelta AutoMix" = "Last AutoMix choice";
 "mix non pronto: dissolvenza semplice" = "mix not ready: plain crossfade";
-"mix non partito: dissolvenza semplice" = "mix didn't start: plain crossfade";
-"mix fuori tempo: dissolvenza semplice" = "mix out of step: plain crossfade";
-"controllo in ritardo: dissolvenza semplice" = "checked too late: plain crossfade";
 "mix avviato senza controllo" = "mix started unchecked";
-"mix partito, scarto %lld ms" = "mix started, %lld ms off";
-"uscita %lld ms" = "output %lld ms";
-"sfumatura nel brano" = "faded in the song";
-"sfumatura col volume" = "faded with the volume";
 
 /* Swipes on songs */
 "In coda" = "Queue";
