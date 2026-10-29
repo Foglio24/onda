@@ -739,13 +739,8 @@ struct TransitionJudge {
     /// A song's power (linear) over the second around a time (as it is heard: not beat by beat),
     /// or over less (down to a quarter of a second) for a mix shorter than that.
     private static func power(_ song: TrackAnalysis, _ time: Double, over window: Double = 1) -> Double {
-        let steps = max(1, min(4, Int((window / TrackAnalysis.loudnessStep).rounded())))
-        let values = (0..<steps).map { step -> Double in
-            let at = time + (Double(step) - Double(steps) / 2) * TrackAnalysis.loudnessStep
-            guard at >= 0, at < song.duration else { return 0 }
-            return pow(10, Double(song.level(at: at)) / 10)
-        }
-        return values.reduce(0, +) / Double(values.count)
+        let span = max(TrackAnalysis.loudnessStep, min(1, window))
+        return song.power(from: time - span / 2, to: time + span / 2)
     }
 
     /// A song over the second around a time (as `power`, or less), at `gain` (power): its loudness

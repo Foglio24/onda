@@ -77,13 +77,23 @@ struct TrackAnalysis: Codable, Equatable, Sendable {
         return loudness[max(0, min(loudness.count - 1, index))]
     }
 
-    /// Mean power (linear) between two times, from `loudness`; 0 outside the sound.
+    /// Mean power (linear) between two times. Each stored quarter-second contributes only
+    /// for the part intersecting the requested window; time outside the song is silent.
     func power(from start: Double, to end: Double) -> Double {
-        guard !loudness.isEmpty else { return 0 }
-        let first = max(0, min(loudness.count - 1, Int(start / Self.loudnessStep)))
-        let last = max(first + 1, min(loudness.count, Int((end / Self.loudnessStep).rounded(.up))))
-        let total = loudness[first..<last].reduce(0.0) { $0 + pow(10, Double($1) / 10) }
-        return total / Double(last - first)
+        guard !loudness.isEmpty, start.isFinite, end.isFinite, end > start else { return 0 }
+        let step = Self.loudnessStep
+        let first = max(0, min(loudness.count, Int((start / step).rounded(.down))))
+        let last = max(first, min(loudness.count, Int((end / step).rounded(.up))))
+        guard first < last else { return 0 }
+        var total = 0.0
+        for index in first..<last {
+            let lower = max(start, Double(index) * step, 0)
+            let upper = min(end, Double(index + 1) * step, duration)
+            if upper > lower {
+                total += (upper - lower) * pow(10, Double(loudness[index]) / 10)
+            }
+        }
+        return total / (end - start)
     }
 
     /// The first beat of the first whole bar (bars start every four beats from it).

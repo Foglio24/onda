@@ -266,6 +266,13 @@ func checkSchedule(_ plan: TransitionPlan, _ a: TrackAnalysis, _ b: TrackAnalysi
 let tritone = [(66, false), (71, false), (73, false), (66, false)]
 
 if let a = analyses[124], let b = analyses[126] {
+    var powerProbe = a
+    powerProbe.loudness = [-10, 0]
+    powerProbe.duration = 0.5
+    expect(abs(powerProbe.power(from: 0.1, to: 0.3) - 0.325) < 1e-6,
+           "loudness: partial quarter-second bins are weighted by time")
+    expect(abs(powerProbe.power(from: -0.1, to: 0.1) - 0.05) < 1e-6,
+           "loudness: outside the song counts as silence")
     let quiet = TransitionContext(outgoingVocals: instrumental(a), incomingVocals: instrumental(b))
     let choice = TransitionPlanner.choose(from: a, to: b, context: quiet)
     let plan = choice.plan
