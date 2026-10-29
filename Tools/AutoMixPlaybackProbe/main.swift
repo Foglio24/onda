@@ -53,6 +53,11 @@ final class Capture {
         lock.unlock()
         print("\(label) format=\(f.mBitsPerChannel) bits flags=\(f.mFormatFlags) rate=\(f.mSampleRate): \(values.joined(separator: ", "))")
     }
+
+    func rms(_ second: Int) -> Double {
+        lock.lock(); defer { lock.unlock() }
+        return sqrt((sums[second] ?? 0) / Double(max(1, counts[second] ?? 0)))
+    }
 }
 
 func tap(_ capture: Capture) -> MTAudioProcessingTap? {
@@ -95,40 +100,26 @@ func writeTone(_ url: URL, frequency: Double, seconds: Double) throws {
     try file.write(from: buffer)
 }
 
+@MainActor
 func makeItem(_ mixURL: URL, _ songURL: URL, lengthSeconds: Double = 6, joinSeconds: Double = 2,
-              firstCapture: Capture, secondCapture: Capture) async throws -> AVPlayerItem {
-    let mixAsset = AVURLAsset(url: mixURL), songAsset = AVURLAsset(url: songURL)
-    let mixTrack = try await mixAsset.loadTracks(withMediaType: .audio).first!
-    let songTrack = try await songAsset.loadTracks(withMediaType: .audio).first!
-    let songDuration = try await songAsset.load(.duration)
-    let composition = AVMutableComposition()
-    let first = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid)!
-    let second = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid)!
-    let scale: CMTimeScale = 44_100
-    let overlap = CMTime(seconds: 0.03, preferredTimescale: scale)
-    let length = CMTime(seconds: lengthSeconds, preferredTimescale: scale)
-    let join = CMTime(seconds: joinSeconds, preferredTimescale: scale)
-    try first.insertTimeRange(CMTimeRange(start: .zero, duration: length), of: mixTrack, at: .zero)
-    try second.insertTimeRange(CMTimeRange(start: CMTimeSubtract(join, overlap), end: songDuration),
-                               of: songTrack, at: CMTimeSubtract(length, overlap))
-    let seam = CMTimeRange(start: CMTimeSubtract(length, overlap), duration: overlap)
-    let mixPart = AVMutableAudioMixInputParameters(track: first)
-    mixPart.setVolume(0, at: .zero)
-    mixPart.setVolumeRamp(fromStartVolume: 0, toEndVolume: 1,
-        timeRange: CMTimeRange(start: CMTime(seconds: 0.55, preferredTimescale: scale),
-                               duration: CMTime(seconds: 0.04, preferredTimescale: scale)))
-    mixPart.setVolumeRamp(fromStartVolume: 1, toEndVolume: 0, timeRange: seam)
-    let songPart = AVMutableAudioMixInputParameters(track: second)
-    songPart.setVolumeRamp(fromStartVolume: 0, toEndVolume: 1, timeRange: seam)
-    mixPart.audioTapProcessor = tap(firstCapture)
-    songPart.audioTapProcessor = tap(secondCapture)
-    let audioMix = AVMutableAudioMix(); audioMix.inputParameters = [mixPart, songPart]
-    let item = AVPlayerItem(asset: composition); item.audioMix = audioMix
+              incomingGain: Float = 1, firstCapture: Capture, secondCapture: Capture,
+              attachTaps: Bool = true) async -> AVPlayerItem {
+    guard let parts = await AutoMixPlayback.compose(mixURL: mixURL, songURL: songURL, length: lengthSeconds,
+        join: joinSeconds, incomingGain: incomingGain, crossing: 0, fade: AutoMixPlayback.handoverFade)
+    else { fatalError("Could not create production AutoMix composition") }
+    if attachTaps {
+        parts.mixPart.audioTapProcessor = tap(firstCapture)
+        parts.songPart.audioTapProcessor = tap(secondCapture)
+    }
+    let audioMix = AVMutableAudioMix()
+    audioMix.inputParameters = [parts.mixPart, parts.songPart]
+    let item = AVPlayerItem(asset: parts.composition)
+    item.audioMix = audioMix
     return item
 }
 
 @main struct Probe {
-    static func main() async throws {
+    @MainActor static func main() async throws {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: folder) }
@@ -136,7 +127,7 @@ func makeItem(_ mixURL: URL, _ songURL: URL, lengthSeconds: Double = 6, joinSeco
         try writeTone(mixURL, frequency: 440, seconds: 6)
         try writeTone(songURL, frequency: 660, seconds: 10)
         let first = Capture(), second = Capture()
-        let item = try await makeItem(mixURL, songURL, firstCapture: first, secondCapture: second)
+        let item = await makeItem(mixURL, songURL, firstCapture: first, secondCapture: second, attachTaps: false)
         let tracks = try await item.asset.loadTracks(withMediaType: .audio)
         let reader = try AVAssetReader(asset: item.asset)
         let output = AVAssetReaderAudioMixOutput(audioTracks: tracks, audioSettings: [AVFormatIDKey: kAudioFormatLinearPCM,
@@ -172,14 +163,15 @@ func makeItem(_ mixURL: URL, _ songURL: URL, lengthSeconds: Double = 6, joinSeco
         try AVAudioSession.sharedInstance().setActive(true)
         #endif
         let liveFirst = Capture(), liveSecond = Capture()
-        let liveItem = try await makeItem(mixURL, songURL, firstCapture: liveFirst, secondCapture: liveSecond)
+        let liveItem = await makeItem(mixURL, songURL, firstCapture: liveFirst, secondCapture: liveSecond)
         let player = AVPlayer(playerItem: liveItem)
         player.play()
         try await Task.sleep(for: .seconds(8))
         print("PLAYER time=\(liveItem.currentTime().seconds) itemStatus=\(liveItem.status.rawValue) playerStatus=\(player.timeControlStatus.rawValue) error=\(String(describing: liveItem.error))")
         liveFirst.report("PLAYER first track tap")
         liveSecond.report("PLAYER second track tap")
-        player.pause()
+        guard liveFirst.rms(1) > 0.05, liveSecond.rms(6) > 0.05 else { fatalError("Player did not receive audible transition and song audio") }
+        // Keep the original player running during rendering, as the app does.
 
         // Use the actual app renderer with a gapless transition and the user's approximate
         // normalized gains. Check the bytes read from disk as well as the in-memory levels.
@@ -193,6 +185,7 @@ func makeItem(_ mixURL: URL, _ songURL: URL, lengthSeconds: Double = 6, joinSeco
         plan.fadeOutFrom = 0
         let rendered = try await AutoMixRenderer.render(MixSchedule(plan: plan), outgoing: outgoingURL,
             incoming: songURL, outgoingGain: Float(pow(10, -6.9 / 20)), incomingGain: Float(pow(10, -8.0 / 20)), to: renderedURL)
+        player.pause()
         print("RENDER actual length=\(rendered.length) join=\(rendered.join) takeOver=\(String(describing: rendered.takeOver)) handBack=\(String(describing: rendered.handBack))")
         let actualFile = try AVAudioFile(forReading: renderedURL, commonFormat: .pcmFormatFloat32, interleaved: false)
         let actualBuffer = AVAudioPCMBuffer(pcmFormat: actualFile.processingFormat, frameCapacity: AVAudioFrameCount(actualFile.length))!
@@ -209,14 +202,15 @@ func makeItem(_ mixURL: URL, _ songURL: URL, lengthSeconds: Double = 6, joinSeco
         print("RENDER file RMS per second: \(actualRMS)")
         guard actualRMS.count >= 3, actualRMS.allSatisfy({ $0 > 0.01 }) else { fatalError("Actual rendered file is silent") }
         let realFirst = Capture(), realSecond = Capture()
-        let realItem = try await makeItem(renderedURL, songURL, lengthSeconds: rendered.length, joinSeconds: rendered.join,
-                                          firstCapture: realFirst, secondCapture: realSecond)
+        let realItem = await makeItem(renderedURL, songURL, lengthSeconds: rendered.length, joinSeconds: rendered.join,
+                                          incomingGain: Float(pow(10, -8.0 / 20)), firstCapture: realFirst, secondCapture: realSecond)
         let realPlayer = AVPlayer(playerItem: realItem)
         realPlayer.play()
         try await Task.sleep(for: .seconds(5))
         print("RENDER PLAYER time=\(realItem.currentTime().seconds) status=\(realItem.status.rawValue) error=\(String(describing: realItem.error))")
         realFirst.report("RENDER PLAYER first track tap")
         realSecond.report("RENDER PLAYER second track tap")
+        guard realFirst.rms(1) > 0.01, realSecond.rms(3) > 0.005 else { fatalError("Player did not receive the rendered mix and song") }
         realPlayer.pause()
     }
 }

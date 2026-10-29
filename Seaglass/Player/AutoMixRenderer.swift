@@ -62,6 +62,9 @@ enum AutoMixRenderer {
         let pass = try renderPass(schedule, outgoingAudio, incomingAudio, delay: delay,
                                   gains: (outgoingGain, incomingGain), effects: effects, fullVolume: false,
                                   capture: 0..<1, to: destination, limiting: limiter)
+        // The memory buffers above do not prove that AVPlayer can read the written file. Verify
+        // the actual samples before handing over; on failure the player keeps the regular songs.
+        try validateFile(destination, length: pass.length, head: pass.captured, tail: pass.tail)
         // Where the next song really is at the end of the mix (so the join is seamless): starting
         // `delay` later, the end is `delay` earlier in it; the rest is measured.
         let end = schedule.join - plan.inStart - delay
@@ -86,6 +89,34 @@ enum AutoMixRenderer {
         }
         guard heard > 1e-9, own > 1e-9 else { return nil }
         return 10 * log10(heard / own)
+    }
+
+    /// Check the saved PCM, not just the engine output in memory. A quiet song is legitimate:
+    /// only reject a window when the renderer produced sound but the file lost almost all of it.
+    static func validateFile(_ url: URL, length: Double, head: [Float], tail: [Float]) throws {
+        let file = try AVAudioFile(forReading: url, commonFormat: .pcmFormatFloat32, interleaved: false)
+        let rate = file.processingFormat.sampleRate
+        guard abs(rate - MixSchedule.sampleRate) < 1, file.processingFormat.channelCount >= 2,
+              file.length >= AVAudioFramePosition((length * rate).rounded()) - 2 else { throw RenderError.unreadable }
+        func check(_ reference: [Float], from frame: AVAudioFramePosition) throws {
+            guard !reference.isEmpty else { return }
+            let expected = reference.reduce(0.0) { $0 + Double($1 * $1) } / Double(reference.count)
+            guard expected > 1e-8 else { return }
+            let count = AVAudioFrameCount(reference.count)
+            guard let buffer = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: count) else { throw RenderError.unreadable }
+            file.framePosition = max(0, frame)
+            try file.read(into: buffer, frameCount: count)
+            guard Int(buffer.frameLength) == reference.count, let channels = buffer.floatChannelData else { throw RenderError.unreadable }
+            var actual = 0.0
+            for i in 0..<reference.count {
+                let sample = (channels[0][i] + channels[1][i]) / 2
+                actual += Double(sample * sample)
+            }
+            actual /= Double(reference.count)
+            guard actual.isFinite, actual >= expected * 0.01 else { throw RenderError.unreadable }
+        }
+        try check(head, from: 0)
+        try check(tail, from: file.length - AVAudioFramePosition(tail.count))
     }
 
     /// The stretch of the mix where both songs play clearly, for lining up their beats.
@@ -181,7 +212,7 @@ enum AutoMixRenderer {
             componentType: kAudioUnitType_Effect, componentSubType: kAudioUnitSubType_PeakLimiter,
             componentManufacturer: kAudioUnitManufacturer_Apple, componentFlags: 0, componentFlagsMask: 0))
         engine.attach(limiter)
-        limiter.bypass = !limiting
+        if !limiting { limiter.bypass = true }
         engine.connect(engine.mainMixerNode, to: limiter, format: format)
         engine.connect(limiter, to: engine.outputNode, format: format)
         let decks = [Deck(), Deck()]
