@@ -4,7 +4,7 @@
 
 ### Improved
 - **AutoMix: more beat-matched transitions.** The planner now gives a safe mix in time priority when its quality is close to the best alternative. It can bring songs with a wider difference in tempo together, changing each song's speed gradually while keeping its pitch, and can use a steady part of a song even when its overall beat grid is less reliable. It still avoids forcing incompatible or unsteady rhythms and excessive vocal overlap.
-- After a beat-matched mix, the incoming song spends a little longer at its original tempo before playback returns to the original file.
+- After a beat-matched mix, the incoming song spends a little longer at its original tempo before playback returns to the original file. The return point is matched over a longer stretch when the usual comparison is unclear.
 
 ## 1.19.1 (2026-10-29)
 
