@@ -1,0 +1,20 @@
+name: AutoMix playback probe
+on:
+  push:
+    branches: [test/automix-playback-probe]
+    paths: [Tools/AutoMixPlaybackProbe/**, .github/workflows/automix-playback-probe.yml]
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: macos-26
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest
+      - name: Exercise composition and player on macOS
+        run: |
+          swiftc -parse-as-library Tools/AutoMixPlaybackProbe/main.swift -o /tmp/automix-playback-probe
+          /tmp/automix-playback-probe
