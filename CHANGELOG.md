@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.19.0 (2026-10-29)
+
+### Improved
+- **AutoMix volume and bass.** The bass now passes between the songs more smoothly, and the planner estimates the sound of its filters using the songs' measured spectrum, including deep bass and high frequencies. Its level controls release earlier where they are no longer needed, reducing unnecessary dips.
+- **Short transitions.** A brief gapless or sequential transition fades the two songs through the crossing rather than starting both at full volume. Harmonically incompatible songs are given more weight when choosing a transition.
+- The song analysis is refreshed once to use the new measurements. Settings → Diagnostics records the latest AutoMix level checks.
+
+### For development
+- AutoMix checks cover partial loudness windows, the full-spectrum estimate, the bass swap, short transitions and equalizer settings. The iOS build and the real-song render workflow passed. Some real-song estimates still differ from the rendered level, so the result should also be checked by listening on an iPhone.
+
 ## 1.18.2 (2026-10-28)
 
 ### Fixed
