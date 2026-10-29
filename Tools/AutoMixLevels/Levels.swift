@@ -170,8 +170,8 @@ struct MixLevels {
     var bassDip = 0.0
     var swapBassRise: Double?
     var swapBassDip: Double?
-    /// The planner's expectation (unweighted power against the louder song alone) against the
-    /// same measured, through the overlap: the median and the largest difference (dB).
+    /// The planner's expectation (loudness against the louder song alone) against the same
+    /// measured, through the overlap: the median and the largest difference (dB).
     var predictionError = 0.0
     var predictionWorst = 0.0
     /// Peak (dBFS) and the limiter: how much it took off at most (dB, over 50 ms), for how long
@@ -240,12 +240,13 @@ struct MixLevels {
             let swapping = min(curves.outgoingBassCut, curves.incomingBassCut) > 0.02
                 && max(curves.outgoingBassCut, curves.incomingBassCut) < 0.98
             if bassLouder > -60 { bassChanges.append((bassHeard - bassLouder, swapping)) }
-            // The planner's figures are unweighted power, a second at a time, against the louder alone.
+            // The planner's figures are loudness as heard (K-weighted), a second at a time, against
+            // the louder alone.
             if let nearest = predicted.min(by: { abs($0.progress - p) < abs($1.progress - p) }), p > 0.02, p < 0.98 {
                 let second = 1.0
                 let m0 = centre - second / 2, a1 = position.outgoing - firstOut - second / 2, b1 = incomingTime - firstIn - second / 2
-                let measured = mix.level(from: m0, to: m0 + second)
-                    - max(songA.level(from: a1, to: a1 + second), songB.level(from: b1, to: b1 + second))
+                let measured = mixK.level(from: m0, to: m0 + second)
+                    - max(aK.level(from: a1, to: a1 + second), bK.level(from: b1, to: b1 + second))
                 errors.append(abs((nearest.together - nearest.louder) - measured))
             }
             time += 0.1

@@ -17,6 +17,7 @@ on:
       - "Tools/AutoMixRealMusic/**"
       - "Tools/AutoMixLevels/**"
       - "Seaglass/Player/AutoMixPlanner.swift"
+      - "Seaglass/Player/AutoMixFilters.swift"
       - "Seaglass/Player/MixDesign.swift"
       - ".github/workflows/automix-real-music.yml"
   workflow_dispatch:

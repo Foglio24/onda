@@ -147,7 +147,11 @@ struct AutoMixTuning: Sendable {
     /// where it is quiet. Overlaps then cost more: AutoMix stays careful when it doesn't know.
     var unknownVocal = 0.5
     var unknownVocalAtEdges = 0.3
-    /// How far (dB) the two together may go above the louder of the two alone.
+    /// How far (dB, as heard: K-weighted) the two together may sound above the louder of the two
+    /// alone. Not a target: equal-power curves keep two songs about as loud as one; this is room
+    /// for where both play at full (a beat-matched mix's middle bars), so two arrangements at once
+    /// may sound a little fuller without a jump, and the trims hold them down only past it. The
+    /// checks measure the drops as well (Tools/AutoMixLevels).
     var headroom = 1.0
     /// The beat-matched length that costs nothing (bars): shorter or longer costs `lengthCost`
     /// per halving or doubling (so equally good candidates don't default to the shortest).
@@ -744,26 +748,30 @@ struct TransitionJudge {
         return values.reduce(0, +) / Double(values.count)
     }
 
-    /// Its share of bass at a time.
-    private static func bass(_ song: TrackAnalysis, _ time: Double) -> Double {
-        let beat = Int(((time - song.gridStart) / song.beatLength).rounded(.down))
-        return song.bassShare(beat..<(beat + 1))
+    /// Its share of bass over the beats around a time (as `power`, a second or less).
+    private static func bass(_ song: TrackAnalysis, _ time: Double, over window: Double = 1) -> Double {
+        let span = max(TrackAnalysis.loudnessStep, min(1, window)) / 2
+        let first = Int(((time - span - song.gridStart) / song.beatLength).rounded(.down))
+        let last = Int(((time + span - song.gridStart) / song.beatLength).rounded(.down))
+        return song.bassShare(first..<max(first + 1, last + 1))
     }
 
-    /// What is left of a power once its bass is cut and its high-pass is up: the high-pass takes
-    /// the bass by half-way, then part of the rest.
-    private static func filtered(_ power: Double, bass: Double, bassCut: Float, highPass: Float) -> Double {
-        let removedBass = bass * max(Double(bassCut), min(1, Double(highPass) / 0.5))
-        let removedRest = (1 - bass) * 0.6 * max(0, (Double(highPass) - 0.5) / 0.5)
-        return power * max(0.02, 1 - removedBass - removedRest)
+    /// A song of unweighted `power` (as the analysis measures it) with `bass` of it below 150 Hz,
+    /// heard alone and through its filters (see `MixFilters`): loudness as the ear weighs it
+    /// (K-weighted power), and through the filters unweighted too.
+    private static func heard(_ power: Double, bass: Double, bassCut: Float,
+                              highPass: Float) -> (alone: Double, heard: Double, unweighted: Double) {
+        let filters = MixFilters.response(bassCut: bassCut, highPass: highPass)
+        return (MixFilters.heard(power, bass: bass, through: MixFilters.open), MixFilters.heard(power, bass: bass, through: filters),
+                MixFilters.heard(power, bass: bass, through: filters, weighted: false))
     }
 
     private static func decibels(_ power: Double) -> Double { 10 * log10(max(power, 1e-12)) }
 
     func evaluate(_ input: TransitionPlan, _ kind: TransitionCandidate.Kind) -> TransitionCandidate {
         var plan = input
-        plan.outgoingTrim = []
-        plan.incomingTrim = []
+        plan.outgoingCeiling = []
+        plan.incomingCeiling = []
         // As the album has it: nothing to weigh.
         if kind == .album { return TransitionCandidate(kind: kind, plan: plan) }
         let step = 0.25
@@ -776,8 +784,12 @@ struct TransitionJudge {
             var outgoing: Double
             var incoming: Double
             var levels: TransitionLevels
+            /// Each song's loudness alone and through its filters (K-weighted power), and alone and
+            /// through its filters unweighted (as the analysis measures loudness).
             var alone: (Double, Double)
             var heard: (Double, Double)
+            var unweighted: (Double, Double)
+            var heardUnweighted: (Double, Double)
         }
         var samples: [Sample] = []
         samples.reserveCapacity(count)
@@ -786,15 +798,18 @@ struct TransitionJudge {
             let timeA = plan.outStart + p * overlap
             let timeB = plan.inStart + p * overlap * ratio
             let levels = plan.levels(at: p)
-            let alone = (Self.power(a, timeA, over: overlap) * gainA, Self.power(b, timeB, over: overlap) * gainB)
-            let heard = (Self.filtered(alone.0, bass: Self.bass(a, timeA), bassCut: levels.outgoingBassCut,
-                                       highPass: levels.outgoingHighPass),
-                         Self.filtered(alone.1, bass: Self.bass(b, timeB), bassCut: levels.incomingBassCut,
-                                       highPass: levels.incomingHighPass))
-            samples.append(Sample(outgoing: timeA, incoming: timeB, levels: levels, alone: alone, heard: heard))
+            let powerA = Self.power(a, timeA, over: overlap) * gainA, powerB = Self.power(b, timeB, over: overlap) * gainB
+            let songA = Self.heard(powerA, bass: Self.bass(a, timeA, over: overlap), bassCut: levels.outgoingBassCut,
+                                   highPass: levels.outgoingHighPass)
+            let songB = Self.heard(powerB, bass: Self.bass(b, timeB, over: overlap), bassCut: levels.incomingBassCut,
+                                   highPass: levels.incomingHighPass)
+            samples.append(Sample(outgoing: timeA, incoming: timeB, levels: levels, alone: (songA.alone, songB.alone),
+                                  heard: (songA.heard, songB.heard), unweighted: (powerA, powerB),
+                                  heardUnweighted: (songA.unweighted, songB.unweighted)))
         }
 
-        // Together never louder than the louder alone (plus `headroom`): both held down, gently.
+        // Together never sounding louder than the louder alone (plus `headroom`): both held down,
+        // gently.
         let cap = pow(10, tuning.headroom / 10)
         var raw = samples.map { sample -> Double in
             let o = Double(sample.levels.outgoing), i = Double(sample.levels.incoming)
@@ -814,11 +829,27 @@ struct TransitionJudge {
         trim[trim.count - 1] = 1
         for index in 1..<trim.count { trim[index] = max(trim[index], trim[index - 1] - fall) }
         for index in stride(from: trim.count - 2, through: 0, by: -1) { trim[index] = max(trim[index], trim[index + 1] - fall) }
-        // The song leaving takes the lowest trim so far (it only goes down), the next the lowest
-        // still to come (it only comes up): both are at most as loud as the trim where it matters.
+        // Each song as heard (its curve times its trim) only goes one way, the song leaving only
+        // down and the next only up, so neither pumps; within that, the trim is let go as soon as it
+        // can be. Up to 1.18 the trims themselves only went one way: the song leaving stayed held
+        // down to its end, and the next was held down from its very start, even where nothing
+        // needed it.
         var trimOut = trim, trimIn = trim
-        for index in 1..<trimOut.count { trimOut[index] = min(trimOut[index], trimOut[index - 1]) }
-        for index in stride(from: trimIn.count - 2, through: 0, by: -1) { trimIn[index] = min(trimIn[index], trimIn[index + 1]) }
+        var ceilingOut = trim, ceilingIn = trim
+        var lowest = Double.infinity
+        for index in trim.indices {
+            let curve = Double(samples[index].levels.outgoing)
+            lowest = min(lowest, curve * trim[index])
+            ceilingOut[index] = lowest
+            if curve > 1e-4 { trimOut[index] = min(trim[index], lowest / curve) }
+        }
+        lowest = .infinity
+        for index in trim.indices.reversed() {
+            let curve = Double(samples[index].levels.incoming)
+            lowest = min(lowest, curve * trim[index])
+            ceilingIn[index] = lowest
+            if curve > 1e-4 { trimIn[index] = min(trim[index], lowest / curve) }
+        }
         if trim.contains(where: { $0 < 0.99 }) {
             func sampled(_ values: [Double]) -> [Float] {
                 let points = 65
@@ -828,8 +859,8 @@ struct TransitionJudge {
                     return Float(values[lower] + (values[upper] - values[lower]) * (position - Double(lower)))
                 }
             }
-            plan.outgoingTrim = sampled(trimOut)
-            plan.incomingTrim = sampled(trimIn)
+            plan.outgoingCeiling = sampled(ceilingOut)
+            plan.incomingCeiling = sampled(ceilingIn)
         }
 
         var costs: [TransitionCriterion: Double] = [:]
@@ -854,7 +885,8 @@ struct TransitionJudge {
                 // Its words over the song leaving, still up.
                 buried += 0.5 * vb * weight
             }
-            if o * gainA >= 0.6, i * gainB >= 0.6, Self.decibels(sample.alone.0) >= fullA, Self.decibels(sample.alone.1) >= fullB {
+            if o * gainA >= 0.6, i * gainB >= 0.6, Self.decibels(sample.unweighted.0) >= fullA,
+               Self.decibels(sample.unweighted.1) >= fullB {
                 crowded += weight
             }
         }
@@ -919,7 +951,7 @@ struct TransitionJudge {
         }
         for (index, sample) in samples.enumerated() {
             let o = Double(sample.levels.outgoing) * trimOut[index], i = Double(sample.levels.incoming) * trimIn[index]
-            let total = o * o * sample.heard.0 + i * i * sample.heard.1
+            let total = o * o * sample.heardUnweighted.0 + i * i * sample.heardUnweighted.1
             let weight = index == 0 || index == samples.count - 1 ? dt / 2 : dt
             if Self.decibels(total) < reference - 8 { hole += weight }
         }
@@ -988,8 +1020,9 @@ struct TransitionJudge {
                                    total: weighted.values.reduce(0, +), veto: veto)
     }
 
-    /// How loud (dB) the mix would be through the overlap as planned (trims included), and the
-    /// louder of the two songs alone at each point: for the checks and the diagnostics.
+    /// How loud (dB, K-weighted power) the mix would sound through the overlap as planned (filters
+    /// and trims included), and the louder of the two songs alone at each point: for the checks and
+    /// the diagnostics.
     func loudness(of plan: TransitionPlan, step: Double = 0.25) -> [(progress: Double, together: Double, louder: Double)] {
         let overlap = max(0, plan.overlap)
         let count = max(2, Int((overlap / step).rounded(.up)) + 1)
@@ -998,13 +1031,12 @@ struct TransitionJudge {
             let p = Double(index) / Double(count - 1)
             let timeA = plan.outStart + p * overlap, timeB = plan.inStart + p * overlap * ratio
             let levels = plan.levels(at: p)
-            let aloneA = Self.power(a, timeA, over: overlap) * gainA, aloneB = Self.power(b, timeB, over: overlap) * gainB
-            let heardA = Self.filtered(aloneA, bass: Self.bass(a, timeA), bassCut: levels.outgoingBassCut,
-                                       highPass: levels.outgoingHighPass)
-            let heardB = Self.filtered(aloneB, bass: Self.bass(b, timeB), bassCut: levels.incomingBassCut,
-                                       highPass: levels.incomingHighPass)
+            let songA = Self.heard(Self.power(a, timeA, over: overlap) * gainA, bass: Self.bass(a, timeA, over: overlap),
+                                   bassCut: levels.outgoingBassCut, highPass: levels.outgoingHighPass)
+            let songB = Self.heard(Self.power(b, timeB, over: overlap) * gainB, bass: Self.bass(b, timeB, over: overlap),
+                                   bassCut: levels.incomingBassCut, highPass: levels.incomingHighPass)
             let o = Double(levels.outgoing), i = Double(levels.incoming)
-            return (p, Self.decibels(o * o * heardA + i * i * heardB), Self.decibels(max(aloneA, aloneB)))
+            return (p, Self.decibels(o * o * songA.heard + i * i * songB.heard), Self.decibels(max(songA.alone, songB.alone)))
         }
     }
 

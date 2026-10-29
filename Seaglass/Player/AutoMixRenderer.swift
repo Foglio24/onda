@@ -17,6 +17,11 @@ enum AutoMixRenderer {
         /// How much earlier (seconds, of its own time) the next song was started so its beats land
         /// on the first one's (nil: not measured, the beats weren't matched or didn't line up clearly).
         var shift: Double? = nil
+        /// How much louder (dB) the mix's first second is than the same second of the song playing,
+        /// and its last half second than the same of the next song, at their gains: 0 when the mix
+        /// takes over and hands back at the songs' very level (for Settings → Informazioni).
+        var takeOver: Double? = nil
+        var handBack: Double? = nil
     }
 
     enum RenderError: Error {
@@ -56,12 +61,32 @@ enum AutoMixRenderer {
         }
         let pass = try renderPass(schedule, outgoingAudio, incomingAudio, delay: delay,
                                   gains: (outgoingGain, incomingGain), effects: effects, fullVolume: false,
-                                  capture: nil, to: destination, limiting: limiter)
+                                  capture: 0..<1, to: destination, limiting: limiter)
         // Where the next song really is at the end of the mix (so the join is seamless): starting
         // `delay` later, the end is `delay` earlier in it; the rest is measured.
         let end = schedule.join - plan.inStart - delay
         let offset = contentOffset(pass.tail, incomingAudio, end: end) - delay
-        return Mix(url: destination, length: pass.length, join: schedule.join + offset, shift: measured)
+        let rate = MixSchedule.sampleRate
+        let joinFrame = Int(((end + offset + delay) * rate).rounded())
+        return Mix(url: destination, length: pass.length, join: schedule.join + offset, shift: measured,
+                   takeOver: level(pass.captured, against: outgoingAudio, from: 0, gain: outgoingGain),
+                   handBack: level(pass.tail, against: incomingAudio, from: joinFrame - pass.tail.count, gain: incomingGain))
+    }
+
+    /// How much louder (dB) `mix` (mono) is than the same number of frames of `song` from `start`
+    /// (both channels' mean), at `gain`. Nil when either is silent or out of range.
+    private static func level(_ mix: [Float], against song: AVAudioPCMBuffer, from start: Int, gain: Float) -> Double? {
+        guard let channels = song.floatChannelData, start >= 0, !mix.isEmpty,
+              start + mix.count <= Int(song.frameLength) else { return nil }
+        var heard = 0.0, own = 0.0
+        for (index, value) in mix.enumerated() {
+            heard += Double(value * value)
+            let source = (channels[0][start + index] + channels[1][start + index]) / 2 * gain
+            own += Double(source * source)
+        }
+        guard heard > 1e-9, own > 1e-9 else { return nil }
+        return 10 * log10(heard / own)
+    }
     }
 
     /// The stretch of the mix where both songs play clearly, for lining up their beats.
@@ -310,7 +335,7 @@ enum AutoMixRenderer {
         init() {
             let bands = eq.bands
             bands[0].filterType = .lowShelf
-            bands[0].frequency = 150
+            bands[0].frequency = Float(MixFilters.bassFrequency)
             bands[1].filterType = .parametric
             bands[1].frequency = 1_000
             bands[1].bandwidth = 2
@@ -350,15 +375,14 @@ enum AutoMixRenderer {
             pitch.rate = Float(rate)
             eq.globalGain = dry > 0.000_02 ? max(-96, 20 * log10(dry)) : -96
             let bands = eq.bands
-            bands[0].gain = effects ? -30 * bass : 0
+            // As `MixFilters` has them, which the planner expects.
+            bands[0].gain = effects ? MixFilters.bassShelfGain(cut: bass) : 0
             bands[1].gain = effects ? -24 * mid : 0
             bands[2].gain = effects ? -30 * high : 0
             bands[3].bypass = !effects || lowPass <= 0.001
-            // 20 kHz down to 300 Hz, evenly in pitch.
-            bands[3].frequency = Float(20_000 * pow(300.0 / 20_000, Double(lowPass)))
+            bands[3].frequency = MixFilters.lowPassFrequency(lowPass)
             bands[4].bypass = !effects || highPass <= 0.001
-            // 20 Hz up to 1.2 kHz.
-            bands[4].frequency = Float(20 * pow(60, Double(highPass)))
+            bands[4].frequency = MixFilters.highPassFrequency(highPass)
             reverb.wetDryMix = effects ? 100 * wet : 0
             delay.wetDryMix = effects ? 50 * echo : 0
         }

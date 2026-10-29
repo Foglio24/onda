@@ -62,14 +62,15 @@ struct TransitionPlan: Equatable, Sendable {
     var loop: MixLoopPlan? = nil
     /// Automatic plans: the progress at which the next song starts coming in (it is fully in at
     /// `fadeIn`) and at which this one starts going (it has gone at the end), each along an
-    /// equal-power curve. Where the two overlap at full, the trims hold them down.
+    /// equal-power curve. Where the two overlap at full, the ceilings hold them down.
     var fadeInFrom: Double = 0
     var fadeOutFrom: Double = 0
-    /// Gains on each song, sampled evenly through the overlap (empty: none), so that together they
-    /// never sound louder than the louder of the two alone (see `TransitionJudge`). The song leaving
-    /// only goes down, the next only up: neither pumps.
-    var outgoingTrim: [Float] = []
-    var incomingTrim: [Float] = []
+    /// The most each song's level may be, sampled evenly through the overlap (empty: no limit), so
+    /// that together they never sound louder than the louder of the two alone (see
+    /// `TransitionJudge`): the song leaving's only goes down and the next one's only up, so neither
+    /// pumps, at whichever point the curve and the ceiling meet.
+    var outgoingCeiling: [Float] = []
+    var incomingCeiling: [Float] = []
     /// The curves of AutoMix up to 1.16 (see `TransitionPlanner.reference`), to compare with.
     var legacyCurves = false
 
@@ -106,10 +107,13 @@ struct TransitionPlan: Equatable, Sendable {
             highPass = x * x * (3 - 2 * x)
         }
         let hasSwap = swapStart != nil && swapEnd != nil
-        let outgoing = cos(goOut * .pi / 2) * Double(Self.value(of: outgoingTrim, at: p))
-        let incoming = sin(comeIn * .pi / 2) * Double(Self.value(of: incomingTrim, at: p))
+        let outgoing = min(cos(goOut * .pi / 2), Double(Self.value(of: outgoingCeiling, at: p)))
+        let incoming = min(sin(comeIn * .pi / 2), Double(Self.value(of: incomingCeiling, at: p)))
+        // The bass passes over at equal power: half way each keeps 71 % of its own (-3 dB), so
+        // the two add up to one song's bass (up to 1.16 both were down 15 dB there: a hole).
         return TransitionLevels(outgoing: Float(outgoing), incoming: Float(incoming),
-                                outgoingBassCut: hasSwap ? Float(swap) : 0, incomingBassCut: hasSwap ? Float(1 - swap) : 0,
+                                outgoingBassCut: hasSwap ? MixFilters.bassCut(keeping: cos(swap * .pi / 2)) : 0,
+                                incomingBassCut: hasSwap ? MixFilters.bassCut(keeping: sin(swap * .pi / 2)) : 0,
                                 outgoingHighPass: Float(highPass))
     }
 
@@ -151,18 +155,19 @@ struct TransitionPlan: Equatable, Sendable {
                                 outgoingHighPass: Float(highPass))
     }
 
-    /// A trim at a point of the overlap (1 without one).
-    static func value(of trim: [Float], at progress: Double) -> Float {
-        guard trim.count > 1 else { return trim.first ?? 1 }
-        let position = max(0, min(1, progress)) * Double(trim.count - 1)
-        let lower = Int(position.rounded(.down)), upper = min(trim.count - 1, lower + 1)
+    /// A ceiling at a point of the overlap (1 without one).
+    static func value(of ceiling: [Float], at progress: Double) -> Float {
+        guard ceiling.count > 1 else { return ceiling.first ?? 1 }
+        let position = max(0, min(1, progress)) * Double(ceiling.count - 1)
+        let lower = Int(position.rounded(.down)), upper = min(ceiling.count - 1, lower + 1)
         let weight = Float(position - Double(lower))
-        return trim[lower] * (1 - weight) + trim[upper] * weight
+        return ceiling[lower] * (1 - weight) + ceiling[upper] * weight
     }
 }
 
 /// The state of a mix at one point: each song's dry volume (before effects), band cuts (0 none …
-/// 1 all), filter sweeps (0 open … 1 fully closed), and the effects on the song leaving.
+/// 1 all, evenly in decibels: see `MixFilters`), filter sweeps (0 open … 1 fully closed), and the
+/// effects on the song leaving.
 struct TransitionLevels: Equatable, Sendable {
     var outgoing: Float
     var incoming: Float
