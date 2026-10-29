@@ -276,9 +276,17 @@ struct MixLevels {
             if let nearest = predicted.min(by: { abs($0.progress - p) < abs($1.progress - p) }), p > 0.02, p < 0.98 {
                 let second = 1.0
                 let m0 = centre - second / 2, a1 = position.outgoing - firstOut - second / 2, b1 = incomingTime - firstIn - second / 2
-                let measured = mixK.level(from: m0, to: m0 + second)
-                    - max(aK.level(from: a1, to: a1 + second), bK.level(from: b1, to: b1 + second))
-                errors.append(abs((nearest.together - nearest.louder) - measured))
+                let measuredMix = mixK.level(from: m0, to: m0 + second)
+                let measuredA = aK.level(from: a1, to: a1 + second)
+                let measuredB = bK.level(from: b1, to: b1 + second)
+                let measured = measuredMix - max(measuredA, measuredB)
+                let error = abs((nearest.together - nearest.louder) - measured)
+                if error > 1.0, p > 0.2, p < 0.8 {
+                    print(String(format: "       DIAG p=%.2f predicted %.2f (mix %.2f reference %.2f), measured %.2f (mix %.2f A %.2f B %.2f), gains %.2f %.2f",
+                                 p, nearest.together - nearest.louder, nearest.together, nearest.louder,
+                                 measured, measuredMix, measuredA, measuredB, o, i))
+                }
+                errors.append(error)
             }
             time += 0.1
         }
