@@ -54,6 +54,7 @@ jobs:
           bash Tools/AutoMixCheck/run.sh
           bash Tools/AutoMixRenderCheck/run.sh
           bash Tools/OpusStreamCheck/run.sh
+          bash Tools/AutoMixLevels/run.sh
 
       # Talks to the real YouTube Music: a failure means YouTube changed something (or is down),
       # so it is reported without blocking the build.

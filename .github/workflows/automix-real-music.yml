@@ -15,6 +15,9 @@ on:
       - "Seaglass/Player/HandoverFade.swift"
       - "Seaglass/Player/VocalDetector.swift"
       - "Tools/AutoMixRealMusic/**"
+      - "Tools/AutoMixLevels/**"
+      - "Seaglass/Player/AutoMixPlanner.swift"
+      - "Seaglass/Player/MixDesign.swift"
       - ".github/workflows/automix-real-music.yml"
   workflow_dispatch:
     inputs:

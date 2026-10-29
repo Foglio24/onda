@@ -25,9 +25,11 @@ enum AutoMixRenderer {
         case engine
     }
 
-    /// `effects` false leaves out the filters (for checks that look at the beats).
+    /// `effects` false leaves out the filters (for checks that look at the beats); `limiter` false
+    /// leaves the peak limiter out of the way (for checks that measure what it does).
     static func render(_ schedule: MixSchedule, outgoing: URL, incoming: URL, outgoingGain: Float,
-                       incomingGain: Float, to destination: URL, effects: Bool = true) async throws -> Mix {
+                       incomingGain: Float, to destination: URL, effects: Bool = true,
+                       limiter: Bool = true) async throws -> Mix {
         let plan = schedule.plan
         var outgoingAudio = try await decode(outgoing, from: plan.handover, duration: plan.outEnd - plan.handover + 2)
         if let loop = plan.loop { outgoingAudio = looped(outgoingAudio, from: plan.handover, loop: loop) }
@@ -54,7 +56,7 @@ enum AutoMixRenderer {
         }
         let pass = try renderPass(schedule, outgoingAudio, incomingAudio, delay: delay,
                                   gains: (outgoingGain, incomingGain), effects: effects, fullVolume: false,
-                                  capture: nil, to: destination)
+                                  capture: nil, to: destination, limiting: limiter)
         // Where the next song really is at the end of the mix (so the join is seamless): starting
         // `delay` later, the end is `delay` earlier in it; the rest is measured.
         let end = schedule.join - plan.inStart - delay
@@ -143,7 +145,7 @@ enum AutoMixRenderer {
     private static func renderPass(_ schedule: MixSchedule, _ outgoingAudio: AVAudioPCMBuffer,
                                    _ incomingAudio: AVAudioPCMBuffer, delay: Double, gains: (Float, Float),
                                    effects: Bool, fullVolume: Bool, capture: Range<Double>?,
-                                   to destination: URL?) throws -> (length: Double, tail: [Float], captured: [Float]) {
+                                   to destination: URL?, limiting: Bool = true) throws -> (length: Double, tail: [Float], captured: [Float]) {
         let rate = MixSchedule.sampleRate
         let plan = schedule.plan
         guard let format = AVAudioFormat(standardFormatWithSampleRate: rate, channels: 2) else { throw RenderError.engine }
@@ -155,6 +157,7 @@ enum AutoMixRenderer {
             componentType: kAudioUnitType_Effect, componentSubType: kAudioUnitSubType_PeakLimiter,
             componentManufacturer: kAudioUnitManufacturer_Apple, componentFlags: 0, componentFlagsMask: 0))
         engine.attach(limiter)
+        limiter.bypass = !limiting
         engine.connect(engine.mainMixerNode, to: limiter, format: format)
         engine.connect(limiter, to: engine.outputNode, format: format)
         let decks = [Deck(), Deck()]

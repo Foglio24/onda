@@ -255,6 +255,8 @@ pick("tempos far apart", { rhythmic($0) && rhythmic($1) && tempoApart($0.analysi
 pick("rock", { $0.genre == "Rock" && $1.genre == "Rock" })
 pick("reggae", { $0.genre == "Reggae" && $1.genre == "Reggae" })
 pick("any two", { _, _ in true })
+pick("levels far apart", { abs($0.analysis.bodyLoudness - $1.analysis.bodyLoudness) >= 4 },
+     score: { -Double(abs($0.analysis.bodyLoudness - $1.analysis.bodyLoudness)) })
 note("   (No live recordings in this set: they are still to be tried.)")
 
 // MARK: Rendering
@@ -275,6 +277,14 @@ func read(_ url: URL) throws -> AVAudioPCMBuffer {
     }
     try file.read(into: buffer)
     return buffer
+}
+
+/// The gain "Volume uniforme" gives a song: louder songs down to a reference (here -16 dB of
+/// K-weighted power, measured over the whole song), never up.
+func uniformGain(_ song: Song) -> Float {
+    guard let whole = try? Stereo.read(song.file) else { return 1 }
+    let loudness = whole.filtered(Biquad.kWeighting(rate: whole.rate)).level(from: 0, to: Double(whole.count) / whole.rate)
+    return Float(min(1, pow(10, (-16 - loudness) / 20)))
 }
 
 /// The pieces one after the other, as AAC at 256 kbps.
@@ -495,6 +505,31 @@ for (number, pair) in pairs.enumerated() {
                 + "the next song comes up by \(format(rise(entry.plan), 1)) dB within a second once in")
         } catch {
             note("   \(entry.name): seams not measured (\(error))")
+        }
+    }
+    // How loud AutoMix's choice is against normal playback of the same songs (see
+    // Tools/AutoMixLevels/Levels.swift), "Volume uniforme" off and on.
+    for uniform in [false, true] {
+        let gains: (Float, Float) = uniform ? (uniformGain(a), uniformGain(b)) : (1, 1)
+        let context = TransitionContext(outgoingGain: gains.0, incomingGain: gains.1,
+                                        outgoingVocals: a.vocals, incomingVocals: b.vocals)
+        let plan = TransitionPlanner.choose(from: a.analysis, to: b.analysis, context: context).plan
+        let schedule = MixSchedule(plan: plan)
+        let limited = work.appending(path: "\(label)-levels.caf"), open = work.appending(path: "\(label)-open.caf")
+        do {
+            let mix = try await AutoMixRenderer.render(schedule, outgoing: a.file, incoming: b.file, outgoingGain: gains.0,
+                                                       incomingGain: gains.1, to: limited)
+            _ = try await AutoMixRenderer.render(schedule, outgoing: a.file, incoming: b.file, outgoingGain: gains.0,
+                                                 incomingGain: gains.1, to: open, limiter: false)
+            let levels = try await MixLevels.measure(try Stereo.read(limited), unlimited: try Stereo.read(open), schedule: schedule,
+                                                     join: mix.join, outgoing: a.file, incoming: b.file, gains: gains,
+                                                     judge: TransitionJudge(a.analysis, b.analysis, context))
+            let swap = plan.swapStart.map { String(format: ", bass swap %.2f–%.2f", $0, plan.swapEnd ?? $0) } ?? ""
+            note("   levels, \"Volume uniforme\" \(uniform ? "on (\(format(20 * log10(Double(gains.0)), 1)) and \(format(20 * log10(Double(gains.1)), 1)) dB)" : "off"): "
+                + "\(plan.style.rawValue), \(format(plan.overlap, 1)) s\(swap)")
+            note("      " + levels.summary)
+        } catch {
+            note("   levels not measured (\(error))")
         }
     }
     key += "pair \(label) (\(pair.kind)): 1.16 = \(files["1.16"] ?? "?"), new = \(files["new"] ?? "?")\n"
