@@ -18,7 +18,7 @@ enum AutoMixRenderer {
         /// on the first one's (nil: not measured, the beats weren't matched or didn't line up clearly).
         var shift: Double? = nil
         /// How much louder (dB) the mix's first second is than the same second of the song playing,
-        /// and its last half second than the same of the next song, at their gains: 0 when the mix
+        /// and its last second than the same of the next song, at their gains: 0 when the mix
         /// takes over and hands back at the songs' very level (for Settings → Informazioni).
         var takeOver: Double? = nil
         var handBack: Double? = nil
@@ -68,12 +68,21 @@ enum AutoMixRenderer {
         // Where the next song really is at the end of the mix (so the join is seamless): starting
         // `delay` later, the end is `delay` earlier in it; the rest is measured.
         let end = schedule.join - plan.inStart - delay
-        let offset = contentOffset(pass.tail, incomingAudio, end: end) - delay
+        // Automatic beat-matched mixes may need more time to settle after a larger tempo change.
+        // Compare a whole second, and widen the search only if the usual window isn't a clear match.
+        // Keep the previous half-second comparison for designed and unmodified transitions.
+        let automaticBeatMatch = plan.style == .beatMatched && plan.design == nil && !plan.legacyCurves
+        let seam = automaticBeatMatch ? pass.tail : Array(pass.tail.suffix(Int(0.5 * MixSchedule.sampleRate)))
+        let nearby = contentOffset(seam, incomingAudio, end: end, rangeSeconds: 0.025)
+        let wider = automaticBeatMatch && nearby.confidence < 0.9
+            ? contentOffset(seam, incomingAudio, end: end, rangeSeconds: 0.1) : nearby
+        let measuredOffset = wider.confidence > nearby.confidence ? wider.offset : nearby.offset
+        let offset = measuredOffset - delay
         let rate = MixSchedule.sampleRate
         let joinFrame = Int(((end + offset + delay) * rate).rounded())
         return Mix(url: destination, length: pass.length, join: schedule.join + offset, shift: measured,
                    takeOver: level(pass.captured, against: outgoingAudio, from: 0, gain: outgoingGain),
-                   handBack: level(pass.tail, against: incomingAudio, from: joinFrame - pass.tail.count, gain: incomingGain))
+                   handBack: level(seam, against: incomingAudio, from: joinFrame - seam.count, gain: incomingGain))
     }
 
     /// How much louder (dB) `mix` (mono) is than the same number of frames of `song` from `start`
@@ -198,7 +207,7 @@ enum AutoMixRenderer {
 
     /// One rendering of the mix, into `destination` when there is one, the next song starting
     /// `delay` seconds late. `fullVolume` leaves out the volume curves (for measuring). Returns its
-    /// length, its last half second and the `capture` stretch (both mono).
+    /// length, its last second and the `capture` stretch (both mono).
     private static func renderPass(_ schedule: MixSchedule, _ outgoingAudio: AVAudioPCMBuffer,
                                    _ incomingAudio: AVAudioPCMBuffer, delay: Double, gains: (Float, Float),
                                    effects: Bool, fullVolume: Bool, capture: Range<Double>?,
@@ -278,7 +287,7 @@ enum AutoMixRenderer {
         let captureFrames = capture.map { Int(($0.lowerBound * rate).rounded())..<Int(($0.upperBound * rate).rounded()) }
         var captured: [Float] = []
         captured.reserveCapacity(captureFrames?.count ?? 0)
-        let tailLength = Int(0.5 * rate)
+        let tailLength = Int(1.0 * rate)
         var tail = [Float](repeating: 0, count: tailLength)
         var rendered = 0
         var written = 0
@@ -318,16 +327,17 @@ enum AutoMixRenderer {
     }
 
     /// How much later in the next song (seconds) the end of the mix is than `end` (its time counted
-    /// from where it starts in the mix): the lag at which the mix's last half second best matches
-    /// the song, within 25 ms either way.
-    private static func contentOffset(_ tail: [Float], _ incomingAudio: AVAudioPCMBuffer, end: Double) -> Double {
+    /// from where it starts in the mix): the lag at which the mix's tail best matches the song,
+    /// within `rangeSeconds` either way, and how clearly it matched.
+    private static func contentOffset(_ tail: [Float], _ incomingAudio: AVAudioPCMBuffer, end: Double,
+                                      rangeSeconds: Double) -> (offset: Double, confidence: Float) {
         let rate = MixSchedule.sampleRate
-        guard let channels = incomingAudio.floatChannelData else { return 0 }
+        guard let channels = incomingAudio.floatChannelData else { return (0, 0) }
         let count = Int(incomingAudio.frameLength)
-        let range = Int(0.025 * rate)
+        let range = Int(rangeSeconds * rate)
         let length = tail.count
         let first = Int((end * rate).rounded()) - length
-        guard first - range >= 0, first + range + length <= count else { return 0 }
+        guard first - range >= 0, first + range + length <= count else { return (0, 0) }
         var source = [Float](repeating: 0, count: count)
         for frame in 0..<count { source[frame] = (channels[0][frame] + channels[1][frame]) / 2 }
         var bestLag = 0
@@ -351,7 +361,7 @@ enum AutoMixRenderer {
             }
         }
         // A quiet or unclear ending says nothing reliable: no correction then.
-        return bestScore > 0.5 ? Double(bestLag) / rate : 0
+        return bestScore > 0.5 ? (Double(bestLag) / rate, bestScore) : (0, 0)
     }
 
     /// One song's chain in the mix: time stretch, a five-band EQ (bass, mids and treble cuts, low-

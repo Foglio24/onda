@@ -423,6 +423,34 @@ func words(_ plan: TransitionPlan, _ a: Song, _ b: Song) -> (together: Double, f
     return (together, faded, buried)
 }
 
+var baselineMatched = 0
+var currentMatched = 0
+var baselineTuning = AutoMixTuning.standard
+baselineTuning.maximumRateChange = 0.05
+baselineTuning.beatMatchPreference = 0
+baselineTuning.allowsLocalGrid = false
+
+// A second, deterministic set of adjacent songs checks how often the preference changes the
+// choice; the deliberately hand-picked pairs below remain for detailed listening and levels.
+let coverageCount = max(0, min(20, songs.count - 1))
+var coverageOld = 0, coverageNew = 0, coverageChanged = 0
+var overlapOld = 0.0, overlapNew = 0.0
+for index in 0..<coverageCount {
+    let a = songs[index], b = songs[index + 1]
+    let before = TransitionPlanner.choose(from: a.analysis, to: b.analysis,
+        context: TransitionContext(outgoingVocals: a.vocals, incomingVocals: b.vocals, tuning: baselineTuning))
+    let after = TransitionPlanner.choose(from: a.analysis, to: b.analysis,
+        context: TransitionContext(outgoingVocals: a.vocals, incomingVocals: b.vocals))
+    let wasMatched = before.plan.style == .beatMatched, isMatched = after.plan.style == .beatMatched
+    if wasMatched { coverageOld += 1 }
+    if isMatched { coverageNew += 1 }
+    if isMatched && !wasMatched { coverageChanged += 1 }
+    overlapOld += words(before.plan, a, b).together
+    overlapNew += words(after.plan, a, b).together
+}
+note("\nBeat-matching on \(coverageCount) adjacent real-song pairs: 1.19.1 \(coverageOld), new \(coverageNew) (\(coverageChanged) newly matched); "
+    + "timed vocal overlap \(format(overlapOld, 1)) → \(format(overlapNew, 1)) s total. Dataset order; not representative of every playlist.")
+
 for (number, pair) in pairs.enumerated() {
     let a = songs[pair.a], b = songs[pair.b]
     let label = String(format: "%02d", number + 1)
@@ -432,16 +460,22 @@ for (number, pair) in pairs.enumerated() {
         credits += "- \(song.name) (\(song.genre)), \(song.license.trimmingCharacters(in: .whitespaces)), \(song.page)\n"
     }
     let old = TransitionPlanner.reference(from: a.analysis, to: b.analysis)
+    let baseline = TransitionPlanner.choose(from: a.analysis, to: b.analysis,
+        context: TransitionContext(outgoingVocals: a.vocals, incomingVocals: b.vocals, tuning: baselineTuning))
     let measured = TransitionPlanner.choose(from: a.analysis, to: b.analysis,
                                             context: TransitionContext(outgoingVocals: a.vocals, incomingVocals: b.vocals))
+    if baseline.plan.style == .beatMatched { baselineMatched += 1 }
+    if measured.plan.style == .beatMatched { currentMatched += 1 }
     let unknown = TransitionPlanner.choose(from: a.analysis, to: b.analysis)
     note("   up to 1.16: \(old.style.rawValue)\(old.bars.map { ", \($0) bars" } ?? ""), \(format(old.overlap, 1)) s together, "
         + "rates \(format(old.outgoingRate, 3))/\(format(old.incomingRate, 3)), from \(format(old.outStart, 1)) s")
+    note("   1.19.1 selection: \(baseline.chosen.title), cost \(format(baseline.chosen.total)), "
+        + "grid fits \(format(a.analysis.gridFit, 2))/\(format(b.analysis.gridFit, 2))")
     note("   new, voices measured: " + measured.summary.replacingOccurrences(of: "\n", with: "\n      "))
     note("      \(measured.plan.style.rawValue), \(format(measured.plan.overlap, 1)) s together, rates "
         + "\(format(measured.plan.outgoingRate, 3))/\(format(measured.plan.incomingRate, 3)), from \(format(measured.plan.outStart, 1)) s")
     note("   new, voices not measured: \(unknown.chosen.title) (\(format(unknown.chosen.total)))")
-    for (name, plan) in [("1.16", old), ("new", measured.plan)] {
+    for (name, plan) in [("1.16", old), ("1.19.1", baseline.plan), ("new", measured.plan)] {
         let sung = words(plan, a, b)
         note("   \(name), timed words: two voices at once \(format(sung.together, 1)) s, the first song's words faded or "
              + "left out \(format(sung.faded, 1)) s, the next song's under 70 % or left out \(format(sung.buried, 1)) s")
@@ -535,6 +569,7 @@ for (number, pair) in pairs.enumerated() {
     key += "pair \(label) (\(pair.kind)): 1.16 = \(files["1.16"] ?? "?"), new = \(files["new"] ?? "?")\n"
 }
 
+note("\nBeat-matched selections on these \(pairs.count) real-song pairs: 1.19.1 \(baselineMatched), new \(currentMatched). This is a small, varied test set, not a universal rate.")
 try? report.write(to: output.appending(path: "REPORT.txt"), atomically: true, encoding: .utf8)
 try? key.write(to: output.appending(path: "KEY.txt"), atomically: true, encoding: .utf8)
 try? credits.write(to: output.appending(path: "CREDITS.txt"), atomically: true, encoding: .utf8)

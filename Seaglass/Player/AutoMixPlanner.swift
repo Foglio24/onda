@@ -391,7 +391,9 @@ struct MixSchedule: Sendable {
         let dt = Double(Self.blockFrames) / Self.sampleRate
         // The next song takes 16 of its beats to get back to its own tempo (when it changed at all).
         let glideBack = plan.tempoMeet == plan.tempoIn ? 0 : 16 * 60 / plan.tempoIn
-        let tail = plan.design.map { $0.effect != .none || $0.filter == .noiseOut ? 5.0 : 1.0 } ?? 1
+        let effectTail = plan.design.map { $0.effect != .none || $0.filter == .noiseOut ? 5.0 : 1.0 } ?? 1
+        // Give the time stretcher extra time at the song's original rate before returning to it.
+        let tail = max(effectTail, plan.style == .beatMatched ? 3.0 : 1.0)
         // The playing song keeps its own tempo for a second after the handover (so the mix starts
         // exactly as the song sounds), then glides.
         let glideFrom = plan.handover + 1
@@ -427,8 +429,8 @@ struct MixSchedule: Sendable {
             outgoing = next
             time += dt
             if aloneFrom == nil, outgoing >= plan.outEnd, let position = incoming { aloneFrom = position }
-            // The mix ends a second after the new song is back at its own tempo (later with an
-            // effect, whose tail must die out inside the mix).
+            // Allow the audio processing to settle at the original tempo before returning to the
+            // song, and leave effects enough time to die out inside the mix.
             if let from = aloneFrom, let position = incoming, position - from >= glideBack + tail {
                 join = position
                 break

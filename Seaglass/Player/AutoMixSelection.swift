@@ -4,8 +4,8 @@ import Foundation
 // beats over 2, 4, 8 or 16 bars with either song's tempo kept or both meeting, crossfades of a few
 // seconds without tempo changes, the next song entering in a fade-out, the silence between the two
 // left out, or the two one after the other), works out from the analyses how each would sound
-// (without rendering any), gives each a cost for every problem it would have, and plays the
-// cheapest. The problems are measured where the two songs actually play together: how steady the
+// (without rendering any), gives each a cost for every problem it would have, and prefers a
+// beat-matched option when it is close enough to the cheapest. The problems are measured where the
 // beats are there, whether the harmonies clash, whether two voices sing at once or a phrase is cut,
 // how the loudness moves, how much the tempo changes and where, whether the mix starts and ends on
 // a phrase, and how much of either song is left out. When nothing is good enough it falls back to a
@@ -136,9 +136,14 @@ enum TransitionCriterion: String, CaseIterable, Sendable {
 /// problem's cost is about 1 when it is clearly heard). These are starting points, set on songs
 /// made for the checks and to be tuned by listening; they don't come from any other app.
 struct AutoMixTuning: Sendable {
-    /// The most either song's tempo may change (5 %): beyond it the change is heard, and the two
-    /// are crossfaded at their own tempos.
-    var maximumRateChange = 0.05
+    /// Prefer mixing in time, allowing up to 12 % faster or about 10.7 % slower per song.
+    /// Meeting between the two tempos keeps the change smaller when both must move.
+    var maximumRateChange = 0.12
+    /// A synchronized transition may cost this much more than the cheapest alternative, provided
+    /// it remains acceptable and doesn't overlap too much singing.
+    var beatMatchPreference = 1.5
+    /// A song with an imperfect overall grid can still match if the actual mix section is steady.
+    var allowsLocalGrid = true
     /// The share of a stretch's sound below 150 Hz from which it is carried by its bass: then,
     /// and only then, the bass passes from one song to the other (two basslines at once are mud).
     var bassRich = 0.3
@@ -296,7 +301,7 @@ extension TransitionPlanner {
         let candidates = candidates(a, b, judge: judge)
         let playable = candidates.filter { $0.veto == nil }.sorted { $0.total < $1.total }
         var runnersUp: [TransitionCandidate] = []
-        guard let best = playable.first, best.total <= context.tuning.acceptableCost else {
+        guard let cheapest = playable.first, cheapest.total <= context.tuning.acceptableCost else {
             let fallback = judge.evaluate(prudent(a, b), .blend(seconds: 3))
             for family in 0..<4 {
                 if let other = playable.first(where: { $0.family == family }) { runnersUp.append(other) }
@@ -304,6 +309,16 @@ extension TransitionPlanner {
             return TransitionChoice(chosen: fallback, runnersUp: runnersUp, considered: candidates.count, fallback: true,
                                     outgoingVocalsMeasured: outgoingMeasured, incomingVocalsMeasured: incomingMeasured)
         }
+        // A short crossfade used to win even when an aligned mix was almost as good. Prefer the
+        // aligned mix within a bounded margin; don't override the cost ceiling or a clear vocal clash.
+        let preference = max(0, context.tuning.beatMatchPreference)
+        let preferred = playable.first { candidate in
+            candidate.plan.style == .beatMatched
+                && candidate.total <= context.tuning.acceptableCost
+                && candidate.total <= cheapest.total + preference
+                && (candidate.costs[.vocalClash] ?? 0) <= 1.2
+        }
+        let best = preferred ?? cheapest
         for family in 0..<4 where family != best.family {
             if let other = playable.first(where: { $0.family == family }) {
                 runnersUp.append(other)
@@ -347,7 +362,11 @@ extension TransitionPlanner {
     /// between. Only within `maximumRateChange` for each song.
     private static func beatMatchedOptions(_ a: TrackAnalysis, _ b: TrackAnalysis, judge: TransitionJudge) -> [Option] {
         let tuning = judge.context.tuning
-        guard a.isGridLocked, b.isGridLocked, let match = tempoMatch(a, b) else { return [] }
+        func usableGrid(_ song: TrackAnalysis) -> Bool {
+            song.isGridLocked || (tuning.allowsLocalGrid && song.gridFit.isFinite && song.gridFit >= 0.25)
+        }
+        guard usableGrid(a), usableGrid(b), tuning.maximumRateChange.isFinite, tuning.maximumRateChange > 0,
+              let match = tempoMatch(a, b) else { return [] }
         let limit = log(1 + tuning.maximumRateChange)
         guard abs(log(match.ratio)) <= 2 * limit + 1e-9 else { return [] }
         let beat = a.beatLength
@@ -402,6 +421,12 @@ extension TransitionPlanner {
                     for meet in meets {
                         guard let plan = beatMatched(a, b, bars: bars, from: start, to: entry, minimumHandover: 30,
                                                      meet: meet.tempo) else { continue }
+                        // A globally uncertain grid is only safe where the actual beats in this
+                        // overlap are both marked and in time. Never stretch freely played audio
+                        // merely because its estimated BPM looks close.
+                        let incomingEnd = plan.inStart + plan.overlap * plan.tempoOut / plan.tempoIn
+                        if !a.isGridLocked && !stableLocalGrid(a, from: plan.outStart, to: plan.outEnd) { continue }
+                        if !b.isGridLocked && !stableLocalGrid(b, from: plan.inStart, to: incomingEnd) { continue }
                         for fadeOut in [0.5, 0.75, 1 - a.beatLength / max(plan.overlap, a.beatLength)] {
                             var shaped = plan
                             shapeBeatMatched(&shaped, a, b, bars: bars, fadeOutFrom: fadeOut, tuning: tuning)
@@ -412,6 +437,15 @@ extension TransitionPlanner {
             }
         }
         return options
+    }
+
+    /// Reliable beats in the actual stretch used for an overlap, including half-time grids.
+    private static func stableLocalGrid(_ song: TrackAnalysis, from start: Double, to end: Double) -> Bool {
+        let first = max(0, song.beat(atOrAfter: start))
+        let last = min(song.beatCount, song.beat(atOrAfter: end), song.beatPulse.count, song.beatOffset.count)
+        guard last - first >= 4 else { return false }
+        let timing = song.timing(first..<last)
+        return timing.marked >= 0.45 && timing.marked * Double(last - first) >= 4 && timing.onGrid >= 0.8
     }
 
     /// The curves of a beat-matched mix: the next song comes in over the first half, the song
