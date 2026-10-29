@@ -1,10 +1,8 @@
 // Renders AutoMix mixes between songs made here and measures them: the mix starts exactly where the
 // playing song is at the handover and ends exactly where the next song carries on (no jump on
 // either side), it never goes silent, and the two songs' beats stay together through the overlap,
-// also while their tempos glide (124 → 126 and 124 → 130 BPM; 124 → 100 is crossfaded). The
-// handover itself is played as the player makes it: the mix silent at first, then the song fading
-// out in its own audio processing (`HandoverFader`) as the mix fades in, which together sound as
-// the song.
+// also while their tempos glide, including a wider 124 → 100 BPM match. The handover follows the
+// player's quarter-second volume fade, with both tracks checked at their actual levels.
 // Run from the repository root: bash Tools/AutoMixRenderCheck/run.sh
 import AVFoundation
 import Foundation
@@ -182,18 +180,16 @@ struct AutoMixRenderCheck {
             songs[bpm] = (url, samples, analysis)
         }
 
-        // Without voices (beats matched, the second pair with the tempo moving by up to 5 %), and
-        // 124 → 100 BPM (too far apart: a crossfade at their own tempos).
+        // Without voices, including a pair requiring a larger but bounded tempo change.
         func instrumental(_ analysis: TrackAnalysis) -> VocalActivity {
             VocalActivity(regions: [VocalActivity.Region(start: 0, values: [UInt8](repeating: 0, count: Int(analysis.duration / 0.25) + 1))])
         }
         for (from, to) in [(124.0, 126.0), (124.0, 130.0), (124.0, 100.0)] {
             guard let a = songs[from], let b = songs[to] else { continue }
             let name = "\(Int(from)) → \(Int(to)) BPM"
-            let context = to == 100 ? TransitionContext()
-                : TransitionContext(outgoingVocals: instrumental(a.analysis), incomingVocals: instrumental(b.analysis))
+            let context = TransitionContext(outgoingVocals: instrumental(a.analysis), incomingVocals: instrumental(b.analysis))
             let plan = TransitionPlanner.plan(from: a.analysis, to: b.analysis, context: context)
-            expect((plan.style == .beatMatched) == (to != 100),
+            expect(plan.style == .beatMatched,
                    "\(name): \(plan.style.rawValue), \(format(plan.overlap, 1)) s, rates \(format(plan.outgoingRate, 4)) and \(format(plan.incomingRate, 4))")
             let schedule = MixSchedule(plan: plan)
             var joins: [String: Double] = [:]
