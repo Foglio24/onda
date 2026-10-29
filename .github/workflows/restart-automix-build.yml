@@ -1,0 +1,22 @@
+name: Restart the pending AutoMix build
+on:
+  push:
+    branches: [release-trigger/v1.19.1]
+    paths: [.github/workflows/restart-automix-build.yml]
+permissions:
+  actions: write
+  contents: read
+jobs:
+  restart:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch the same feature commit and stop its pending push build
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED: 69d8db8bf2fc9f48fd777946049b2b64c7a2c2c9
+        run: |
+          set -euo pipefail
+          current=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/feature/automix-prefer-beatmatching" --jq .object.sha)
+          test "$current" = "$EXPECTED"
+          gh workflow run build.yml --repo "$GITHUB_REPOSITORY" --ref feature/automix-prefer-beatmatching
+          gh run cancel 40908628847 --repo "$GITHUB_REPOSITORY"
