@@ -1,0 +1,31 @@
+name: Cancel redundant beatmatching setup build
+
+on:
+  push:
+    branches: ['release-trigger/v1.19.1']
+    paths: ['.github/workflows/cancel-redundant-beat-build.yml']
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  cancel:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cancel the duplicate baseline build
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          run=40901916674
+          data="$(gh api "repos/${GH_REPO}/actions/runs/$run" --jq '[.head_branch, .head_sha, .status] | @tsv')"
+          branch="$(printf '%s' "$data" | cut -f1)"
+          sha="$(printf '%s' "$data" | cut -f2)"
+          status="$(printf '%s' "$data" | cut -f3)"
+          if [ "$branch" != 'feature/automix-prefer-beatmatching' ] || [ "$sha" != '4845acc31c8b9af55967b3664047997b54fb7be1' ]; then
+            echo '::error::unexpected run, refusing to cancel'
+            exit 1
+          fi
+          if [ "$status" != 'completed' ]; then gh run cancel "$run" --repo "$GH_REPO"; fi
