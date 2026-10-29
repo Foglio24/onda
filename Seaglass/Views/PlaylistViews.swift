@@ -48,8 +48,27 @@ struct PlaylistDetailView: View {
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
 
+                    if let report = playlist.importReport,
+                       !report.pending.isEmpty || report.mayBeTruncated || !report.ignored.isEmpty {
+                        NavigationLink { PlaylistImportReviewView(playlistID: playlistID) } label: {
+                            Label {
+                                if report.pending.isEmpty { Text("Riepilogo importazione") }
+                                else { Text("\(report.pending.count) brani da controllare") }
+                            } icon: {
+                                Image(systemName: "exclamationmark.circle.fill").foregroundStyle(.orange)
+                            }
+                        }
+                        .listRowBackground(Color.clear)
+                    }
+
                     if playlist.tracks.isEmpty {
-                        Text("La playlist è vuota. Aggiungi brani con il tasto ··· accanto a ogni canzone, oppure scorrendo un brano verso sinistra e toccando «Cambia».")
+                        Group {
+                            if playlist.importReport?.pending.isEmpty == false {
+                                Text("Nessun brano trovato automaticamente. Apri il riepilogo per scegliere le alternative.")
+                            } else {
+                                Text("La playlist è vuota. Aggiungi brani con il tasto ··· accanto a ogni canzone, oppure scorrendo un brano verso sinistra e toccando «Cambia».")
+                            }
+                        }
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)

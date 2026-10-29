@@ -46,7 +46,8 @@ final class PlaylistImporter: ObservableObject {
 
     private struct Page {
         let title: String?
-        let tracks: [Track]
+        let rows: [PlaylistImportSource.Row]
+        let mayBeTruncated: Bool
     }
 
     private static let userAgent =
@@ -72,42 +73,56 @@ final class PlaylistImporter: ObservableObject {
         }
     }
 
+    /// Imports one playlist from a user-selected Spotify JSON export or CSV file.
+    func importPlaylist(from source: PlaylistImportSource) async throws -> Outcome {
+        guard status == nil else { throw ImportError.busy }
+        status = String(localized: "Lettura della playlist…")
+        defer { status = nil }
+        return try await finish(Page(title: source.name, rows: source.rows, mayBeTruncated: false), service: "File")
+    }
+
     private func finish(_ page: Page, service: String) async throws -> Outcome {
-        guard !page.tracks.isEmpty else { throw ImportError.empty }
-        let found = await match(page.tracks).compactMap { $0 }
-        guard !found.isEmpty else { throw ImportError.nothingMatched }
+        guard !page.rows.isEmpty else { throw ImportError.empty }
+        let results = await match(page.rows)
+        let assembled = PlaylistImportReport.assemble(service: service, rows: page.rows, matches: results,
+                                                      mayBeTruncated: page.mayBeTruncated)
         let playlist = Library.shared.createPlaylist(named: page.title ?? String(localized: "Playlist da \(service)"),
-                                                     tracks: found)
-        return Outcome(playlist: playlist, unmatched: page.tracks.count - found.count)
+                                                     tracks: assembled.tracks, importReport: assembled.report)
+        // Even when nothing matches, retain the source rows so they can be reviewed and recovered.
+        return Outcome(playlist: playlist, unmatched: assembled.report.pending.count)
+    }
+
+    private nonisolated static func matchRow(_ row: PlaylistImportSource.Row) async -> PlaylistImportMatch {
+        if let issue = row.issue { return .issue(issue) }
+        do {
+            if let match = try await InnerTube.shared.bestImportMatch(for: row.track) { return .matched(match) }
+            return .issue(.notFound)
+        } catch {
+            return .issue(.searchFailed)
+        }
     }
 
     /// Looks every song up on YouTube Music, four at a time, keeping the original order.
-    private func match(_ tracks: [Track]) async -> [Track?] {
-        var results = [Track?](repeating: nil, count: tracks.count)
+    private func match(_ rows: [PlaylistImportSource.Row]) async -> [PlaylistImportMatch] {
+        var results = [PlaylistImportMatch](repeating: .issue(.searchFailed), count: rows.count)
         var done = 0
-        status = String(localized: "Ricerca su YouTube Music: \(done)/\(tracks.count)")
-        await withTaskGroup(of: (Int, Track?).self) { group in
+        status = String(localized: "Ricerca su YouTube Music: \(done)/\(rows.count)")
+        await withTaskGroup(of: (Int, PlaylistImportMatch).self) { group in
             var next = 0
-            while next < min(4, tracks.count) {
+            while next < min(4, rows.count) {
                 let position = next
-                let track = tracks[position]
-                group.addTask {
-                    let match = try? await InnerTube.shared.bestMatch(for: track)
-                    return (position, match)
-                }
+                let row = rows[position]
+                group.addTask { (position, await Self.matchRow(row)) }
                 next += 1
             }
             for await (position, match) in group {
                 results[position] = match
                 done += 1
-                status = String(localized: "Ricerca su YouTube Music: \(done)/\(tracks.count)")
-                if next < tracks.count {
+                status = String(localized: "Ricerca su YouTube Music: \(done)/\(rows.count)")
+                if next < rows.count {
                     let upcoming = next
-                    let track = tracks[upcoming]
-                    group.addTask {
-                        let match = try? await InnerTube.shared.bestMatch(for: track)
-                        return (upcoming, match)
-                    }
+                    let row = rows[upcoming]
+                    group.addTask { (upcoming, await Self.matchRow(row)) }
                     next += 1
                 }
             }
@@ -172,14 +187,17 @@ final class PlaylistImporter: ObservableObject {
         let html = try await fetch(url)
         guard let json = scriptJSON(in: html, after: #"id="__NEXT_DATA__""#) else { throw ImportError.pageChanged }
         let entity = J.value(json, "props", "pageProps", "state", "data", "entity")
-        let tracks = J.array(J.value(entity, "trackList")).compactMap { item -> Track? in
-            guard let title = J.string(J.value(item, "title")) else { return nil }
+        let items = J.array(J.value(entity, "trackList"))
+        let rows = items.enumerated().map { index, item -> PlaylistImportSource.Row in
+            guard let title = J.string(J.value(item, "title")), !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                return .init(track: Track(videoId: nil, title: String(localized: "Brano non disponibile \(index + 1)"), artists: []), issue: .unavailable)
+            }
             let artists = (J.string(J.value(item, "subtitle")) ?? "").components(separatedBy: ", ")
             let milliseconds = J.value(item, "duration") as? Double
-            return Track(videoId: nil, title: title, artists: artists,
-                         duration: milliseconds.map { $0 / 1000 })
+            return .init(track: Track(videoId: nil, title: title, artists: artists,
+                                      duration: milliseconds.map { $0 / 1000 }))
         }
-        return Page(title: J.string(J.value(entity, "name")), tracks: tracks)
+        return Page(title: J.string(J.value(entity, "name")), rows: rows, mayBeTruncated: items.count >= 100)
     }
 
     /// Apple Music's public page embeds its track list in the "serialized-server-data" script.
@@ -200,7 +218,7 @@ final class PlaylistImporter: ObservableObject {
             return Track(videoId: nil, title: title, artists: [artist], duration: milliseconds.map { $0 / 1000 })
         }
         let title = scriptJSON(in: html, after: "application/ld+json").flatMap { J.string(J.value($0, "name")) }
-        return Page(title: title, tracks: tracks)
+        return Page(title: title, rows: tracks.map { PlaylistImportSource.Row(track: $0) }, mayBeTruncated: false)
     }
 
     private nonisolated static func fetch(_ url: URL) async throws -> String {
