@@ -175,7 +175,7 @@ func sung(_ analysis: TrackAnalysis, from start: Double, to end: Double) -> Voca
 func checkLevels(_ plan: TransitionPlan, _ a: TrackAnalysis, _ b: TrackAnalysis, _ name: String,
                  context: TransitionContext = TransitionContext()) {
     let start = plan.levels(at: 0), end = plan.levels(at: 1)
-    expect(start.outgoing > 0.99 && start.incoming < 0.01 || plan.style == .gapless || plan.style == .sequence || plan.style == .album,
+    expect(start.outgoing > 0.99 && start.incoming < 0.01 || plan.style == .album,
            "\(name): starts with the outgoing song alone")
     expect(end.outgoing < 0.01 && end.incoming > 0.99, "\(name): ends with the next song alone")
     var monotonic = true
@@ -308,6 +308,15 @@ if let a = analyses[124], let b = analyses[126] {
     checkSchedule(plan, a, b, "124 → 126 BPM")
     expect(choice.runnersUp.count >= 2 && choice.summary.contains(choice.chosen.title),
            "diagnostics: the choice and \(choice.runnersUp.count) alternatives, in words")
+
+    // A short transition should not start both songs at full volume: their quarter-second
+    // crossing follows an equal-power curve even when the plan is gapless or has a breath.
+    let shortPlans = TransitionPlanner.candidates(from: a, to: b, context: quiet)
+        .map(\.plan).filter { $0.style == .gapless || $0.style == .sequence }
+    expect(shortPlans.count == 2 && shortPlans.allSatisfy { plan in
+        let start = plan.levels(at: 0), middle = plan.levels(at: 0.5)
+        return start.incoming < 0.01 && middle.outgoing * middle.outgoing + middle.incoming * middle.incoming <= 1.01
+    }, "short transitions: no full-volume overlap")
 
     // Not knowing the voices: careful, no long overlap.
     let unknown = TransitionPlanner.plan(from: a, to: b)

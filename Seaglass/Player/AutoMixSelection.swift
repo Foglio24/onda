@@ -165,7 +165,7 @@ struct AutoMixTuning: Sendable {
     /// Above this total no candidate is good enough: a short plain crossfade instead.
     var acceptableCost = 3.0
     var weights: [TransitionCriterion: Double] = [
-        .rhythm: 1.5, .unsyncedBeats: 1.2, .grooveBreak: 1.5, .abruptEnd: 1.2, .harmony: 1.5, .vocalClash: 2.0, .vocalCut: 1.0,
+        .rhythm: 1.5, .unsyncedBeats: 1.2, .grooveBreak: 1.5, .abruptEnd: 1.2, .harmony: 3.0, .vocalClash: 2.0, .vocalCut: 1.0,
         .buriedEntry: 0.6, .crowded: 0.6, .energy: 0.8, .gap: 1.0, .tempo: 0.8, .phrase: 0.6, .skipped: 1.0, .length: 1.0,
     ]
 
@@ -579,13 +579,13 @@ extension TransitionPlanner {
     // MARK: Without overlap
 
     /// The next song as this one's sound ends (the silence between left out), or after a short
-    /// breath; the song leaving goes down over a quarter of a second at its very end.
+    /// breath; the two songs cross over a quarter of a second at the end.
     private static func pauseOptions(_ a: TrackAnalysis, _ b: TrackAnalysis) -> [Option] {
         let tempo = a.tempo
         func plan(_ style: TransitionPlan.Style, outStart: Double, inStart: Double) -> TransitionPlan {
             var plan = TransitionPlan(style: style, handover: max(0, outStart - 2), outStart: outStart,
                                       outEnd: outStart + 0.25, inStart: inStart, tempoOut: tempo, tempoMeet: tempo,
-                                      tempoIn: tempo, alignment: nil, swapStart: nil, swapEnd: nil, fadeIn: 0,
+                                      tempoIn: tempo, alignment: nil, swapStart: nil, swapEnd: nil, fadeIn: 1,
                                       filterOut: nil, bars: nil)
             plan.fadeInFrom = 0
             plan.fadeOutFrom = 0
