@@ -1,0 +1,30 @@
+name: Publish Seaglass 1.19.1
+
+on:
+  push:
+    branches:
+      - 'release-trigger/v1.19.1'
+    paths:
+      - '.github/workflows/publish-1.19.1.yml'
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch the release build on main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          EXPECTED_MAIN: '4845acc31c8b9af55967b3664047997b54fb7be1'
+        run: |
+          set -euo pipefail
+          current="$(gh api "repos/${GH_REPO}/git/ref/heads/main" --jq .object.sha)"
+          if [ "$current" != "$EXPECTED_MAIN" ]; then
+            echo '::error::main changed after preparing the release; refusing to publish'
+            exit 1
+          fi
+          gh workflow run build.yml --repo "$GH_REPO" --ref main -f release=true
