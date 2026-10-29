@@ -18,3 +18,13 @@ jobs:
         run: |
           swiftc -parse-as-library Tools/AutoMixPlaybackProbe/main.swift -o /tmp/automix-playback-probe
           /tmp/automix-playback-probe
+      - name: Exercise the same path on an iPhone simulator
+        timeout-minutes: 8
+        run: |
+          xcrun --sdk iphonesimulator swiftc -parse-as-library \
+            -target arm64-apple-ios17.0-simulator -sdk "$(xcrun --sdk iphonesimulator --show-sdk-path)" \
+            Tools/AutoMixPlaybackProbe/main.swift -o /tmp/automix-playback-probe-ios
+          device="$(xcrun simctl list devices available --json | python3 -c 'import sys,json; d=json.load(sys.stdin); print(next(v["udid"] for group in d["devices"].values() for v in group if "iPhone" in v["name"]))')"
+          xcrun simctl boot "$device"
+          xcrun simctl bootstatus "$device" -b
+          xcrun simctl spawn "$device" /tmp/automix-playback-probe-ios
