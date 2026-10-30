@@ -43,9 +43,9 @@ Per assistenza o problemi puoi aprire una [segnalazione su GitHub](https://githu
 
 ---
 
-# Seaglass — YouTube Music player for iPhone
+## About Seaglass
 
-[![Latest release](https://img.shields.io/github/v/release/Foglio24/onda?label=release)](../../releases/latest)
+[![Latest release](https://img.shields.io/github/v/release/Foglio24/onda?label=release)](https://github.com/Foglio24/onda/releases/latest)
 [![Build IPA](https://github.com/Foglio24/onda/actions/workflows/build.yml/badge.svg)](https://github.com/Foglio24/onda/actions/workflows/build.yml)
 ![iOS 26+](https://img.shields.io/badge/iOS-26%2B-black?logo=apple)
 ![Swift and SwiftUI](https://img.shields.io/badge/Swift-SwiftUI-orange?logo=swift)
@@ -134,7 +134,7 @@ Not included:
 
 ### Download the IPA
 
-Grab `Seaglass.ipa` from the latest release on the [Releases](../../releases) page.
+Grab `Seaglass.ipa` from the latest release on the [Releases](https://github.com/Foglio24/onda/releases) page.
 
 ### How the IPA is built (no Mac needed)
 
