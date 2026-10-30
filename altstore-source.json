@@ -1,0 +1,42 @@
+{
+  "name": "Seaglass",
+  "subtitle": "Your music, your rhythm",
+  "description": "The official AltStore Classic source for Seaglass.",
+  "iconURL": "https://raw.githubusercontent.com/Foglio24/onda/main/Seaglass/Assets.xcassets/AppIcon.appiconset/AppIcon.png",
+  "headerURL": "https://raw.githubusercontent.com/Foglio24/onda/main/docs/images/seaglass-banner.jpg",
+  "website": "https://github.com/Foglio24/onda",
+  "tintColor": "#EC3F8E",
+  "apps": [
+    {
+      "name": "Seaglass",
+      "bundleIdentifier": "com.onda.player",
+      "developerName": "Foglio24",
+      "subtitle": "Music, AutoMix and synced lyrics",
+      "localizedDescription": "Seaglass is an independent music player for iPhone. Listen to music, create playlists, enjoy AutoMix transitions, synced lyrics, offline downloads and Last.fm scrobbling.",
+      "iconURL": "https://raw.githubusercontent.com/Foglio24/onda/main/Seaglass/Assets.xcassets/AppIcon.appiconset/AppIcon.png",
+      "tintColor": "#EC3F8E",
+      "screenshots": [
+        "https://raw.githubusercontent.com/Foglio24/onda/main/docs/screenshots/home.jpg",
+        "https://raw.githubusercontent.com/Foglio24/onda/main/docs/screenshots/search.jpg",
+        "https://raw.githubusercontent.com/Foglio24/onda/main/docs/screenshots/player.jpg",
+        "https://raw.githubusercontent.com/Foglio24/onda/main/docs/screenshots/mix.jpg"
+      ],
+      "versions": [
+        {
+          "version": "1.21.0",
+          "buildVersion": "40",
+          "date": "2026-10-29T20:59:11Z",
+          "localizedDescription": "Review missing playlist matches and choose alternatives. Import longer Spotify playlists from JSON or CSV files.",
+          "downloadURL": "https://github.com/Foglio24/onda/releases/download/v1.21.0/Seaglass.ipa",
+          "size": 34284336,
+          "minOSVersion": "26.0"
+        }
+      ],
+      "appPermissions": {
+        "entitlements": [],
+        "privacy": {}
+      }
+    }
+  ],
+  "news": []
+}
