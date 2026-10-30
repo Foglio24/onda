@@ -1,3 +1,48 @@
+<p align="center">
+  <img src="docs/images/seaglass-banner.jpg" alt="Seaglass — your music, in motion" width="100%">
+</p>
+
+<h1 align="center">Seaglass <sub>ex Onda</sub></h1>
+
+<p align="center"><strong>La tua musica, il tuo ritmo.</strong><br>
+Un lettore musicale per iPhone con AutoMix, testi sincronizzati e libreria personale.</p>
+
+<p align="center">
+  <a href="https://github.com/Foglio24/onda/releases/latest/download/Seaglass.ipa"><img src="https://img.shields.io/badge/SCARICA-Seaglass.ipa-EC3F8E?style=for-the-badge&amp;logo=apple&amp;logoColor=white" alt="Scarica Seaglass.ipa"></a>
+  <a href="https://github.com/Foglio24/onda/releases/latest"><img src="https://img.shields.io/badge/ULTIMA-RELEASE-493168?style=for-the-badge&amp;logo=github&amp;logoColor=white" alt="Ultima release"></a>
+  <a href="https://github.com/Foglio24/onda/releases"><img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FFoglio24%2Fonda%2Fdownload-stats%2Fdownload-count.json&amp;style=for-the-badge" alt="Download totali delle app IPA"></a>
+</p>
+
+<p align="center">
+  <a href="#installazione-veloce">Installazione</a> ·
+  <a href="#screenshots">Anteprima</a> ·
+  <a href="#features">Funzioni</a> ·
+  <a href="CHANGELOG.md">Novità</a> ·
+  <a href="#license">Licenza</a>
+</p>
+
+**Seaglass** (prima *Onda*) è un progetto indipendente per ascoltare e organizzare musica su iPhone:
+una possibile alternativa personale a Spotify e Apple Music, con transizioni AutoMix, equalizzatore,
+karaoke e playlist. Il codice è pubblico e consultabile; consulta la [licenza](LICENSE) per le
+condizioni d'uso.
+
+> **iOS 26 o successivo.** Il download è un'IPA non firmata: va installata con uno strumento di
+> sideload. Non è un'app pubblicata sull'App Store o su AltStore PAL.
+
+Il contatore somma i download dei file `Seaglass.ipa` e `Onda.ipa` nelle release pubblicate
+su GitHub. Si aggiorna periodicamente e non rappresenta il numero di persone o installazioni.
+
+## Installazione veloce
+
+1. [Scarica l'ultima versione di Seaglass.ipa](https://github.com/Foglio24/onda/releases/latest/download/Seaglass.ipa).
+2. Firma e installa l'IPA con Sideloadly, AltStore Classic o SideStore.
+3. Apri Seaglass e crea la tua libreria. Le istruzioni dettagliate sono nella sezione
+   [Installing](#installing).
+
+Per assistenza o problemi puoi aprire una [segnalazione su GitHub](https://github.com/Foglio24/onda/issues).
+
+---
+
 # Seaglass — YouTube Music player for iPhone
 
 [![Latest release](https://img.shields.io/github/v/release/Foglio24/onda?label=release)](../../releases/latest)
@@ -53,11 +98,11 @@ See [CHANGELOG.md](CHANGELOG.md) for what changed in each version.
 | Song details | ✅ Release date, label, ℗ and credits from YouTube Music's catalogue, plus format and loudness |
 | Quality and codecs | ✅ Four levels, set separately for Wi-Fi, cellular and downloads (details below) |
 | Dolby Atmos | ✅ Dolby Digital Plus when YouTube offers it, plus Apple's Spatial Audio with AirPods/Beats |
-| Song transitions | ✅ AutoMix, inspired by Apple Music's: for each pair Seaglass weighs many transitions (beat-matched over 2–16 bars, short crossfades, into a fade-out, without silence, one after the other) by how steady the beats are where the songs meet, whether keys clash or two voices sing at once, loudness and how much tempo changes (at most 5 % per song), then renders the best ahead; albums played in order stay as they are. Or a 1–12 s crossfade |
+| Song transitions | ✅ AutoMix, inspired by Apple Music's: for each pair Seaglass weighs many transitions (beat-matched over 2–16 bars, short crossfades, into a fade-out, without silence, one after the other) by how steady the beats are where the songs meet, whether keys clash or two voices sing at once, loudness and how much tempo changes, then renders the best ahead; albums played in order stay as they are. Or a 1–12 s crossfade |
 | Playlist Mix | ✅ Like Spotify's Mix: turned on with one tap on the playlist's page, every song mixed into the next (AutoMix where you design nothing); between downloaded songs, design each transition: 2–16 bars, presets, volume, EQ, filters, reverb/echo, loops, beatmatching, lines drawn by hand, waveform editor with preview |
 | Smart radios and mixes | ✅ A radio from any song, auto-radio when the queue ends, and recommendations that change every day from what you play, skip and like: six daily mixes, *Scelti per te* and moods; plus *Taste Mix* / *Rediscover* from Last.fm |
 | Playlists | ✅ Create, rename, reorder, set a custom cover from Photos, download a whole playlist in one tap |
-| Playlist import | ✅ From Spotify (up to 100 songs), Apple Music, YouTube and YouTube Music links; each song is matched on YouTube Music |
+| Playlist import | ✅ From Spotify, Apple Music and YouTube links; review missing matches and choose alternatives. Spotify links may expose only the first 100 songs; longer lists can be imported from Spotify JSON or CSV |
 | Shuffle and repeat | ✅ A real shuffle mode (radios and mixes too), repeat all / repeat one, sleep timer |
 | Last.fm scrobbler | ✅ Now playing, scrobble after half the song or 4 minutes, offline queue, likes synced |
 | Synced lyrics from LRCLIB | ✅ Auto-scroll, tap a line to seek, 3 animations and 3 sizes |
