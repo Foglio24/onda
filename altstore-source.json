@@ -26,7 +26,7 @@
           "version": "1.21.0",
           "buildVersion": "40",
           "date": "2026-10-29T20:59:11Z",
-          "localizedDescription": "Review missing playlist matches and choose alternatives. Import longer Spotify playlists from JSON or CSV files.",
+          "localizedDescription": "### Improved\n- **Playlist import.** The app keeps a report of songs it couldn't match, searches that failed, unavailable entries and duplicates. Open the report after importing or from the playlist later, and choose a suggested YouTube Music recording for a missing song. A chosen alternative is placed near its original neighbors.\n- **Long Spotify playlists.** Public Spotify links may expose only their first 100 entries; the app now warns when the list may be incomplete. To import a longer list, choose a Spotify account-data playlist JSON file or a CSV containing song titles and artists in Library → Import playlist from file. The file is read on the device; song searches still use YouTube Music.\n- Matching tries a second search when needed and checks the title, artist, duration and recognizable versions such as live and remix before adding a result automatically.\n\n**Install:** download `Seaglass.ipa` below and sideload it as usual.\n",
           "downloadURL": "https://github.com/Foglio24/onda/releases/download/v1.21.0/Seaglass.ipa",
           "size": 34284336,
           "minOSVersion": "26.0"
