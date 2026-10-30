@@ -1,0 +1,58 @@
+# Updates a badge in a separate branch; it does not publish an app or modify main.
+name: Refresh IPA download count
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 */6 * * *"
+  release:
+    types: [published, deleted]
+  push:
+    branches: [main]
+    paths: [.github/workflows/download-count.yml, Tools/count_ipa_downloads.py]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-ipa-download-count
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out the counter script
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Count published IPA downloads across all releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases?per_page=100" > "$RUNNER_TEMP/release-pages.json"
+          python3 Tools/count_ipa_downloads.py "$RUNNER_TEMP/release-pages.json" > "$RUNNER_TEMP/download-count.json"
+
+      - name: Check out the badge branch
+        uses: actions/checkout@v4
+        with:
+          ref: download-stats
+          path: download-stats-work
+
+      - name: Update badge if the count changed
+        run: |
+          set -euo pipefail
+          cp "$RUNNER_TEMP/download-count.json" download-stats-work/download-count.json
+          cd download-stats-work
+          if git diff --quiet -- download-count.json; then
+            echo "Download count unchanged."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add download-count.json
+          git commit -m "Update IPA download count"
+          git push origin HEAD:refs/heads/download-stats
