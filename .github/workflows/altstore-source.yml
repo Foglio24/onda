@@ -1,0 +1,69 @@
+name: Refresh AltStore Classic source
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "37 */6 * * *"
+  release:
+    types: [published]
+permissions:
+  contents: write
+concurrency:
+  group: refresh-altstore-source
+  cancel-in-progress: false
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Read the latest published release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/releases/latest" > "$RUNNER_TEMP/release.json"
+          TAG=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["tag_name"])' "$RUNNER_TEMP/release.json")
+          gh api "repos/$GITHUB_REPOSITORY/contents/project.yml?ref=$TAG" --jq .content | base64 --decode > "$RUNNER_TEMP/release-project.yml"
+          python3 - "$RUNNER_TEMP/release.json" "$RUNNER_TEMP/release-project.yml" <<'PY'
+          import json, pathlib, re, sys
+          release = json.loads(pathlib.Path(sys.argv[1]).read_text())
+          project = pathlib.Path(sys.argv[2]).read_text()
+          assets = [a for a in release["assets"] if a["name"] == "Seaglass.ipa" and a["state"] == "uploaded"]
+          if len(assets) != 1:
+              print("No unique published IPA yet; keeping the previous source version.")
+              sys.exit(0)
+          def setting(key):
+              match = re.search(r'^\s*' + key + r':\s*["\x27]?([^"\x27\s#]+)', project, re.M)
+              if not match:
+                  raise ValueError("Missing " + key)
+              return match.group(1)
+          version, build = setting("MARKETING_VERSION"), setting("CURRENT_PROJECT_VERSION")
+          if release["tag_name"] != "v" + version:
+              raise ValueError("Release tag does not match app version")
+          source_path = pathlib.Path("altstore-source.json")
+          source = json.loads(source_path.read_text())
+          asset = assets[0]
+          entry = {
+              "version": version,
+              "buildVersion": build,
+              "date": release["published_at"],
+              "localizedDescription": release.get("body") or "",
+              "downloadURL": asset["browser_download_url"],
+              "size": asset["size"],
+              "minOSVersion": "26.0"
+          }
+          versions = source["apps"][0]["versions"]
+          versions = [v for v in versions if (v["version"], v.get("buildVersion")) != (version, build)]
+          source["apps"][0]["versions"] = [entry] + versions
+          source_path.write_text(json.dumps(source, indent=2, ensure_ascii=False) + "\n")
+          PY
+      - name: Save source if changed
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- altstore-source.json; then exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add altstore-source.json
+          git commit -m "Update AltStore Classic source"
+          git push origin HEAD:main
