@@ -2,107 +2,107 @@
   <img src="docs/images/seaglass-banner.jpg" alt="Seaglass — your music, in motion" width="100%">
 </p>
 
-<h1 align="center">Seaglass <sub>ex Onda</sub></h1>
+<h1 align="center">Seaglass <sub>formerly Onda</sub></h1>
 
-<p align="center"><strong>La tua musica, il tuo ritmo.</strong><br>
-Un lettore musicale indipendente per iPhone, con AutoMix, playlist e testi sincronizzati.</p>
+<p align="center"><strong>Your music, your rhythm.</strong><br>
+An independent music player for iPhone, with AutoMix, playlists and synced lyrics.</p>
 
 <p align="center">
-  <a href="https://github.com/Foglio24/onda/releases/latest/download/Seaglass.ipa"><img src="https://img.shields.io/badge/SCARICA-Seaglass.ipa-EC3F8E?style=for-the-badge&amp;logo=apple&amp;logoColor=white" alt="Scarica Seaglass.ipa"></a>
-  <a href="https://github.com/Foglio24/onda/releases/latest"><img src="https://img.shields.io/github/v/release/Foglio24/onda?style=for-the-badge&amp;label=VERSIONE" alt="Ultima versione"></a>
-  <a href="https://github.com/Foglio24/onda/releases"><img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FFoglio24%2Fonda%2Fdownload-stats%2Fdownload-count.json&amp;style=for-the-badge" alt="Download totali delle app IPA"></a>
+  <a href="https://github.com/Foglio24/onda/releases/latest/download/Seaglass.ipa"><img src="https://img.shields.io/badge/DOWNLOAD-Seaglass.ipa-EC3F8E?style=for-the-badge&amp;logo=apple&amp;logoColor=white" alt="Download Seaglass.ipa"></a>
+  <a href="https://github.com/Foglio24/onda/releases/latest"><img src="https://img.shields.io/github/v/release/Foglio24/onda?style=for-the-badge&amp;label=RELEASE" alt="Latest release"></a>
+  <a href="https://github.com/Foglio24/onda/releases"><img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FFoglio24%2Fonda%2Fdownload-stats%2Fdownload-count.json&amp;label=total%20IPA%20downloads&amp;style=for-the-badge" alt="Total IPA downloads"></a>
 </p>
 
 <p align="center">
-  <a href="#scopri-seaglass">Scopri l'app</a> · <a href="#anteprima">Anteprima</a> ·
-  <a href="#installazione">Installazione</a> · <a href="#domande-frequenti">Domande frequenti</a> ·
-  <a href="CHANGELOG.md">Novità</a>
+  <a href="#discover-seaglass">Features</a> · <a href="#screenshots">Screenshots</a> ·
+  <a href="#installation">Installation</a> · <a href="#frequently-asked-questions">FAQ</a> ·
+  <a href="CHANGELOG.md">Changelog</a>
 </p>
 
-## Scopri Seaglass
+## Discover Seaglass
 
-**Seaglass**, prima conosciuta come Onda, è un'app musicale per iPhone che utilizza il catalogo YouTube Music. Riunisce riproduzione in background, libreria personale e strumenti per passare da una canzone all'altra: un'alternativa indipendente per chi cerca un'esperienza musicale personalizzabile.
+**Seaglass**, formerly known as Onda, is a music app for iPhone that uses the YouTube Music catalogue. It brings together background playback, a personal library and tools for transitioning between songs: an independent alternative for listeners who want a customisable experience.
 
-### La tua musica, senza interruzioni
+### Your music, in motion
 
-- **AutoMix** analizza le canzoni e sceglie una transizione adatta. Quando il ritmo lo permette, prova ad allineare i beat modificando gradualmente la velocità senza cambiare l'intonazione; per brani meno compatibili può scegliere un altro tipo di passaggio.
-- **Playlist Mix** applica automaticamente le transizioni a una playlist. Tra brani scaricati puoi anche personalizzare il mix con forme d'onda, volume, equalizzazione ed effetti.
-- **Qualità audio regolabile** separatamente per Wi-Fi, rete mobile e download. La qualità massima può usare Opus; Dolby Digital Plus o AAC possono essere utilizzati quando disponibili. Il formato effettivo dipende dal brano e dalle condizioni del dispositivo.
-- **Equalizzatore e volume uniforme** per adattare l'ascolto alle tue preferenze.
+- **AutoMix** analyses songs and chooses a suitable transition. When the rhythm allows, it tries to align the beats by gradually changing tempo without changing pitch; for less compatible songs it can choose another type of transition.
+- **Playlist Mix** automatically transitions through a playlist. For downloaded songs, you can also customise transitions using waveforms, volume, EQ and effects.
+- **Adjustable audio quality** for Wi-Fi, mobile data and downloads. Maximum quality can use Opus; Dolby Digital Plus or AAC may be used when available. The actual format depends on the song and device conditions.
+- **Equaliser and volume normalisation** let you tailor your listening experience.
 
-### Una libreria tutta tua
+### A library of your own
 
-- Cerca brani, artisti e album; salva preferiti, crea playlist e organizza la coda.
-- Scarica brani, album e playlist per ascoltarli offline e controlla lo spazio occupato nelle impostazioni.
-- Importa playlist da link Spotify, Apple Music e YouTube. Se una canzone non viene trovata, puoi consultare il rapporto e scegliere un'alternativa proposta.
-- I link Spotify pubblici possono mostrare solo i primi 100 brani: per playlist più lunghe puoi importare un file Spotify JSON o CSV da **Libreria → Importa playlist da file**.
-- Scopri radio e mix personalizzati; collega Last.fm per lo scrobbling e altre funzioni legate ai tuoi ascolti.
+- Search songs, artists and albums; save favourites, create playlists and organise your queue.
+- Download songs, albums and playlists for offline listening and check storage usage in settings.
+- Import playlists from Spotify, Apple Music and YouTube links. If a song cannot be matched, review the import report and choose a suggested alternative.
+- Public Spotify links may expose only the first 100 songs. For longer playlists, import a Spotify JSON or CSV file from **Library → Import playlist from file**.
+- Discover radio stations and personalised mixes; connect Last.fm for scrobbling and more features based on your listening.
 
-### Segui e canta
+### Follow along and sing
 
-- **Testi sincronizzati** da LRCLIB, con scorrimento e possibilità di toccare un verso per spostarsi nel brano.
-- **Traduzione dei testi** con gli strumenti di Apple, quando la lingua è disponibile sul dispositivo.
-- **Karaoke con IA** per regolare voce e accompagnamento: l'elaborazione avviene su iPhone e può richiedere tempo.
-- Controlli da schermata di blocco, Centro di Controllo e AirPlay; interfaccia in italiano e inglese.
+- **Synced lyrics** from LRCLIB, with automatic scrolling and tap-to-seek.
+- **Lyrics translation** using Apple's tools when the language is available on your device.
+- **AI karaoke** to adjust vocals and accompaniment. Processing takes place on your iPhone and may take time.
+- Controls on the Lock Screen, in Control Center and through AirPlay; interface available in English and Italian.
 
-## Anteprima
+## Screenshots
 
 <table>
   <tr>
     <td align="center"><img src="docs/screenshots/home.jpg" width="200" alt="Home"><br><sub>Home</sub></td>
-    <td align="center"><img src="docs/screenshots/search.jpg" width="200" alt="Ricerca"><br><sub>Ricerca</sub></td>
+    <td align="center"><img src="docs/screenshots/search.jpg" width="200" alt="Search"><br><sub>Search</sub></td>
     <td align="center"><img src="docs/screenshots/player.jpg" width="200" alt="Player"><br><sub>Player</sub></td>
-    <td align="center"><img src="docs/screenshots/artist.jpg" width="200" alt="Artista"><br><sub>Artista</sub></td>
+    <td align="center"><img src="docs/screenshots/artist.jpg" width="200" alt="Artist"><br><sub>Artist</sub></td>
   </tr>
   <tr>
     <td align="center"><img src="docs/screenshots/album.jpg" width="200" alt="Album"><br><sub>Album</sub></td>
-    <td align="center"><img src="docs/screenshots/mix.jpg" width="200" alt="Editor Playlist Mix"><br><sub>Playlist Mix</sub></td>
-    <td align="center"><img src="docs/screenshots/equalizer.jpg" width="200" alt="Equalizzatore"><br><sub>Equalizzatore</sub></td>
-    <td align="center"><img src="docs/screenshots/settings.jpg" width="200" alt="Impostazioni audio"><br><sub>Impostazioni</sub></td>
+    <td align="center"><img src="docs/screenshots/mix.jpg" width="200" alt="Playlist Mix editor"><br><sub>Playlist Mix</sub></td>
+    <td align="center"><img src="docs/screenshots/equalizer.jpg" width="200" alt="Equaliser"><br><sub>Equaliser</sub></td>
+    <td align="center"><img src="docs/screenshots/settings.jpg" width="200" alt="Audio settings"><br><sub>Settings</sub></td>
   </tr>
 </table>
 
-<sub>Schermate create nel simulatore iOS. Copertine, nomi e musica appartengono ai rispettivi titolari.</sub>
+<sub>Screenshots were created in the iOS simulator. Artwork, names and music belong to their respective rights holders.</sub>
 
-## Installazione
+## Installation
 
-**Requisiti:** iPhone con iOS 26 o successivo. L'IPA è **non firmata**: occorre firmarla e installarla con uno strumento di sideload, come Sideloadly, AltStore Classic o SideStore.
+**Requirements:** an iPhone running iOS 26 or later. The IPA is **unsigned**: you need to sign and install it with a sideloading tool such as Sideloadly, AltStore Classic or SideStore.
 
-1. [Scarica l'ultima versione di Seaglass.ipa](https://github.com/Foglio24/onda/releases/latest/download/Seaglass.ipa).
-2. Apri il file con lo strumento di sideload scelto e segui le sue istruzioni per firmarlo e installarlo.
-3. Se richiesto, abilita **Modalità sviluppatore** in Impostazioni → Privacy e sicurezza e autorizza il profilo in Impostazioni → Generali → VPN e gestione dispositivo.
+1. [Download the latest Seaglass.ipa](https://github.com/Foglio24/onda/releases/latest/download/Seaglass.ipa).
+2. Open the file in your chosen sideloading tool and follow its instructions to sign and install it.
+3. If prompted, enable **Developer Mode** in Settings → Privacy & Security and trust the profile in Settings → General → VPN & Device Management.
 
-Con un Apple ID gratuito la firma può scadere dopo 7 giorni: in quel caso va rinnovata. Le modalità di rinnovo dipendono dallo strumento scelto. Seaglass non è pubblicata su App Store o AltStore PAL.
+With a free Apple ID, the signature may expire after 7 days and need to be renewed. Renewal depends on your sideloading tool. Seaglass is not published on the App Store or AltStore PAL.
 
-### Aggiornamenti
+### Updates
 
-L'app può cercare nuove release su GitHub e avvisarti oppure scaricare l'IPA nell'app File. L'installazione dell'aggiornamento resta manuale tramite il tuo strumento di sideload. Trovi l'elenco completo delle modifiche nel [changelog](CHANGELOG.md).
+The app can check GitHub for new releases and notify you or download the IPA to the Files app. Installing an update remains a manual step using your sideloading tool. See the [changelog](CHANGELOG.md) for the complete release history.
 
-## Domande frequenti
+## Frequently asked questions
 
-**Perché il formato audio non è sempre Opus?**  
-La disponibilità cambia da brano a brano. L'app può usare un formato alternativo, per esempio se è disponibile Dolby o se la decodifica Opus non può essere utilizzata; controlla il formato indicato nel player e la diagnostica nelle impostazioni.
+**Why is the audio format not always Opus?**  
+Availability varies by song. The app can use an alternative format, for example when Dolby is available or Opus decoding cannot be used. Check the format shown in the player and the diagnostics in settings.
 
-**AutoMix usa sempre il beat matching?**  
-No. Prova a privilegiare transizioni a tempo quando sono adatte, ma può scegliere un altro passaggio se ritmo o voci rendono il mix poco naturale.
+**Does AutoMix always use beat matching?**  
+No. It tries to favour transitions in time when they suit the songs, but can choose another transition if their rhythms or vocals make a mix unsuitable.
 
-**Perché mancano canzoni dopo un'importazione?**  
-Alcune versioni potrebbero non essere trovate o non corrispondere con sufficiente sicurezza. Apri il rapporto dell'importazione per vedere i brani mancanti e scegliere eventuali alternative. Per playlist Spotify lunghe usa l'importazione da file descritta sopra.
+**Why are songs missing after an import?**  
+Some recordings may not be found or matched with sufficient confidence. Open the import report to see missing songs and choose available alternatives. For long Spotify playlists, use the file import described above.
 
-**Cosa indica il contatore?**  
-Somma i download dei file `Onda.ipa` e `Seaglass.ipa` nelle release pubblicate su GitHub. Si aggiorna periodicamente: non rappresenta il numero di utenti o installazioni.
+**What does the download counter measure?**  
+It adds downloads of `Onda.ipa` and `Seaglass.ipa` from published GitHub releases. It refreshes periodically and does not represent the number of users or installations.
 
-**Come segnalo un problema?**  
-Apri una [segnalazione su GitHub](https://github.com/Foglio24/onda/issues), indicando la versione dell'app, il modello di iPhone e i passaggi per riprodurre il problema. Se utile, puoi condividere il rapporto da **Impostazioni → Diagnostica**.
+**How can I report a problem?**  
+Open a [GitHub issue](https://github.com/Foglio24/onda/issues), including your app version, iPhone model and steps to reproduce the problem. When helpful, you can share a report from **Settings → Diagnostics**.
 
-## Dettagli del progetto
+## Project details
 
-Seaglass è scritta in Swift e SwiftUI. Usa YouTube Music per ricerca e catalogo, YouTubeKit per i collegamenti audio, LRCLIB per i testi e Last.fm per lo scrobbling. Le dipendenze e i relativi riconoscimenti sono elencati in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+Seaglass is written in Swift and SwiftUI. It uses YouTube Music for search and catalogue, YouTubeKit for audio links, LRCLIB for lyrics and Last.fm for scrobbling. Dependencies and acknowledgements are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
-GitHub Actions compila un'IPA non firmata: il workflow **Build IPA** produce un artefatto scaricabile. Le release pubblicate e le relative note sono disponibili nella [pagina Releases](https://github.com/Foglio24/onda/releases).
+GitHub Actions builds an unsigned IPA: the **Build IPA** workflow produces a downloadable artifact. Published releases and their notes are available on the [Releases page](https://github.com/Foglio24/onda/releases).
 
-## Licenza e note
+## Licence and notices
 
-Il codice è pubblico e consultabile. L'app può essere scaricata e installata sui propri dispositivi per uso personale e non commerciale; modifica e ridistribuzione richiedono autorizzazione. Consulta la [licenza completa](LICENSE).
+The source code is publicly viewable. You may download and install the app on your own devices for personal, non-commercial use; modification and redistribution require permission. See the [full licence](LICENSE).
 
-Seaglass è un progetto personale indipendente, non affiliato né approvato da Google, YouTube, Spotify, Apple, Last.fm o LRCLIB. Musica, copertine, testi e marchi appartengono ai rispettivi titolari. L'uso di client non ufficiali e il download dei brani possono essere soggetti ai termini dei servizi utilizzati.
+Seaglass is an independent personal project, not affiliated with or endorsed by Google, YouTube, Spotify, Apple, Last.fm or LRCLIB. Music, artwork, lyrics and trademarks belong to their respective rights holders. Use of unofficial clients and downloading songs may be subject to the terms of the services used.
