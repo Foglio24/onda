@@ -74,6 +74,16 @@ An independent music player for iPhone, with AutoMix, playlists and synced lyric
 
 With a free Apple ID, the signature may expire after 7 days and need to be renewed. Renewal depends on your sideloading tool. Seaglass is not published on the App Store or AltStore PAL.
 
+### Install from AltStore Classic
+
+In AltStore Classic, open **Browse → Sources → +** and add:
+
+```text
+https://raw.githubusercontent.com/Foglio24/onda/main/altstore-source.json
+```
+
+Open Seaglass in the source to install it or check for updates. AltStore signs the IPA using your Apple ID; with a free account, the signature needs regular renewal through AltServer.
+
 ### Updates
 
 The app can check GitHub for new releases and notify you or download the IPA to the Files app. Installing an update remains a manual step using your sideloading tool. See the [changelog](CHANGELOG.md) for the complete release history.
