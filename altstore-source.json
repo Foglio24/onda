@@ -28,9 +28,18 @@
           "version": "1.21.0",
           "buildVersion": "40",
           "date": "2026-10-29T20:59:11Z",
-          "localizedDescription": "### Improved\n- **Playlist import.** The app keeps a report of songs it couldn't match, searches that failed, unavailable entries and duplicates. Open the report after importing or from the playlist later, and choose a suggested YouTube Music recording for a missing song. A chosen alternative is placed near its original neighbors.\n- **Long Spotify playlists.** Public Spotify links may expose only their first 100 entries; the app now warns when the list may be incomplete. To import a longer list, choose a Spotify account-data playlist JSON file or a CSV containing song titles and artists in Library → Import playlist from file. The file is read on the device; song searches still use YouTube Music.\n- Matching tries a second search when needed and checks the title, artist, duration and recognizable versions such as live and remix before adding a result automatically.\n\n**Install:** download `Seaglass.ipa` below and sideload it as usual.\n",
+          "localizedDescription": "Improved\n- Playlist import. The app keeps a report of songs it couldn't match, searches that failed, unavailable entries and duplicates. Open the report after importing or from the playlist later, and choose a suggested YouTube Music recording for a missing song. A chosen alternative is placed near its original neighbors.\n- Long Spotify playlists. Public Spotify links may expose only their first 100 entries; the app now warns when the list may be incomplete. To import a longer list, choose a Spotify account-data playlist JSON file or a CSV containing song titles and artists in Library → Import playlist from file. The file is read on the device; song searches still use YouTube Music.\n- Matching tries a second search when needed and checks the title, artist, duration and recognizable versions such as live and remix before adding a result automatically.",
           "downloadURL": "https://github.com/Foglio24/onda/releases/download/v1.21.0/Seaglass.ipa",
           "size": 34284336,
+          "minOSVersion": "26.0"
+        },
+        {
+          "version": "1.20.0",
+          "buildVersion": "39",
+          "date": "2026-10-29T16:35:26Z",
+          "localizedDescription": "Improved\n- AutoMix: more beat-matched transitions. The planner now gives a safe mix in time priority when its quality is close to the best alternative. It can bring songs with a wider difference in tempo together, changing each song's speed gradually while keeping its pitch, and can use a steady part of a song even when its overall beat grid is less reliable. It still avoids forcing incompatible or unsteady rhythms and excessive vocal overlap.\n- After a beat-matched mix, the incoming song spends a little longer at its original tempo before playback returns to the original file. The return point is matched over a longer stretch when the usual comparison is unclear.",
+          "downloadURL": "https://github.com/Foglio24/onda/releases/download/v1.20.0/Seaglass.ipa",
+          "size": 34173030,
           "minOSVersion": "26.0"
         }
       ],
@@ -41,5 +50,17 @@
       "category": "entertainment"
     }
   ],
-  "news": []
+  "news": [
+    {
+      "title": "Seaglass 1.21.0",
+      "identifier": "release-1.21.0",
+      "caption": "A new Seaglass update is available. Tap to see what's new.",
+      "date": "2026-10-29T20:59:11Z",
+      "tintColor": "#EC3F8E",
+      "imageURL": "https://raw.githubusercontent.com/Foglio24/onda/main/docs/images/seaglass-banner.jpg",
+      "notify": false,
+      "url": "https://github.com/Foglio24/onda/releases/tag/v1.21.0",
+      "appID": "com.onda.player"
+    }
+  ]
 }
