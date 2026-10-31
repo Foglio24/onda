@@ -1,0 +1,21 @@
+name: Check app icon assets
+on:
+  push:
+    branches: [test/seaglass-icon-assets]
+    paths: [.github/workflows/check-icon-assets.yml]
+permissions:
+  contents: read
+jobs:
+  icon:
+    runs-on: macos-26
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest
+      - name: Compile iOS app icon
+        run: |
+          mkdir -p "$RUNNER_TEMP/assets"
+          xcrun actool Seaglass/Assets.xcassets --compile "$RUNNER_TEMP/assets" --platform iphoneos --minimum-deployment-target 26.0 --target-device iphone --app-icon AppIcon --output-partial-info-plist "$RUNNER_TEMP/icon-info.plist" --output-format human-readable-text
+          test -f "$RUNNER_TEMP/assets/Assets.car"
