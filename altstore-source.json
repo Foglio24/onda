@@ -1,7 +1,7 @@
 {
   "name": "Seaglass",
   "subtitle": "Your music, your rhythm",
-  "description": "The official AltStore Classic source for Seaglass.",
+  "description": "Discover Seaglass, an independent iPhone music player with AutoMix, playlists and synced lyrics. Get release notes and updates through AltStore Classic.",
   "iconURL": "https://raw.githubusercontent.com/Foglio24/onda/main/Seaglass/Assets.xcassets/AppIcon.appiconset/AppIcon.png",
   "headerURL": "https://raw.githubusercontent.com/Foglio24/onda/main/docs/images/seaglass-banner.jpg",
   "website": "https://github.com/Foglio24/onda",
@@ -12,14 +12,16 @@
       "bundleIdentifier": "com.onda.player",
       "developerName": "Foglio24",
       "subtitle": "Music, AutoMix and synced lyrics",
-      "localizedDescription": "Seaglass is an independent music player for iPhone. Listen to music, create playlists, enjoy AutoMix transitions, synced lyrics, offline downloads and Last.fm scrobbling.",
+      "localizedDescription": "Your music, your rhythm.\n\nSeaglass is an independent music player for iPhone using the YouTube Music catalogue. Enjoy background playback, a personal library and transitions tailored to the songs.\n\n• AutoMix analyses songs and can align their beats while preserving pitch.\n• Create playlists, download music for offline listening and review missing matches when importing playlists.\n• Follow synced lyrics, translate supported languages and adjust vocals with AI karaoke.\n• Customise audio quality and EQ, explore radio and mixes, and connect Last.fm.\n\nRequires iOS 26 or later. Audio formats and transitions depend on each song. Seaglass is an unofficial independent project, not affiliated with Google, YouTube, Spotify or Apple.",
       "iconURL": "https://raw.githubusercontent.com/Foglio24/onda/main/Seaglass/Assets.xcassets/AppIcon.appiconset/AppIcon.png",
       "tintColor": "#EC3F8E",
       "screenshots": [
-        "https://raw.githubusercontent.com/Foglio24/onda/main/docs/screenshots/home.jpg",
-        "https://raw.githubusercontent.com/Foglio24/onda/main/docs/screenshots/search.jpg",
         "https://raw.githubusercontent.com/Foglio24/onda/main/docs/screenshots/player.jpg",
-        "https://raw.githubusercontent.com/Foglio24/onda/main/docs/screenshots/mix.jpg"
+        "https://raw.githubusercontent.com/Foglio24/onda/main/docs/screenshots/home.jpg",
+        "https://raw.githubusercontent.com/Foglio24/onda/main/docs/screenshots/mix.jpg",
+        "https://raw.githubusercontent.com/Foglio24/onda/main/docs/screenshots/search.jpg",
+        "https://raw.githubusercontent.com/Foglio24/onda/main/docs/screenshots/equalizer.jpg",
+        "https://raw.githubusercontent.com/Foglio24/onda/main/docs/screenshots/settings.jpg"
       ],
       "versions": [
         {
@@ -35,7 +37,8 @@
       "appPermissions": {
         "entitlements": [],
         "privacy": {}
-      }
+      },
+      "category": "entertainment"
     }
   ],
   "news": []
