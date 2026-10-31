@@ -9,6 +9,7 @@ An independent music player for iPhone, with AutoMix, playlists and synced lyric
 
 <p align="center">
   <a href="https://github.com/Foglio24/onda/releases/latest/download/Seaglass.ipa"><img src="https://img.shields.io/badge/DOWNLOAD-Seaglass.ipa-EC3F8E?style=for-the-badge&amp;logo=apple&amp;logoColor=white" alt="Download Seaglass.ipa"></a>
+  <a href="https://altdirect.app/?url=https%3A%2F%2Fraw.githubusercontent.com%2FFoglio24%2Fonda%2Fmain%2Faltstore-source.json&amp;r=altstore"><img src="https://img.shields.io/badge/ADD_TO-ALTSTORE_CLASSIC-7E4BD6?style=for-the-badge&amp;logo=apple&amp;logoColor=white" alt="Add Seaglass to AltStore Classic"></a>
   <a href="https://github.com/Foglio24/onda/releases/latest"><img src="https://img.shields.io/github/v/release/Foglio24/onda?style=for-the-badge&amp;label=RELEASE" alt="Latest release"></a>
   <a href="https://github.com/Foglio24/onda/releases"><img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FFoglio24%2Fonda%2Fdownload-stats%2Fdownload-count.json&amp;label=total%20IPA%20downloads&amp;style=for-the-badge" alt="Total IPA downloads"></a>
 </p>
@@ -76,7 +77,7 @@ With a free Apple ID, the signature may expire after 7 days and need to be renew
 
 ### Install from AltStore Classic
 
-In AltStore Classic, open **Browse → Sources → +** and add:
+[Add the source to AltStore Classic](https://altdirect.app/?url=https%3A%2F%2Fraw.githubusercontent.com%2FFoglio24%2Fonda%2Fmain%2Faltstore-source.json&r=altstore) using AltDirect, a third-party redirect, or open **Browse → Sources → +** in AltStore Classic and paste:
 
 ```text
 https://raw.githubusercontent.com/Foglio24/onda/main/altstore-source.json
