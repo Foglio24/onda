@@ -161,6 +161,8 @@ enum Preferences {
     /// The last transition AutoMix chose, and why (see `TransitionChoice.summary`).
     static let lastAutoMixChoice = "diagnostics.lastAutoMixChoice"
     static let interactiveArtwork = "player.interactiveArtwork"
+    /// The speed podcast episodes play at (1 = normal).
+    static let episodeSpeed = "podcasts.speed"
     static let lyricsTranslate = "lyrics.translate"
     static let updateMode = "updates.mode"
 

@@ -39,7 +39,11 @@ struct NowPlayingView: View {
             .simultaneousGesture(dismissDrag)
             if panel != .artwork {
                 Group {
-                    if panel == .lyrics { LyricsView() } else { QueueView() }
+                    if panel == .lyrics {
+                        if isEpisode { EpisodeNotesView() } else { LyricsView() }
+                    } else {
+                        QueueView()
+                    }
                 }
                 .frame(maxHeight: .infinity)
             }
@@ -98,7 +102,12 @@ struct NowPlayingView: View {
                     let up = -value.translation.height
                     if up > abs(value.translation.width), up > 60 || value.predictedEndTranslation.height < -200,
                        let track = player.current {
-                        router.page = .song(track)
+                        // An episode's details are its podcast's page.
+                        if !track.isPodcastEpisode {
+                            router.page = .song(track)
+                        } else if let show = track.podcastID, !show.isEmpty {
+                            router.page = .podcast(id: show)
+                        }
                     }
                     return
                 }
@@ -186,9 +195,13 @@ struct NowPlayingView: View {
     private var artwork: some View {
         InteractiveArtwork(track: player.current, isPlaying: player.isPlaying) {
             // Double tap likes the song (never un-likes it, like a double tap on a photo).
-            if let track = player.current, !library.isLiked(track) { library.toggleLike(track) }
+            if let track = player.current, !track.isPodcastEpisode, !library.isLiked(track) { library.toggleLike(track) }
         }
     }
+
+    /// A podcast episode plays: skips of 15 and 30 seconds, a speed, chapters instead of lyrics, and
+    /// no favourites or playlists.
+    private var isEpisode: Bool { player.current?.isPodcastEpisode == true }
 
     private var titleRow: some View {
         HStack(alignment: .center, spacing: 8) {
@@ -197,7 +210,9 @@ struct NowPlayingView: View {
                     .font(.title2.bold())
                     .lineLimit(1)
                 Button {
-                    if let track = player.current, !track.primaryArtist.isEmpty {
+                    if let track = player.current, track.isPodcastEpisode {
+                        if let show = track.podcastID, !show.isEmpty { router.page = .podcast(id: show) }
+                    } else if let track = player.current, !track.primaryArtist.isEmpty {
                         router.page = .artist(id: track.artistID, name: track.primaryArtist)
                     }
                 } label: {
@@ -209,8 +224,10 @@ struct NowPlayingView: View {
                 .buttonStyle(.plain)
             }
             Spacer()
-            addToPlaylistButton
-            likeButton
+            if !isEpisode {
+                addToPlaylistButton
+                likeButton
+            }
         }
     }
 
@@ -227,8 +244,10 @@ struct NowPlayingView: View {
                     .lineLimit(1)
             }
             Spacer()
-            addToPlaylistButton
-            likeButton
+            if !isEpisode {
+                addToPlaylistButton
+                likeButton
+            }
         }
     }
 
@@ -268,7 +287,7 @@ struct NowPlayingView: View {
             if let info = player.streamInfo {
                 badge { Label(info, systemImage: "waveform") }
             }
-            if player.karaokeMode != .off {
+            if player.karaokeMode != .off, !isEpisode {
                 karaokeBadge
             } else if spatialAudio {
                 badge { Label("Audio spaziale", systemImage: "headphones") }
@@ -324,7 +343,53 @@ struct NowPlayingView: View {
             .glassEffect(.regular, in: .capsule)
     }
 
-    private var controls: some View {
+    @ViewBuilder private var controls: some View {
+        if isEpisode { episodeControls } else { songControls }
+    }
+
+    /// Previous, back 15 seconds, play, forward 30 seconds, next.
+    private var episodeControls: some View {
+        HStack {
+            Button { player.previous() } label: {
+                Image(systemName: "backward.fill").font(.title3).frame(width: 44, height: 44)
+            }
+            .foregroundStyle(Color.white.opacity(0.7))
+            Spacer()
+            Button { player.skip(by: -15) } label: {
+                Image(systemName: "gobackward.15").font(.system(size: 30)).frame(width: 56, height: 56)
+            }
+            Spacer()
+            playButton
+            Spacer()
+            Button { player.skip(by: 30) } label: {
+                Image(systemName: "goforward.30").font(.system(size: 30)).frame(width: 56, height: 56)
+            }
+            Spacer()
+            Button { player.next() } label: {
+                Image(systemName: "forward.fill").font(.title3).frame(width: 44, height: 44)
+            }
+            .foregroundStyle(Color.white.opacity(0.7))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var playButton: some View {
+        Button { player.togglePlayPause() } label: {
+            ZStack {
+                if player.isLoading {
+                    ProgressView().controlSize(.large).tint(.white)
+                } else {
+                    Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
+                        .font(.system(size: 44))
+                        .contentTransition(.symbolEffect(.replace))
+                }
+            }
+            .frame(width: 76, height: 76)
+            .glassEffect(.regular.interactive(), in: .circle)
+        }
+    }
+
+    private var songControls: some View {
         HStack {
             Button { player.toggleShuffle() } label: {
                 Image(systemName: "shuffle")
@@ -338,19 +403,7 @@ struct NowPlayingView: View {
                 Image(systemName: "backward.fill").font(.system(size: 30)).frame(width: 56, height: 56)
             }
             Spacer()
-            Button { player.togglePlayPause() } label: {
-                ZStack {
-                    if player.isLoading {
-                        ProgressView().controlSize(.large).tint(.white)
-                    } else {
-                        Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
-                            .font(.system(size: 44))
-                            .contentTransition(.symbolEffect(.replace))
-                    }
-                }
-                .frame(width: 76, height: 76)
-                .glassEffect(.regular.interactive(), in: .circle)
-            }
+            playButton
             Spacer()
             Button { player.next() } label: {
                 Image(systemName: "forward.fill").font(.system(size: 30)).frame(width: 56, height: 56)
@@ -369,14 +422,41 @@ struct NowPlayingView: View {
 
     private var bottomBar: some View {
         HStack {
-            panelButton(.lyrics, symbol: "quote.bubble")
+            panelButton(.lyrics, symbol: isEpisode ? "list.bullet.rectangle" : "quote.bubble")
             Spacer()
-            karaokeMenu
+            if isEpisode { speedMenu } else { karaokeMenu }
             Spacer()
             AirPlayButton(activeTint: accent.color).frame(width: 44, height: 44)
             Spacer()
             panelButton(.queue, symbol: "list.bullet")
         }
+    }
+
+    private static let speeds: [Float] = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2]
+
+    /// "1,5×".
+    private static func speedLabel(_ speed: Float) -> String {
+        Double(speed).formatted(.number.precision(.fractionLength(0...2))) + "×"
+    }
+
+    /// An episode's speed, from half to twice as fast.
+    private var speedMenu: some View {
+        Menu {
+            Picker("Velocità", selection: Binding(get: { player.episodeSpeed },
+                                                  set: { player.setEpisodeSpeed($0) })) {
+                ForEach(Self.speeds, id: \.self) { speed in
+                    Text(Self.speedLabel(speed)).tag(speed)
+                }
+            }
+        } label: {
+            Text(Self.speedLabel(player.episodeSpeed))
+                .font(.subheadline.weight(.semibold).monospacedDigit())
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .frame(width: 44, height: 44)
+                .background(Color.white.opacity(player.episodeSpeed == 1 ? 0 : 0.2), in: .circle)
+        }
+        .buttonStyle(.plain)
     }
 
     /// Karaoke: remove the voice or keep only the voice, at three strengths.

@@ -17,6 +17,11 @@ struct Track: Codable, Hashable, Identifiable {
     /// YouTube Music pages of the first artist and of the album, when known ("Vai all'artista").
     var artistID: String?
     var albumID: String?
+    /// The podcast (its "MPSP…" page) when this is one of its episodes: episodes play from where
+    /// they were left and stay out of AutoMix, Last.fm, the history and the recommendations.
+    var podcastID: String?
+
+    var isPodcastEpisode: Bool { podcastID != nil }
 
     init(videoId: String?, title: String, artists: [String], album: String? = nil,
          duration: TimeInterval? = nil, artworkURL: URL? = nil, artistID: String? = nil, albumID: String? = nil) {

@@ -4,12 +4,13 @@ import Foundation
 /// a playlist, or a song or video shown as a card.
 struct MusicItem: Identifiable, Hashable {
     enum Kind: Hashable {
-        case artist, album, playlist
+        case artist, album, playlist, podcast
         case song(Track)
     }
 
     let kind: Kind
-    /// The page's browse ID ("UC…" artists, "MPREb_…" albums, "VL…" playlists), or the video ID.
+    /// The page's browse ID ("UC…" artists, "MPREb_…" albums, "VL…" playlists, "MPSP…" podcasts),
+    /// or the video ID.
     let id: String
     let title: String
     let subtitle: String
@@ -54,8 +55,9 @@ struct CatalogResults {
     var artists: [MusicItem] = []
     var albums: [MusicItem] = []
     var playlists: [MusicItem] = []
+    var podcasts: [MusicItem] = []
 
-    var isEmpty: Bool { top == nil && artists.isEmpty && albums.isEmpty && playlists.isEmpty }
+    var isEmpty: Bool { top == nil && artists.isEmpty && albums.isEmpty && playlists.isEmpty && podcasts.isEmpty }
 
     /// The artist the search names, when it is one: YouTube's top result or first artist, called
     /// what was typed give or take case, accents, spaces and punctuation ("ac dc" names AC/DC).
@@ -85,6 +87,7 @@ extension InnerTube {
             case .artist: results.artists.append(item)
             case .album: results.albums.append(item)
             case .playlist: results.playlists.append(item)
+            case .podcast: results.podcasts.append(item)
             default: break
             }
         }
@@ -217,6 +220,7 @@ extension InnerTube {
         case "MUSIC_PAGE_TYPE_ARTIST": return .artist
         case "MUSIC_PAGE_TYPE_ALBUM": return .album
         case "MUSIC_PAGE_TYPE_PLAYLIST": return .playlist
+        case "MUSIC_PAGE_TYPE_PODCAST_SHOW_DETAIL_PAGE": return .podcast
         default: return nil
         }
     }

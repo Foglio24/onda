@@ -19,7 +19,8 @@ enum Recommendations {
                    String(library.playlists.reduce(0) { $0 + $1.tracks.count })].joined(separator: "|")
         if let cachedProfile, cachedProfile.key == key { return cachedProfile.profile }
         let profile = TasteProfile(events: log.events, history: library.history, liked: library.liked,
-                                   playlists: library.playlists.map(\.tracks), downloads: library.downloads)
+                                   playlists: library.playlists.map(\.tracks),
+                                   downloads: library.downloads.filter { !$0.isPodcastEpisode })
         cachedProfile = (key, profile)
         return profile
     }

@@ -79,18 +79,29 @@ struct StreamingSeekPosition {
     private let requested: TimeInterval
     private var played: TimeInterval = 0
     private var playingSince: TimeInterval?
+    /// Seconds of audio per second of clock: podcasts can play faster or slower.
+    private var rate: Double
 
-    init(time: TimeInterval, isPlaying: Bool, now: TimeInterval) {
+    init(time: TimeInterval, isPlaying: Bool, now: TimeInterval, rate: Double = 1) {
         requested = time
         playingSince = isPlaying ? now : nil
+        self.rate = rate
     }
 
     mutating func setPlaying(_ playing: Bool, now: TimeInterval) {
-        if let start = playingSince { played += max(0, now - start) }
+        if let start = playingSince { played += max(0, now - start) * rate }
         playingSince = playing ? now : nil
     }
 
+    mutating func setRate(_ newRate: Double, now: TimeInterval) {
+        if let start = playingSince {
+            played += max(0, now - start) * rate
+            playingSince = now
+        }
+        rate = newRate
+    }
+
     func position(at now: TimeInterval) -> TimeInterval {
-        requested + played + (playingSince.map { max(0, now - $0) } ?? 0)
+        requested + played + (playingSince.map { max(0, now - $0) * rate } ?? 0)
     }
 }

@@ -107,6 +107,8 @@ final class PlayerController: ObservableObject {
     @Published var autoRadio: Bool {
         didSet { UserDefaults.standard.set(autoRadio, forKey: "player.autoRadio") }
     }
+    /// The speed of podcast episodes (songs always play at 1×, for AutoMix and the beat).
+    @Published private(set) var episodeSpeed: Float
 
     let progress = PlaybackProgress()
     let nowPlaying = NowPlayingState()
@@ -234,6 +236,7 @@ final class PlayerController: ObservableObject {
 
     private init() {
         autoRadio = UserDefaults.standard.object(forKey: "player.autoRadio") as? Bool ?? true
+        episodeSpeed = UserDefaults.standard.object(forKey: Preferences.episodeSpeed) as? Float ?? 1
         resumePoint = UserDefaults.standard.data(forKey: Self.resumeKey)
             .flatMap { try? JSONDecoder().decode(ResumePoint.self, from: $0) }
         let session = AVAudioSession.sharedInstance()
@@ -317,8 +320,42 @@ final class PlayerController: ObservableObject {
             resume()
             return
         }
-        playRadio(from: point.track)
+        if point.track.isPodcastEpisode {
+            play([point.track], source: point.track.album ?? point.track.artist)
+        } else {
+            playRadio(from: point.track)
+        }
         pendingStartTime = Self.startTime(of: point)
+    }
+
+    /// Plays podcast episodes, each from where it was left (see `loadCurrent`), without a radio after.
+    func playEpisodes(_ tracks: [Track], startAt start: Int = 0, source: String) {
+        play(tracks, startAt: start, source: source)
+    }
+
+    /// Back or forward within the episode (or song).
+    func skip(by seconds: TimeInterval) {
+        guard current != nil else { return }
+        let end = progress.duration > 1 ? progress.duration - 1 : .greatestFiniteMagnitude
+        seek(to: max(0, min(end, progress.currentTime + seconds)))
+    }
+
+    func setEpisodeSpeed(_ speed: Float) {
+        episodeSpeed = speed
+        UserDefaults.standard.set(speed, forKey: Preferences.episodeSpeed)
+        applyRate()
+    }
+
+    /// The current item's speed: podcasts at theirs, songs at 1×.
+    private var playbackRate: Float { current?.isPodcastEpisode == true ? episodeSpeed : 1 }
+
+    /// The player plays at `playbackRate` from its next `play()` on, and right away if it is playing.
+    private func applyRate() {
+        let rate = playbackRate
+        player.defaultRate = rate
+        if player.timeControlStatus != .paused, player.rate != rate { player.rate = rate }
+        requestedSeek?.setRate(Double(rate), now: ProcessInfo.processInfo.systemUptime)
+        updateNowPlayingInfo()
     }
 
     /// Where a saved song should start again: nil (the start) near either end.
@@ -533,7 +570,8 @@ final class PlayerController: ObservableObject {
             // Seeking in YouTube's streams is unreliable: remember it for when the local copy takes over.
             requestedSeek = StreamingSeekPosition(time: seconds,
                                                    isPlaying: player.timeControlStatus == .playing,
-                                                   now: ProcessInfo.processInfo.systemUptime)
+                                                   now: ProcessInfo.processInfo.systemUptime,
+                                                   rate: Double(playbackRate))
             // A seek pauses the sound anyway: the moment to move to the local file, if it is ready.
             if let local = localFile, let track = current, local.trackID == track.id {
                 localFile = nil
@@ -608,7 +646,8 @@ final class PlayerController: ObservableObject {
 
     private func startKaraoke() {
         guard playWhenReady, UIApplication.shared.applicationState != .background,
-              karaokeMode != .off, let track = current, let videoId = track.videoId else { return }
+              karaokeMode != .off, let track = current, let videoId = track.videoId,
+              !track.isPodcastEpisode else { return }
         guard EnergyPolicy.current.allowsKaraoke || StemSeparator.cachedStems(for: videoId) != nil else {
             karaokeStatus = .failed(KaraokeError.energyLimited.localizedDescription)
             return
@@ -729,6 +768,7 @@ final class PlayerController: ObservableObject {
         isRestoredSession = false
         resetAutoMix()
         guard let track = current else { return }
+        if track.isPodcastEpisode { pendingStartTime = PodcastLibrary.shared.startTime(for: track.videoId) }
         // The requested song comes first: speculative preparation waits until it plays.
         PreparedPlayback.shared.suspendForStartup(keeping: track.videoId)
         let position = index
@@ -1128,6 +1168,8 @@ final class PlayerController: ObservableObject {
                 self.itemStatusChanged(status, item: item, track: track)
             }
 
+        // Before `play()`, which starts at the player's default rate (a prepared player may already play).
+        applyRate()
         if !alreadyStarted {
             if pendingFadeIn != nil {
                 // Crossfading in: stay silent until the song really plays (see `startPendingFades`).
@@ -1144,10 +1186,42 @@ final class PlayerController: ObservableObject {
         }
         deferredPreparation = (requests.loadGeneration, track)
         guard !isRetry else { return }
-        scrobbler.begin(track)
-        ListeningLog.shared.start(track)
-        Library.shared.recordPlay(track)
-        loadLyrics(for: track)
+        if track.isPodcastEpisode {
+            beginEpisode(track)
+        } else {
+            scrobbler.begin(track)
+            ListeningLog.shared.start(track)
+            Library.shared.recordPlay(track)
+            loadLyrics(for: track)
+        }
+        updateNowPlayingInfo()
+    }
+
+    /// An episode starts: no scrobble, history, recommendations or lyrics. It goes first in
+    /// "Continua ad ascoltare", and its exact length is asked for (the lists round it to the minute,
+    /// and the player would take that as the end).
+    private func beginEpisode(_ track: Track) {
+        scrobbler.stop()
+        ListeningLog.shared.close()
+        lyricsTask?.cancel()
+        LyricsTranslator.shared.show([])
+        lyrics = .unavailable
+        if let episode = PodcastLibrary.shared.episode(track.videoId) { PodcastLibrary.shared.played(episode) }
+        guard track.duration == nil, let videoId = track.videoId else { return }
+        Task {
+            guard let length = try? await InnerTube.shared.episodeLength(videoId) else { return }
+            self.noteLength(length, of: videoId)
+        }
+    }
+
+    /// An episode's exact length, once known: for the scrubber, the lock screen and its progress.
+    private func noteLength(_ length: TimeInterval, of videoId: String) {
+        PodcastLibrary.shared.noteLength(length, of: videoId)
+        for position in queue.indices where queue[position].videoId == videoId {
+            queue[position].duration = length
+        }
+        guard current?.videoId == videoId else { return }
+        progress.duration = length
         updateNowPlayingInfo()
     }
 
@@ -1290,7 +1364,8 @@ final class PlayerController: ObservableObject {
         } else {
             let generation = requests.loadGeneration
             advanceTask = Task {
-                if self.autoRadio { await self.extendQueue() }
+                // After an episode the queue simply ends: no radio of songs.
+                if self.autoRadio, self.current?.isPodcastEpisode != true { await self.extendQueue() }
                 guard !Task.isCancelled, self.requests.isCurrentLoad(generation) else { return }
                 if self.index + 1 < self.queue.count {
                     self.index += 1
@@ -1306,6 +1381,9 @@ final class PlayerController: ObservableObject {
     private func itemFinished() {
         guard !finishedCurrent else { return }
         finishedCurrent = true
+        if let track = current, track.isPodcastEpisode, let videoId = track.videoId {
+            PodcastLibrary.shared.setFinished(true, videoId)
+        }
         if sleepTimer == .endOfTrack {
             sleepTimer = .off
             pause()
@@ -1321,6 +1399,12 @@ final class PlayerController: ObservableObject {
 
     private var canCrossfade: Bool {
         index + 1 < queue.count && repeatMode != .one && sleepTimer != .endOfTrack && playWhenReady
+            && !involvesEpisode
+    }
+
+    /// An episode playing or next: no crossfade, no AutoMix (talk isn't mixed into music).
+    private var involvesEpisode: Bool {
+        current?.isPodcastEpisode == true || (index + 1 < queue.count && queue[index + 1].isPodcastEpisode)
     }
 
     /// Starts loading the next song on a fresh player. The fades begin once it actually plays,
@@ -1431,7 +1515,7 @@ final class PlayerController: ObservableObject {
     /// takes over from the playing song at the plan's handover. Until it is ready the song ends with
     /// a short plain crossfade.
     private func prepareAutoMix() {
-        guard mixesTransitions, karaokeMode == .off, playWhenReady,
+        guard mixesTransitions, karaokeMode == .off, playWhenReady, !involvesEpisode,
               let track = current, index + 1 < queue.count else {
             resetAutoMix()
             return
@@ -1886,7 +1970,7 @@ final class PlayerController: ObservableObject {
 
     /// Keeps the music going: when few songs are left, appends a radio based on the current one.
     private func extendQueueIfNeeded() {
-        guard autoRadio, queue.count - index <= 3 else { return }
+        guard autoRadio, queue.count - index <= 3, current?.isPodcastEpisode != true else { return }
         let generation = requests.queueGeneration
         Task {
             guard self.requests.isCurrentQueue(generation) else { return }
@@ -1923,7 +2007,8 @@ final class PlayerController: ObservableObject {
         prefetchLyrics()
         guard index + 1 < queue.count else { return }
         let track = queue[index + 1]
-        guard let videoId = track.videoId else { return }
+        // An episode is far bigger than a song: it is only fetched when it plays.
+        guard let videoId = track.videoId, !track.isPodcastEpisode else { return }
         // With AutoMix the next song's copy is made by `prepareAutoMix`, at the quality it will play.
         // An Opus song starts from its stream (its first seconds are prepared by PreparedPlayback).
         let needsCopy = Storage.localAudio(for: track) == nil && OpusPipeline.cachedFile(videoId: videoId) == nil
@@ -1973,7 +2058,7 @@ final class PlayerController: ObservableObject {
         lyricsPrefetchTask?.cancel()
         guard playWhenReady, EnergyPolicy.current.allowsSpeculativeWork, index + 1 < queue.count else { return }
         let upNext = queue[index + 1]
-        guard prefetchedLyrics[upNext.id] == nil else { return }
+        guard prefetchedLyrics[upNext.id] == nil, !upNext.isPodcastEpisode else { return }
         let generation = requests.loadGeneration
         lyricsPrefetchTask = Task {
             let result = await LyricsService.shared.lyrics(for: upNext)
@@ -2177,7 +2262,12 @@ final class PlayerController: ObservableObject {
 
     /// Saves the current song and position for the Home's "Riprendi" card.
     private func rememberPosition(_ seconds: TimeInterval) {
-        guard let track = current, track.videoId != nil, seconds.isFinite, seconds >= 0 else { return }
+        guard let track = current, let videoId = track.videoId, seconds.isFinite, seconds >= 0 else { return }
+        // An episode resuming hasn't jumped to its saved place yet: that place stays.
+        if track.isPodcastEpisode {
+            guard pendingStartTime == nil else { return }
+            PodcastLibrary.shared.note(position: seconds, length: track.duration, of: videoId)
+        }
         let point = ResumePoint(track: track, time: seconds)
         resumePoint = point
         UserDefaults.standard.set(try? JSONEncoder().encode(point), forKey: Self.resumeKey)
@@ -2296,6 +2386,20 @@ final class PlayerController: ObservableObject {
             Task { @MainActor in self.seek(to: position) }
             return .success
         }
+        // For episodes (see `updateNowPlayingInfo`): the lock screen then shows -15 / +30 instead of
+        // previous / next.
+        center.skipBackwardCommand.preferredIntervals = [15]
+        center.skipBackwardCommand.addTarget { _ in
+            Task { @MainActor in self.skip(by: -15) }
+            return .success
+        }
+        center.skipForwardCommand.preferredIntervals = [30]
+        center.skipForwardCommand.addTarget { _ in
+            Task { @MainActor in self.skip(by: 30) }
+            return .success
+        }
+        center.skipBackwardCommand.isEnabled = false
+        center.skipForwardCommand.isEnabled = false
     }
 
     private func updateNowPlayingInfo() {
@@ -2322,12 +2426,19 @@ final class PlayerController: ObservableObject {
             center.nowPlayingInfo = nil
             return
         }
+        let commands = MPRemoteCommandCenter.shared()
+        if commands.skipForwardCommand.isEnabled != track.isPodcastEpisode {
+            commands.skipForwardCommand.isEnabled = track.isPodcastEpisode
+            commands.skipBackwardCommand.isEnabled = track.isPodcastEpisode
+        }
+        let rate = Double(playbackRate)
         var info: [String: Any] = [
             MPMediaItemPropertyTitle: track.title,
             MPMediaItemPropertyArtist: track.artist,
             MPMediaItemPropertyPlaybackDuration: progress.duration,
             MPNowPlayingInfoPropertyElapsedPlaybackTime: progress.currentTime,
-            MPNowPlayingInfoPropertyPlaybackRate: player.timeControlStatus == .playing ? 1.0 : 0.0,
+            MPNowPlayingInfoPropertyPlaybackRate: player.timeControlStatus == .playing ? rate : 0.0,
+            MPNowPlayingInfoPropertyDefaultPlaybackRate: rate,
             MPNowPlayingInfoPropertyMediaType: MPNowPlayingInfoMediaType.audio.rawValue,
         ]
         if let album = track.album { info[MPMediaItemPropertyAlbumTitle] = album }

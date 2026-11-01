@@ -87,6 +87,9 @@ struct SearchView: View {
         if !layout.albums.isEmpty {
             cardSection("Album", items: layout.albums, size: 130)
         }
+        if !layout.podcasts.isEmpty {
+            cardSection("Podcast", items: layout.podcasts, size: 130)
+        }
     }
 
     /// A horizontal row of cards. Buttons that push the page, not links: links inside a list row's
@@ -209,6 +212,7 @@ private struct SearchLayout {
     let playlists: [MusicItem]
     let artists: [MusicItem]
     let albums: [MusicItem]
+    let podcasts: [MusicItem]
 
     init(query: String, songs: [Track], catalog: CatalogResults) {
         let named = catalog.artist(named: query)
@@ -224,5 +228,6 @@ private struct SearchLayout {
         playlists = withTop(catalog.playlists) { $0.kind == .playlist }
         artists = withTop(catalog.artists) { $0.isArtist }
         albums = withTop(catalog.albums) { $0.kind == .album }
+        podcasts = withTop(catalog.podcasts) { $0.kind == .podcast }
     }
 }

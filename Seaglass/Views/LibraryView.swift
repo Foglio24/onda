@@ -5,6 +5,7 @@ struct LibraryView: View {
     @EnvironmentObject private var library: Library
     @EnvironmentObject private var downloads: DownloadManager
     @ObservedObject private var importer = PlaylistImporter.shared
+    @ObservedObject private var podcasts = PodcastLibrary.shared
     @State private var showDownloads = false
     @State private var showNewPlaylist = false
     @State private var showImport = false
@@ -41,6 +42,9 @@ struct LibraryView: View {
                     }
                     NavigationLink { TrackCollectionView(collection: .history) } label: {
                         shortcut("Cronologia", symbol: "clock.fill", tint: .orange, count: library.history.count)
+                    }
+                    NavigationLink { PodcastsView() } label: {
+                        shortcut("Podcast", symbol: "mic.fill", tint: .purple, count: podcasts.followed.count)
                     }
                 }
 

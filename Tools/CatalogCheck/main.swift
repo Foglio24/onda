@@ -1,4 +1,4 @@
-// Live check of YouTube Music parsing (search, artist and album pages, song details, loudness) against the real
+// Live check of YouTube Music parsing (search, artist and album pages, podcasts, song details, loudness) against the real
 // service, so a change on YouTube's side shows up in CI. Needs network access.
 // Run from the repository root: bash Tools/CatalogCheck/run.sh
 import Foundation
@@ -8,6 +8,12 @@ func expect(_ condition: Bool, _ message: String) {
     print(condition ? "ok   \(message)" : "FAIL \(message)")
     if !condition { failures += 1 }
 }
+
+// Chapters from an episode's description (no network).
+let chapters = PodcastChapter.chapters(in: "Guest: Mario\n00:00 Intro\n(02:15) - Who is Mario\n12:30 – The story\n1:02:03 Q&A\nSponsor 05:00")
+expect(chapters.map(\.time) == [0, 135, 750, 3723] && chapters.last?.title == "Q&A", "chapters: \(chapters.map { "\(Int($0.time)) \($0.title)" })")
+expect(PodcastChapter.chapters(in: "See 3:00 for the point\n").isEmpty, "a single timestamp is not a chapter list")
+expect(InnerTube.listedLength("2 h 43 min") == 9780 && InnerTube.listedLength("1 hr 5 min") == 3900, "listed lengths")
 
 let tube = InnerTube.shared
 do {
@@ -71,6 +77,39 @@ do {
             expect(details.label != nil, "song details of \(song.title): label \(label), album \(albumName), released \(released), \(copyright)")
             expect(!credits.isEmpty, "song credits: \(credits)")
             expect(details.views != nil, "song plays: \(details.views.map(String.init) ?? "none")")
+        }
+    }
+
+    // Podcasts: the Home's suggestions, search, a show's pages of episodes and an episode's length.
+    let shelves = try await tube.podcastShelves()
+    let suggested = shelves.flatMap(\.shows)
+    expect(suggested.count >= 5 && suggested.allSatisfy { $0.id.hasPrefix("MPSP") && !$0.title.isEmpty },
+           "podcast suggestions: \(shelves.map(\.title)) \(suggested.prefix(3).map(\.title))")
+    let shows = try await tube.searchPodcasts("history")
+    expect(shows.count >= 3 && shows.allSatisfy { $0.id.hasPrefix("MPSP") }, "podcast search: \(shows.prefix(3).map(\.title))")
+    let found = try await tube.searchEpisodes("history")
+    expect(found.count >= 3 && found.allSatisfy { !$0.videoId.isEmpty && !$0.showTitle.isEmpty },
+           "episode search: \(found.prefix(2).map { "\($0.title) (\($0.showTitle), \($0.date ?? "no date"))" })")
+    let mixed = try await tube.searchCatalog("history podcast")
+    expect(mixed.podcasts.contains { $0.kind == .podcast }, "the main search lists podcasts: \(mixed.podcasts.prefix(2).map(\.title))")
+    if let show = suggested.first ?? shows.first {
+        let page = try await tube.podcast(show.id)
+        expect(page.episodes.count >= 5 && page.episodes.allSatisfy { $0.showID == show.id },
+               "\(page.show.title) by \(page.show.author): \(page.episodes.count) episodes, the first \(page.episodes.first?.title ?? "none") (\(page.episodes.first?.date ?? "no date"))")
+        expect(page.show.artworkURL != nil && page.about?.isEmpty == false, "the show's cover and description")
+        if let continuation = page.continuation {
+            let more = try await tube.moreEpisodes(of: page.show, continuation: continuation)
+            let known = Set(page.episodes.map(\.videoId))
+            expect(more.episodes.count >= 5 && !more.episodes.contains { known.contains($0.videoId) },
+                   "older episodes: \(more.episodes.count)")
+        } else {
+            expect(page.episodes.count < 20, "a full first page goes on")
+        }
+        if let episode = page.episodes.first(where: { $0.listedLength != nil }) {
+            let exact = try await tube.episodeLength(episode.videoId)
+            let listed = episode.listedLength ?? 0
+            expect(exact.map { abs($0 - listed) <= 90 } == true,
+                   "exact length \(exact.map { String(Int($0)) } ?? "none") s, listed \(Int(listed)) s")
         }
     }
 

@@ -17,6 +17,11 @@ final class Scrobbler {
         Task { await LastFM.shared.updateNowPlaying(track) }
     }
 
+    /// Something not to scrobble plays now (a podcast episode): the song before it counts no further.
+    func stop() {
+        track = nil
+    }
+
     func addListeningTime(_ seconds: TimeInterval, trackLength: TimeInterval) {
         guard let track, !submitted else { return }
         listened += seconds

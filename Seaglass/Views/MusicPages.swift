@@ -37,6 +37,7 @@ struct MusicPageView: View {
         case .artist(let id, let name): ArtistView(id: id, name: name)
         case .album(let id): AlbumView(id: id)
         case .playlist(let id, let title): RemotePlaylistView(id: id, title: title)
+        case .podcast(let id): PodcastShowView(id: id)
         case .song(let track): SongInfoView(track: track)
         }
     }

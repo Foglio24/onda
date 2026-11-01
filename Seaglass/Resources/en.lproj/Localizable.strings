@@ -664,3 +664,37 @@
 "Scegli un'alternativa" = "Choose an alternative";
 "Brano già presente" = "Song already present";
 "Questo brano è già nella playlist. Puoi scegliere un'altra versione oppure ignorare la voce nel riepilogo." = "This song is already in the playlist. You can choose another version or ignore the entry in the summary.";
+
+/* Podcasts */
+"Podcast" = "Podcasts";
+"Podcast e puntate" = "Podcasts and episodes";
+"Continua ad ascoltare" = "Continue listening";
+"Seguiti" = "Following";
+"Per argomento" = "By topic";
+"Puntate" = "Episodes";
+"Attualità" = "News";
+"Storia" = "History";
+"Scienza" = "Science";
+"Comicità" = "Comedy";
+"True crime" = "True crime";
+"Tecnologia" = "Technology";
+"Sport" = "Sports";
+"Economia" = "Business";
+"Cultura" = "Culture";
+"Salute" = "Health";
+"Podcast non disponibile" = "Podcast unavailable";
+"Continua" = "Resume";
+"Ultima puntata" = "Latest episode";
+"Seguito" = "Following";
+"Segui" = "Follow";
+"Mostra tutto" = "More";
+"Mostra meno" = "Less";
+"Riprodotta" = "Played";
+"Mancano %@" = "%@ left";
+"Segna come riprodotta" = "Mark as played";
+"Segna come non riprodotta" = "Mark as unplayed";
+"Vai al podcast" = "Go to podcast";
+"Capitoli" = "Chapters";
+"Nessuna nota" = "No notes";
+"Questa puntata non ha capitoli né descrizione." = "This episode has no chapters or description.";
+"Velocità" = "Speed";

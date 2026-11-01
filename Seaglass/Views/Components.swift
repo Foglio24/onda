@@ -373,6 +373,15 @@ struct TrackMenu: View {
     private var router: AppRouter { .shared }
 
     var body: some View {
+        // An episode (in the queue, the downloads) has the episodes' menu.
+        if track.isPodcastEpisode, let episode = PodcastLibrary.shared.episode(track.videoId) ?? PodcastEpisode(track) {
+            EpisodeMenu(episode: episode)
+        } else {
+            songMenu
+        }
+    }
+
+    @ViewBuilder private var songMenu: some View {
         if !inPlayer {
             Button { player.playNext(track) } label: {
                 Label("Riproduci dopo", systemImage: "text.line.first.and.arrowtriangle.forward")

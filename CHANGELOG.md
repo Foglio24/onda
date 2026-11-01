@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.22.0 (2026-11-01)
+
+### Added
+- **Podcasts**, from YouTube Music's catalogue, in Library → Podcast:
+  - **Continue listening**: the episodes you've started, with how much is left. Each episode starts again from where you stopped (a few seconds earlier), and one you finish is marked as played.
+  - **Following**: follow a show from its page; the shows you follow are kept on the iPhone, no account needed.
+  - YouTube Music's suggestions, shows **by topic**, and a search for shows and single episodes. Podcasts also appear in the main search, after albums.
+  - A show's page lists its episodes, newest first, loading older ones as you scroll; a show's description, "Resume" or "Latest episode", and "Follow".
+- **In the player, for an episode**: back 15 seconds and forward 30 seconds (also on the Lock Screen), a speed from 0.5× to 2× (kept between episodes; songs always play at 1×), and, in place of the lyrics, the episode's **chapters** (from the timestamps in its description; tap one to jump there) and its description with working links.
+- Episodes can be queued, downloaded, shared and marked as played or unplayed from their menu.
+
+### Changed
+- Episodes stay out of AutoMix, crossfades, karaoke, Last.fm scrobbling, the listening history and the recommendations, and no radio of songs starts after an episode ends. The exact length of an episode is fetched when it starts (the lists round it to the minute).
+
 ## 1.21.1 (2026-10-31)
 
 ### Changed

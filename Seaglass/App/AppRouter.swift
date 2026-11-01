@@ -7,6 +7,8 @@ enum MusicPage: Identifiable, Hashable {
     case artist(id: String?, name: String)
     case album(id: String)
     case playlist(id: String, title: String)
+    /// A podcast's page ("MPSP…").
+    case podcast(id: String)
     /// "Informazioni sul brano": a song's release date, label, credits and so on.
     case song(Track)
 
@@ -15,6 +17,7 @@ enum MusicPage: Identifiable, Hashable {
         case .artist: self = .artist(id: item.id, name: item.title)
         case .album: self = .album(id: item.id)
         case .playlist: self = .playlist(id: item.id, title: item.title)
+        case .podcast: self = .podcast(id: item.id)
         case .song: return nil
         }
     }
@@ -24,6 +27,7 @@ enum MusicPage: Identifiable, Hashable {
         case .artist(let id, let name): return "artist-\(id ?? name)"
         case .album(let id): return "album-\(id)"
         case .playlist(let id, _): return "playlist-\(id)"
+        case .podcast(let id): return "podcast-\(id)"
         case .song(let track): return "song-\(track.id)"
         }
     }

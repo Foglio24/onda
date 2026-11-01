@@ -38,6 +38,7 @@ An independent music player for iPhone, with AutoMix, playlists and synced lyric
 - Import playlists from Spotify, Apple Music and YouTube links. If a song cannot be matched, review the import report and choose a suggested alternative.
 - Public Spotify links may expose only the first 100 songs. For longer playlists, import a Spotify JSON or CSV file from **Library → Import playlist from file**.
 - Discover radio stations and personalised mixes; connect Last.fm for scrobbling and more features based on your listening.
+- **Podcasts** from YouTube Music: follow shows, pick up each episode where you left it, change the speed, skip 15/30 seconds and jump between chapters.
 
 ### Follow along and sing
 
