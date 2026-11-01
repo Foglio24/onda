@@ -38,7 +38,14 @@ struct PodcastsView: View {
         .searchable(text: $query, prompt: Text("Podcast e puntate"))
         .task {
             guard shelves.isEmpty else { return }
-            shelves = (try? await InnerTube.shared.podcastShelves()) ?? []
+            var found = (try? await InnerTube.shared.podcastShelves()) ?? []
+            // The Home's suggestions don't always come (they depend on the place and the visitor):
+            // then YouTube Music's podcasts for "podcast".
+            if found.isEmpty, let shows = try? await InnerTube.shared.searchPodcasts(String(localized: "podcast")),
+               !shows.isEmpty {
+                found = [PodcastShelf(title: String(localized: "In evidenza"), shows: shows)]
+            }
+            shelves = found
         }
         .task(id: query) { await search() }
         .task(id: topic) {
