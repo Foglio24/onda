@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.22.1 (2026-11-01)
+
+### Changed
+- A redesigned musical-note app icon and matching GitHub and AltStore artwork.
+
 ## 1.22.0 (2026-11-01)
 
 ### Added
