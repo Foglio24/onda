@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.22.2 (2026-11-01)
+
+### Fixed
+- **The app icon showed only its top half.** The icon file of 1.22.1 (and the disc of 1.21.1) was damaged when it was saved: past its first 448 rows a block of the image was missing, so iOS, AltStore and GitHub drew the top of the note and nothing below. The icon is rebuilt whole from the same artwork (the note of the README's banner, placed and lit as in the original), and every build now checks that the repository's images are intact.
+
 ## 1.22.1 (2026-11-01)
 
 ### Changed

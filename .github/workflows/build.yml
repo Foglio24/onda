@@ -24,6 +24,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # A damaged image (1.21.1's and 1.22.1's app icons were) fails the build before anything else.
+      - name: Check images
+        run: python3 Tools/check_images.py
+
       - name: List installed Xcodes
         run: ls -d /Applications/Xcode* || true
 
