@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct HomeView: View {
+    /// Regular on an iPad: more tiles to a row.
+    @Environment(\.horizontalSizeClass) private var sizeClass
     /// Which song plays, not the whole player: the Home doesn't redraw for every player change.
     @EnvironmentObject private var nowPlaying: NowPlayingState
     private var player: PlayerController { .shared }
@@ -118,7 +120,7 @@ struct HomeView: View {
 
     private func shortcutsSection(_ shortcuts: [HomeShortcut]) -> some View {
         section("Accesso rapido") {
-            tileGrid(shortcuts, columns: 2) { shortcutTile($0) }
+            tileGrid(shortcuts, columns: sizeClass == .regular ? 3 : 2) { shortcutTile($0) }
                 .padding(.horizontal)
         }
     }
@@ -221,7 +223,7 @@ struct HomeView: View {
 
     private var moodsSection: some View {
         section("Mood") {
-            tileGrid(orderedMoods, columns: 3) { mood in
+            tileGrid(orderedMoods, columns: sizeClass == .regular ? 4 : 3) { mood in
                 Button { playMood(mood) } label: {
                     VStack(alignment: .leading, spacing: 8) {
                         if busyItem == mood.id {

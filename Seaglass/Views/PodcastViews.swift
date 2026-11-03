@@ -256,6 +256,7 @@ struct PodcastShowView: View {
             }
         }
         .padding()
+        .readableWidth()
     }
 
     private func header(_ page: PodcastShowPage) -> some View {

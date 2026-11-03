@@ -629,3 +629,34 @@ extension View {
         modifier(TrackToasts(presenter: presenter))
     }
 }
+
+/// Shortcuts for an iPad's keyboard: ⌘→ and ⌘← skip, and in the player the space bar plays or
+/// pauses (not elsewhere, where it types in the search field). Invisible buttons: holding ⌘ lists them.
+struct PlayerKeyboardShortcuts: View {
+    var includesSpace = false
+    private var player: PlayerController { .shared }
+
+    var body: some View {
+        ZStack {
+            if includesSpace {
+                Button("Riproduci o metti in pausa") { player.togglePlayPause() }
+                    .keyboardShortcut(.space, modifiers: [])
+            }
+            Button("Brano successivo") { player.next() }
+                .keyboardShortcut(.rightArrow, modifiers: .command)
+            Button("Brano precedente") { player.previous() }
+                .keyboardShortcut(.leftArrow, modifiers: .command)
+        }
+        .opacity(0)
+        .frame(width: 0, height: 0)
+        .accessibilityHidden(true)
+    }
+}
+
+extension View {
+    /// A page's column at a readable width, centred: on an iPad, rather than across the whole
+    /// screen (an iPhone is narrower anyway).
+    func readableWidth(_ width: CGFloat = 820) -> some View {
+        frame(maxWidth: width).frame(maxWidth: .infinity)
+    }
+}

@@ -20,43 +20,17 @@ struct NowPlayingView: View {
     @State private var showEqualizer = false
 
     var body: some View {
-        VStack(spacing: 16) {
-            // Dragging down here closes the player, like the Music app, and dragging up opens the
-            // song's details. With the lyrics or the queue open only the header does, so their
-            // lists keep scrolling normally.
-            VStack(spacing: 16) {
-                topBar
-                if panel == .artwork {
-                    Spacer(minLength: 0)
-                    artwork
-                    Spacer(minLength: 0)
-                    titleRow
-                } else {
-                    compactHeader
-                }
+        GeometryReader { geometry in
+            // An iPad in landscape (or a wide window): the lyrics or the queue open beside the
+            // player instead of in the cover's place.
+            if geometry.size.width >= 900, geometry.size.width > geometry.size.height, panel != .artwork {
+                wideLayout(width: geometry.size.width)
+            } else {
+                stackedLayout
+                    // On an iPad the player keeps an iPhone's proportions, centred.
+                    .frame(maxWidth: 620)
+                    .frame(maxWidth: .infinity)
             }
-            .contentShape(.rect)
-            .simultaneousGesture(dismissDrag)
-            if panel != .artwork {
-                Group {
-                    if panel == .lyrics {
-                        if isEpisode { EpisodeNotesView() } else { LyricsView() }
-                    } else {
-                        QueueView()
-                    }
-                }
-                .frame(maxHeight: .infinity)
-            }
-            if let message = player.errorMessage {
-                Label(message, systemImage: "exclamationmark.triangle.fill")
-                    .font(.footnote)
-                    .foregroundStyle(Color.white.opacity(0.85))
-                    .lineLimit(2)
-            }
-            PlayerScrubber()
-            badges
-            controls
-            bottomBar
         }
         .padding(.horizontal, 24)
         .padding(.bottom, 8)
@@ -82,6 +56,87 @@ struct NowPlayingView: View {
         }
         .downloadErrorAlert(isActive: router.showPlayer)
         .trackToasts(.player)
+        .background { PlayerKeyboardShortcuts(includesSpace: true) }
+        .onAppear {
+            // The CI screenshots can open a panel (see `LaunchScene`).
+            if let open = LaunchScene.playerPanel { panel = open == "queue" ? .queue : .lyrics }
+        }
+    }
+
+    /// The player as on an iPhone: the cover (or, with them open, the lyrics or the queue) above
+    /// the controls.
+    private var stackedLayout: some View {
+        VStack(spacing: 16) {
+            // Dragging down here closes the player, like the Music app, and dragging up opens the
+            // song's details. With the lyrics or the queue open only the header does, so their
+            // lists keep scrolling normally.
+            VStack(spacing: 16) {
+                topBar
+                if panel == .artwork {
+                    Spacer(minLength: 0)
+                    artwork
+                    Spacer(minLength: 0)
+                    titleRow
+                } else {
+                    compactHeader
+                }
+            }
+            .contentShape(.rect)
+            .simultaneousGesture(dismissDrag)
+            if panel != .artwork {
+                panelContent
+                    .frame(maxHeight: .infinity)
+            }
+            errorLabel
+            PlayerScrubber()
+            badges
+            controls
+            bottomBar
+        }
+    }
+
+    /// The cover and the controls in a column, the lyrics or the queue beside them.
+    private func wideLayout(width: CGFloat) -> some View {
+        HStack(spacing: 48) {
+            VStack(spacing: 16) {
+                VStack(spacing: 16) {
+                    topBar
+                    Spacer(minLength: 0)
+                    artwork
+                    Spacer(minLength: 0)
+                    titleRow
+                }
+                .contentShape(.rect)
+                .simultaneousGesture(dismissDrag)
+                errorLabel
+                PlayerScrubber()
+                badges
+                controls
+                bottomBar
+            }
+            .frame(width: min(520, width * 0.42))
+            panelContent
+                .padding(.top, 60)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+
+    /// The lyrics (an episode's chapters and notes) or the queue.
+    @ViewBuilder private var panelContent: some View {
+        if panel == .lyrics {
+            if isEpisode { EpisodeNotesView() } else { LyricsView() }
+        } else {
+            QueueView()
+        }
+    }
+
+    @ViewBuilder private var errorLabel: some View {
+        if let message = player.errorMessage {
+            Label(message, systemImage: "exclamationmark.triangle.fill")
+                .font(.footnote)
+                .foregroundStyle(Color.white.opacity(0.85))
+                .lineLimit(2)
+        }
     }
 
     /// A drag mostly downwards shrinks the player card towards the mini player as the finger

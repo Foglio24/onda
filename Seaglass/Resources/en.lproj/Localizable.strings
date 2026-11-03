@@ -700,3 +700,8 @@
 "Velocità" = "Speed";
 "podcast" = "podcast";
 "In evidenza" = "Featured";
+
+/* Keyboard shortcuts (iPad) */
+"Riproduci o metti in pausa" = "Play or pause";
+"Brano successivo" = "Next song";
+"Brano precedente" = "Previous song";

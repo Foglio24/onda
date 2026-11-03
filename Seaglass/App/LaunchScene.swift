@@ -33,8 +33,21 @@ enum LaunchScene {
         return CGFloat(max(0, min(1, value)))
     }
 
+    /// `-SeaglassPanel queue | lyrics`: the player opens with that panel (the iPad's two columns).
+    static var playerPanel: String? {
+        scene == nil ? nil : UserDefaults.standard.string(forKey: "SeaglassPanel")
+    }
+
+    /// `-SeaglassOrientation landscape`: an iPad turns to landscape, for its screenshots.
+    private static func applyOrientation() {
+        guard UserDefaults.standard.string(forKey: "SeaglassOrientation") == "landscape",
+              let window = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first else { return }
+        window.requestGeometryUpdate(.iOS(interfaceOrientations: .landscapeRight)) { _ in }
+    }
+
     static func apply(select: (AppTab) -> Void) {
         guard let scene = Self.scene else { return }
+        applyOrientation()
         let parts = scene.split(separator: ":", maxSplits: 1).map(String.init)
         let value = parts.count > 1 ? parts[1] : ""
         let router = AppRouter.shared

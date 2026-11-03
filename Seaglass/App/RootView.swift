@@ -25,6 +25,8 @@ struct RootView: View {
                 SearchView()
             }
         }
+        // On an iPad: tabs at the top that can become a sidebar, as in the Music app.
+        .tabViewStyle(.sidebarAdaptable)
         .tabBarMinimizeBehavior(.onScrollDown)
         .tabViewBottomAccessory {
             MiniPlayer { router.openPlayer() }
@@ -53,6 +55,7 @@ struct RootView: View {
         }
         .trackToasts(.root)
         .task { LaunchScene.apply(select: { selection = $0 }) }
+        .background { PlayerKeyboardShortcuts() }
         // Outermost, so the player and sheets presented above inherit it too.
         .tint(accent.color)
         .downloadErrorAlert(isActive: !router.showPlayer)

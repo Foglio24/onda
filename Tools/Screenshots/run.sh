@@ -1,20 +1,26 @@
 #!/usr/bin/env bash
 # Opens Seaglass on an iPhone simulator at each main screen (see Seaglass/App/LaunchScene.swift) and saves
 # a screenshot of each, so the UI can be checked without a device. In English (the README shows
-# them), with two in Italian.
-# Usage: bash Tools/Screenshots/run.sh <Seaglass.app built for the simulator> <output folder>
+# them), with two in Italian. With "ipad", a 13-inch iPad Pro instead, in portrait and landscape.
+# Usage: bash Tools/Screenshots/run.sh <Seaglass.app built for the simulator> <output folder> [iphone|ipad]
 set -uo pipefail
 app="$1"
 out="$2"
+kind="${3:-iphone}"
 mkdir -p "$out"
 
-device=$(xcrun simctl list devices available -j | python3 -c '
-import json, sys
+device=$(xcrun simctl list devices available -j | KIND="$kind" python3 -c '
+import json, os, sys
 devices = json.load(sys.stdin)["devices"]
-phones = [d for runtime, list_ in sorted(devices.items()) if "iOS" in runtime for d in list_
-          if d["name"].startswith("iPhone")]
-pro = [d for d in phones if "Pro" in d["name"] and "Max" not in d["name"]]
-print((pro or phones)[-1]["udid"])')
+every = [d for runtime, list_ in sorted(devices.items()) if "iOS" in runtime for d in list_]
+if os.environ["KIND"] == "ipad":
+    pads = [d for d in every if d["name"].startswith("iPad")]
+    big = [d for d in pads if "Pro" in d["name"] and "13" in d["name"]]
+    print((big or pads)[-1]["udid"])
+else:
+    phones = [d for d in every if d["name"].startswith("iPhone")]
+    pro = [d for d in phones if "Pro" in d["name"] and "Max" not in d["name"]]
+    print((pro or phones)[-1]["udid"])')
 echo "Simulator: $device"
 xcrun simctl boot "$device" 2>/dev/null || true
 xcrun simctl bootstatus "$device" -b >/dev/null
@@ -23,13 +29,30 @@ xcrun simctl status_bar "$device" override --time 9:41 --batteryState charged --
   --cellularBars 4 --wifiBars 3 2>/dev/null || true
 xcrun simctl install "$device" "$app"
 
-# shot <file name> <language> <seconds to wait> <scene>
+# shot <file name> <language> <seconds to wait> <scene> [more launch arguments]
 shot() {
+  local name="$1" language="$2" wait="$3" scene="$4"
+  shift 4
   xcrun simctl launch --terminate-running-process "$device" com.onda.player \
-    -AppleLanguages "($2)" -SeaglassScene "$4" >/dev/null
-  sleep "$3"
-  xcrun simctl io "$device" screenshot "$out/$1.png" >/dev/null && echo "Saved $1"
+    -AppleLanguages "($language)" -SeaglassScene "$scene" "$@" >/dev/null
+  sleep "$wait"
+  xcrun simctl io "$device" screenshot "$out/$name.png" >/dev/null && echo "Saved $name"
 }
+
+if [ "$kind" = "ipad" ]; then
+  shot ipad-1-home en 14 home
+  shot ipad-2-search en 12 "search:daft punk"
+  shot ipad-3-album en 8 "album:MPREb_ePmUY37w4pZ"
+  shot ipad-4-library en 5 library
+  shot ipad-5-player en 15 "player:K0HSD_i2DvA"
+  shot ipad-6-home-landscape en 14 home -SeaglassOrientation landscape
+  shot ipad-7-player-landscape en 15 "player:K0HSD_i2DvA" -SeaglassOrientation landscape
+  shot ipad-8-player-queue-landscape en 15 "player:K0HSD_i2DvA" -SeaglassOrientation landscape -SeaglassPanel queue
+  shot ipad-9-artist-landscape en 10 "artist:UCRr1xG_2WIDs18a6cIiCxeA" -SeaglassOrientation landscape
+  shot ipad-10-settings-landscape en 5 settings -SeaglassOrientation landscape
+  xcrun simctl shutdown "$device" || true
+  exit 0
+fi
 
 shot 1-home en 14 home
 shot 2-search en 12 "search:daft punk"

@@ -351,6 +351,7 @@ struct AlbumView: View {
             }
         }
         .padding()
+        .readableWidth()
     }
 }
 
@@ -416,5 +417,6 @@ struct RemotePlaylistView: View {
             }
         }
         .padding()
+        .readableWidth()
     }
 }
