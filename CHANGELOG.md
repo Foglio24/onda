@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.23.1 (2026-11-03)
+
+### Changed
+- **ProMotion on iPhone.** On iPhones with a 120 Hz display, the app's own animations (the player card opening and closing, the lyrics and queue panels, the other transitions) can now run at up to 120 Hz, not only scrolling. An iPad Pro already used it. The display still slows down when nothing moves.
+
 ## 1.23.0 (2026-11-03)
 
 ### Added
