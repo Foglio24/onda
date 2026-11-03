@@ -5,7 +5,7 @@
 <h1 align="center">Seaglass <sub>formerly Onda</sub></h1>
 
 <p align="center"><strong>Your music, your rhythm.</strong><br>
-An independent music player for iPhone, with AutoMix, playlists and synced lyrics.</p>
+An independent music player for iPhone and iPad, with AutoMix, playlists and synced lyrics.</p>
 
 <p align="center">
   <a href="https://github.com/Foglio24/onda/releases/latest/download/Seaglass.ipa"><img src="https://img.shields.io/badge/DOWNLOAD-Seaglass.ipa-EC3F8E?style=for-the-badge&amp;logo=apple&amp;logoColor=white" alt="Download Seaglass.ipa"></a>
@@ -22,7 +22,7 @@ An independent music player for iPhone, with AutoMix, playlists and synced lyric
 
 ## Discover Seaglass
 
-**Seaglass**, formerly known as Onda, is a music app for iPhone that uses the YouTube Music catalogue. It brings together background playback, a personal library and tools for transitioning between songs: an independent alternative for listeners who want a customisable experience.
+**Seaglass**, formerly known as Onda, is a music app for iPhone and iPad that uses the YouTube Music catalogue. It brings together background playback, a personal library and tools for transitioning between songs: an independent alternative for listeners who want a customisable experience.
 
 ### Your music, in motion
 
@@ -44,7 +44,7 @@ An independent music player for iPhone, with AutoMix, playlists and synced lyric
 
 - **Synced lyrics** from LRCLIB, with automatic scrolling and tap-to-seek.
 - **Lyrics translation** using Apple's tools when the language is available on your device.
-- **AI karaoke** to adjust vocals and accompaniment. Processing takes place on your iPhone and may take time.
+- **AI karaoke** to adjust vocals and accompaniment. Processing takes place on your device and may take time.
 - Controls on the Lock Screen, in Control Center and through AirPlay; interface available in English and Italian.
 
 ## Screenshots
@@ -68,7 +68,7 @@ An independent music player for iPhone, with AutoMix, playlists and synced lyric
 
 ## Installation
 
-**Requirements:** an iPhone running iOS 26 or later. The IPA is **unsigned**: you need to sign and install it with a sideloading tool such as Sideloadly, AltStore Classic or SideStore.
+**Requirements:** an iPhone running iOS 26 or later, or an iPad running iPadOS 26 or later (the same IPA installs on both). The IPA is **unsigned**: you need to sign and install it with a sideloading tool such as Sideloadly, AltStore Classic or SideStore.
 
 1. [Download the latest Seaglass.ipa](https://github.com/Foglio24/onda/releases/latest/download/Seaglass.ipa).
 2. Open the file in your chosen sideloading tool and follow its instructions to sign and install it.
@@ -105,7 +105,7 @@ Some recordings may not be found or matched with sufficient confidence. Open the
 It adds downloads of `Onda.ipa` and `Seaglass.ipa` from published GitHub releases. It refreshes periodically and does not represent the number of users or installations.
 
 **How can I report a problem?**  
-Open a [GitHub issue](https://github.com/Foglio24/onda/issues), including your app version, iPhone model and steps to reproduce the problem. When helpful, you can share a report from **Settings → Diagnostics**.
+Open a [GitHub issue](https://github.com/Foglio24/onda/issues), including your app version, iPhone or iPad model and steps to reproduce the problem. When helpful, you can share a report from **Settings → Diagnostics**.
 
 ## Project details
 

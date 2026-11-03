@@ -248,7 +248,7 @@ jobs:
           path: screenshots
           retention-days: 14
 
-      # The same app on a 13-inch iPad Pro, in portrait and landscape.
+      # The same app on a 13-inch iPad Pro (its player also laid out as in landscape).
       - name: Take iPad screenshots
         if: ${{ !startsWith(github.ref, 'refs/tags/') }}
         continue-on-error: true

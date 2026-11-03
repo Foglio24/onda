@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.23.0 (2026-11-03)
+
+### Added
+- **Seaglass on iPad.** The app is now universal: the same IPA installs on iPhone and iPad (iPadOS 26 or later), as the same app with its own library on each device. On an iPad it turns to every orientation and opens in resizable windows.
+  - Tabs at the top that can become a sidebar, as in the Music app.
+  - The player keeps an iPhone's proportions, centred; in landscape, the lyrics (or an episode's chapters) and the queue open beside the cover instead of in its place.
+  - Home shows three shortcuts and four moods to a row; album, playlist and podcast pages keep a readable width.
+  - With a keyboard: ⌘→ and ⌘← skip songs, and in the player the space bar plays or pauses.
+
+### For development
+- CI also takes screenshots on a 13-inch iPad Pro, in portrait and landscape.
+
 ## 1.22.2 (2026-11-01)
 
 ### Fixed

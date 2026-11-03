@@ -16,6 +16,8 @@ struct MusicPageSheet: View {
                 }
         }
         .presentationDetents(detents)
+        // On an iPad a page opens as a large sheet, not a small window in the middle.
+        .pageSized(!isSongDetails)
         .sheet(item: router.addToPlaylistBinding(for: .page)) { track in
             AddToPlaylistSheet(track: track)
         }
@@ -24,8 +26,19 @@ struct MusicPageSheet: View {
 
     /// A song's details start at half height, like a card pulled up from the player.
     private var detents: Set<PresentationDetent> {
-        if case .song = page { return [.medium, .large] }
-        return [.large]
+        isSongDetails ? [.medium, .large] : [.large]
+    }
+
+    private var isSongDetails: Bool {
+        if case .song = page { return true }
+        return false
+    }
+}
+
+private extension View {
+    /// The page sheet's size (an iPhone's sheets fill the screen anyway).
+    @ViewBuilder func pageSized(_ enabled: Bool) -> some View {
+        if enabled { presentationSizing(.page) } else { self }
     }
 }
 

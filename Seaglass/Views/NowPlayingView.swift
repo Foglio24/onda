@@ -21,16 +21,12 @@ struct NowPlayingView: View {
 
     var body: some View {
         GeometryReader { geometry in
-            // An iPad in landscape (or a wide window): the lyrics or the queue open beside the
-            // player instead of in the cover's place.
-            if geometry.size.width >= 900, geometry.size.width > geometry.size.height, panel != .artwork {
-                wideLayout(width: geometry.size.width)
-            } else {
-                stackedLayout
-                    // On an iPad the player keeps an iPhone's proportions, centred.
-                    .frame(maxWidth: 620)
-                    .frame(maxWidth: .infinity)
-            }
+            let size = LaunchScene.previewsLandscape
+                ? CGSize(width: max(geometry.size.width, geometry.size.height), height: min(geometry.size.width, geometry.size.height))
+                : geometry.size
+            layout(for: size)
+                .frame(width: size.width, height: size.height)
+                .scaleEffect(min(1, geometry.size.width / max(size.width, 1)), anchor: .topLeading)
         }
         .padding(.horizontal, 24)
         .padding(.bottom, 8)
@@ -60,6 +56,19 @@ struct NowPlayingView: View {
         .onAppear {
             // The CI screenshots can open a panel (see `LaunchScene`).
             if let open = LaunchScene.playerPanel { panel = open == "queue" ? .queue : .lyrics }
+        }
+    }
+
+    /// An iPad in landscape (or a wide window): the lyrics or the queue open beside the player
+    /// instead of in the cover's place.
+    @ViewBuilder private func layout(for size: CGSize) -> some View {
+        if size.width >= 900, size.width > size.height, panel != .artwork {
+            wideLayout(width: size.width)
+        } else {
+            stackedLayout
+                // On an iPad the player keeps an iPhone's proportions, centred.
+                .frame(maxWidth: 620)
+                .frame(maxWidth: .infinity)
         }
     }
 

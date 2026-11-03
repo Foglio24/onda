@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Opens Seaglass on an iPhone simulator at each main screen (see Seaglass/App/LaunchScene.swift) and saves
 # a screenshot of each, so the UI can be checked without a device. In English (the README shows
-# them), with two in Italian. With "ipad", a 13-inch iPad Pro instead, in portrait and landscape.
+# them), with two in Italian. With "ipad", a 13-inch iPad Pro instead (its player also as in landscape).
 # Usage: bash Tools/Screenshots/run.sh <Seaglass.app built for the simulator> <output folder> [iphone|ipad]
 set -uo pipefail
 app="$1"
@@ -45,11 +45,11 @@ if [ "$kind" = "ipad" ]; then
   shot ipad-3-album en 8 "album:MPREb_ePmUY37w4pZ"
   shot ipad-4-library en 5 library
   shot ipad-5-player en 15 "player:K0HSD_i2DvA"
-  shot ipad-6-home-landscape en 14 home -SeaglassOrientation landscape
-  shot ipad-7-player-landscape en 15 "player:K0HSD_i2DvA" -SeaglassOrientation landscape
-  shot ipad-8-player-queue-landscape en 15 "player:K0HSD_i2DvA" -SeaglassOrientation landscape -SeaglassPanel queue
-  shot ipad-9-artist-landscape en 10 "artist:UCRr1xG_2WIDs18a6cIiCxeA" -SeaglassOrientation landscape
-  shot ipad-10-settings-landscape en 5 settings -SeaglassOrientation landscape
+  shot ipad-6-artist en 10 "artist:UCRr1xG_2WIDs18a6cIiCxeA"
+  shot ipad-7-settings en 5 settings
+  # The player as in landscape, scaled into the portrait screen (see LaunchScene.previewsLandscape).
+  shot ipad-8-player-landscape en 15 "player:K0HSD_i2DvA" -SeaglassOrientation landscape
+  shot ipad-9-player-queue-landscape en 15 "player:K0HSD_i2DvA" -SeaglassOrientation landscape -SeaglassPanel queue
   xcrun simctl shutdown "$device" || true
   exit 0
 fi
