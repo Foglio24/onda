@@ -85,6 +85,12 @@ shot 17-mix en 25 mix
 shot 18-mix-options en 25 "mix:options"
 shot 19-mix-edit en 25 "mix:edit"
 
+# The other languages: Arabic (right to left), Japanese and German (long words).
+shot 20-home-arabic ar 10 home
+shot 21-player-arabic ar 12 "player:K0HSD_i2DvA"
+shot 22-settings-japanese ja 5 settings
+shot 23-settings-german de 5 settings
+
 # A system banner ("Ready for Apple Intelligence") can come down over the first ones, a minute or
 # so after the simulator starts: these are taken again, long after. (Not Home: by now it shows the
 # Mix demo's playlists.)

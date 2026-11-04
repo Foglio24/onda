@@ -29,6 +29,9 @@ struct PlayerCard: View {
     /// The card spans the whole screen, status bar included, so it can shrink as one piece; the
     /// player inside gets the screen's safe area back from these.
     @State private var insets = PlayerCard.windowInsets
+    /// The card is placed in screen coordinates, left to right; the player in it keeps the app's
+    /// direction (right to left in Arabic).
+    @Environment(\.layoutDirection) private var layoutDirection
 
     var body: some View {
         GeometryReader { geometry in
@@ -39,6 +42,7 @@ struct PlayerCard: View {
                 Color.black.opacity(0.3 * progress)
                     .allowsHitTesting(false)
                 NowPlayingView()
+                    .environment(\.layoutDirection, layoutDirection)
                     .safeAreaPadding(insets)
                     .frame(width: screen.width, height: screen.height)
                     // Fades out as the card nears the mini player, so it lands as a plain card.
@@ -51,6 +55,7 @@ struct PlayerCard: View {
                     .allowsHitTesting(!closing)
             }
         }
+        .environment(\.layoutDirection, .leftToRight)
         .ignoresSafeArea()
         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { screenHeight = $0 }
         .environment(\.playerCard, PlayerCardActions(drag: follow, release: release, close: close))

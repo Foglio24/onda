@@ -25,6 +25,8 @@ struct EqualizerView: View {
                 EqualizerCurve(gains: equalizer.gains, isOn: equalizer.isOn) { band, gain in
                     equalizer.setGain(gain, band: band)
                 }
+                // Frequencies go left to right, as on every equalizer, in every language.
+                .environment(\.layoutDirection, .leftToRight)
                 .frame(height: 230)
                 .listRowInsets(EdgeInsets(top: 12, leading: 8, bottom: 8, trailing: 8))
             } header: {

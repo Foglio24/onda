@@ -5,7 +5,8 @@ options:
   deploymentTarget:
     iOS: "26.0"
   createIntermediateGroups: true
-  # The code's text is Italian (it.lproj stays empty); English is in Seaglass/Resources/en.lproj.
+  # The code's text is Italian (it.lproj stays empty); English is in Seaglass/Resources/en.lproj, and
+  # French, Spanish, German, Portuguese, Chinese, Japanese, Russian, Turkish and Arabic beside it.
   # English is the fallback for iPhones in any other language.
   developmentLanguage: en
 
@@ -13,8 +14,8 @@ settings:
   base:
     SWIFT_VERSION: "5.0"
     SWIFT_STRICT_CONCURRENCY: minimal
-    MARKETING_VERSION: "1.23.1"
-    CURRENT_PROJECT_VERSION: "46"
+    MARKETING_VERSION: "1.24.0"
+    CURRENT_PROJECT_VERSION: "47"
     # Lists the localizable strings of each Swift file, for Tools/check_localization.py.
     SWIFT_EMIT_LOC_STRINGS: YES
 
@@ -46,6 +47,15 @@ targets:
         CFBundleLocalizations:
           - it
           - en
+          - fr
+          - es
+          - de
+          - pt
+          - zh-Hans
+          - ja
+          - ru
+          - tr
+          - ar
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         LSRequiresIPhoneOS: true

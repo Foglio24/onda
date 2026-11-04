@@ -281,6 +281,8 @@ struct TransitionEditorView: View {
             VStack(spacing: 16) {
                 header(from, analysis: analyses?.outgoing)
                 waveformBox
+                    // Time goes left to right, in every language.
+                    .environment(\.layoutDirection, .leftToRight)
                 if editing != nil { editBar }
                 header(to, analysis: analyses?.incoming)
                 if failed {

@@ -171,9 +171,16 @@ enum Preferences {
     }
     static let lyricsTranslationTarget = "lyrics.translationTarget"
 
-    /// The phone's language, used as the default translation target.
+    /// The phone's language, used as the default translation target (as `translationLanguages`
+    /// names it: Portuguese is Brazil's, Chinese simplified or traditional).
     static var defaultTranslationTarget: String {
-        Locale.current.language.languageCode?.identifier ?? "it"
+        let language = Locale.current.language
+        switch language.languageCode?.identifier {
+        case "pt": return "pt-BR"
+        case "zh": return language.script?.identifier == "Hant" ? "zh-Hant" : "zh-Hans"
+        case let code?: return code
+        case nil: return "it"
+        }
     }
 
     /// Languages Apple's on-device translation offers, as BCP-47 identifiers.

@@ -7,7 +7,8 @@ listing its localizable strings (Text("…"), Label("…"), String(localized: "�
 interpolations turned into format specifiers. The keys are the Italian text, so each one
 needs an English entry. The check fails when one is missing, when an English entry matches
 no key (a typo, or text changed in the code), when an entry's format specifiers differ from
-its key's, or when the app lacks its Italian or English strings.
+its key's, or when the app lacks its Italian or English strings. Every other language beside
+en.lproj needs exactly the English keys, with the same format specifiers.
 """
 
 import glob
@@ -81,6 +82,11 @@ def compiler_keys(derived_data):
     return keys
 
 
+def normalized(text):
+    """A text's format specifiers, numbered or not ("%2$@" counts as "%@"), in any order."""
+    return sorted(re.sub(r"%\d+\$", "%", specifier) for specifier in SPECIFIER.findall(text))
+
+
 def has_words(key):
     return any(c.isalpha() for c in SPECIFIER.sub("", key))
 
@@ -110,7 +116,35 @@ def main():
         if not os.path.exists(os.path.join(app, f"{language}.lproj", "Localizable.strings")):
             problems.append(f"The app has no {language}.lproj/Localizable.strings")
 
-    print(f"{len(keys)} localizable strings in the code, {len(english)} English entries.")
+    # Every other language: English's keys, no more, no fewer, with the same format specifiers
+    # (numbered ones allowed, for another word order), and in the app.
+    resources = os.path.dirname(os.path.dirname(english_path))
+    languages = sorted(os.path.basename(path)[:-len(".lproj")]
+                       for path in glob.glob(os.path.join(resources, "*.lproj"))
+                       if os.path.basename(path) not in ("it.lproj", "en.lproj"))
+    for language in languages:
+        path = os.path.join(resources, f"{language}.lproj", "Localizable.strings")
+        with open(path, encoding="utf-8") as handle:
+            translated = parse_strings(handle.read())
+        seen = {}
+        for key, value in translated:
+            if key in seen:
+                problems.append(f"Listed twice in {language}.lproj: {key!r}")
+            seen[key] = value
+            if key not in english:
+                problems.append(f"{language}: entry matches no English one: {key!r}")
+            elif normalized(english[key]) != normalized(value):
+                problems.append(f"{language}: format specifiers differ from English: {key!r} = {value!r}")
+            if not value.strip():
+                problems.append(f"{language}: empty: {key!r}")
+        for key in english:
+            if key not in seen:
+                problems.append(f"{language}: no translation for {key!r}")
+        if not os.path.exists(os.path.join(app, f"{language}.lproj", "Localizable.strings")):
+            problems.append(f"The app has no {language}.lproj/Localizable.strings")
+
+    print(f"{len(keys)} localizable strings in the code, {len(english)} English entries, "
+          f"translated into {', '.join(languages)}.")
     for problem in problems:
         print(f"::error::{problem}")
     sys.exit(1 if problems else 0)

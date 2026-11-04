@@ -407,8 +407,12 @@ struct NowPlayingView: View {
             .glassEffect(.regular, in: .capsule)
     }
 
-    @ViewBuilder private var controls: some View {
-        if isEpisode { episodeControls } else { songControls }
+    /// Left to right in every language, like the Music app's: back is on the left, forward on the right.
+    private var controls: some View {
+        Group {
+            if isEpisode { episodeControls } else { songControls }
+        }
+        .environment(\.layoutDirection, .leftToRight)
     }
 
     /// Previous, back 15 seconds, play, forward 30 seconds, next.
@@ -619,5 +623,7 @@ private struct PlayerScrubber: View {
             .font(.caption.monospacedDigit())
             .foregroundStyle(Color.white.opacity(0.6))
         }
+        // Time runs left to right in every language (Arabic included), like the Music app's.
+        .environment(\.layoutDirection, .leftToRight)
     }
 }

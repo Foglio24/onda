@@ -120,6 +120,7 @@ struct TrackRow: View {
     @EnvironmentObject private var nowPlaying: NowPlayingState
     @EnvironmentObject private var library: Library
     @EnvironmentObject private var downloads: DownloadManager
+    @Environment(\.layoutDirection) private var layoutDirection
     @State private var dragOffset: CGFloat = 0
     // Only for actions. Observing them would redraw every row on screen for each player change
     // (loading, karaoke progress, lyrics…); `NowPlayingState` says just which song plays.
@@ -157,8 +158,11 @@ struct TrackRow: View {
             row
                 .offset(x: dragOffset)
                 .background { dragHint }
-                .gesture(HorizontalPan { translation in
-                    // The row follows the finger, held back further out.
+                .gesture(HorizontalPan { screenTranslation in
+                    // The row follows the finger, held back further out. The gesture measures left to
+                    // right on screen; in Arabic the row's offset runs the other way, and so does
+                    // the swipe (towards the leading edge queues, as the list's swipe actions do).
+                    let translation = layoutDirection == .rightToLeft ? -screenTranslation : screenTranslation
                     let limited = queues ? translation : min(0, translation)
                     dragOffset = 110 * tanh(limited / 160)
                 } ended: { _ in

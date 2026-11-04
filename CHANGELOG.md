@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.24.0 (2026-11-04)
+
+### Added
+- **Nine more languages.** Seaglass is now also in French, Spanish, German, Portuguese, Chinese (Simplified), Japanese, Russian, Turkish and Arabic, besides English and Italian. It follows the device's language; Settings → Language changes it for Seaglass only. In Arabic the app reads right to left, while the player's timeline, its controls, the equalizer and the Mix editor keep running left to right, as in Apple's apps.
+
+### Changed
+- **Simpler Settings.** A short list of topics, each opening its own page: Audio, Playback, Lyrics, Appearance, Language, Last.fm, Storage, Updates and About. Each page keeps one line of explanation at most; the long notes are gone. The technical details (crash reports, start times, the last AutoMix choice, the karaoke model) moved to About → Diagnostics, and the saved karaoke tracks to Storage.
+- Lyrics translation defaults to the device's language for Portuguese and Chinese too.
+
+### For development
+- The localization check covers every language: each needs exactly the English keys, with the same format specifiers. CI also takes screenshots in Arabic, Japanese and German.
+
 ## 1.23.1 (2026-11-03)
 
 ### Changed

@@ -45,7 +45,7 @@ An independent music player for iPhone and iPad, with AutoMix, playlists and syn
 - **Synced lyrics** from LRCLIB, with automatic scrolling and tap-to-seek.
 - **Lyrics translation** using Apple's tools when the language is available on your device.
 - **AI karaoke** to adjust vocals and accompaniment. Processing takes place on your device and may take time.
-- Controls on the Lock Screen, in Control Center and through AirPlay; interface available in English and Italian.
+- Controls on the Lock Screen, in Control Center and through AirPlay. The interface is in English, Italian, French, Spanish, German, Portuguese, Chinese (Simplified), Japanese, Russian, Turkish and Arabic, following your device's language.
 
 ## Screenshots
 
