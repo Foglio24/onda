@@ -80,6 +80,11 @@ An independent music player for iPhone, iPad and <strong>now Android</strong>, w
     <td align="center"><img src="docs/screenshots/android/lyrics.jpg" width="200" alt="Lyrics with translation on Android"><br><sub>Lyrics and translation</sub></td>
     <td align="center"><img src="docs/screenshots/android/settings.jpg" width="200" alt="Audio settings on Android"><br><sub>Audio settings</sub></td>
   </tr>
+  <tr>
+    <td align="center"><img src="docs/screenshots/android/automix.jpg" width="200" alt="AutoMix in the playback settings on Android"><br><sub>AutoMix</sub></td>
+    <td align="center"><img src="docs/screenshots/android/equalizer.jpg" width="200" alt="Equaliser on the Rock preset on Android"><br><sub>Equaliser</sub></td>
+    <td></td>
+  </tr>
 </table>
 
 <sub>Screenshots taken on the Android emulator in CI, where the glass is drawn without a GPU.</sub>
