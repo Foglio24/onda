@@ -84,13 +84,15 @@ class PlaybackService : MediaSessionService() {
     private var retried: String? = null
     /** Songs that failed in a row: after a few, playback stops instead of running through the queue. */
     private var failures = 0
-    private var crossfader: Crossfader? = null
+    private var transitions: Transitions? = null
+    /** The main player's AutoMix filters (the next song's bass while the two play together). */
+    private val mainFilter = com.onda.seaglass.playback.automix.MixFilter()
     private var detachBitPerfect: () -> Unit = {}
 
     override fun onCreate() {
         super.onCreate()
         val resolving = audioDataSourceFactory()
-        val player = ExoPlayer.Builder(this)
+        val player = ExoPlayer.Builder(this, FilteredRenderers(this, mainFilter))
             .setMediaSourceFactory(DefaultMediaSourceFactory(resolving))
             .setAudioAttributes(
                 AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(),
@@ -100,7 +102,7 @@ class PlaybackService : MediaSessionService() {
             .setWakeMode(C.WAKE_MODE_NETWORK)
             .build()
         player.addListener(listener)
-        crossfader = Crossfader(this, player, scope, gainOf = ::gainOf, allowed = { !BitPerfect.active }).also { it.start() }
+        transitions = Transitions(this, player, mainFilter, scope, gainOf = ::gainOf, allowed = { !BitPerfect.active }).also { it.start() }
         detachBitPerfect = BitPerfect.attach(this, player)
         // A song's loudness arrives with its link, on a loading thread.
         Streams.onLoudness = { videoId -> scope.launch { if (player.currentMediaItem?.mediaId == videoId) applyVolume() } }
@@ -136,7 +138,7 @@ class PlaybackService : MediaSessionService() {
     override fun onDestroy() {
         saveResumeState()
         Streams.onLoudness = null
-        crossfader?.release()
+        transitions?.release()
         detachBitPerfect()
         scope.cancel()
         session?.run {
@@ -202,7 +204,7 @@ class PlaybackService : MediaSessionService() {
 
     private fun applyVolume() {
         val player = session?.player ?: return
-        if (crossfader?.fading == true) return
+        if (transitions?.fading == true) return
         player.volume = player.currentMediaItem?.mediaId?.let(::gainOf) ?: 1f
     }
 

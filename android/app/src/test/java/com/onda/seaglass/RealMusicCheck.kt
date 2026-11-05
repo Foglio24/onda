@@ -96,6 +96,18 @@ class RealMusicCheck {
                 val near = listOf(0.5, 1.0, 2.0).any { kotlin.math.abs(ratio - it) < 0.03 * it }
                 assert(near) { "$name: ${found.tempo} BPM, expected $bpm" }
             }
+            // The song into itself: its own end into its own start, beats matched and in step.
+            if (head.hasBeat && tail.hasBeat) {
+                val plan = com.onda.seaglass.playback.automix.Planner.plan(tail, length, head)
+                val outBeats = tail.beats.filter { it in plan.outStart - 0.01..plan.outEnd + 0.01 }
+                val worst = outBeats.maxOfOrNull { b ->
+                    val inTime = plan.inStart + (b - plan.outStart) * plan.incomingRate
+                    head.beats.minOf { kotlin.math.abs(it - inTime) }
+                } ?: 0.0
+                println("   $name into itself: ${plan.style} ${plan.description}, out ${"%.2f".format(plan.outStart)}–${"%.2f".format(plan.outEnd)}, in ${"%.2f".format(plan.inStart)}, beats within ${"%.0f".format(worst * 1000)} ms")
+                assert(plan.style == com.onda.seaglass.playback.automix.TransitionPlan.Style.BEAT_MATCHED) { "not beat-matched" }
+                assert(worst < 0.04) { "beats off by ${worst * 1000} ms" }
+            }
             checked++
         }
         assumeTrue("no song could be downloaded here", checked > 0)

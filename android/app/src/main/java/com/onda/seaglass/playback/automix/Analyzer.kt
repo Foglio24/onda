@@ -3,6 +3,7 @@ package com.onda.seaglass.playback.automix
 import org.json.JSONArray
 import org.json.JSONObject
 import kotlin.math.PI
+import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.exp
 import kotlin.math.ln
@@ -125,7 +126,7 @@ object Analyzer {
         val kick = normalize(bass)
 
         val (period, confidence) = tempo(onset)
-        val beats = if (period > 0) track(onset, period) else IntArray(0)
+        val beats = if (period > 0) clean(track(onset, period)) else IntArray(0)
         // The flux of a frame rises most when an attack is three quarters into its window (where
         // the Hann window grows fastest from one frame to the next); a parabola through the
         // neighbouring onsets places the beat between frames.
@@ -169,10 +170,26 @@ object Analyzer {
             for (f in start until end) power += Math.pow(10.0, levels[f] / 10)
             (10 * log10(power / (end - start) + 1e-10)).toFloat()
         }
+        // The tempo from the beats themselves (a straight line through them, least squares): far
+        // more exact than the autocorrelation's peak, which matters over eight bars.
+        var tempo = if (period > 0) 60 * FRAME_RATE / period else 0.0
+        if (beatTimes.size >= 8) {
+            val n = beatTimes.size
+            val meanIndex = (n - 1) / 2.0
+            val meanTime = beatTimes.average()
+            var num = 0.0
+            var den = 0.0
+            for (i in 0 until n) {
+                num += (i - meanIndex) * (beatTimes[i] - meanTime)
+                den += (i - meanIndex) * (i - meanIndex)
+            }
+            val fitted = num / den
+            if (fitted > 0 && abs(60 / fitted - tempo) < tempo * 0.05) tempo = 60 / fitted
+        }
         return WindowAnalysis(
             start = offset,
             end = offset + duration,
-            tempo = if (period > 0) 60 * FRAME_RATE / period else 0.0,
+            tempo = tempo,
             beats = beatTimes,
             downbeats = downbeats,
             confidence = confidence,
@@ -237,7 +254,9 @@ object Analyzer {
         val shift = if (a - 2 * b + c != 0.0) 0.5 * (a - c) / (a - 2 * b + c) else 0.0
         val period = bestLag + shift.coerceIn(-0.5, 0.5)
         val mean = (minLag..maxLag).map { raw[it] }.average()
-        val confidence = ((raw[bestLag] / (mean + 1e-9) - 1) / 2).coerceIn(0.0, 1.0)
+        // How clear the pulse is: at its period, or at twice it (a half-tempo song heard at double).
+        val peak = max(raw[bestLag], raw[min(raw.size - 1, bestLag * 2)])
+        val confidence = ((peak / (mean + 1e-9) - 1) / 2).coerceIn(0.0, 1.0)
         return period to confidence
     }
 
@@ -275,6 +294,23 @@ object Analyzer {
         }
         beats.reverse()
         return beats.toIntArray()
+    }
+
+    /**
+     * Drops the beats off the grid at the window's edges (a pickup, a fill, the first hit of a song
+     * before its beat starts): there the tracker follows onsets that aren't the pulse, and a bar
+     * counted from one of them would be out by a fraction of a beat.
+     */
+    private fun clean(beats: IntArray): IntArray {
+        if (beats.size < 8) return beats
+        val gaps = beats.toList().zipWithNext { a, b -> b - a }
+        val median = gaps.sorted()[gaps.size / 2].toDouble()
+        fun regular(a: Int, b: Int) = abs((b - a) - median) <= median * 0.1
+        var first = 0
+        while (first < beats.size - 4 && !(regular(beats[first], beats[first + 1]) && regular(beats[first + 1], beats[first + 2]))) first++
+        var last = beats.size - 1
+        while (last > first + 4 && !(regular(beats[last - 1], beats[last]) && regular(beats[last - 2], beats[last - 1]))) last--
+        return beats.copyOfRange(first, last + 1)
     }
 
     /** In-place radix-2 FFT. */

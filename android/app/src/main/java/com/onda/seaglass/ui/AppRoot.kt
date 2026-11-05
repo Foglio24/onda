@@ -296,6 +296,14 @@ private suspend fun handleLaunch(
             delay(1_500)
             app.openPlayer()
         }
+        "automix" -> {
+            // AutoMix on the emulator: a song into itself, from near its end.
+            val song = runCatching { InnerTube.radio(request.videoId ?: "dQw4w9WgXcQ").firstOrNull() }.getOrNull() ?: return
+            PlayerController.play(listOf(song, song))
+            delay(5_000)
+            PlayerController.seek((((song.duration ?: 213.0) - 50) * 1000).toLong())
+            app.openPlayer()
+        }
         "artist", "album" -> {
             val results = runCatching { InnerTube.searchCatalog(request.query ?: "Daft Punk") }.getOrNull() ?: return
             val item = if (scene == "artist") {

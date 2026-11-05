@@ -22,6 +22,7 @@ class SeaglassApp : Application(), SingletonImageLoader.Factory {
         Library.init(this)
         com.onda.seaglass.data.Downloads.init(this)
         Recommendations.init(this)
+        com.onda.seaglass.playback.automix.AutoMixLibrary.init(this)
         PlayerController.init(this)
     }
 

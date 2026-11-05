@@ -538,6 +538,11 @@ private fun QueuePanel(state: PlayerController.State) {
                     TextButton(onClick = PlayerController::clearUpNext) { Text(tr("Svuota"), color = accent) }
                 }
             }
+            // The next transition, as AutoMix planned it ("AutoMix · a tempo, 8 battute").
+            val nextTransition by com.onda.seaglass.playback.TransitionInfo.next.collectAsStateWithLifecycle()
+            nextTransition?.let {
+                Text(it, fontSize = 13.sp, color = accent, modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp))
+            }
             Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(tr("Radio automatica"), Modifier.weight(1f), fontSize = 15.sp, color = Color.White.copy(alpha = 0.85f))
                 if (radioLoading) CircularProgressIndicator(Modifier.size(18.dp).padding(end = 8.dp), color = accent, strokeWidth = 2.dp)

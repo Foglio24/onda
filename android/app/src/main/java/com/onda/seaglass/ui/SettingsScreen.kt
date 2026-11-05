@@ -266,7 +266,11 @@ private fun PlaybackSettings() {
     val autoRadio by Prefs.autoRadio.collectAsStateWithLifecycle()
     val skipLongMixes by Prefs.skipLongMixes.collectAsStateWithLifecycle()
     val accent = LocalAccent.current
-    Group(tr("Transizioni")) {
+    val last by com.onda.seaglass.playback.TransitionInfo.last.collectAsStateWithLifecycle()
+    Group(
+        tr("Transizioni"),
+        footer = tr("AutoMix sceglie come passare da un brano all'altro, a tempo come un DJ quando il ritmo lo permette.").takeIf { transition == SongTransition.AUTOMIX },
+    ) {
         SongTransition.entries.forEachIndexed { index, option ->
             if (index > 0) Divider()
             ChoiceRow(option.title, transition == option) { Prefs.transition.set(option) }
@@ -284,6 +288,11 @@ private fun PlaybackSettings() {
                     colors = SliderDefaults.colors(thumbColor = accent, activeTrackColor = accent),
                 )
             }
+        }
+    }
+    last?.let {
+        Group {
+            ValueRow(tr("Ultimo passaggio AutoMix"), it) {}
         }
     }
     Group(footer = tr("Quando la coda finisce, continua con brani simili.")) {

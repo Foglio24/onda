@@ -64,11 +64,15 @@ enum class AudioQuality(val key: String) {
 
 /** What happens between songs (Riproduzione → transitions), as on the iPhone. */
 enum class SongTransition(val key: String) {
+    /** Like the iPhone's: matched beats, or a blend or fade suited to the two songs. */
+    AUTOMIX("autoMix"),
+    /** The same overlap every time, of [Prefs.crossfadeSeconds]. */
     CROSSFADE("crossfade"),
     OFF("off");
 
     val title: String
         get() = when (this) {
+            AUTOMIX -> tr("AutoMix")
             CROSSFADE -> tr("Dissolvenza incrociata")
             OFF -> tr("Nessuna")
         }
@@ -132,7 +136,7 @@ object Prefs {
     /** Bit-perfect output to a USB DAC (Android 14 and later). */
     val bitPerfect = Flag("audio.bitPerfect", false)
 
-    val transition = Choice("playback.transition", SongTransition.CROSSFADE, { k -> SongTransition.entries.firstOrNull { it.key == k } ?: SongTransition.CROSSFADE }, { it.key })
+    val transition = Choice("playback.transition", SongTransition.AUTOMIX, { k -> SongTransition.entries.firstOrNull { it.key == k } ?: SongTransition.AUTOMIX }, { it.key })
     private val crossfadeState = MutableStateFlow(6f)
     /** Seconds of overlap with "Dissolvenza incrociata". */
     val crossfadeSeconds: StateFlow<Float> = crossfadeState
