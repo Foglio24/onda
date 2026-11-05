@@ -103,6 +103,8 @@ jobs:
           target: google_apis
           arch: x86_64
           profile: pixel_7
+          cores: 4
+          ram-size: 4096M
           disable-animations: true
           emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: bash android/Tools/screenshots.sh android/emulator.apk screenshots-android
@@ -115,8 +117,24 @@ jobs:
           path: screenshots-android
           retention-days: 14
 
-      - name: Refuse to publish without the release key
+      # Without the secret, a release can still go out with APKs signed with the release key on the
+      # developer's computer, kept per version in the android-builds branch: they are published only
+      # if their signature is the release certificate's and their version is this one.
+      - name: Use the APKs signed with the release key elsewhere
         if: (startsWith(github.ref, 'refs/tags/android-v') || inputs.release) && env.SIGNED != '1'
+        run: |
+          git fetch --depth=1 origin android-builds
+          expected=$(openssl x509 -in signing/seaglass-cert.pem -noout -fingerprint -sha256 | sed 's/.*=//; s/://g' | tr 'A-F' 'a-f')
+          for name in "Seaglass-$VERSION.apk" "Seaglass-$VERSION-32bit.apk"; do
+            git show "origin/android-builds:$VERSION/$name" > "$name"
+            "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$name" | grep -q "SHA-256 digest: $expected"
+            "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump badging "$name" | grep -q "versionName='$VERSION'"
+            echo "$name: release key, version $VERSION"
+          done
+          echo "PREBUILT=1" >> "$GITHUB_ENV"
+
+      - name: Refuse to publish without the release key
+        if: (startsWith(github.ref, 'refs/tags/android-v') || inputs.release) && env.SIGNED != '1' && env.PREBUILT != '1'
         run: |
           echo "::error::Add the ANDROID_SIGNING_KEY secret before publishing: without it the APK could not update the installed app."
           exit 1

@@ -1,13 +1,22 @@
 #!/usr/bin/env python3
-"""Build a Shields endpoint badge from paginated GitHub release API responses."""
+"""Build a Shields endpoint badge from paginated GitHub release API responses.
+
+It counts every download of the app itself, whatever the platform: the iPhone and iPad IPA
+(Onda.ipa, Seaglass.ipa) and the Android APKs (Seaglass-x.y.z.apk, Seaglass-x.y.z-32bit.apk).
+Debug symbols and other files are left out.
+"""
 
 import json
 import sys
 
-IPA_NAMES = {"onda.ipa", "seaglass.ipa"}
+APP_EXTENSIONS = (".ipa", ".apk")
 
 
-def count_ipa_downloads(pages):
+def is_app(name):
+    return name.lower().endswith(APP_EXTENSIONS)
+
+
+def count_downloads(pages):
     if not isinstance(pages, list):
         raise ValueError("Expected a list of GitHub API pages")
     total = 0
@@ -25,7 +34,7 @@ def count_ipa_downloads(pages):
             for asset in assets:
                 if not isinstance(asset, dict) or not isinstance(asset.get("name"), str):
                     raise ValueError("Invalid release asset")
-                if asset["name"].lower() in IPA_NAMES:
+                if is_app(asset["name"]):
                     downloads = asset.get("download_count")
                     if isinstance(downloads, bool) or not isinstance(downloads, int) or downloads < 0:
                         raise ValueError("Invalid download count")
@@ -36,15 +45,15 @@ def count_ipa_downloads(pages):
 def badge(pages):
     return {
         "schemaVersion": 1,
-        "label": "download IPA totali",
-        "message": str(count_ipa_downloads(pages)),
+        "label": "download totali",
+        "message": str(count_downloads(pages)),
         "color": "df3b8a",
     }
 
 
 def main():
     if len(sys.argv) != 2:
-        raise SystemExit("Usage: count_ipa_downloads.py RELEASE_PAGES_JSON")
+        raise SystemExit("Usage: count_downloads.py RELEASE_PAGES_JSON")
     with open(sys.argv[1], encoding="utf-8") as file:
         pages = json.load(file)
     print(json.dumps(badge(pages), ensure_ascii=False, indent=2))

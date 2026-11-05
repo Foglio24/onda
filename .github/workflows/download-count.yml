@@ -1,5 +1,5 @@
 # Updates a badge in a separate branch; it does not publish an app or modify main.
-name: Refresh IPA download count
+name: Refresh download count
 
 on:
   workflow_dispatch:
@@ -9,13 +9,13 @@ on:
     types: [published, deleted]
   push:
     branches: [main]
-    paths: [.github/workflows/download-count.yml, Tools/count_ipa_downloads.py]
+    paths: [.github/workflows/download-count.yml, Tools/count_downloads.py]
 
 permissions:
   contents: write
 
 concurrency:
-  group: update-ipa-download-count
+  group: update-download-count
   cancel-in-progress: false
 
 jobs:
@@ -28,13 +28,13 @@ jobs:
         with:
           ref: main
 
-      - name: Count published IPA downloads across all releases
+      - name: Count the app downloads (IPA and APK) across all releases
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases?per_page=100" > "$RUNNER_TEMP/release-pages.json"
-          python3 Tools/count_ipa_downloads.py "$RUNNER_TEMP/release-pages.json" > "$RUNNER_TEMP/download-count.json"
+          python3 Tools/count_downloads.py "$RUNNER_TEMP/release-pages.json" > "$RUNNER_TEMP/download-count.json"
 
       - name: Check out the badge branch
         uses: actions/checkout@v4
@@ -54,5 +54,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add download-count.json
-          git commit -m "Update IPA download count"
+          git commit -m "Update download count"
           git push origin HEAD:refs/heads/download-stats

@@ -30,6 +30,10 @@ All under the Apache License 2.0:
 - [OkHttp](https://github.com/square/okhttp) (Square): networking.
 - [Kotlin coroutines](https://github.com/Kotlin/kotlinx.coroutines) (JetBrains).
 
+Also in the Android app, under Google's [ML Kit terms](https://developers.google.com/ml-kit/terms):
+[ML Kit](https://developers.google.com/ml-kit) on-device translation and language identification, for
+the lyrics translation; each language's model is downloaded from Google the first time it's needed.
+
 ## Used at build time only (not included in the app)
 - [coremltools](https://github.com/apple/coremltools) (BSD-3-Clause), [PyTorch](https://github.com/pytorch/pytorch)
   (BSD-3-Clause), [onnx2torch](https://github.com/ENOT-AutoDL/onnx2torch) (Apache-2.0),

@@ -5,24 +5,25 @@
 <h1 align="center">Seaglass <sub>formerly Onda</sub></h1>
 
 <p align="center"><strong>Your music, your rhythm.</strong><br>
-An independent music player for iPhone and iPad, with AutoMix, playlists and synced lyrics.</p>
+An independent music player for iPhone, iPad and <strong>now Android</strong>, with AutoMix, playlists and synced lyrics.</p>
 
 <p align="center">
   <a href="https://github.com/Foglio24/onda/releases/latest/download/Seaglass.ipa"><img src="https://img.shields.io/badge/DOWNLOAD-Seaglass.ipa-EC3F8E?style=for-the-badge&amp;logo=apple&amp;logoColor=white" alt="Download Seaglass.ipa"></a>
+  <a href="https://github.com/Foglio24/onda/releases?q=android-v&amp;expanded=true"><img src="https://img.shields.io/badge/DOWNLOAD-Android_APK-34A853?style=for-the-badge&amp;logo=android&amp;logoColor=white" alt="Download Seaglass for Android"></a>
   <a href="https://altdirect.app/?url=https%3A%2F%2Fraw.githubusercontent.com%2FFoglio24%2Fonda%2Fmain%2Faltstore-source.json&amp;r=altstore"><img src="https://img.shields.io/badge/ADD_TO-ALTSTORE_CLASSIC-7E4BD6?style=for-the-badge&amp;logo=apple&amp;logoColor=white" alt="Add Seaglass to AltStore Classic"></a>
   <a href="https://github.com/Foglio24/onda/releases/latest"><img src="https://img.shields.io/github/v/release/Foglio24/onda?style=for-the-badge&amp;label=RELEASE" alt="Latest release"></a>
-  <a href="https://github.com/Foglio24/onda/releases"><img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FFoglio24%2Fonda%2Fdownload-stats%2Fdownload-count.json&amp;label=total%20IPA%20downloads&amp;style=for-the-badge" alt="Total IPA downloads"></a>
+  <a href="https://github.com/Foglio24/onda/releases"><img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FFoglio24%2Fonda%2Fdownload-stats%2Fdownload-count.json&amp;label=total%20downloads&amp;style=for-the-badge" alt="Total downloads (iPhone, iPad and Android)"></a>
 </p>
 
 <p align="center">
   <a href="#discover-seaglass">Features</a> · <a href="#screenshots">Screenshots</a> ·
-  <a href="#installation">Installation</a> · <a href="#frequently-asked-questions">FAQ</a> ·
-  <a href="CHANGELOG.md">Changelog</a>
+  <a href="#installation">Installation</a> · <a href="#android">Android</a> · <a href="#frequently-asked-questions">FAQ</a> ·
+  <a href="CHANGELOG.md">Changelog</a> · <a href="android/CHANGELOG.md">Android changelog</a>
 </p>
 
 ## Discover Seaglass
 
-**Seaglass**, formerly known as Onda, is a music app for iPhone and iPad that uses the YouTube Music catalogue. It brings together background playback, a personal library and tools for transitioning between songs: an independent alternative for listeners who want a customisable experience.
+**Seaglass**, formerly known as Onda, is a music app for iPhone, iPad and Android that uses the YouTube Music catalogue. It brings together background playback, a personal library and tools for transitioning between songs: an independent alternative for listeners who want a customisable experience.
 
 ### Your music, in motion
 
@@ -66,6 +67,23 @@ An independent music player for iPhone and iPad, with AutoMix, playlists and syn
 
 <sub>Screenshots were created in the iOS simulator. Artwork, names and music belong to their respective rights holders.</sub>
 
+### On Android
+
+<table>
+  <tr>
+    <td align="center"><img src="docs/screenshots/android/home.jpg" width="200" alt="Home on Android"><br><sub>Home</sub></td>
+    <td align="center"><img src="docs/screenshots/android/search.jpg" width="200" alt="Search on Android"><br><sub>Search</sub></td>
+    <td align="center"><img src="docs/screenshots/android/player.jpg" width="200" alt="Player on Android"><br><sub>Player</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/screenshots/android/artist.jpg" width="200" alt="Artist on Android"><br><sub>Artist</sub></td>
+    <td align="center"><img src="docs/screenshots/android/lyrics.jpg" width="200" alt="Lyrics with translation on Android"><br><sub>Lyrics and translation</sub></td>
+    <td align="center"><img src="docs/screenshots/android/settings.jpg" width="200" alt="Audio settings on Android"><br><sub>Audio settings</sub></td>
+  </tr>
+</table>
+
+<sub>Screenshots taken on the Android emulator in CI, where the glass is drawn without a GPU.</sub>
+
 ## Installation
 
 **Requirements:** an iPhone running iOS 26 or later, or an iPad running iPadOS 26 or later (the same IPA installs on both). The IPA is **unsigned**: you need to sign and install it with a sideloading tool such as Sideloadly, AltStore Classic or SideStore.
@@ -90,11 +108,20 @@ Open Seaglass in the source to install it or check for updates. AltStore signs t
 
 The app can check GitHub for new releases and notify you or download the IPA to the Files app. Installing an update remains a manual step using your sideloading tool. See the [changelog](CHANGELOG.md) for the complete release history.
 
-### Android (preview)
+## Android
 
-Seaglass is also available for **Android 10 or later**, as an APK in early development (versions 0.x): search, artist, album and playlist pages, radios, background playback with the media notification, synced lyrics, favourites and playlists, in the same eleven languages, with liquid glass on Android 13 and later. AutoMix, karaoke, podcasts, downloads, the equalizer and Last.fm are not there yet.
+**Seaglass is now on Android too** (Android 10 or later), from the same YouTube Music catalogue, with liquid glass on Android 13 and later. It is a younger app (versions 0.x) that grows release by release:
 
-1. On the phone, open the [Android releases](https://github.com/Foglio24/onda/releases?q=android-v&expanded=true) and download the latest `Seaglass-x.y.z.apk`.
+- Search, artist, album and playlist pages; radios and automatic radio; background playback with the media notification, lock-screen and Bluetooth controls.
+- **Downloads** of songs, albums and playlists for offline listening.
+- **Audio quality** for Wi-Fi, mobile data and downloads, as on the iPhone, with **Dolby** when the phone decodes it and **volume normalisation**.
+- **Crossfade** between songs, synced lyrics with **on-device translation**, favourites, playlists (also imported from YouTube links), history and a sleep timer.
+- **Bit-perfect output to USB DACs** on Android 14 and later.
+- The same eleven languages as the iPhone app, with Arabic right to left.
+
+AutoMix, AI karaoke, podcasts, the equaliser, Last.fm and Spotify/Apple Music import are coming next.
+
+1. On the phone, open the [Android releases](https://github.com/Foglio24/onda/releases?q=android-v&expanded=true) and download the latest `Seaglass-x.y.z.apk` (the `-32bit` one only for older 32-bit phones).
 2. Open it, and allow installs from the browser when Android asks.
 
 Updates install over the app, keeping its library; **Settings → Updates** finds them. Seaglass for Android is not on Google Play. See the [Android changelog](android/CHANGELOG.md).
@@ -111,7 +138,7 @@ No. It tries to favour transitions in time when they suit the songs, but can cho
 Some recordings may not be found or matched with sufficient confidence. Open the import report to see missing songs and choose available alternatives. For long Spotify playlists, use the file import described above.
 
 **What does the download counter measure?**  
-It adds downloads of `Onda.ipa` and `Seaglass.ipa` from published GitHub releases. It refreshes periodically and does not represent the number of users or installations.
+It adds every download of the app from published GitHub releases, on every platform: the iPhone and iPad IPA (`Onda.ipa`, `Seaglass.ipa`) and the Android APKs. It refreshes periodically and does not represent the number of users or installations.
 
 **How can I report a problem?**  
 Open a [GitHub issue](https://github.com/Foglio24/onda/issues), including your app version, iPhone or iPad model and steps to reproduce the problem. When helpful, you can share a report from **Settings → Diagnostics**.
