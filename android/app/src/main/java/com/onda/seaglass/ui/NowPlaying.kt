@@ -436,17 +436,17 @@ private fun LyricsPanel(track: Track, position: () -> Long) {
             }.onSuccess {
                 translation = it
                 status = null
+                LyricsTranslator.translateOnOpen.value = false
             }.onFailure {
                 status = it.message ?: tr("Traduzione non disponibile")
                 showTranslation = false
+                LyricsTranslator.translateOnOpen.value = false
             }
         }
     }
     LaunchedEffect(lines.isNotEmpty()) {
-        if (lines.isNotEmpty() && LyricsTranslator.translateOnOpen.value) {
-            LyricsTranslator.translateOnOpen.value = false
-            toggle()
-        }
+        // (Kept until a translation ends, so a song skipped meanwhile doesn't lose the check.)
+        if (lines.isNotEmpty() && LyricsTranslator.translateOnOpen.value) toggle()
     }
     Box(Modifier.fillMaxSize()) {
         val shown = translation.takeIf { showTranslation }
