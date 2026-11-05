@@ -290,7 +290,7 @@ private suspend fun handleLaunch(
             val item = if (scene == "artist") {
                 results.top?.takeIf { it.kind == com.onda.seaglass.model.MusicItem.Kind.ARTIST } ?: results.artists.firstOrNull()
             } else {
-                results.albums.firstOrNull()
+                results.top?.takeIf { it.kind == com.onda.seaglass.model.MusicItem.Kind.ALBUM } ?: results.albums.firstOrNull()
             }
             item?.route()?.let(app::open)
         }
