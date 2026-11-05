@@ -90,6 +90,15 @@ Open Seaglass in the source to install it or check for updates. AltStore signs t
 
 The app can check GitHub for new releases and notify you or download the IPA to the Files app. Installing an update remains a manual step using your sideloading tool. See the [changelog](CHANGELOG.md) for the complete release history.
 
+### Android (preview)
+
+Seaglass is also available for **Android 10 or later**, as an APK in early development (versions 0.x): search, artist, album and playlist pages, radios, background playback with the media notification, synced lyrics, favourites and playlists, in the same eleven languages, with liquid glass on Android 13 and later. AutoMix, karaoke, podcasts, downloads, the equalizer and Last.fm are not there yet.
+
+1. On the phone, open the [Android releases](https://github.com/Foglio24/onda/releases?q=android-v&expanded=true) and download the latest `Seaglass-x.y.z.apk`.
+2. Open it, and allow installs from the browser when Android asks.
+
+Updates install over the app, keeping its library; **Settings → Updates** finds them. Seaglass for Android is not on Google Play. See the [Android changelog](android/CHANGELOG.md).
+
 ## Frequently asked questions
 
 **Why is the audio format not always Opus?**  
@@ -109,7 +118,7 @@ Open a [GitHub issue](https://github.com/Foglio24/onda/issues), including your a
 
 ## Project details
 
-Seaglass is written in Swift and SwiftUI. It uses YouTube Music for search and catalogue, YouTubeKit for audio links, LRCLIB for lyrics and Last.fm for scrobbling. Dependencies and acknowledgements are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+Seaglass is written in Swift and SwiftUI; the Android app, in `android/`, in Kotlin with Jetpack Compose and Media3. It uses YouTube Music for search and catalogue, YouTubeKit for audio links, LRCLIB for lyrics and Last.fm for scrobbling. Dependencies and acknowledgements are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 GitHub Actions builds an unsigned IPA: the **Build IPA** workflow produces a downloadable artifact. Published releases and their notes are available on the [Releases page](https://github.com/Foglio24/onda/releases).
 

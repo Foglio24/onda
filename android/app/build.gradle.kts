@@ -51,7 +51,7 @@ android {
 
     // Only the app's languages: the libraries' other translations stay out of the APK.
     androidResources {
-        localeFilters += listOf("it", "en", "fr", "es", "de", "pt", "zh", "ja", "ru", "tr", "ar")
+        localeFilters += listOf("it", "en", "fr", "es", "de", "pt", "zh-rCN", "zh-rTW", "zh-rHK", "ja", "ru", "tr", "ar")
     }
 
     signingConfigs {

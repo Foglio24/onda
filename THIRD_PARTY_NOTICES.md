@@ -22,6 +22,14 @@ work by others, which keeps its own licence or terms.
 - **Licence:** the model repository doesn't state a licence of its own. All rights in the model
   remain with its authors; it is included with credit, as the projects above redistribute it.
 
+## Included in the Android app
+All under the Apache License 2.0:
+- [Jetpack Compose, AndroidX and Media3](https://developer.android.com/jetpack) (Google): the interface, the player and its notification.
+- [Haze](https://github.com/chrisbanes/haze) (Chris Banes): the liquid glass and blur.
+- [Coil](https://github.com/coil-kt/coil): artwork loading.
+- [OkHttp](https://github.com/square/okhttp) (Square): networking.
+- [Kotlin coroutines](https://github.com/Kotlin/kotlinx.coroutines) (JetBrains).
+
 ## Used at build time only (not included in the app)
 - [coremltools](https://github.com/apple/coremltools) (BSD-3-Clause), [PyTorch](https://github.com/pytorch/pytorch)
   (BSD-3-Clause), [onnx2torch](https://github.com/ENOT-AutoDL/onnx2torch) (Apache-2.0),

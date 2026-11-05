@@ -1,7 +1,6 @@
 package com.onda.seaglass.ui
 
 import android.content.Intent
-import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -133,7 +132,6 @@ fun AppRoot(launch: State<Launch?>) {
             val request = launch.value ?: return@LaunchedEffect
             handleLaunch(request, nav, actions, onTab = { tab = it }, onLyrics = { lyricsFirst = it })
         }
-        BackHandler(enabled = playerOpen) { playerOpen = false }
 
         val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
         val hasPlayer = state.current != null
@@ -145,8 +143,10 @@ fun AppRoot(launch: State<Launch?>) {
             LocalBottomPadding provides bottomPadding,
         ) {
             Box(Modifier.fillMaxSize().background(Background)) {
-                Box(Modifier.fillMaxSize().hazeSource(hazeState)) {
-                    AmbientBackground()
+                // Two layers for the glass: the background, and the pages over it. The bars refract
+                // both; glass inside a page (the search field, buttons) refracts the background.
+                AmbientBackground(Modifier.hazeSource(hazeState, zIndex = -1f))
+                Box(Modifier.fillMaxSize().hazeSource(hazeState, zIndex = 0f)) {
                     NavHost(
                         navController = nav,
                         startDestination = "home",

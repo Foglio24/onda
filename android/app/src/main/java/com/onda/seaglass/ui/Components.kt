@@ -216,7 +216,7 @@ fun ItemShelf(title: String, items: List<MusicItem>, cardWidth: Dp = 150.dp) {
     Column {
         SectionHeader(title)
         LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            items(items, key = { it.kind.name + it.id }) { ItemCard(it, width = cardWidth) }
+            items(items.distinctBy { it.kind.name + it.id }, key = { it.kind.name + it.id }) { ItemCard(it, width = cardWidth) }
         }
     }
 }
@@ -231,7 +231,7 @@ fun TrackGridShelf(title: String, tracks: List<Track>, onPlay: (Int) -> Unit) {
             modifier = Modifier.height(248.dp),
             contentPadding = PaddingValues(end = 16.dp),
         ) {
-            items(tracks.size, key = { tracks[it].videoId }) { index ->
+            items(tracks.size, key = { "$it" + tracks[it].videoId }) { index ->
                 TrackRow(tracks[index], onClick = { onPlay(index) }, modifier = Modifier.width(320.dp))
             }
         }
@@ -260,9 +260,9 @@ fun Message(title: String, detail: String? = null, modifier: Modifier = Modifier
 
 /** A round glass back button floating over a page's header. */
 @Composable
-fun GlassBackButton(modifier: Modifier = Modifier) {
+fun GlassBackButton(modifier: Modifier = Modifier, state: dev.chrisbanes.haze.HazeState? = LocalHazeState.current) {
     val app = LocalApp.current
-    GlassSurface(modifier.size(44.dp), corner = 22.dp) {
+    GlassSurface(modifier.size(44.dp), corner = 22.dp, state = state) {
         IconButton(onClick = { app.back() }, modifier = Modifier.fillMaxSize()) {
             Icon(Icons.AutoMirrored.Rounded.ArrowBack, null, tint = Color.White)
         }

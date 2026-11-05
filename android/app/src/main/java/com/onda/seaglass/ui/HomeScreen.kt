@@ -170,7 +170,7 @@ fun HomeScreen() {
                     Column {
                         SectionHeader(tr("Ascoltati di recente"), action = tr("Mostra tutto")) { app.open("history") }
                         LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                            itemsIndexed(history.take(20), key = { _, track -> track.videoId }) { _, track ->
+                            itemsIndexed(history.take(20), key = { index, track -> "$index" + track.videoId }) { _, track ->
                                 TrackCard(track) { PlayerController.playRadio(track) }
                             }
                         }

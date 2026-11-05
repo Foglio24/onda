@@ -138,7 +138,7 @@ fun SearchScreen() {
                     item { Message(tr("Cerca su YouTube Music"), tr("Scegli un brano: parte una radio di canzoni simili.")) }
                 } else {
                     item { SectionHeader(tr("Ricerche recenti"), action = tr("Svuota")) { Prefs.clearRecentSearches() } }
-                    items(recent, key = { it }) { query ->
+                    items(recent.distinct(), key = { "recent$it" }) { query ->
                         Row(
                             Modifier.fillMaxWidth().clickable { SearchModel.search(query) }.padding(horizontal = 16.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically,
@@ -160,7 +160,7 @@ fun SearchScreen() {
                 if (shown.songs.isNotEmpty()) {
                     item { SectionHeader(tr("Brani")) }
                     val songs = if (allSongs) shown.songs else shown.songs.take(5)
-                    itemsIndexed(songs, key = { _, track -> "song" + track.videoId }) { _, track ->
+                    itemsIndexed(songs, key = { index, track -> "song$index" + track.videoId }) { _, track ->
                         TrackRow(track, onClick = { PlayerController.playRadio(track) })
                     }
                     if (!allSongs && shown.songs.size > 5) {

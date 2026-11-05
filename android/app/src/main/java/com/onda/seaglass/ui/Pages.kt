@@ -50,6 +50,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.rememberHazeState
 import com.onda.seaglass.core.tr
 import com.onda.seaglass.data.InnerTube
 import com.onda.seaglass.data.Library
@@ -82,15 +84,17 @@ fun <T> rememberLoad(key: Any, load: suspend () -> T): Pair<Load<T>, () -> Unit>
 @Composable
 private fun <T> PageContent(load: Load<T>, retry: () -> Unit, unavailable: String, content: LazyListScope.(T) -> Unit) {
     val top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    // The back button floats over the page: it refracts the page scrolling under it.
+    val pageHaze = rememberHazeState()
     Box(Modifier.fillMaxSize()) {
-        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = LocalBottomPadding.current)) {
+        LazyColumn(Modifier.fillMaxSize().hazeSource(pageHaze), contentPadding = PaddingValues(bottom = LocalBottomPadding.current)) {
             when (load) {
                 is Load.Loading -> item { Spacer(Modifier.height(top + 120.dp)); Loading() }
                 is Load.Failed -> item { Spacer(Modifier.height(top + 80.dp)); Message(unavailable, load.message, action = tr("Riprova"), onAction = retry) }
                 is Load.Done -> content(load.value)
             }
         }
-        GlassBackButton(Modifier.padding(top = top + 8.dp, start = 12.dp))
+        GlassBackButton(Modifier.padding(top = top + 8.dp, start = 12.dp), state = pageHaze)
     }
 }
 
@@ -187,7 +191,7 @@ fun ArtistScreen(id: String) {
                 ) { page.songsPlaylistId?.let { app.open("playlist/$it") } }
             }
             val songs = if (showAll) page.topSongs else page.topSongs.take(5)
-            itemsIndexed(songs, key = { _, track -> track.videoId }) { index, track ->
+            itemsIndexed(songs, key = { index, track -> "$index" + track.videoId }) { index, track ->
                 TrackRow(track, onClick = { PlayerController.play(page.topSongs, index) })
             }
         }
@@ -224,7 +228,7 @@ fun AlbumScreen(id: String) {
             }
         }
         item { PlayButtons(album.tracks) }
-        itemsIndexed(album.tracks, key = { _, track -> track.videoId }) { index, track ->
+        itemsIndexed(album.tracks, key = { index, track -> "$index" + track.videoId }) { index, track ->
             TrackRow(track, onClick = { PlayerController.play(album.tracks, index) }, number = index + 1, showArtwork = false)
         }
     }

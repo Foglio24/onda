@@ -1,5 +1,6 @@
 package com.onda.seaglass.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -116,6 +117,8 @@ private enum class Panel { ARTWORK, LYRICS, QUEUE }
 /** The player, full screen: the artwork's colours behind glass controls, with lyrics and the queue. */
 @Composable
 fun NowPlayingScreen(startWithLyrics: Boolean, onClose: () -> Unit) {
+    // Composed after the pages, so Back closes the player before it leaves a page.
+    BackHandler(onBack = onClose)
     val state by PlayerController.state.collectAsStateWithLifecycle()
     val track = state.current ?: return
     val haze = rememberHazeState()
