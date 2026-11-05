@@ -24,6 +24,7 @@ object Streams {
     data class Rendition(val url: String, val mime: String, val bitrate: Int) {
         val isOpus get() = "opus" in mime
         val isAac get() = "mp4a" in mime
+        val isDolby get() = "ec-3" in mime || "ac-3" in mime
 
         /** "Opus · 160 kbps". */
         val label: String
@@ -37,24 +38,44 @@ object Streams {
             }
     }
 
-    data class Resolved(val rendition: Rendition, val expires: Long)
+    data class Resolved(val rendition: Rendition, val expires: Long, val loudness: Double? = null)
 
     private const val ENDPOINT = "https://www.youtube.com/youtubei/v1/player?prettyPrint=false"
     private const val CLIENT_VERSION = "1.02"
     const val USER_AGENT =
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_7_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15"
 
+    /** By "videoId|quality". */
     private val cache = ConcurrentHashMap<String, Resolved>()
+    private val lastPlayed = ConcurrentHashMap<String, Rendition>()
+    private val loudnessByVideo = ConcurrentHashMap<String, Double>()
 
-    /** The last link handed to the player for each song, for "Formato audio" in the player. */
-    fun current(videoId: String): Rendition? = cache[videoId]?.rendition
+    /** Told (on the loading thread) when a song's loudness becomes known, for "Volume uniforme". */
+    @Volatile var onLoudness: ((String) -> Unit)? = null
 
-    fun invalidate(videoId: String) {
-        cache.remove(videoId)
+    /** The last link handed to the player for each song, for the format shown in the player. */
+    fun current(videoId: String): Rendition? = lastPlayed[videoId]
+
+    /** Decibels above YouTube's reference level (-14 LUFS), when known. */
+    fun loudness(videoId: String): Double? = loudnessByVideo[videoId] ?: Downloads.loudness(videoId)
+
+    fun rememberLoudness(videoId: String, decibels: Double) {
+        loudnessByVideo[videoId] = decibels
     }
 
-    suspend fun resolve(videoId: String): Resolved {
-        cache[videoId]?.takeIf { it.expires > System.currentTimeMillis() }?.let { return it }
+    fun invalidate(videoId: String) {
+        cache.keys.removeAll { it.startsWith("$videoId|") }
+    }
+
+    /** The audio link for streaming now: at the Wi-Fi or the cellular quality. */
+    suspend fun resolve(videoId: String): Resolved = resolve(videoId, Network.streamingQuality())
+
+    suspend fun resolve(videoId: String, quality: AudioQuality): Resolved {
+        val key = "$videoId|${quality.key}|${Prefs.preferDolby.value}"
+        cache[key]?.takeIf { it.expires > System.currentTimeMillis() }?.let {
+            lastPlayed[videoId] = it.rendition
+            return it
+        }
         val stored = Prefs.visitorData
         var json = request(videoId, stored)
         if (!isPlayable(json)) {
@@ -66,22 +87,53 @@ object Streams {
         }
         if (!isPlayable(json)) throw NoStreamException(refusal(json))
         val renditions = parse(json)
-        val chosen = choose(renditions) ?: throw NoStreamException()
+        val chosen = choose(renditions, quality) ?: throw NoStreamException()
+        val loudness = loudness(json)
         // Links are signed for about six hours; keep a margin.
         val lifetime = J.value(json, "streamingData", "expiresInSeconds").toString().toDoubleOrNull() ?: 21_600.0
-        val resolved = Resolved(chosen, System.currentTimeMillis() + (maxOf(3_600.0, lifetime - 1_800) * 1000).toLong())
-        cache[videoId] = resolved
+        val resolved = Resolved(chosen, System.currentTimeMillis() + (maxOf(3_600.0, lifetime - 1_800) * 1000).toLong(), loudness)
+        cache[key] = resolved
+        lastPlayed[videoId] = chosen
+        if (loudness != null) {
+            loudnessByVideo[videoId] = loudness
+            onLoudness?.invoke(videoId)
+        }
         return resolved
     }
 
-    /** Opus at the best bitrate (the quality the iPhone app calls "Massima"), or AAC; less on "Risparmio dati". */
-    private fun choose(renditions: List<Rendition>): Rendition? {
-        val playable = renditions.filter { it.isOpus || it.isAac }
-        return if (Prefs.dataSaver) {
-            playable.filter { it.isAac }.minByOrNull { it.bitrate } ?: playable.minByOrNull { it.bitrate }
-        } else {
-            playable.filter { it.isOpus }.maxByOrNull { it.bitrate } ?: playable.maxByOrNull { it.bitrate }
+    /**
+     * The rendition for [quality], as the iPhone app chooses: "Massima" is Dolby (when wanted and
+     * the phone decodes it) or AAC 256 kbps when YouTube offers them, otherwise the best Opus;
+     * "Alta" AAC 128 kbps; "Media" Opus ~70 kbps; "Risparmio" HE-AAC 48 kbps.
+     */
+    fun choose(renditions: List<Rendition>, quality: AudioQuality, dolby: Boolean = Prefs.preferDolby.value && AudioSupport.dolby): Rendition? {
+        val opus = renditions.filter { it.isOpus }
+        val aac = renditions.filter { it.isAac }
+        fun closest(list: List<Rendition>, target: Int) = list.minByOrNull { kotlin.math.abs(it.bitrate - target) }
+        return when (quality) {
+            AudioQuality.MAX ->
+                (if (dolby) renditions.filter { it.isDolby }.maxByOrNull { it.bitrate } else null)
+                    ?: aac.filter { it.bitrate >= 200_000 }.maxByOrNull { it.bitrate }
+                    ?: opus.maxByOrNull { it.bitrate }
+                    ?: aac.maxByOrNull { it.bitrate }
+            AudioQuality.HIGH -> closest(aac.filter { it.bitrate < 200_000 }, 128_000) ?: opus.maxByOrNull { it.bitrate } ?: aac.firstOrNull()
+            AudioQuality.MEDIUM -> closest(opus, 70_000) ?: aac.minByOrNull { it.bitrate }
+            AudioQuality.LOW -> aac.minByOrNull { it.bitrate } ?: opus.minByOrNull { it.bitrate }
         }
+    }
+
+    /** Decibels above -14 LUFS, as YouTube measures the song. */
+    private fun loudness(json: JSONObject): Double? {
+        val config = J.obj(json, "playerConfig", "audioConfig") ?: return null
+        config.optDouble("loudnessDb").takeIf { !it.isNaN() }?.let { return it }
+        val absolute = config.optDouble("trackAbsoluteLoudnessLkfs").takeIf { !it.isNaN() } ?: return null
+        return absolute - config.optDouble("loudnessTargetLkfs", -14.0)
+    }
+
+    /** The volume that brings a song down to the reference level; quieter songs stay as they are. */
+    fun gain(decibels: Double?): Float {
+        if (decibels == null || decibels <= 0.1) return 1f
+        return Math.pow(10.0, -minOf(decibels, 20.0) / 20).toFloat()
     }
 
     private fun isPlayable(json: JSONObject) = J.string(json, "playabilityStatus", "status") == "OK"

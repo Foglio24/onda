@@ -1,0 +1,9 @@
+/* Texts only the Android app shows, in addition to the iPhone app's Localizable.strings. */
+
+"Questo telefono non decodifica il Dolby." = "Este teléfono no decodifica Dolby.";
+"Invia l'audio al DAC USB così com'è, alla frequenza di ogni brano, senza il mixer di Android. Il volume diventa quello del DAC; volume uniforme e dissolvenza si fermano." = "Envía el audio al DAC USB tal cual, a la frecuencia de cada canción, sin el mezclador de Android. El volumen pasa a ser el del DAC; el volumen uniforme y el fundido se detienen.";
+"Bit-perfect (DAC USB)" = "Bit-perfect (DAC USB)";
+"Richiede Android 14 o successivi" = "Requiere Android 14 o posterior";
+"Collega un DAC USB" = "Conecta un DAC USB";
+"Attivo: %@ · %@ kHz · %lld bit" = "Activo: %@ · %@ kHz · %lld bits";
+"%@ non accetta l'audio bit-perfect" = "%@ no acepta audio bit-perfect";

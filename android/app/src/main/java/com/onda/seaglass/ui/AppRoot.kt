@@ -161,6 +161,10 @@ fun AppRoot(launch: State<Launch?>) {
                         composable("search") { SearchScreen() }
                         composable("library") { LibraryScreen() }
                         composable("settings") { SettingsScreen() }
+                        composable("settings/{page}", listOf(navArgument("page") { type = NavType.StringType })) {
+                            SettingsPage(it.arguments?.getString("page").orEmpty())
+                        }
+                        composable("downloads") { DownloadsScreen() }
                         composable("liked") { LikedScreen() }
                         composable("history") { HistoryScreen() }
                         composable("local/{id}", listOf(navArgument("id") { type = NavType.StringType })) {
@@ -279,6 +283,10 @@ private suspend fun handleLaunch(
             request.query?.let(SearchModel::search)
         }
         "library", "settings" -> tab(scene)
+        "settings/audio", "settings/playback", "settings/storage" -> {
+            tab("settings")
+            nav.navigate(scene)
+        }
         "player", "lyrics", "queue" -> {
             val query = request.query ?: "Daft Punk Get Lucky"
             val song = runCatching { InnerTube.searchSongs(query).firstOrNull() }.getOrNull() ?: return

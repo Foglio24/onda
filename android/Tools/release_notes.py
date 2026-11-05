@@ -10,7 +10,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "Tools"))
 from release_notes import sections  # noqa: E402
 
 INSTALL = (
-    "\n\n**Install:** open this page on the phone, download `Seaglass-{version}.apk` below and open it; "
+    "\n\n**Install:** open this page on the phone, download `Seaglass-{version}.apk` below (`-32bit` only for older 32-bit phones) and open it; "
     "Android asks once to allow installs from the browser. Updates install over the app, keeping the library. "
     "Requires Android 10 or later.\n"
 )

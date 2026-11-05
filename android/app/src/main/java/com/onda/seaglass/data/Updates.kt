@@ -22,8 +22,10 @@ object Updates {
             .filter { it.optString("tag_name").startsWith("android-v") && !it.optBoolean("draft") }
             .map { release ->
                 val assets = release.optJSONArray("assets") ?: JSONArray()
-                val apk = (0 until assets.length()).map { assets.getJSONObject(it) }
-                    .firstOrNull { it.optString("name").endsWith(".apk") }
+                // The phone's own APK: "-32bit" on 32-bit ARM phones, otherwise the arm64 one.
+                val wants32 = android.os.Build.SUPPORTED_64_BIT_ABIS.isEmpty()
+                val apks = (0 until assets.length()).map { assets.getJSONObject(it) }.filter { it.optString("name").endsWith(".apk") }
+                val apk = apks.firstOrNull { it.optString("name").contains("-32bit") == wants32 } ?: apks.firstOrNull()
                 Release(
                     version = release.optString("tag_name").removePrefix("android-v"),
                     notes = release.optString("body"),

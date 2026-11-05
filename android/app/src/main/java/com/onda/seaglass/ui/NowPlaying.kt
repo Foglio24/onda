@@ -64,6 +64,7 @@ import androidx.compose.material.icons.rounded.RepeatOne
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
+import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -108,6 +109,7 @@ import com.onda.seaglass.core.tr
 import com.onda.seaglass.data.Library
 import com.onda.seaglass.data.Lyrics
 import com.onda.seaglass.data.LyricsState
+import com.onda.seaglass.data.LyricsTranslator
 import com.onda.seaglass.data.Prefs
 import com.onda.seaglass.data.Streams
 import com.onda.seaglass.model.Track
@@ -406,21 +408,77 @@ private fun Scrubber(positionOf: () -> Long, duration: Long, videoId: String) {
 private fun LyricsPanel(track: Track, position: () -> Long) {
     val (load, _) = rememberLoad(track.videoId) { Lyrics.lyrics(track) }
     val lyrics = (load as? Load.Done)?.value
+    val scope = rememberCoroutineScope()
+    // "Mostra traduzione": each line with its translation below, made on the phone.
+    var showTranslation by remember(track.videoId) { mutableStateOf(false) }
+    var translation by remember(track.videoId) { mutableStateOf<List<String>?>(null) }
+    var status by remember(track.videoId) { mutableStateOf<String?>(null) }
+    val lines = when (lyrics) {
+        is LyricsState.Synced -> lyrics.lines.map { it.text }
+        is LyricsState.Plain -> lyrics.text.lines()
+        else -> emptyList()
+    }
+    fun toggle() {
+        if (showTranslation) {
+            showTranslation = false
+            return
+        }
+        showTranslation = true
+        if (translation != null || status == tr("Traduzione…")) return
+        scope.launch {
+            runCatching {
+                LyricsTranslator.translate(lines) { step ->
+                    status = when (step) {
+                        LyricsTranslator.Progress.DownloadingModel -> tr("Download della lingua…")
+                        LyricsTranslator.Progress.Translating -> tr("Traduzione…")
+                    }
+                }
+            }.onSuccess {
+                translation = it
+                status = null
+            }.onFailure {
+                status = it.message ?: tr("Traduzione non disponibile")
+                showTranslation = false
+            }
+        }
+    }
     Box(Modifier.fillMaxSize()) {
+        val shown = translation.takeIf { showTranslation }
         when (lyrics) {
             null -> Loading(Modifier.align(Alignment.Center))
-            is LyricsState.Synced -> SyncedLyrics(lyrics, position)
-            is LyricsState.Plain -> Text(
-                lyrics.text, fontSize = 20.sp, fontWeight = FontWeight.SemiBold, lineHeight = 30.sp,
-                modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical = 16.dp),
-            )
+            is LyricsState.Synced -> SyncedLyrics(lyrics, position, shown)
+            is LyricsState.Plain -> Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical = 56.dp)) {
+                lines.forEachIndexed { index, line ->
+                    Text(line, fontSize = 20.sp, fontWeight = FontWeight.SemiBold, lineHeight = 30.sp)
+                    shown?.getOrNull(index)?.takeIf { it.isNotBlank() }?.let {
+                        Text(it, fontSize = 16.sp, color = Color.White.copy(alpha = 0.6f), lineHeight = 22.sp)
+                    }
+                }
+            }
             else -> Message(tr("Testo non disponibile"), tr("LRCLIB non ha il testo di questo brano."), Modifier.align(Alignment.Center))
+        }
+        if (lines.any { it.isNotBlank() }) {
+            Column(Modifier.align(Alignment.TopEnd).padding(top = 4.dp), horizontalAlignment = Alignment.End) {
+                GlassSurface(corner = 18.dp) {
+                    Row(
+                        Modifier.clickable { toggle() }.padding(horizontal = 14.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(Icons.Rounded.Translate, null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(tr(if (showTranslation) "Nascondi traduzione" else "Mostra traduzione"), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+                status?.let {
+                    Text(it, fontSize = 12.sp, color = Color.White.copy(alpha = 0.7f), modifier = Modifier.padding(top = 4.dp, end = 4.dp))
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun SyncedLyrics(lyrics: LyricsState.Synced, position: () -> Long) {
+private fun SyncedLyrics(lyrics: LyricsState.Synced, position: () -> Long, translation: List<String>?) {
     // Changes only when the line does.
     val current by remember(lyrics) {
         derivedStateOf { lyrics.lines.indexOfLast { it.time <= position() / 1000.0 + 0.25 } }
@@ -435,18 +493,27 @@ private fun SyncedLyrics(lyrics: LyricsState.Synced, position: () -> Long) {
             itemsIndexed(lyrics.lines, key = { index, _ -> index }) { index, line ->
                 val active = index == current
                 val alpha by animateFloatAsState(if (active) 1f else 0.35f, label = "line")
-                Text(
-                    line.text.ifEmpty { "♪" },
-                    fontSize = 27.sp,
-                    lineHeight = 34.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White.copy(alpha = alpha),
-                    modifier = Modifier
+                Column(
+                    Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(12.dp))
                         .clickable { PlayerController.seek((line.time * 1000).toLong()) }
                         .padding(vertical = 10.dp, horizontal = 4.dp),
-                )
+                ) {
+                    Text(
+                        line.text.ifEmpty { "♪" },
+                        fontSize = 27.sp,
+                        lineHeight = 34.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White.copy(alpha = alpha),
+                    )
+                    translation?.getOrNull(index)?.takeIf { it.isNotBlank() }?.let {
+                        Text(
+                            it, fontSize = 18.sp, lineHeight = 24.sp, fontWeight = FontWeight.SemiBold,
+                            color = Color.White.copy(alpha = alpha * 0.65f), modifier = Modifier.padding(top = 2.dp),
+                        )
+                    }
+                }
             }
         }
     }

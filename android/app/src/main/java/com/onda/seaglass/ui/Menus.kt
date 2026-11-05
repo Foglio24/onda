@@ -20,7 +20,10 @@ import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.DeleteOutline
+import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Person
@@ -51,6 +54,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.onda.seaglass.core.tr
+import com.onda.seaglass.data.Downloads
 import com.onda.seaglass.data.Library
 import com.onda.seaglass.model.Track
 import com.onda.seaglass.playback.PlayerController
@@ -69,6 +73,8 @@ fun TrackMenu(
     val app = LocalApp.current
     val liked by Library.liked.collectAsStateWithLifecycle()
     val isLiked = liked.any { it.videoId == track.videoId }
+    val downloads by Downloads.items.collectAsStateWithLifecycle()
+    val download = downloads[track.videoId]
     val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -108,6 +114,11 @@ fun TrackMenu(
                 },
             )
             MenuItem(Icons.AutoMirrored.Rounded.PlaylistAdd, tr("Aggiungi a playlist…"), act { app.addToPlaylist(track) })
+            when {
+                download?.isComplete == true -> MenuItem(Icons.Rounded.DeleteOutline, tr("Rimuovi download"), act { Downloads.remove(track) })
+                download?.isActive == true -> MenuItem(Icons.Rounded.Close, tr("Annulla download"), act { Downloads.remove(track) })
+                else -> MenuItem(Icons.Rounded.Download, tr("Scarica"), act { Downloads.download(listOf(track)) })
+            }
             MenuItem(Icons.Rounded.Person, tr("Vai all'artista"), act { onArtist(track) })
             track.albumId?.let { albumId -> MenuItem(Icons.Rounded.Album, tr("Vai all'album"), act { app.open("album/$albumId") }) }
             MenuItem(Icons.Rounded.Share, tr("Condividi"), act { onShare(track) })

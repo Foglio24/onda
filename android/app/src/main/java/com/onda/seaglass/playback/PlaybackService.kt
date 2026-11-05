@@ -66,27 +66,6 @@ fun Track.toMediaItem(): MediaItem = MediaItem.Builder()
 fun MediaItem.toTrack(): Track? =
     mediaMetadata.extras?.getString(TRACK_KEY)?.let { runCatching { Track.fromJson(JSONObject(it)) }.getOrNull() }
 
-/** Songs play from `seaglass://<videoId>`: the link to the audio is looked up only when it's needed. */
-fun streamUri(videoId: String): Uri = Uri.parse("seaglass://$videoId")
-
-/**
- * Where the player reads audio: `seaglass://<videoId>` becomes the song's YouTube link (looked up
- * on the player's loading thread), read in 1 MB ranges.
- */
-@OptIn(UnstableApi::class)
-fun audioDataSourceFactory(): DataSource.Factory {
-    val http = OkHttpDataSource.Factory(Http.client).setUserAgent(Streams.USER_AGENT)
-    val chunked = DataSource.Factory { ChunkedDataSource(http.createDataSource()) }
-    return ResolvingDataSource.Factory(chunked) { spec: DataSpec ->
-        val videoId = spec.uri.host
-        if (spec.uri.scheme != "seaglass" || videoId == null) {
-            spec
-        } else {
-            spec.withUri(Uri.parse(runBlocking { Streams.resolve(videoId) }.rendition.url))
-        }
-    }
-}
-
 /** What the player tells the screens that isn't part of the player's own state. */
 object PlaybackEvents {
     val error = MutableStateFlow<String?>(null)
@@ -105,6 +84,8 @@ class PlaybackService : MediaSessionService() {
     private var retried: String? = null
     /** Songs that failed in a row: after a few, playback stops instead of running through the queue. */
     private var failures = 0
+    private var crossfader: Crossfader? = null
+    private var detachBitPerfect: () -> Unit = {}
 
     override fun onCreate() {
         super.onCreate()
@@ -119,6 +100,13 @@ class PlaybackService : MediaSessionService() {
             .setWakeMode(C.WAKE_MODE_NETWORK)
             .build()
         player.addListener(listener)
+        crossfader = Crossfader(this, player, scope, gainOf = ::gainOf, allowed = { !BitPerfect.active }).also { it.start() }
+        detachBitPerfect = BitPerfect.attach(this, player)
+        // A song's loudness arrives with its link, on a loading thread.
+        Streams.onLoudness = { videoId -> scope.launch { if (player.currentMediaItem?.mediaId == videoId) applyVolume() } }
+        scope.launch {
+            Prefs.normalizeVolume.flow.collect { applyVolume() }
+        }
         val open = PendingIntent.getActivity(
             this, 0,
             Intent(this, MainActivity::class.java).putExtra(MainActivity.OPEN_PLAYER, true)
@@ -147,6 +135,9 @@ class PlaybackService : MediaSessionService() {
 
     override fun onDestroy() {
         saveResumeState()
+        Streams.onLoudness = null
+        crossfader?.release()
+        detachBitPerfect()
         scope.cancel()
         session?.run {
             player.release()
@@ -172,6 +163,7 @@ class PlaybackService : MediaSessionService() {
             PlaybackEvents.error.value = null
             retried = null
             if (reason != Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT) mediaItem?.toTrack()?.let(Library::recordPlay)
+            applyVolume()
             extendIfNeeded()
             saveResumeState()
         }
@@ -202,6 +194,16 @@ class PlaybackService : MediaSessionService() {
                 player.prepare()
             }
         }
+    }
+
+    /** "Volume uniforme": every song at YouTube's reference loudness (the crossfade sets its own volumes). */
+    private fun gainOf(videoId: String): Float =
+        if (Prefs.normalizeVolume.value && !BitPerfect.active) Streams.gain(Streams.loudness(videoId)) else 1f
+
+    private fun applyVolume() {
+        val player = session?.player ?: return
+        if (crossfader?.fading == true) return
+        player.volume = player.currentMediaItem?.mediaId?.let(::gainOf) ?: 1f
     }
 
     /** Similar songs after the last one, when "Radio automatica" is on and the queue is about to end. */

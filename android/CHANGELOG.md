@@ -1,5 +1,21 @@
 # Changelog (Android)
 
+## 0.2.0 (2026-11-05)
+
+### Added
+- **Downloads.** Songs, albums and playlists (also the favourites and your own playlists) download to the phone and play without a connection: "Scarica" in a song's menu, "Scarica tutta la playlist" on a page, with the progress beside each song and in a notification. Downloads resume after the app is closed. Library → Download lists them; Settings → Storage shows the space they take and deletes them.
+- **Audio quality as on the iPhone.** Separate qualities for Wi-Fi, cellular and downloads: Maximum (Dolby or AAC 256 kbps when YouTube offers them, otherwise Opus 160 kbps), High (AAC 128 kbps), Medium (Opus 70 kbps), Data saver (HE-AAC 48 kbps). The player shows the format playing.
+- **Dolby when available** (Dolby Digital Plus, and Dolby Atmos on phones that decode it), and **uniform volume**, which brings every song to YouTube's reference loudness.
+- **Crossfade** between songs, from 1 to 12 seconds (Settings → Playback → Transitions). Songs of the same album follow each other without a fade.
+- **Lyrics translation** on the phone: "Mostra traduzione" in the lyrics puts each line's translation under it; the language is recognised by itself, and its model downloads once, then works offline. Settings → Lyrics chooses the language.
+- **Bit-perfect output to a USB DAC** (Android 14 and later), as in LastWave: the audio reaches the DAC unchanged, at each song's own sample rate, without Android's mixer.
+- **Pull the player down to close it**, from anywhere on it (the artwork too), as on the iPhone; the mini player opens with a swipe up.
+- Settings are a short list of topics, each with its own page: Audio, Playback, Lyrics, Appearance, Language, Storage, Updates, About.
+
+### Fixed
+- Closing Seaglass from the recent apps now stops the music, as on the iPhone; "Riprendi da dove eri" remembers where it was.
+- After three songs fail in a row, playback stops instead of running through the queue.
+
 ## 0.1.0 (2026-11-05)
 
 ### Added

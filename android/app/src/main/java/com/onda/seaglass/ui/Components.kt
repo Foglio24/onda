@@ -147,10 +147,13 @@ fun TrackRow(
                 track.title, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 16.sp,
                 color = if (isCurrent) accent else Color.White, fontWeight = FontWeight.Medium,
             )
-            Text(
-                listOfNotNull(track.subtitle, track.duration?.let(::formatDuration)).joinToString(" · "),
-                maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 13.sp, color = Secondary,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                DownloadBadge(track, Modifier.padding(end = 4.dp))
+                Text(
+                    listOfNotNull(track.subtitle, track.duration?.let(::formatDuration)).joinToString(" · "),
+                    maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 13.sp, color = Secondary,
+                )
+            }
         }
         IconButton(onClick = { app.showMenu(track, playlistId, playlistIndex) }) {
             Icon(Icons.Rounded.MoreVert, tr("Altro"), tint = Secondary)

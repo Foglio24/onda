@@ -17,6 +17,16 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
+/** An upstream that fails if it is ever opened. */
+@UnstableApi
+private object NoNetwork : androidx.media3.datasource.DataSource {
+    override fun addTransferListener(transferListener: androidx.media3.datasource.TransferListener) = Unit
+    override fun open(dataSpec: DataSpec): Long = throw AssertionError("network used for a downloaded song")
+    override fun read(buffer: ByteArray, offset: Int, length: Int): Int = throw AssertionError("network used")
+    override fun getUri(): Uri? = null
+    override fun close() = Unit
+}
+
 /**
  * The player's own data source (`seaglass://` → YouTube link → 1 MB ranges) reading a real song:
  * the whole file, byte for byte as long as YouTube says, and from the middle as a seek asks.
@@ -72,5 +82,49 @@ class AudioPathCheck {
         source.close()
         println("Read $tail bytes from the middle")
         assertEquals(total - middle, tail)
+    }
+
+    /** A download as the download manager makes it, then read back with no network, as the player does offline. */
+    @Test
+    fun downloadsAndPlaysOffline() {
+        val videoId = "dQw4w9WgXcQ"
+        try {
+            runBlocking { Streams.resolve(videoId) }
+        } catch (e: NoStreamException) {
+            assumeTrue("YouTube refused the audio links on this network (${e.detail})", false)
+            return
+        }
+        val context = org.robolectric.RuntimeEnvironment.getApplication()
+        val folder = java.io.File(context.cacheDir, "download-check").apply { deleteRecursively() }
+        val cache = androidx.media3.datasource.cache.SimpleCache(
+            folder, androidx.media3.datasource.cache.NoOpCacheEvictor(), androidx.media3.database.StandaloneDatabaseProvider(context),
+        )
+        val writing = androidx.media3.datasource.cache.CacheDataSource.Factory()
+            .setCache(cache).setUpstreamDataSourceFactory(com.onda.seaglass.playback.downloadDataSourceFactory())
+        val item = androidx.media3.common.MediaItem.Builder().setUri(streamUri(videoId)).setCustomCacheKey(videoId).build()
+        androidx.media3.exoplayer.offline.ProgressiveDownloader(item, writing).download(null)
+        val stored = cache.getCachedBytes(videoId, 0, C.LENGTH_UNSET.toLong())
+        println("Downloaded $stored bytes")
+        assertTrue(stored > 100_000)
+
+        // Read back from the cache alone: the upstream fails if anything is missing.
+        val reading = androidx.media3.datasource.cache.CacheDataSource.Factory()
+            .setCache(cache)
+            .setCacheKeyFactory { spec -> spec.key ?: spec.uri.host!! }
+            .setCacheWriteDataSinkFactory(null)
+            .setUpstreamDataSourceFactory { NoNetwork }
+            .createDataSource()
+        val length = reading.open(DataSpec(streamUri(videoId)))
+        val buffer = ByteArray(64 * 1024)
+        var read = 0L
+        while (true) {
+            val count = reading.read(buffer, 0, buffer.size)
+            if (count == C.RESULT_END_OF_INPUT) break
+            read += count
+        }
+        reading.close()
+        println("Read $read of $length bytes offline")
+        assertEquals(stored, read)
+        cache.release()
     }
 }

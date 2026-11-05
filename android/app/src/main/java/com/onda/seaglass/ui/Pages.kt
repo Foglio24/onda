@@ -224,6 +224,7 @@ fun AlbumScreen(id: String) {
             }
         }
         item { PlayButtons(album.tracks) }
+        item { DownloadAllButton(album.tracks) }
         itemsIndexed(album.tracks, key = { index, track -> "$index" + track.videoId }) { index, track ->
             TrackRow(track, onClick = { PlayerController.play(album.tracks, index) }, number = index + 1, showArtwork = false)
         }
@@ -238,6 +239,7 @@ fun PlaylistScreen(id: String) {
     PageContent<PlaylistPage>(load, retry, tr("Playlist non disponibile")) { page ->
         item { CenteredHeader(page.artworkUrl, page.title, listOf(page.subtitle, tr("%lld brani", page.tracks.size))) }
         item { PlayButtons(page.tracks) }
+        item { DownloadAllButton(page.tracks) }
         item {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
                 androidx.compose.material3.TextButton(onClick = {

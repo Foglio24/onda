@@ -99,6 +99,10 @@ class CatalogCheck {
             val table = L10n.parse(File(language, "Localizable.strings").readText()) +
                 L10n.parse(File(root, "android/app/src/main/assets/l10n-android/$code.strings").takeIf { it.exists() }?.readText().orEmpty())
             keys.filter { it !in table }.forEach { missing += "$code: $it" }
+            // The same placeholders (%@, %lld, numbered or not) in the same number.
+            val specifier = Regex("""%(\d+\$)?(@|lld|ld|d|s)""")
+            fun kinds(text: String) = specifier.findAll(text).map { it.groupValues[2] }.sorted().toList()
+            keys.filter { it in table && kinds(it) != kinds(table.getValue(it)) }.forEach { missing += "$code (placeholders): $it" }
         }
         println("${keys.size} texts in ${languages.size} languages")
         assertTrue("Missing translations:\n" + missing.joinToString("\n"), missing.isEmpty())

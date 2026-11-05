@@ -45,8 +45,8 @@ android {
         applicationId = "com.onda.seaglass"
         minSdk = 29
         targetSdk = 37
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.2.0"
     }
 
     // Only the app's languages: the libraries' other translations stay out of the APK.
@@ -79,6 +79,16 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+    }
+    // One APK per processor: the translation models' native code is large. Phones are arm64 (or
+    // 32-bit ARM, rarely); x86_64 is only for the emulator that takes CI's screenshots.
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("arm64-v8a", "armeabi-v7a", "x86_64")
+            isUniversalApk = false
+        }
     }
     buildFeatures {
         compose = true
@@ -128,6 +138,9 @@ dependencies {
     implementation(libs.haze.glass)
     implementation(libs.haze.blur)
     implementation(libs.coroutines.android)
+    // Lyrics translation on the phone (models downloaded once per language).
+    implementation(libs.mlkit.translate)
+    implementation(libs.mlkit.language.id)
 
     // The checks in src/test run on the computer (or CI) against the real services.
     testImplementation(libs.junit)

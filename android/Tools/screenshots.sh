@@ -36,6 +36,8 @@ shot 05-player 25 --es scene player --es query "'Daft Punk Get Lucky'"
 shot 06-lyrics 25 --es scene lyrics --es query "'Daft Punk Get Lucky'"
 shot 07-library 10 --es scene library
 shot 08-settings 8 --es scene settings
+shot 08b-settings-audio 8 --es scene settings/audio
+shot 08c-settings-playback 8 --es scene settings/playback
 shot 09-home-after-listening 20
 
 # Right to left, and another script.

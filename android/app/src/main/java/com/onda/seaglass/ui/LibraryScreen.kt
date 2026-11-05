@@ -24,6 +24,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.History
@@ -72,6 +73,7 @@ fun LibraryScreen() {
     val liked by Library.liked.collectAsStateWithLifecycle()
     val history by Library.history.collectAsStateWithLifecycle()
     val playlists by Library.playlists.collectAsStateWithLifecycle()
+    val downloads by com.onda.seaglass.data.Downloads.items.collectAsStateWithLifecycle()
     var creating by remember { mutableStateOf(false) }
     var importing by remember { mutableStateOf(false) }
     val top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
@@ -85,6 +87,10 @@ fun LibraryScreen() {
         }
         item { LibraryRow(tr("Preferiti"), count(liked.size), Icons.Rounded.Favorite) { app.open("liked") } }
         item { LibraryRow(tr("Cronologia"), count(history.size), Icons.Rounded.History) { app.open("history") } }
+        item {
+            val downloaded = downloads.values.count { it.isComplete }
+            LibraryRow(tr("Download"), count(downloaded), Icons.Rounded.Download) { app.open("downloads") }
+        }
         item { SectionHeader(tr("Le tue playlist")) }
         if (playlists.isEmpty()) {
             item { LibraryRow(tr("Nuova playlist"), "", Icons.AutoMirrored.Rounded.PlaylistAdd) { creating = true } }
@@ -147,14 +153,19 @@ private fun LibraryRow(title: String, detail: String, icon: ImageVector, onClick
     }
 }
 
-/** A list of songs with a title, "Riproduci" and "Casuale": favourites, history and the user's playlists. */
+/**
+ * A list of songs with a title, "Riproduci", "Casuale" and the download of them all: favourites,
+ * history, downloads and the user's playlists.
+ */
 @Composable
-private fun TrackListScreen(
+fun TrackListPage(
     title: String,
     tracks: List<Track>,
     emptyTitle: String,
     emptyDetail: String,
     playlistId: String? = null,
+    downloadable: Boolean = true,
+    icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
     actions: @Composable () -> Unit = {},
 ) {
     val top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
@@ -176,6 +187,7 @@ private fun TrackListScreen(
                         PillButton(tr("Casuale"), Icons.Rounded.Shuffle, Modifier.weight(1f)) { PlayerController.play(tracks, shuffle = true) }
                     }
                 }
+                if (downloadable) item { DownloadAllButton(tracks) }
                 itemsIndexed(tracks, key = { index, track -> "$index" + track.videoId }) { index, track ->
                     TrackRow(
                         track, onClick = { PlayerController.play(tracks, index) },
@@ -191,14 +203,14 @@ private fun TrackListScreen(
 @Composable
 fun LikedScreen() {
     val liked by Library.liked.collectAsStateWithLifecycle()
-    TrackListScreen(tr("Preferiti"), liked, tr("Nessun preferito"), tr("Aggiungi brani dal menu ··· di ogni canzone."))
+    TrackListPage(tr("Preferiti"), liked, tr("Nessun preferito"), tr("Aggiungi brani dal menu ··· di ogni canzone."))
 }
 
 @Composable
 fun HistoryScreen() {
     val history by Library.history.collectAsStateWithLifecycle()
     var confirm by remember { mutableStateOf(false) }
-    TrackListScreen(tr("Cronologia"), history, tr("Cronologia vuota"), tr("I brani che ascolti appariranno qui.")) {
+    TrackListPage(tr("Cronologia"), history, tr("Cronologia vuota"), tr("I brani che ascolti appariranno qui."), downloadable = false) {
         if (history.isNotEmpty()) TextButton(onClick = { confirm = true }) { Text(tr("Svuota"), color = LocalAccent.current) }
     }
     if (confirm) {
@@ -226,7 +238,7 @@ fun LocalPlaylistScreen(id: String) {
         Message(tr("Playlist eliminata"))
         return
     }
-    TrackListScreen(
+    TrackListPage(
         playlist.name, playlist.tracks, tr("La playlist è vuota."), tr("Aggiungi brani dal menu ··· di ogni canzone."),
         playlistId = playlist.id,
     ) {
