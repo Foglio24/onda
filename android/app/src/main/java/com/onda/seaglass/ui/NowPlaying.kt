@@ -1,6 +1,13 @@
 package com.onda.seaglass.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.spring
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.util.VelocityTracker
+import kotlinx.coroutines.launch
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -124,8 +131,11 @@ fun NowPlayingScreen(startWithLyrics: Boolean, onClose: () -> Unit) {
     val track = state.current ?: return
     val haze = rememberHazeState()
     var panel by remember { mutableStateOf(if (startWithLyrics) Panel.LYRICS else Panel.ARTWORK) }
-    var dragOffset by remember { mutableFloatStateOf(0f) }
-    val density = LocalDensity.current
+    // Pulled down anywhere (the artwork, the title, the controls' empty space) the player follows
+    // the finger and closes past a quarter of the screen or with a flick, as the iPhone's card.
+    val drag = remember { Animatable(0f) }
+    val scope = rememberCoroutineScope()
+    val velocity = remember { VelocityTracker() }
 
     // Read only by the timeline and the lyrics, so the rest of the player doesn't redraw with it.
     val positionState = remember { mutableLongStateOf(PlayerController.positionMs) }
@@ -141,27 +151,39 @@ fun NowPlayingScreen(startWithLyrics: Boolean, onClose: () -> Unit) {
     Box(
         Modifier
             .fillMaxSize()
-            .offset { IntOffset(0, dragOffset.roundToInt().coerceAtLeast(0)) }
-            .background(Background),
+            .graphicsLayer {
+                translationY = drag.value
+                val progress = (drag.value / size.height).coerceIn(0f, 1f)
+                shape = RoundedCornerShape((progress * 160f).coerceAtMost(36f).dp)
+                clip = drag.value > 0f
+            }
+            .background(Background)
+            .pointerInput(Unit) {
+                detectVerticalDragGestures(
+                    onDragStart = { velocity.resetTracking() },
+                    onDragEnd = {
+                        val speed = velocity.calculateVelocity().y
+                        if (drag.value > size.height * 0.25f || (speed > 1500f && drag.value > 0f)) {
+                            onClose()
+                        } else {
+                            scope.launch { drag.animateTo(0f, spring(dampingRatio = 0.8f, stiffness = 500f)) }
+                        }
+                    },
+                    onDragCancel = { scope.launch { drag.animateTo(0f) } },
+                ) { change, amount ->
+                    change.consume()
+                    val next = (drag.value + amount).coerceAtLeast(0f)
+                    velocity.addPosition(change.uptimeMillis, Offset(0f, next))
+                    scope.launch { drag.snapTo(next) }
+                }
+            },
     ) {
         PlayerBackground(track, haze)
         CompositionLocalProvider(LocalHazeState provides haze) {
             BoxWithConstraints(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
                 val wide = maxWidth > maxHeight && maxWidth >= 600.dp
                 Column(Modifier.fillMaxSize()) {
-                    TopBar(
-                        onClose = onClose,
-                        modifier = Modifier.pointerInput(Unit) {
-                            detectVerticalDragGestures(
-                                onDragEnd = {
-                                    if (dragOffset > with(density) { 140.dp.toPx() }) onClose()
-                                    dragOffset = 0f
-                                },
-                                onDragCancel = { dragOffset = 0f },
-                            ) { _, amount -> dragOffset = (dragOffset + amount).coerceAtLeast(0f) }
-                        },
-                        track = track,
-                    )
+                    TopBar(onClose = onClose, track = track)
                     if (wide) {
                         Row(Modifier.fillMaxSize().padding(horizontal = 24.dp), verticalAlignment = Alignment.CenterVertically) {
                             Box(Modifier.weight(1f).fillMaxHeight().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {

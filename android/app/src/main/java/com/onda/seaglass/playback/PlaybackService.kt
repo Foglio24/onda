@@ -136,12 +136,13 @@ class PlaybackService : MediaSessionService() {
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session
 
+    /**
+     * The app swiped away from the recent apps: the music stops with it, as on the iPhone (where
+     * closing the app from the switcher stops playback). Where it was stays for "Riprendi".
+     */
     override fun onTaskRemoved(rootIntent: Intent?) {
-        val player = session?.player
-        if (player == null || !player.playWhenReady || player.mediaItemCount == 0) {
-            saveResumeState()
-            stopSelf()
-        }
+        saveResumeState()
+        pauseAllPlayersAndStopSelf()
     }
 
     override fun onDestroy() {

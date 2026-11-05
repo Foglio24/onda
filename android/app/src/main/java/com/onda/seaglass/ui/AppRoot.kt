@@ -9,6 +9,8 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -345,7 +347,24 @@ private fun MiniPlayer(onOpen: () -> Unit) {
         }
     }
     val accent = LocalAccent.current
-    GlassSurface(Modifier.fillMaxWidth().height(64.dp).clickable(onClick = onOpen), corner = 22.dp) {
+    GlassSurface(
+        Modifier
+            .fillMaxWidth()
+            .height(64.dp)
+            .clickable(onClick = onOpen)
+            // Swiped up, it opens the player.
+            .pointerInput(Unit) {
+                var pulled = 0f
+                detectVerticalDragGestures(
+                    onDragStart = { pulled = 0f },
+                    onDragEnd = { if (pulled < -40f) onOpen() },
+                ) { change, amount ->
+                    change.consume()
+                    pulled += amount
+                }
+            },
+        corner = 22.dp,
+    ) {
         Row(Modifier.fillMaxSize().padding(start = 10.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Artwork(track.mediumArtwork, Modifier.size(44.dp), RoundedCornerShape(8.dp))
             Spacer(Modifier.width(12.dp))
