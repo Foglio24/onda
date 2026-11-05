@@ -40,6 +40,11 @@ shot 08b-settings-audio 8 --es scene settings/audio
 shot 08c-settings-playback 8 --es scene settings/playback
 shot 09-home-after-listening 20
 
+# The lyrics translated on the phone (an English song into Italian): ML Kit finds its parts and
+# downloads the Italian model.
+adb shell cmd locale set-app-locales "$pkg" --locales it
+shot 06b-lyrics-translated 45 --es scene translate --es query "'Daft Punk Get Lucky'"
+
 # Right to left, and another script.
 adb shell cmd locale set-app-locales "$pkg" --locales ar
 shot 10-search-arabic 15 --es scene search --es query "Fairuz"

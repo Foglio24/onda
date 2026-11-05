@@ -287,11 +287,12 @@ private suspend fun handleLaunch(
             tab("settings")
             nav.navigate(scene)
         }
-        "player", "lyrics", "queue" -> {
+        "player", "lyrics", "queue", "translate" -> {
+            if (scene == "translate") com.onda.seaglass.data.LyricsTranslator.translateOnOpen.value = true
             val query = request.query ?: "Daft Punk Get Lucky"
             val song = runCatching { InnerTube.searchSongs(query).firstOrNull() }.getOrNull() ?: return
             PlayerController.playRadio(song)
-            onLyrics(scene == "lyrics")
+            onLyrics(scene == "lyrics" || scene == "translate")
             delay(1_500)
             app.openPlayer()
         }

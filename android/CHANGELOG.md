@@ -1,5 +1,13 @@
 # Changelog (Android)
 
+## 0.2.1 (2026-11-05)
+
+### Fixed
+- **Lyrics translation works.** In 0.2.0 it stopped at once with an internal error: the release build's code shrinking emptied the parts ML Kit looks up by name, so the language of the lyrics couldn't be recognised. When a translation can't be made, the lyrics now say so plainly.
+
+### Changed
+- **Clearer Settings.** Each topic shows how it's set under its name (the qualities for Wi-Fi and cellular, the transition, the translation language, the theme colour, the downloaded songs and the space they take, the version), so a page is opened only to change something.
+
 ## 0.2.0 (2026-11-05)
 
 ### Added

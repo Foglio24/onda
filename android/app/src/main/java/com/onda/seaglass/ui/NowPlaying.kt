@@ -442,6 +442,12 @@ private fun LyricsPanel(track: Track, position: () -> Long) {
             }
         }
     }
+    LaunchedEffect(lines.isNotEmpty()) {
+        if (lines.isNotEmpty() && LyricsTranslator.translateOnOpen.value) {
+            LyricsTranslator.translateOnOpen.value = false
+            toggle()
+        }
+    }
     Box(Modifier.fillMaxSize()) {
         val shown = translation.takeIf { showTranslation }
         when (lyrics) {

@@ -38,6 +38,9 @@ object LyricsTranslator {
         }
     }
 
+    /** Set by the screenshots' "translate" scene: the lyrics open already translated. */
+    val translateOnOpen = kotlinx.coroutines.flow.MutableStateFlow(false)
+
     sealed interface Progress {
         data object Translating : Progress
         data object DownloadingModel : Progress
@@ -46,7 +49,19 @@ object LyricsTranslator {
     class TranslationException(message: String) : Exception(message)
 
     /** [lines] in the target language, one for each (empty lines stay empty). */
-    suspend fun translate(lines: List<String>, progress: (Progress) -> Unit): List<String> {
+    suspend fun translate(lines: List<String>, progress: (Progress) -> Unit): List<String> = try {
+        translateLines(lines, progress)
+    } catch (e: TranslationException) {
+        throw e
+    } catch (e: kotlinx.coroutines.CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        // Never an internal error on screen: what failed goes to the log, the screen says it plainly.
+        android.util.Log.w("LyricsTranslator", "Translation failed", e)
+        throw TranslationException(tr("Traduzione non disponibile"))
+    }
+
+    private suspend fun translateLines(lines: List<String>, progress: (Progress) -> Unit): List<String> {
         val text = lines.filter { it.isNotBlank() }.joinToString("\n")
         val identified = LanguageIdentification.getClient().identifyLanguage(text).await()
         if (identified == "und") throw TranslationException(tr("Lingua del testo non riconosciuta"))
@@ -66,8 +81,12 @@ object LyricsTranslator {
             return lines.map { line -> if (line.isBlank()) "" else translator.translate(line).await() }
         } catch (e: TranslationException) {
             throw e
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
         } catch (e: Exception) {
-            throw TranslationException(tr("Traduzione non riuscita: %@", e.localizedMessage ?: e.javaClass.simpleName))
+            android.util.Log.w("LyricsTranslator", "Model download or translation failed", e)
+            // Usually the language's model couldn't be downloaded (no connection).
+            throw TranslationException(tr("Traduzione non disponibile"))
         } finally {
             translator.close()
         }

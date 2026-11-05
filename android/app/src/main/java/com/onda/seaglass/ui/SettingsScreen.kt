@@ -91,28 +91,65 @@ fun SettingsScreen() {
     val context = LocalContext.current
     val top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val language = L10n.locale.getDisplayLanguage(L10n.locale).replaceFirstChar { it.titlecase(L10n.locale) }
+    // Each topic says what it holds and how it's set, so a page is opened only to change something.
+    val wifi by Prefs.wifiQuality.flow.collectAsStateWithLifecycle()
+    val cellular by Prefs.cellularQuality.flow.collectAsStateWithLifecycle()
+    val dolby by Prefs.preferDolby.flow.collectAsStateWithLifecycle()
+    val normalize by Prefs.normalizeVolume.flow.collectAsStateWithLifecycle()
+    val transition by Prefs.transition.flow.collectAsStateWithLifecycle()
+    val seconds by Prefs.crossfadeSeconds.collectAsStateWithLifecycle()
+    val autoRadio by Prefs.autoRadio.collectAsStateWithLifecycle()
+    val target by Prefs.translationTarget.flow.collectAsStateWithLifecycle()
+    val accent by Prefs.accent.collectAsStateWithLifecycle()
+    val artworkColors by Prefs.artworkColors.collectAsStateWithLifecycle()
+    val downloads by Downloads.items.collectAsStateWithLifecycle()
+    fun short(quality: AudioQuality) = quality.title.substringBefore(" · ")
+    val audio = listOfNotNull(
+        "${tr("Wi-Fi")} ${short(wifi)}",
+        "${tr("Rete cellulare")} ${short(cellular)}",
+        tr("Dolby quando disponibile").takeIf { dolby && AudioSupport.dolby },
+        tr("Volume uniforme").takeIf { normalize },
+    ).joinToString(" · ")
+    val playback = listOfNotNull(
+        when (transition) {
+            SongTransition.CROSSFADE -> "${transition.title} ${tr("%lld s", seconds.roundToInt())}"
+            else -> transition.title
+        },
+        tr("Radio automatica").takeIf { autoRadio },
+    ).joinToString(" · ")
+    val downloaded = downloads.values.count { it.isComplete }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = top, bottom = LocalBottomPadding.current)) {
         item { ScreenTitle(tr("Impostazioni")) }
         item {
             Group {
-                TopicRow(Icons.Rounded.GraphicEq, tr("Audio")) { app.open("settings/audio") }
+                TopicRow(Icons.Rounded.GraphicEq, tr("Audio"), audio) { app.open("settings/audio") }
                 Divider()
-                TopicRow(Icons.Rounded.PlayCircle, tr("Riproduzione")) { app.open("settings/playback") }
+                TopicRow(Icons.Rounded.PlayCircle, tr("Riproduzione"), playback) { app.open("settings/playback") }
                 Divider()
-                TopicRow(Icons.Rounded.Lyrics, tr("Testi")) { app.open("settings/lyrics") }
+                TopicRow(Icons.Rounded.Lyrics, tr("Testi"), "${tr("Traduci in")} ${LyricsTranslator.languageName(target.ifEmpty { LyricsTranslator.target() })}") {
+                    app.open("settings/lyrics")
+                }
                 Divider()
-                TopicRow(Icons.Rounded.Palette, tr("Aspetto")) { app.open("settings/appearance") }
+                TopicRow(
+                    Icons.Rounded.Palette, tr("Aspetto"),
+                    listOfNotNull(accent.title, tr("Colori dalla copertina").takeIf { artworkColors }).joinToString(" · "),
+                ) { app.open("settings/appearance") }
                 Divider()
                 TopicRow(Icons.Rounded.Language, tr("Lingua"), language) { openLanguageSettings(context) }
             }
         }
         item {
             Group {
-                TopicRow(Icons.Rounded.Storage, tr("Spazio")) { app.open("settings/storage") }
+                TopicRow(
+                    Icons.Rounded.Storage, tr("Spazio"),
+                    "${tr("Brani scaricati")}: $downloaded · ${Formatter.formatShortFileSize(context, Downloads.bytes)}",
+                ) { app.open("settings/storage") }
                 Divider()
-                TopicRow(Icons.Rounded.SystemUpdate, tr("Aggiornamenti")) { app.open("settings/updates") }
+                TopicRow(Icons.Rounded.SystemUpdate, tr("Aggiornamenti"), tr("Hai la versione %@", BuildConfig.VERSION_NAME)) {
+                    app.open("settings/updates")
+                }
                 Divider()
-                TopicRow(Icons.Rounded.Info, tr("Informazioni")) { app.open("settings/about") }
+                TopicRow(Icons.Rounded.Info, tr("Informazioni"), tr("Codice sorgente su GitHub")) { app.open("settings/about") }
             }
         }
     }
@@ -428,18 +465,22 @@ private fun Group(title: String? = null, footer: String? = null, content: @Compo
 private fun Divider() = HorizontalDivider(Modifier.padding(start = 16.dp), color = Color.White.copy(alpha = 0.08f))
 
 @Composable
-private fun TopicRow(icon: ImageVector, title: String, value: String = "", onClick: () -> Unit) {
+private fun TopicRow(icon: ImageVector, title: String, summary: String = "", onClick: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 13.dp),
+        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
-            Modifier.size(30.dp).clip(RoundedCornerShape(8.dp)).background(LocalAccent.current),
+            Modifier.size(34.dp).clip(RoundedCornerShape(9.dp)).background(LocalAccent.current),
             contentAlignment = Alignment.Center,
-        ) { Icon(icon, null, tint = Color.White, modifier = Modifier.size(18.dp)) }
+        ) { Icon(icon, null, tint = Color.White, modifier = Modifier.size(20.dp)) }
         Spacer(Modifier.width(14.dp))
-        Text(title, Modifier.weight(1f), fontSize = 16.sp)
-        if (value.isNotEmpty()) Text(value, color = Secondary, fontSize = 15.sp)
+        Column(Modifier.weight(1f)) {
+            Text(title, fontSize = 17.sp, fontWeight = FontWeight.Medium)
+            if (summary.isNotEmpty()) {
+                Text(summary, color = Secondary, fontSize = 13.sp, lineHeight = 17.sp, maxLines = 2)
+            }
+        }
         Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = Secondary)
     }
 }
