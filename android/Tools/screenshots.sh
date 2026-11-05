@@ -8,6 +8,11 @@ pkg=com.onda.seaglass
 mkdir -p "$out"
 
 adb install -r -g "$apk"
+# The emulator's own apps (the launcher) can stall on CI's software GPU: their "isn't responding"
+# dialogs would cover the screenshots. Seaglass's own ANRs and crashes are still saved below.
+adb shell settings put global hide_error_dialogs 1
+adb shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS > /dev/null 2>&1 || true
+sleep 5
 adb shell settings put global window_animation_scale 0
 adb shell settings put global transition_animation_scale 0
 adb shell settings put global animator_duration_scale 0
