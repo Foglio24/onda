@@ -12,7 +12,8 @@ import org.json.JSONObject
 import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
 
-class NoStreamException : IOException(tr("Nessuno stream audio riproducibile per questo brano."))
+/** [detail] is YouTube's own answer ("LOGIN_REQUIRED: …"), for diagnostics. */
+class NoStreamException(val detail: String? = null) : IOException(tr("Nessuno stream audio riproducibile per questo brano."))
 
 /**
  * A song's audio links, as the iPhone app's `DirectStreams` finds them: one request to YouTube's
@@ -59,11 +60,11 @@ object Streams {
         if (!isPlayable(json)) {
             // Without a visitor ID (or with an old one) YouTube refuses, and hands out a new one.
             val fresh = J.string(json, "responseContext", "visitorData")
-            if (fresh == null || fresh == stored) throw NoStreamException()
+            if (fresh == null || fresh == stored) throw NoStreamException(refusal(json))
             Prefs.visitorData = fresh
             json = request(videoId, fresh)
         }
-        if (!isPlayable(json)) throw NoStreamException()
+        if (!isPlayable(json)) throw NoStreamException(refusal(json))
         val renditions = parse(json)
         val chosen = choose(renditions) ?: throw NoStreamException()
         // Links are signed for about six hours; keep a margin.
@@ -84,6 +85,9 @@ object Streams {
     }
 
     private fun isPlayable(json: JSONObject) = J.string(json, "playabilityStatus", "status") == "OK"
+
+    private fun refusal(json: JSONObject): String =
+        listOfNotNull(J.string(json, "playabilityStatus", "status"), J.string(json, "playabilityStatus", "reason")).joinToString(": ")
 
     private suspend fun request(videoId: String, visitor: String?): JSONObject {
         val client = jsonOf(
@@ -113,7 +117,7 @@ object Streams {
         return try {
             JSONObject(Http.text(request))
         } catch (e: IOException) {
-            throw NoStreamException()
+            throw NoStreamException(e.message)
         }
     }
 

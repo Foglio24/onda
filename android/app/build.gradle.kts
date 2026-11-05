@@ -49,6 +49,11 @@ android {
         versionName = "0.1.0"
     }
 
+    // Only the app's languages: the libraries' other translations stay out of the APK.
+    androidResources {
+        localeFilters += listOf("it", "en", "fr", "es", "de", "pt", "zh", "ja", "ru", "tr", "ar")
+    }
+
     signingConfigs {
         if (keystore != null) {
             create("seaglass") {
