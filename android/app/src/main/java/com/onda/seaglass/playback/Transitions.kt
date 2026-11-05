@@ -175,7 +175,7 @@ class Transitions(
         val simple = if (mode == SongTransition.AUTOMIX) fallback.copy(fadeOutFrom = 0.3, fadeIn = 0.7) else fallback
         // Seconds before the mix when the hidden player takes over the song: AutoMix needs a moment
         // for the next song to start and fall in step, muted.
-        fun lead(p: TransitionPlan) = if (p.style == TransitionPlan.Style.BEAT_MATCHED || p.inStart > 0.5) 4.0 else 0.0
+        fun lead(p: TransitionPlan) = if (p.style == TransitionPlan.Style.BEAT_MATCHED || p.inStart > 0.5) LEAD else 0.0
         var chosen = if (mode == SongTransition.AUTOMIX) plan ?: simple else simple
         // AutoMix's plan came too late (a slow analysis), or the hidden player isn't in step yet when
         // it should take over: the plain crossfade at the end instead.
@@ -269,20 +269,47 @@ class Transitions(
         incomingId = main.currentMediaItem?.mediaId.orEmpty()
         TransitionInfo.last.value = (if (mode() == SongTransition.AUTOMIX) "${tr("AutoMix")} · " else "") + plan.description
         phase = if (lead > 0) Phase.ALIGNING else Phase.FADING
+        alignSeeks = 0
+        lastAlignSeek = SystemClock.elapsedRealtime()
         fadeStarted = SystemClock.elapsedRealtime()
     }
 
     /** Where the next song should be now, in its own seconds, from the outgoing song's position. */
     private fun target(plan: TransitionPlan, outgoingTime: Double) = plan.inStart + (outgoingTime - plan.outStart) * plan.incomingRate
 
-    /** Before the mix: the next song, muted, falls in step with the outgoing song's beats. */
+    private var alignSeeks = 0
+    private var lastAlignSeek = 0L
+    /** How long the next song takes to sound after a seek, learnt from the seeks themselves. */
+    private var seekLatency = 0.15
+
+    /**
+     * Before the mix: the next song, muted, falls in step with the outgoing song's beats. Far off,
+     * it jumps there (it's muted, nothing is heard), allowing for the time a seek takes to sound,
+     * which each jump measures for the next; close, it changes speed a little.
+     */
     private fun align() {
         val plan = active ?: return stop()
         val player = fader ?: return stop()
         val outTime = player.currentPosition / 1000.0
-        if (main.isPlaying) nudge(plan, outTime, strength = 1.5, limit = 0.12)
+        val settled = SystemClock.elapsedRealtime() - lastAlignSeek > 450
+        if (main.isPlaying && settled) {
+            val drift = main.currentPosition / 1000.0 - target(plan, outTime)
+            if (abs(drift) > 0.05 && alignSeeks < 4 && plan.outStart - outTime > 1.2) {
+                if (alignSeeks > 0) seekLatency = (seekLatency - drift / plan.incomingRate).coerceIn(0.0, 0.8)
+                val goal = target(plan, outTime + seekLatency)
+                switching = true
+                main.seekTo((goal * 1000).toLong())
+                switching = false
+                main.setPlaybackSpeed(plan.incomingRate.toFloat())
+                alignSeeks++
+                lastAlignSeek = SystemClock.elapsedRealtime()
+            } else {
+                nudge(plan, outTime, strength = 1.5, limit = 0.12)
+            }
+        }
         if (outTime >= plan.outStart) {
             val drift = main.currentPosition / 1000.0 - target(plan, outTime)
+            Log.i(TAG, "In step within ${"%.0f".format(drift * 1000)} ms after $alignSeeks jumps (seek latency ${"%.0f".format(seekLatency * 1000)} ms)")
             if (!main.isPlaying || abs(drift) > 0.08) {
                 // Couldn't fall in step in time: a short crossfade at the song's own tempo instead.
                 Log.i(TAG, "Not in step (${"%.0f".format(drift * 1000)} ms): short crossfade")
@@ -380,5 +407,7 @@ class Transitions(
 
     private companion object {
         const val TAG = "Transitions"
+        /** Seconds before the mix when the next song starts, muted, to fall in step. */
+        const val LEAD = 6.0
     }
 }
