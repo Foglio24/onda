@@ -1,5 +1,6 @@
 package com.onda.seaglass.ui
 
+import android.content.res.Configuration
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
@@ -7,8 +8,10 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
@@ -47,9 +50,19 @@ fun SeaglassTheme(content: @Composable () -> Unit) {
         titleLarge = base.titleLarge.copy(fontWeight = FontWeight.Bold),
         titleMedium = base.titleMedium.copy(fontWeight = FontWeight.SemiBold),
     )
-    MaterialTheme(colorScheme = scheme, typography = typography) {
-        // Text is white unless it says otherwise (there's no Surface to set it).
-        CompositionLocalProvider(LocalAccent provides color, LocalContentColor provides Color.White, content = content)
+    // The app is always dark: the glass, which follows the configuration, too (light glass on a
+    // phone in light mode turned the buttons milky).
+    val configuration = LocalConfiguration.current
+    val night = remember(configuration) {
+        Configuration(configuration).apply {
+            uiMode = (uiMode and Configuration.UI_MODE_NIGHT_MASK.inv()) or Configuration.UI_MODE_NIGHT_YES
+        }
+    }
+    CompositionLocalProvider(LocalConfiguration provides night) {
+        MaterialTheme(colorScheme = scheme, typography = typography) {
+            // Text is white unless it says otherwise (there's no Surface to set it).
+            CompositionLocalProvider(LocalAccent provides color, LocalContentColor provides Color.White, content = content)
+        }
     }
 }
 
