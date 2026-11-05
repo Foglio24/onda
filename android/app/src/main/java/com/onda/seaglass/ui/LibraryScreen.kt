@@ -61,8 +61,6 @@ import com.onda.seaglass.data.InnerTube
 import com.onda.seaglass.data.Library
 import com.onda.seaglass.model.Track
 import com.onda.seaglass.playback.PlayerController
-import dev.chrisbanes.haze.hazeSource
-import dev.chrisbanes.haze.rememberHazeState
 import kotlinx.coroutines.launch
 
 private fun count(n: Int) = if (n == 1) tr("1 brano") else tr("%lld brani", n)
@@ -160,10 +158,9 @@ private fun TrackListScreen(
     actions: @Composable () -> Unit = {},
 ) {
     val top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    val pageHaze = rememberHazeState()
     Box(Modifier.fillMaxSize()) {
         LazyColumn(
-            Modifier.fillMaxSize().hazeSource(pageHaze),
+            Modifier.fillMaxSize(),
             contentPadding = PaddingValues(top = top + 52.dp, bottom = LocalBottomPadding.current),
         ) {
             item { ScreenTitle(title, trailing = actions) }
@@ -187,7 +184,7 @@ private fun TrackListScreen(
                 }
             }
         }
-        GlassBackButton(Modifier.padding(top = top + 8.dp, start = 12.dp), state = pageHaze)
+        GlassBackButton(Modifier.padding(top = top + 8.dp, start = 12.dp))
     }
 }
 

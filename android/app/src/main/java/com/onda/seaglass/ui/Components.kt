@@ -1,6 +1,7 @@
 package com.onda.seaglass.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -258,14 +259,27 @@ fun Message(title: String, detail: String? = null, modifier: Modifier = Modifier
     }
 }
 
-/** A round glass back button floating over a page's header. */
+/**
+ * A round back button floating over a page's header: a dark tinted disc with the glass rim, which
+ * reads on any artwork (Haze can't refract a page from inside the page itself).
+ */
 @Composable
-fun GlassBackButton(modifier: Modifier = Modifier, state: dev.chrisbanes.haze.HazeState? = LocalHazeState.current) {
+fun GlassBackButton(modifier: Modifier = Modifier) {
     val app = LocalApp.current
-    GlassSurface(modifier.size(44.dp), corner = 22.dp, state = state) {
-        IconButton(onClick = { app.back() }, modifier = Modifier.fillMaxSize()) {
-            Icon(Icons.AutoMirrored.Rounded.ArrowBack, null, tint = Color.White)
-        }
+    Box(
+        modifier
+            .size(44.dp)
+            .clip(CircleShape)
+            .background(Color.Black.copy(alpha = 0.38f))
+            .border(
+                0.5.dp,
+                Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.35f), Color.White.copy(alpha = 0.08f))),
+                CircleShape,
+            )
+            .clickable { app.back() },
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(Icons.AutoMirrored.Rounded.ArrowBack, null, tint = Color.White)
     }
 }
 
