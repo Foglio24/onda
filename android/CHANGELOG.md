@@ -1,5 +1,18 @@
 # Changelog (Android)
 
+## 0.3.0 (2026-11-05)
+
+### Added
+- **AutoMix**, as on the iPhone, now the default transition (Settings → Playback → Transitions). Each song's first and last minute are analysed on the phone, once: the tempo, the beats, the bars and where the sound starts and ends. Between two songs AutoMix then chooses:
+  - **in time, like a DJ**, when both have a steady beat at close tempos (or at half or double): the next song comes in on its first downbeat at the playing song's tempo, the two play together for 8 or 4 bars while the bass passes from one to the other, the song leaving is filtered and fades, then the new song glides back to its own tempo;
+  - **into the song's own fade-out**, when it fades by itself;
+  - otherwise **a blend** on the last seconds of sound, with no silence left between the songs.
+  Songs of the same album follow each other as on the album. The queue shows the next transition ("AutoMix · a tempo, 8 battute"), Settings → Playback the last one.
+- The plain crossfade stays as a choice, from 1 to 12 seconds.
+
+### Changed
+- The crossfade and AutoMix share one engine: if AutoMix's analysis isn't ready in time, the songs crossfade instead of not mixing.
+
 ## 0.2.1 (2026-11-05)
 
 ### Fixed

@@ -171,11 +171,18 @@ class Transitions(
             style = TransitionPlan.Style.BLEND, outStart = duration / 1000.0 - seconds, outEnd = duration / 1000.0,
             inStart = 0.0, incomingRate = 1.0,
         )
-        val chosen = if (mode == SongTransition.AUTOMIX) plan ?: fallback.copy(fadeOutFrom = 0.3, fadeIn = 0.7) else fallback
-        TransitionInfo.next.value = if (mode == SongTransition.AUTOMIX) "${tr("AutoMix")} · ${chosen.description}" else chosen.description
+        val simple = if (mode == SongTransition.AUTOMIX) fallback.copy(fadeOutFrom = 0.3, fadeIn = 0.7) else fallback
         // Seconds before the mix when the hidden player takes over the song: AutoMix needs a moment
         // for the next song to start and fall in step, muted.
-        val lead = if (chosen.style == TransitionPlan.Style.BEAT_MATCHED || chosen.inStart > 0.5) 4.0 else 0.0
+        fun lead(p: TransitionPlan) = if (p.style == TransitionPlan.Style.BEAT_MATCHED || p.inStart > 0.5) 4.0 else 0.0
+        var chosen = if (mode == SongTransition.AUTOMIX) plan ?: simple else simple
+        // AutoMix's plan came too late (a slow analysis), or the hidden player isn't in step yet when
+        // it should take over: the plain crossfade at the end instead.
+        val due = chosen.outStart - lead(chosen)
+        val late = position > due + 1.0 || (position > due && (phase != Phase.SYNCING || fader?.isPlaying != true))
+        if (chosen !== simple && late) chosen = simple
+        TransitionInfo.next.value = if (mode == SongTransition.AUTOMIX) "${tr("AutoMix")} · ${chosen.description}" else chosen.description
+        val lead = lead(chosen)
         val handover = chosen.outStart - lead
         if (handover < position + 0.2 && phase == Phase.IDLE) {
             // Too late for this one (a seek near the end): the song ends as it is.
@@ -338,7 +345,9 @@ class Transitions(
 
     private fun glide() {
         val t = ((SystemClock.elapsedRealtime() - glideStarted) / 12_000f).coerceIn(0f, 1f)
-        main.setPlaybackSpeed(glideFrom + (1f - glideFrom) * t)
+        val speed = glideFrom + (1f - glideFrom) * t
+        // Small steps, not every frame: each change of speed passes through the audio pipeline.
+        if (t >= 1f || abs(main.playbackParameters.speed - speed) > 0.0015f) main.setPlaybackSpeed(if (t >= 1f) 1f else speed)
         if (t >= 1f) phase = Phase.IDLE
     }
 
