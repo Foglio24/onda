@@ -7,3 +7,4 @@
 "Collega un DAC USB" = "Подключите USB-ЦАП";
 "Attivo: %@ · %@ kHz · %lld bit" = "Вкл.: %@ · %@ кГц · %lld бит";
 "%@ non accetta l'audio bit-perfect" = "%@ не поддерживает bit-perfect";
+"Il bit-perfect invia l'audio senza modifiche: l'equalizzatore riprende quando lo spegni." = "Bit-perfect передаёт звук без изменений: эквалайзер заработает снова, когда вы его отключите.";

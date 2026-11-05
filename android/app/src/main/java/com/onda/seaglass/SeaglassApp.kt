@@ -18,6 +18,7 @@ class SeaglassApp : Application(), SingletonImageLoader.Factory {
         super.onCreate()
         L10n.load(this)
         Prefs.init(this)
+        com.onda.seaglass.playback.Equalizer.init(this)
         com.onda.seaglass.data.Network.init(this)
         Library.init(this)
         com.onda.seaglass.data.Downloads.init(this)

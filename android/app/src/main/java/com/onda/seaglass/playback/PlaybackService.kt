@@ -109,6 +109,10 @@ class PlaybackService : MediaSessionService() {
         scope.launch {
             Prefs.normalizeVolume.flow.collect { applyVolume() }
         }
+        // Bit-perfect output passes the samples as they are: no equalizer then.
+        scope.launch {
+            BitPerfect.status.collect { Equalizer.bypass = it is BitPerfect.Status.Active }
+        }
         val open = PendingIntent.getActivity(
             this, 0,
             Intent(this, MainActivity::class.java).putExtra(MainActivity.OPEN_PLAYER, true)

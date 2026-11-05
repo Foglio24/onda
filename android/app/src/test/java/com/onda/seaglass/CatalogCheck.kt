@@ -23,33 +23,47 @@ import java.io.File
  * audio in ranges, and synced lyrics. Run with `./gradlew testDebugUnitTest`.
  */
 class CatalogCheck {
+    /** The live service sometimes answers a runner slowly: a timeout is tried again, twice. */
+    private suspend fun <T> retrying(block: suspend () -> T): T {
+        var last: java.io.IOException? = null
+        repeat(3) { attempt ->
+            try {
+                return block()
+            } catch (e: java.net.SocketTimeoutException) {
+                last = e
+                println("Timeout, trying again (${attempt + 1})")
+            }
+        }
+        throw last!!
+    }
+
     @Test
     fun searchRadioAndPages() = runBlocking {
-        val songs = InnerTube.searchSongs("Daft Punk Get Lucky")
+        val songs = retrying { InnerTube.searchSongs("Daft Punk Get Lucky") }
         assertTrue("no songs", songs.isNotEmpty())
         val song = songs.first()
         println("Song: ${song.title} – ${song.artist} (${song.videoId}, ${song.duration} s, album ${song.album})")
         assertTrue(song.title.isNotEmpty() && song.primaryArtist.isNotEmpty())
 
-        val radio = InnerTube.radio(song.videoId)
+        val radio = retrying { InnerTube.radio(song.videoId) }
         println("Radio: ${radio.size} songs, first ${radio.firstOrNull()?.title}")
         assertTrue("short radio", radio.size >= 10)
 
-        val catalog = InnerTube.searchCatalog("Daft Punk")
+        val catalog = retrying { InnerTube.searchCatalog("Daft Punk") }
         val artist = listOfNotNull(catalog.top, catalog.artists.firstOrNull()).first { it.kind == MusicItem.Kind.ARTIST }
         println("Artist: ${artist.title} ${artist.id}; albums ${catalog.albums.take(3).map { it.title }}")
-        val page = InnerTube.artist(artist.id)
+        val page = retrying { InnerTube.artist(artist.id) }
         println("Artist page: ${page.name}, ${page.topSongs.size} top songs, shelves ${page.shelves.map { "${it.title} (${it.items.size})" }}")
         assertTrue(page.topSongs.isNotEmpty())
         assertTrue(page.shelves.isNotEmpty())
 
         val albumId = catalog.albums.firstOrNull()?.id ?: page.shelves.flatMap { it.items }.first { it.kind == MusicItem.Kind.ALBUM }.id
-        val album = InnerTube.album(albumId)
+        val album = retrying { InnerTube.album(albumId) }
         println("Album: ${album.title} by ${album.artist}, ${album.tracks.size} songs, ${album.kindAndYear}, ${album.details}")
         assertTrue(album.tracks.isNotEmpty())
 
         val playlistId = page.songsPlaylistId ?: catalog.playlists.first().id
-        val playlist = InnerTube.playlist(playlistId)
+        val playlist = retrying { InnerTube.playlist(playlistId) }
         println("Playlist: ${playlist.title}, ${playlist.tracks.size} songs")
         assertTrue(playlist.tracks.size >= 10)
     }

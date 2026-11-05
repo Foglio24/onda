@@ -109,6 +109,7 @@ fun SettingsScreen() {
         "${tr("Rete cellulare")} ${short(cellular)}",
         tr("Dolby quando disponibile").takeIf { dolby && AudioSupport.dolby },
         tr("Volume uniforme").takeIf { normalize },
+        com.onda.seaglass.playback.Equalizer.state.value.let { if (it.isOn) "${tr("Equalizzatore")} ${it.preset.title}" else null },
     ).joinToString(" · ")
     val playback = listOfNotNull(
         when (transition) {
@@ -220,6 +221,11 @@ private fun AudioSettings() {
         ValueRow(tr("Rete cellulare"), cellular.title) { picking = Prefs.cellularQuality }
         Divider()
         ValueRow(tr("Download"), download.let { if (it == AudioQuality.MEDIUM) AudioQuality.LOW else it }.title) { picking = Prefs.downloadQuality }
+    }
+    val app = LocalApp.current
+    val equalizer by com.onda.seaglass.playback.Equalizer.state.collectAsStateWithLifecycle()
+    Group {
+        ValueRow(tr("Equalizzatore"), if (equalizer.isOn) equalizer.preset.title else tr("Disattivato")) { app.open("equalizer") }
     }
     Group(tr("Formato"), footer = if (AudioSupport.dolby) null else tr("Questo telefono non decodifica il Dolby.")) {
         ToggleRow(tr("Dolby quando disponibile"), dolby && AudioSupport.dolby, enabled = AudioSupport.dolby) { Prefs.preferDolby.set(it) }

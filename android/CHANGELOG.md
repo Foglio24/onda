@@ -9,6 +9,7 @@
   - otherwise **a blend** on the last seconds of sound, with no silence left between the songs.
   Songs of the same album follow each other as on the album. The queue shows the next transition ("AutoMix · a tempo, 8 battute"), Settings → Playback the last one.
 - The plain crossfade stays as a choice, from 1 to 12 seconds.
+- **Equalizer**, as on the iPhone: Spotify's six bands (60 Hz to 15 kHz) and its 22 presets (Acoustic, Bass Booster, Bass Reducer, Classical, Dance, Deep, Electronic, Hip-Hop, Jazz, Latin, Loudness, Lounge, Piano, Pop, R&B, Rock, Small Speakers, Spoken Word, Treble Booster, Treble Reducer, Vocal Booster, and Flat), plus your own curve by dragging its points. When a preset raises frequencies, the overall volume comes down just enough not to distort. Settings → Audio → Equalizer, or the equalizer button in the player. With bit-perfect output on, it waits until that's off.
 
 ### Changed
 - The crossfade and AutoMix share one engine: if AutoMix's analysis isn't ready in time, the songs crossfade instead of not mixing.

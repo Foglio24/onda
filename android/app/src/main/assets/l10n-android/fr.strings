@@ -7,3 +7,4 @@
 "Collega un DAC USB" = "Branchez un DAC USB";
 "Attivo: %@ · %@ kHz · %lld bit" = "Activé : %@ · %@ kHz · %lld bits";
 "%@ non accetta l'audio bit-perfect" = "%@ n’accepte pas l’audio bit-perfect";
+"Il bit-perfect invia l'audio senza modifiche: l'equalizzatore riprende quando lo spegni." = "Le mode bit-perfect envoie l’audio sans modification : l’égaliseur reprend quand vous le désactivez.";

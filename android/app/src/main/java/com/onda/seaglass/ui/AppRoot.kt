@@ -165,6 +165,7 @@ fun AppRoot(launch: State<Launch?>) {
                             SettingsPage(it.arguments?.getString("page").orEmpty())
                         }
                         composable("downloads") { DownloadsScreen() }
+                        composable("equalizer") { EqualizerScreen() }
                         composable("liked") { LikedScreen() }
                         composable("history") { HistoryScreen() }
                         composable("local/{id}", listOf(navArgument("id") { type = NavType.StringType })) {
@@ -283,6 +284,12 @@ private suspend fun handleLaunch(
             request.query?.let(SearchModel::search)
         }
         "library", "settings" -> tab(scene)
+        "equalizer" -> {
+            request.query?.let { key -> com.onda.seaglass.playback.EqualizerPreset.entries.firstOrNull { it.key == key } }
+                ?.let(com.onda.seaglass.playback.Equalizer::select)
+            tab("settings")
+            nav.navigate("equalizer")
+        }
         "settings/audio", "settings/playback", "settings/storage" -> {
             tab("settings")
             nav.navigate(scene)

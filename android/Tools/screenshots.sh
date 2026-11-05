@@ -38,6 +38,7 @@ shot 07-library 10 --es scene library
 shot 08-settings 8 --es scene settings
 shot 08b-settings-audio 8 --es scene settings/audio
 shot 08c-settings-playback 8 --es scene settings/playback
+shot 08d-equalizer 8 --es scene equalizer --es query rock
 shot 09-home-after-listening 20
 
 # The lyrics translated on the phone (an English song into Italian): ML Kit finds its parts and

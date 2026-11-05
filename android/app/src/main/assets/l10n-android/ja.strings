@@ -7,3 +7,4 @@
 "Collega un DAC USB" = "USB DAC を接続してください";
 "Attivo: %@ · %@ kHz · %lld bit" = "オン：%@ · %@ kHz · %lld ビット";
 "%@ non accetta l'audio bit-perfect" = "%@ はビットパーフェクト再生に対応していません";
+"Il bit-perfect invia l'audio senza modifiche: l'equalizzatore riprende quando lo spegni." = "ビットパーフェクトは音声を変更せずに出力します。オフにするとイコライザが再び有効になります。";

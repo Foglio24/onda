@@ -29,12 +29,13 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 
-/** A player whose audio passes through [filter] (AutoMix's bass and high-pass filters). */
+/** A player whose audio passes through the equalizer and [filter] (AutoMix's bass and high-pass filters). */
 @OptIn(UnstableApi::class)
 class FilteredRenderers(context: Context, private val filter: MixFilter) : DefaultRenderersFactory(context) {
     override fun buildAudioSink(context: Context, enableFloatOutput: Boolean, enableAudioTrackPlaybackParams: Boolean): AudioSink =
         DefaultAudioSink.Builder(context)
-            .setAudioProcessors(arrayOf(filter))
+            // The equalizer first, then AutoMix's filters.
+            .setAudioProcessors(arrayOf(EqualizerProcessor(), filter))
             .setEnableFloatOutput(false)
             .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
             .build()

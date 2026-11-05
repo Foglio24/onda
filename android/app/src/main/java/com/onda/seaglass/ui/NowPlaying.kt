@@ -52,6 +52,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Equalizer
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
@@ -284,6 +285,8 @@ private fun Controls(track: Track, position: () -> Long, state: PlayerController
     val liked by Library.liked.collectAsStateWithLifecycle()
     val isLiked = liked.any { it.videoId == track.videoId }
     var timerDialog by remember { mutableStateOf(false) }
+    var equalizerSheet by remember { mutableStateOf(false) }
+    val equalizerOn = com.onda.seaglass.playback.Equalizer.state.collectAsStateWithLifecycle().value.isOn
     val timer by PlayerController.sleepTimer.collectAsStateWithLifecycle()
 
     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -344,10 +347,12 @@ private fun Controls(track: Track, position: () -> Long, state: PlayerController
         Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
             PanelButton(Icons.Rounded.Lyrics, tr("Testi"), panel == Panel.LYRICS) { onPanel(Panel.LYRICS) }
             PanelButton(Icons.Rounded.Bedtime, tr("Timer di spegnimento"), timer != null) { timerDialog = true }
+            PanelButton(Icons.Rounded.Equalizer, tr("Equalizzatore"), equalizerOn) { equalizerSheet = true }
             PanelButton(Icons.AutoMirrored.Rounded.QueueMusic, tr("Coda"), panel == Panel.QUEUE) { onPanel(Panel.QUEUE) }
         }
     }
     if (timerDialog) SleepTimerDialog { timerDialog = false }
+    if (equalizerSheet) EqualizerSheet { equalizerSheet = false }
 }
 
 @Composable
