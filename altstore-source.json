@@ -25,6 +25,15 @@
       ],
       "versions": [
         {
+          "version": "1.24.0",
+          "buildVersion": "47",
+          "date": "2026-11-04T10:07:04Z",
+          "localizedDescription": "Added\n- Nine more languages. Seaglass is now also in French, Spanish, German, Portuguese, Chinese (Simplified), Japanese, Russian, Turkish and Arabic, besides English and Italian. It follows the device's language; Settings → Language changes it for Seaglass only. In Arabic the app reads right to left, while the player's timeline, its controls, the equalizer and the Mix editor keep running left to right, as in Apple's apps.\n\nChanged\n- Simpler Settings. A short list of topics, each opening its own page: Audio, Playback, Lyrics, Appearance, Language, Last.fm, Storage, Updates and About. Each page keeps one line of explanation at most; the long notes are gone. The technical details (crash reports, start times, the last AutoMix choice, the karaoke model) moved to About → Diagnostics, and the saved karaoke tracks to Storage.\n- Lyrics translation defaults to the device's language for Portuguese and Chinese too.\n\nFor development\n- The localization check covers every language: each needs exactly the English keys, with the same format specifiers. CI also takes screenshots in Arabic, Japanese and German.",
+          "downloadURL": "https://github.com/Foglio24/onda/releases/download/v1.24.0/Seaglass.ipa",
+          "size": 35917288,
+          "minOSVersion": "26.0"
+        },
+        {
           "version": "1.23.1",
           "buildVersion": "46",
           "date": "2026-11-03T18:04:22Z",
@@ -96,6 +105,17 @@
     }
   ],
   "news": [
+    {
+      "title": "Seaglass 1.24.0",
+      "identifier": "release-1.24.0",
+      "caption": "A new Seaglass update is available. Tap to see what's new.",
+      "date": "2026-11-04T10:07:04Z",
+      "tintColor": "#EC3F8E",
+      "imageURL": "https://raw.githubusercontent.com/Foglio24/onda/main/docs/images/seaglass-banner.jpg",
+      "notify": false,
+      "url": "https://github.com/Foglio24/onda/releases/tag/v1.24.0",
+      "appID": "com.onda.player"
+    },
     {
       "title": "Seaglass 1.23.1",
       "identifier": "release-1.23.1",
