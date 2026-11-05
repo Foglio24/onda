@@ -5,6 +5,7 @@ name: Android
 
 on:
   push:
+    branches: ["**"]
     paths: ["android/**", "Seaglass/Resources/*.lproj/**", ".github/workflows/android.yml"]
     tags: ["android-v*"]
   workflow_dispatch:
