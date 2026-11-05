@@ -1,5 +1,6 @@
 package com.onda.seaglass.ui
 
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
@@ -46,8 +47,9 @@ fun SeaglassTheme(content: @Composable () -> Unit) {
         titleLarge = base.titleLarge.copy(fontWeight = FontWeight.Bold),
         titleMedium = base.titleMedium.copy(fontWeight = FontWeight.SemiBold),
     )
-    CompositionLocalProvider(LocalAccent provides color) {
-        MaterialTheme(colorScheme = scheme, typography = typography, content = content)
+    MaterialTheme(colorScheme = scheme, typography = typography) {
+        // Text is white unless it says otherwise (there's no Surface to set it).
+        CompositionLocalProvider(LocalAccent provides color, LocalContentColor provides Color.White, content = content)
     }
 }
 

@@ -68,6 +68,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -126,10 +127,12 @@ fun NowPlayingScreen(startWithLyrics: Boolean, onClose: () -> Unit) {
     var dragOffset by remember { mutableFloatStateOf(0f) }
     val density = LocalDensity.current
 
-    var position by remember { mutableLongStateOf(PlayerController.positionMs) }
+    // Read only by the timeline and the lyrics, so the rest of the player doesn't redraw with it.
+    val positionState = remember { mutableLongStateOf(PlayerController.positionMs) }
+    val position = remember { { positionState.longValue } }
     LaunchedEffect(state.isPlaying, track.videoId) {
         while (true) {
-            position = PlayerController.positionMs
+            positionState.longValue = PlayerController.positionMs
             if (!state.isPlaying) break
             delay(200)
         }
@@ -226,7 +229,7 @@ private fun TopBar(onClose: () -> Unit, track: Track, modifier: Modifier = Modif
 }
 
 @Composable
-private fun PanelContent(panel: Panel, track: Track, position: Long, state: PlayerController.State) {
+private fun PanelContent(panel: Panel, track: Track, position: () -> Long, state: PlayerController.State) {
     AnimatedContent(panel, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "panel") { shown ->
         when (shown) {
             Panel.ARTWORK -> {
@@ -251,7 +254,7 @@ private fun PanelContent(panel: Panel, track: Track, position: Long, state: Play
 }
 
 @Composable
-private fun Controls(track: Track, position: Long, state: PlayerController.State, panel: Panel, onPanel: (Panel) -> Unit) {
+private fun Controls(track: Track, position: () -> Long, state: PlayerController.State, panel: Panel, onPanel: (Panel) -> Unit) {
     val app = LocalApp.current
     val accent = LocalAccent.current
     val liked by Library.liked.collectAsStateWithLifecycle()
@@ -335,7 +338,8 @@ private fun PanelButton(icon: ImageVector, description: String, selected: Boolea
 
 /** The song's progress: drag or tap to move through it; the audio format sits in the middle. */
 @Composable
-private fun Scrubber(position: Long, duration: Long, videoId: String) {
+private fun Scrubber(positionOf: () -> Long, duration: Long, videoId: String) {
+    val position = positionOf()
     var dragging by remember { mutableStateOf<Float?>(null) }
     var width by remember { mutableFloatStateOf(1f) }
     val fraction = dragging ?: if (duration > 0) (position.toFloat() / duration).coerceIn(0f, 1f) else 0f
@@ -377,7 +381,7 @@ private fun Scrubber(position: Long, duration: Long, videoId: String) {
 }
 
 @Composable
-private fun LyricsPanel(track: Track, position: Long) {
+private fun LyricsPanel(track: Track, position: () -> Long) {
     val (load, _) = rememberLoad(track.videoId) { Lyrics.lyrics(track) }
     val lyrics = (load as? Load.Done)?.value
     Box(Modifier.fillMaxSize()) {
@@ -394,9 +398,11 @@ private fun LyricsPanel(track: Track, position: Long) {
 }
 
 @Composable
-private fun SyncedLyrics(lyrics: LyricsState.Synced, position: Long) {
-    val seconds = position / 1000.0 + 0.25
-    val current = lyrics.lines.indexOfLast { it.time <= seconds }
+private fun SyncedLyrics(lyrics: LyricsState.Synced, position: () -> Long) {
+    // Changes only when the line does.
+    val current by remember(lyrics) {
+        derivedStateOf { lyrics.lines.indexOfLast { it.time <= position() / 1000.0 + 0.25 } }
+    }
     val list = rememberLazyListState()
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val third = with(LocalDensity.current) { (maxHeight / 3).roundToPx() }

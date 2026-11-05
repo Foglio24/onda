@@ -287,7 +287,11 @@ private suspend fun handleLaunch(
         }
         "artist", "album" -> {
             val results = runCatching { InnerTube.searchCatalog(request.query ?: "Daft Punk") }.getOrNull() ?: return
-            val item = if (scene == "artist") results.artists.firstOrNull() ?: results.top else results.albums.firstOrNull()
+            val item = if (scene == "artist") {
+                results.top?.takeIf { it.kind == com.onda.seaglass.model.MusicItem.Kind.ARTIST } ?: results.artists.firstOrNull()
+            } else {
+                results.albums.firstOrNull()
+            }
             item?.route()?.let(app::open)
         }
     }

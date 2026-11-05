@@ -45,5 +45,8 @@ sleep 3
 adb exec-out screencap -p > "$out/12-notification.png"
 adb shell cmd statusbar collapse
 
-adb logcat -d -t 400 '*:W' > "$out/logcat.txt" || true
+# What went wrong, if anything: the app's ANR and crash reports, and the log.
+adb shell dumpsys dropbox --print data_app_anr > "$out/anr.txt" 2>&1 || true
+adb shell dumpsys dropbox --print data_app_crash > "$out/crash.txt" 2>&1 || true
+adb logcat -d -b main,system,crash '*:I' > "$out/logcat.txt" || true
 ls -la "$out"

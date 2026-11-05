@@ -67,7 +67,25 @@ fun MediaItem.toTrack(): Track? =
     mediaMetadata.extras?.getString(TRACK_KEY)?.let { runCatching { Track.fromJson(JSONObject(it)) }.getOrNull() }
 
 /** Songs play from `seaglass://<videoId>`: the link to the audio is looked up only when it's needed. */
-private fun streamUri(videoId: String): Uri = Uri.parse("seaglass://$videoId")
+fun streamUri(videoId: String): Uri = Uri.parse("seaglass://$videoId")
+
+/**
+ * Where the player reads audio: `seaglass://<videoId>` becomes the song's YouTube link (looked up
+ * on the player's loading thread), read in 1 MB ranges.
+ */
+@OptIn(UnstableApi::class)
+fun audioDataSourceFactory(): DataSource.Factory {
+    val http = OkHttpDataSource.Factory(Http.client).setUserAgent(Streams.USER_AGENT)
+    val chunked = DataSource.Factory { ChunkedDataSource(http.createDataSource()) }
+    return ResolvingDataSource.Factory(chunked) { spec: DataSpec ->
+        val videoId = spec.uri.host
+        if (spec.uri.scheme != "seaglass" || videoId == null) {
+            spec
+        } else {
+            spec.withUri(Uri.parse(runBlocking { Streams.resolve(videoId) }.rendition.url))
+        }
+    }
+}
 
 /** What the player tells the screens that isn't part of the player's own state. */
 object PlaybackEvents {
@@ -85,12 +103,12 @@ class PlaybackService : MediaSessionService() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var extending = false
     private var retried: String? = null
+    /** Songs that failed in a row: after a few, playback stops instead of running through the queue. */
+    private var failures = 0
 
     override fun onCreate() {
         super.onCreate()
-        val http = OkHttpDataSource.Factory(Http.client).setUserAgent(Streams.USER_AGENT)
-        val chunked = DataSource.Factory { ChunkedDataSource(http.createDataSource()) }
-        val resolving = ResolvingDataSource.Factory(chunked, ::resolve)
+        val resolving = audioDataSourceFactory()
         val player = ExoPlayer.Builder(this)
             .setMediaSourceFactory(DefaultMediaSourceFactory(resolving))
             .setAudioAttributes(
@@ -137,14 +155,6 @@ class PlaybackService : MediaSessionService() {
         super.onDestroy()
     }
 
-    /** The audio link for `seaglass://<videoId>` (on the player's loading thread). */
-    private fun resolve(spec: DataSpec): DataSpec {
-        if (spec.uri.scheme != "seaglass") return spec
-        val videoId = spec.uri.host ?: return spec
-        val resolved = runBlocking { Streams.resolve(videoId) }
-        return spec.withUri(Uri.parse(resolved.rendition.url))
-    }
-
     /** Items from controllers arrive without their link: it is rebuilt from the song's ID. */
     private val callback = object : MediaSession.Callback {
         override fun onAddMediaItems(
@@ -170,7 +180,7 @@ class PlaybackService : MediaSessionService() {
         }
 
         override fun onIsPlayingChanged(isPlaying: Boolean) {
-            if (!isPlaying) saveResumeState()
+            if (isPlaying) failures = 0 else saveResumeState()
         }
 
         override fun onPlayerError(error: PlaybackException) {
@@ -185,7 +195,8 @@ class PlaybackService : MediaSessionService() {
                 return
             }
             PlaybackEvents.error.value = error.cause?.message ?: error.message
-            if (player.hasNextMediaItem()) {
+            failures += 1
+            if (failures < 3 && player.hasNextMediaItem()) {
                 player.seekToNextMediaItem()
                 player.prepare()
             }

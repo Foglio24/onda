@@ -85,7 +85,11 @@ android {
         buildConfig = true
     }
     testOptions {
-        unitTests.all { it.testLogging { events("passed", "failed", "skipped"); showStandardStreams = true } }
+        unitTests.all {
+            it.testLogging { events("passed", "failed", "skipped"); showStandardStreams = true }
+            // Robolectric's Android jars, from Google's mirror of Maven Central.
+            it.systemProperty("robolectric.dependency.repo.url", "https://maven-central.storage-download.googleapis.com/maven2/")
+        }
     }
     packaging {
         resources.excludes += setOf("META-INF/*.version", "META-INF/LICENSE*", "META-INF/NOTICE*", "DebugProbesKt.bin")
@@ -128,4 +132,5 @@ dependencies {
     // The checks in src/test run on the computer (or CI) against the real services.
     testImplementation(libs.junit)
     testImplementation(libs.json)
+    testImplementation(libs.robolectric)
 }
