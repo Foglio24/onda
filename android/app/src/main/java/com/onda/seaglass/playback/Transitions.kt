@@ -295,7 +295,8 @@ class Transitions(
         if (main.isPlaying && settled) {
             val drift = main.currentPosition / 1000.0 - target(plan, outTime)
             if (abs(drift) > 0.05 && alignSeeks < 4 && plan.outStart - outTime > 1.2) {
-                if (alignSeeks > 0) seekLatency = (seekLatency - drift / plan.incomingRate).coerceIn(0.0, 0.8)
+                // (Negative when the player reports a seek's position before it sounds.)
+                if (alignSeeks > 0) seekLatency = (seekLatency - drift / plan.incomingRate).coerceIn(-0.5, 0.8)
                 val goal = target(plan, outTime + seekLatency)
                 switching = true
                 main.seekTo((goal * 1000).toLong())
@@ -313,6 +314,7 @@ class Transitions(
             if (!main.isPlaying || abs(drift) > 0.08) {
                 // Couldn't fall in step in time: a short crossfade at the song's own tempo instead.
                 Log.i(TAG, "Not in step (${"%.0f".format(drift * 1000)} ms): short crossfade")
+                TransitionInfo.last.value = "${tr("AutoMix")} · ${tr("Mix non riuscito: dissolvenza semplice")}"
                 main.setPlaybackSpeed(1f)
                 active = plan.copy(
                     style = TransitionPlan.Style.BLEND, outEnd = plan.outStart + 3, incomingRate = 1.0,
