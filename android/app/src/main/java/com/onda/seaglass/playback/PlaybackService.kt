@@ -1,0 +1,241 @@
+package com.onda.seaglass.playback
+
+import android.app.PendingIntent
+import android.content.Intent
+import android.net.Uri
+import android.os.Bundle
+import androidx.annotation.OptIn
+import androidx.media3.common.AudioAttributes
+import androidx.media3.common.C
+import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
+import androidx.media3.common.PlaybackException
+import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.DataSource
+import androidx.media3.datasource.DataSpec
+import androidx.media3.datasource.HttpDataSource
+import androidx.media3.datasource.ResolvingDataSource
+import androidx.media3.datasource.okhttp.OkHttpDataSource
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.session.DefaultMediaNotificationProvider
+import androidx.media3.session.MediaSession
+import androidx.media3.session.MediaSessionService
+import com.google.common.util.concurrent.Futures
+import com.google.common.util.concurrent.ListenableFuture
+import com.onda.seaglass.MainActivity
+import com.onda.seaglass.R
+import com.onda.seaglass.core.Http
+import com.onda.seaglass.data.InnerTube
+import com.onda.seaglass.data.Library
+import com.onda.seaglass.data.Prefs
+import com.onda.seaglass.data.Recommendations
+import com.onda.seaglass.data.Streams
+import com.onda.seaglass.model.Track
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import org.json.JSONArray
+import org.json.JSONObject
+
+private const val TRACK_KEY = "seaglass.track"
+
+/** A song as the player knows it: its ID, the details for the notification, and the whole [Track]. */
+fun Track.toMediaItem(): MediaItem = MediaItem.Builder()
+    .setMediaId(videoId)
+    .setUri(streamUri(videoId))
+    .setMediaMetadata(
+        MediaMetadata.Builder()
+            .setTitle(title)
+            .setArtist(artist)
+            .setAlbumTitle(album)
+            .setArtworkUri(largeArtwork?.let(Uri::parse))
+            .setIsPlayable(true)
+            .setIsBrowsable(false)
+            .setMediaType(MediaMetadata.MEDIA_TYPE_MUSIC)
+            .setExtras(Bundle().apply { putString(TRACK_KEY, toJson().toString()) })
+            .build(),
+    )
+    .build()
+
+fun MediaItem.toTrack(): Track? =
+    mediaMetadata.extras?.getString(TRACK_KEY)?.let { runCatching { Track.fromJson(JSONObject(it)) }.getOrNull() }
+
+/** Songs play from `seaglass://<videoId>`: the link to the audio is looked up only when it's needed. */
+private fun streamUri(videoId: String): Uri = Uri.parse("seaglass://$videoId")
+
+/** What the player tells the screens that isn't part of the player's own state. */
+object PlaybackEvents {
+    val error = MutableStateFlow<String?>(null)
+    val radioLoading = MutableStateFlow(false)
+}
+
+/**
+ * Plays in the background with a media notification and lock-screen controls (Media3). When the
+ * queue is about to run out, "Radio automatica" adds similar songs, as on the iPhone.
+ */
+@OptIn(UnstableApi::class)
+class PlaybackService : MediaSessionService() {
+    private var session: MediaSession? = null
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private var extending = false
+    private var retried: String? = null
+
+    override fun onCreate() {
+        super.onCreate()
+        val http = OkHttpDataSource.Factory(Http.client).setUserAgent(Streams.USER_AGENT)
+        val chunked = DataSource.Factory { ChunkedDataSource(http.createDataSource()) }
+        val resolving = ResolvingDataSource.Factory(chunked, ::resolve)
+        val player = ExoPlayer.Builder(this)
+            .setMediaSourceFactory(DefaultMediaSourceFactory(resolving))
+            .setAudioAttributes(
+                AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(),
+                true,
+            )
+            .setHandleAudioBecomingNoisy(true)
+            .setWakeMode(C.WAKE_MODE_NETWORK)
+            .build()
+        player.addListener(listener)
+        val open = PendingIntent.getActivity(
+            this, 0,
+            Intent(this, MainActivity::class.java).putExtra(MainActivity.OPEN_PLAYER, true)
+                .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        session = MediaSession.Builder(this, player)
+            .setSessionActivity(open)
+            .setCallback(callback)
+            .build()
+        setMediaNotificationProvider(
+            DefaultMediaNotificationProvider.Builder(this).build().apply { setSmallIcon(R.drawable.ic_notification) },
+        )
+    }
+
+    override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        val player = session?.player
+        if (player == null || !player.playWhenReady || player.mediaItemCount == 0) {
+            saveResumeState()
+            stopSelf()
+        }
+    }
+
+    override fun onDestroy() {
+        saveResumeState()
+        scope.cancel()
+        session?.run {
+            player.release()
+            release()
+        }
+        session = null
+        super.onDestroy()
+    }
+
+    /** The audio link for `seaglass://<videoId>` (on the player's loading thread). */
+    private fun resolve(spec: DataSpec): DataSpec {
+        if (spec.uri.scheme != "seaglass") return spec
+        val videoId = spec.uri.host ?: return spec
+        val resolved = runBlocking { Streams.resolve(videoId) }
+        return spec.withUri(Uri.parse(resolved.rendition.url))
+    }
+
+    /** Items from controllers arrive without their link: it is rebuilt from the song's ID. */
+    private val callback = object : MediaSession.Callback {
+        override fun onAddMediaItems(
+            mediaSession: MediaSession,
+            controller: MediaSession.ControllerInfo,
+            mediaItems: MutableList<MediaItem>,
+        ): ListenableFuture<MutableList<MediaItem>> = Futures.immediateFuture(
+            mediaItems.map { it.buildUpon().setUri(streamUri(it.mediaId)).build() }.toMutableList(),
+        )
+    }
+
+    private val listener = object : Player.Listener {
+        override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            PlaybackEvents.error.value = null
+            retried = null
+            if (reason != Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT) mediaItem?.toTrack()?.let(Library::recordPlay)
+            extendIfNeeded()
+            saveResumeState()
+        }
+
+        override fun onPlaybackStateChanged(playbackState: Int) {
+            if (playbackState == Player.STATE_ENDED) extendIfNeeded(resume = true)
+        }
+
+        override fun onIsPlayingChanged(isPlaying: Boolean) {
+            if (!isPlaying) saveResumeState()
+        }
+
+        override fun onPlayerError(error: PlaybackException) {
+            val player = session?.player ?: return
+            val videoId = player.currentMediaItem?.mediaId
+            val status = (error.cause as? HttpDataSource.InvalidResponseCodeException)?.responseCode
+            // Links expire after a few hours: look the song up again once.
+            if (videoId != null && retried != videoId && (status == 403 || status == 410 || status == 404)) {
+                retried = videoId
+                Streams.invalidate(videoId)
+                player.prepare()
+                return
+            }
+            PlaybackEvents.error.value = error.cause?.message ?: error.message
+            if (player.hasNextMediaItem()) {
+                player.seekToNextMediaItem()
+                player.prepare()
+            }
+        }
+    }
+
+    /** Similar songs after the last one, when "Radio automatica" is on and the queue is about to end. */
+    private fun extendIfNeeded(resume: Boolean = false) {
+        val player = session?.player ?: return
+        if (extending || !Prefs.autoRadio.value || player.repeatMode != Player.REPEAT_MODE_OFF) return
+        val remaining = if (player.shuffleModeEnabled) {
+            if (player.hasNextMediaItem()) 2 else 0
+        } else {
+            player.mediaItemCount - 1 - player.currentMediaItemIndex
+        }
+        if (remaining >= 2) return
+        val seed = player.currentMediaItem?.mediaId ?: return
+        extending = true
+        PlaybackEvents.radioLoading.value = true
+        scope.launch {
+            val radio = runCatching { InnerTube.radio(seed) }.getOrDefault(emptyList())
+            val present = (0 until player.mediaItemCount).map { player.getMediaItemAt(it).mediaId }.toSet()
+            val history = Library.history.value.take(20).map { it.videoId }.toSet()
+            val fresh = Recommendations.withoutLongMixes(radio).filter { it.videoId !in present && it.videoId !in history }
+                .ifEmpty { radio.filter { it.videoId !in present } }
+                .take(25)
+            if (fresh.isNotEmpty()) {
+                player.addMediaItems(fresh.map { it.toMediaItem() })
+                if (resume && player.playbackState == Player.STATE_ENDED) {
+                    player.seekToNextMediaItem()
+                    player.prepare()
+                    player.play()
+                }
+            }
+            extending = false
+            PlaybackEvents.radioLoading.value = false
+        }
+    }
+
+    /** The queue and where it stood, for "Riprendi da dove eri". */
+    private fun saveResumeState() {
+        val player = session?.player ?: return
+        if (player.mediaItemCount == 0) return
+        val index = player.currentMediaItemIndex
+        val start = maxOf(0, index - 20)
+        val tracks = (start until minOf(player.mediaItemCount, index + 80)).mapNotNull { player.getMediaItemAt(it).toTrack() }
+        Prefs.resumeState = JSONObject()
+            .put("tracks", JSONArray().apply { tracks.forEach { put(it.toJson()) } })
+            .put("index", index - start)
+            .put("position", player.currentPosition)
+            .toString()
+    }
+}

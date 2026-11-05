@@ -6,6 +6,8 @@ on:
   push:
     branches: [main, "feature/**"]
     tags: ["v*"]
+    # The Android app builds in its own workflow (android.yml).
+    paths-ignore: ["android/**", ".github/workflows/android.yml"]
   workflow_dispatch:
     inputs:
       release:
