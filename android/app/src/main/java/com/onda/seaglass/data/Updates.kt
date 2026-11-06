@@ -6,8 +6,8 @@ import okhttp3.Request
 import org.json.JSONArray
 
 /**
- * New versions of the Android app, published on GitHub as pre-releases tagged `android-vX.Y.Z`
- * (so they never become the iPhone app's "latest" release).
+ * New versions of the Android app, published on GitHub as releases tagged `android-vX.Y.Z`, never
+ * marked "Latest" (that is the iPhone app's release).
  */
 object Updates {
     data class Release(val version: String, val notes: String, val apkUrl: String?, val pageUrl: String)
