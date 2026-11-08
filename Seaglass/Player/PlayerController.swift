@@ -107,8 +107,13 @@ final class PlayerController: ObservableObject {
     @Published var autoRadio: Bool {
         didSet { UserDefaults.standard.set(autoRadio, forKey: "player.autoRadio") }
     }
-    /// The speed of podcast episodes (songs always play at 1×, for AutoMix and the beat).
+    /// The speed of podcast episodes.
     @Published private(set) var episodeSpeed: Float
+    /// The songs' tempo, -0.15…+0.15, and the key lock (see `PlaybackTempo`).
+    @Published private(set) var songTempo: Double = PlaybackTempo.tempo
+    @Published private(set) var keyLock: Bool = PlaybackTempo.keyLock
+    /// The playing song's own tempo in BPM, once measured (AutoMix's analysis), for the tempo fader.
+    @Published private(set) var songBPM: (trackID: String, bpm: Double)?
 
     let progress = PlaybackProgress()
     let nowPlaying = NowPlayingState()
@@ -346,12 +351,49 @@ final class PlayerController: ObservableObject {
         applyRate()
     }
 
-    /// The current item's speed: podcasts at theirs, songs at 1×.
-    private var playbackRate: Float { current?.isPodcastEpisode == true ? episodeSpeed : 1 }
+    /// Songs up to 15 % faster or slower (see `PlaybackTempo`), until set back to 0.
+    func setSongTempo(_ tempo: Double) {
+        let value = PlaybackTempo.snapped(tempo)
+        guard value != songTempo else { return }
+        songTempo = value
+        UserDefaults.standard.set(value, forKey: Preferences.songTempo)
+        applyRate()
+    }
+
+    /// The voice at its own pitch whatever the tempo (on), or higher when faster, as on a turntable (off).
+    func setKeyLock(_ on: Bool) {
+        keyLock = on
+        UserDefaults.standard.set(on, forKey: Preferences.keyLock)
+        applyRate()
+    }
+
+    /// The playing song's tempo, measured by AutoMix's analysis (made once per song), for the fader.
+    func measureSongBPM() {
+        guard let track = current, !track.isPodcastEpisode, let videoId = track.videoId,
+              songBPM?.trackID != track.id else { return }
+        Task {
+            guard let file = await self.analysisFile(for: track, videoId: videoId),
+                  let analysis = await AutoMixLibrary.shared.analysis(of: file.url),
+                  analysis.isGridLocked, self.current?.id == track.id else { return }
+            self.songBPM = (track.id, analysis.tempo)
+        }
+    }
+
+    /// The current item's speed: podcasts at theirs, songs at the tempo set.
+    private var playbackRate: Float { current?.isPodcastEpisode == true ? episodeSpeed : PlaybackTempo.rate }
+
+    /// How the current item's tempo is changed: songs as the key lock says, podcasts always keeping
+    /// the voice's pitch.
+    private var pitchAlgorithm: AVAudioTimePitchAlgorithm {
+        current?.isPodcastEpisode == true ? .spectral : PlaybackTempo.pitchAlgorithm
+    }
 
     /// The player plays at `playbackRate` from its next `play()` on, and right away if it is playing.
     private func applyRate() {
         let rate = playbackRate
+        if let item = player.currentItem, item.audioTimePitchAlgorithm != pitchAlgorithm {
+            item.audioTimePitchAlgorithm = pitchAlgorithm
+        }
         player.defaultRate = rate
         if player.timeControlStatus != .paused, player.rate != rate { player.rate = rate }
         requestedSeek?.setRate(Double(rate), now: ProcessInfo.processInfo.systemUptime)
@@ -1031,6 +1073,7 @@ final class PlayerController: ObservableObject {
         itemOffset = 0
         let wasPlaying = player.timeControlStatus != .paused
         newItem.allowedAudioSpatializationFormats = Self.spatializationFormats
+        newItem.audioTimePitchAlgorithm = pitchAlgorithm
         itemStatus = newItem.publisher(for: \.status)
             .receive(on: DispatchQueue.main)
             .sink { [weak newItem] status in
@@ -1110,7 +1153,7 @@ final class PlayerController: ObservableObject {
             self.activateSession()
             // Start as soon as the first audio arrives instead of waiting for a "safe" buffer;
             // later stalls are still handled by AVPlayer's normal waiting.
-            self.player.playImmediately(atRate: 1)
+            self.player.playImmediately(atRate: self.playbackRate)
         }
         Task {
             let effects = await self.audioMix(for: item, track: track)
@@ -1169,6 +1212,7 @@ final class PlayerController: ObservableObject {
             }
 
         // Before `play()`, which starts at the player's default rate (a prepared player may already play).
+        if !alreadyStarted { item.audioTimePitchAlgorithm = pitchAlgorithm }
         applyRate()
         if !alreadyStarted {
             if pendingFadeIn != nil {
@@ -1428,7 +1472,8 @@ final class PlayerController: ObservableObject {
     private func startPendingFades() {
         // An AutoMix mix has its own volumes.
         guard !mixHandover else { return }
-        let left = outgoingPlayer.map { max(0.5, outgoingLength - $0.currentTime().seconds) }
+        // What's left of the song, in real time at the tempo it plays.
+        let left = outgoingPlayer.map { max(0.5, (outgoingLength - $0.currentTime().seconds) / Double(max(0.5, $0.rate))) }
         if let fadeIn = pendingFadeIn {
             pendingFadeIn = nil
             let target = player
@@ -1554,6 +1599,8 @@ final class PlayerController: ObservableObject {
                 self.autoMixNote = String(localized: "Analisi non riuscita: dissolvenza semplice")
                 return
             }
+            // The song's tempo, for the tempo fader.
+            if outgoing.isGridLocked, self.current?.id == track.id { self.songBPM = (track.id, outgoing.tempo) }
             // At the gain the song plays with, so the mix takes over at its very level.
             let outgoingGain: Float
             if let gain = self.playingGain { outgoingGain = gain } else { outgoingGain = await self.volumeGain(for: track) }
@@ -1819,8 +1866,9 @@ final class PlayerController: ObservableObject {
             // Its audio ready to play at once (a preroll that didn't finish is tried once more).
             var ready = item.status == .readyToPlay && incoming.status == .readyToPlay
             if ready {
-                ready = await incoming.preroll(atRate: 1)
-                if !ready, !Task.isCancelled, self.armed === transition { ready = await incoming.preroll(atRate: 1) }
+                let rate = PlaybackTempo.rate
+                ready = await incoming.preroll(atRate: rate)
+                if !ready, !Task.isCancelled, self.armed === transition { ready = await incoming.preroll(atRate: rate) }
             }
             guard !Task.isCancelled, self.armed === transition else { return }
             guard ready else {
@@ -1846,6 +1894,8 @@ final class PlayerController: ObservableObject {
         audioMix.inputParameters = [parts.mixPart, parts.songPart]
         let item = AVPlayerItem(asset: parts.composition)
         item.audioMix = audioMix
+        // At the songs' tempo (see `PlaybackTempo`): the mix's beats stay matched, faster or slower.
+        item.audioTimePitchAlgorithm = PlaybackTempo.pitchAlgorithm
         return (item, nil)
     }
 
@@ -1881,9 +1931,11 @@ final class PlayerController: ObservableObject {
         let delay = max(0, (target - now) / rate)
         let start = CMTimeAdd(CMClockGetTime(CMClockGetHostTimeClock()),
                               CMTime(seconds: delay, preferredTimescale: 1_000_000_000))
-        transition.player.setRate(1, time: .zero, atHostTime: start)
+        // The mix plays at the songs' tempo; its fade, in the mix's own seconds, lasts that much less (or more).
+        let tempo = PlaybackTempo.rate
+        transition.player.setRate(tempo, time: .zero, atHostTime: start)
         transition.scheduled = true
-        let fade = transition.fade
+        let fade = transition.fade / Double(tempo)
         beginTransition(transition, outgoingFor: delay + fade + Self.outputLatency + 0.3)
         noteHandover(String(localized: "mix avviato senza controllo"))
         fadeOutTask = Task {

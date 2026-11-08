@@ -163,6 +163,9 @@ enum Preferences {
     static let interactiveArtwork = "player.interactiveArtwork"
     /// The speed podcast episodes play at (1 = normal).
     static let episodeSpeed = "podcasts.speed"
+    /// The songs' tempo, -0.15…+0.15 (see `PlaybackTempo`), and whether the voice keeps its pitch.
+    static let songTempo = "playback.tempo"
+    static let keyLock = "playback.keyLock"
     static let lyricsTranslate = "lyrics.translate"
     static let updateMode = "updates.mode"
 

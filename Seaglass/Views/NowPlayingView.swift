@@ -18,6 +18,7 @@ struct NowPlayingView: View {
     /// A drag down is under way (the card follows it).
     @State private var draggingDown = false
     @State private var showEqualizer = false
+    @State private var showTempo = false
 
     var body: some View {
         GeometryReader { geometry in
@@ -50,12 +51,25 @@ struct NowPlayingView: View {
                     }
             }
         }
+        .sheet(isPresented: $showTempo) {
+            NavigationStack {
+                TempoView()
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Fine") { showTempo = false }
+                        }
+                    }
+            }
+            .presentationDetents([.medium, .large])
+        }
         .downloadErrorAlert(isActive: router.showPlayer)
         .trackToasts(.player)
         .background { PlayerKeyboardShortcuts(includesSpace: true) }
         .onAppear {
             // The CI screenshots can open a panel (see `LaunchScene`).
-            if let open = LaunchScene.playerPanel { panel = open == "queue" ? .queue : .lyrics }
+            if let open = LaunchScene.playerPanel {
+                if open == "tempo" { showTempo = true } else { panel = open == "queue" ? .queue : .lyrics }
+            }
         }
     }
 
@@ -494,6 +508,10 @@ struct NowPlayingView: View {
             Spacer()
             if isEpisode { speedMenu } else { karaokeMenu }
             Spacer()
+            if !isEpisode {
+                tempoButton
+                Spacer()
+            }
             AirPlayButton(activeTint: accent.color).frame(width: 44, height: 44)
             Spacer()
             panelButton(.queue, symbol: "list.bullet")
@@ -525,6 +543,26 @@ struct NowPlayingView: View {
                 .background(Color.white.opacity(player.episodeSpeed == 1 ? 0 : 0.2), in: .circle)
         }
         .buttonStyle(.plain)
+    }
+
+    /// The songs' tempo, as a DJ app's fader: the change on the button while there is one.
+    private var tempoButton: some View {
+        Button { showTempo = true } label: {
+            Group {
+                if player.songTempo == 0 {
+                    Image(systemName: "metronome").font(.title3)
+                } else {
+                    Text(verbatim: TempoView.percent(player.songTempo, digits: 1))
+                        .font(.caption.weight(.semibold).monospacedDigit())
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+                }
+            }
+            .frame(width: 44, height: 44)
+            .background(Color.white.opacity(player.songTempo == 0 ? 0 : 0.2), in: .circle)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text("Tempo"))
     }
 
     /// Karaoke: remove the voice or keep only the voice, at three strengths.

@@ -73,6 +73,8 @@ shot 12-album-downloads en 8 "album:MPREb_ePmUY37w4pZ"
 shot 13-song-info en 14 "info:MPREb_ePmUY37w4pZ"
 shot 14-equalizer en 6 equalizer
 shot 15-song-info-italian it 14 "info:MPREb_ePmUY37w4pZ"
+# The tempo fader, at +4.5 %.
+shot 15b-tempo en 15 "player:K0HSD_i2DvA" -SeaglassPanel tempo -playback.tempo 0.045
 
 # The player card stopped half way between the mini player and the full screen.
 xcrun simctl launch --terminate-running-process "$device" com.onda.player \

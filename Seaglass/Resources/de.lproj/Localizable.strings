@@ -634,3 +634,10 @@
 "Volume uniforme porta tutti i brani allo stesso livello." = "„Lautstärke angleichen“ bringt alle Songs auf denselben Pegel.";
 "Wi-Fi" = "WLAN";
 "«Massima» usa Opus a 160 kbps, la qualità più alta di YouTube senza Premium." = "„Maximal“ nutzt Opus mit 160 kbit/s, die höchste Qualität von YouTube ohne Premium.";
+
+/* The tempo fader in the player. */
+"Tempo" = "Tempo";
+"Reimposta" = "Zurücksetzen";
+"Blocca tonalità" = "Tonart sperren";
+"Accelera o rallenta i brani fino al %@, come il cursore del tempo di un'app da DJ. Resta così per tutti i brani finché non lo reimposti; i podcast hanno la loro velocità." = "Macht Songs um bis zu %@ schneller oder langsamer, wie der Tempo-Fader einer DJ-App. Das gilt für alle Songs, bis du es zurücksetzt; Podcasts behalten ihre eigene Geschwindigkeit.";
+"La voce resta alla sua altezza a qualsiasi tempo. Disattivato, cambia con il tempo come su un giradischi: più veloce è più acuta, più lenta è più grave." = "Stimmen behalten bei jedem Tempo ihre Tonhöhe. Ausgeschaltet ändert sich die Tonhöhe mit dem Tempo wie bei einem Plattenspieler: schneller klingt höher, langsamer tiefer.";

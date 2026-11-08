@@ -33,7 +33,7 @@ enum LaunchScene {
         return CGFloat(max(0, min(1, value)))
     }
 
-    /// `-SeaglassPanel queue | lyrics`: the player opens with that panel (the iPad's two columns).
+    /// `-SeaglassPanel queue | lyrics | tempo`: the player opens with that panel (the iPad's two columns) or the tempo fader.
     static var playerPanel: String? {
         scene == nil ? nil : UserDefaults.standard.string(forKey: "SeaglassPanel")
     }

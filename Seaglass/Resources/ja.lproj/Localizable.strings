@@ -634,3 +634,10 @@
 "Volume uniforme porta tutti i brani allo stesso livello." = "音量の均一化で、すべての曲を同じレベルにそろえます。";
 "Wi-Fi" = "Wi-Fi";
 "«Massima» usa Opus a 160 kbps, la qualità più alta di YouTube senza Premium." = "「最高」は 160 kbps の Opus を使用します。Premium なしで利用できる YouTube の最高音質です。";
+
+/* The tempo fader in the player. */
+"Tempo" = "テンポ";
+"Reimposta" = "リセット";
+"Blocca tonalità" = "キーロック";
+"Accelera o rallenta i brani fino al %@, come il cursore del tempo di un'app da DJ. Resta così per tutti i brani finché non lo reimposti; i podcast hanno la loro velocità." = "DJ アプリのテンポフェーダーのように、曲を最大 %@ 速く、または遅くします。リセットするまですべての曲に適用されます。ポッドキャストは独自の再生速度のままです。";
+"La voce resta alla sua altezza a qualsiasi tempo. Disattivato, cambia con il tempo come su un giradischi: più veloce è più acuta, più lenta è più grave." = "どのテンポでも声の高さは変わりません。オフにすると、レコードプレーヤーのように音程もテンポと一緒に変わります（速いほど高く、遅いほど低く）。";
