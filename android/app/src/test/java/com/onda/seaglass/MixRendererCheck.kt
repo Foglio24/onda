@@ -95,6 +95,19 @@ class MixRendererCheck {
         println("The next song's beats within ${"%.1f".format(worst * 1000)} ms of the outgoing song's")
         assertTrue("beats ${"%.1f".format(worst * 1000)} ms apart", worst < 0.006)
 
+        // The players cross away from the beats: the takeover (the outgoing song alone) and every
+        // moment for handing back (the next song alone) fall between clicks.
+        val info = mix.write(java.io.File.createTempFile("mix", ".wav"))
+        val beatOffset = (info.takeover - 90.0) % 0.5
+        println("Takeover at ${"%.3f".format(info.takeover)} s, ${info.quietMoments.size} moments to hand back")
+        assertTrue("takeover clear of the beats", beatOffset >= 0.0039 && beatOffset + MixRenderer.CROSSING <= 0.5)
+        assertTrue(info.takeover in plan.outStart - 2.5..plan.outStart - 0.6)
+        assertTrue(info.quietMoments.size >= 5)
+        for (moment in info.quietMoments) {
+            val off = (moment - info.incomingAt) % 0.5
+            assertTrue("hand-back clear of the beats ($off)", off >= 0.0039 && off + MixRenderer.CROSSING <= 0.5)
+        }
+
         // Where the file says the next song is: its time at a beat is one of its beats.
         for (time in heard.take(20)) {
             val songTime = mix.plan.inStart + (time - mix.incomingAt) * mix.plan.incomingRate

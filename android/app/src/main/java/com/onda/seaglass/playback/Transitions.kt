@@ -235,9 +235,9 @@ class Transitions(
         return if (position > handoverTime(automix, mix) - 2.5) simple else automix
     }
 
-    /** When the hidden player takes over: a beat-matched mix a second before the next song comes in. */
+    /** When the hidden player takes over: for a beat-matched mix, at a quiet moment just before it. */
     private fun handoverTime(plan: TransitionPlan, rendered: MixInfo?): Double =
-        if (rendered != null) maxOf(plan.outStart - 1.0, rendered.start + 3.0) else plan.outStart
+        if (rendered != null) maxOf(rendered.takeover, rendered.start + 3.0) else plan.outStart
 
     /** When the hidden player starts playing, muted, to fall in step: from the mix's start, or 3 s ahead. */
     private fun syncFrom(handover: Double, rendered: MixInfo?): Double =
@@ -385,8 +385,11 @@ class Transitions(
             }
             inStep = if (mixTime >= mix.mixEnd && abs(off) <= 0.02) inStep + 1 else 0
         }
+        // In step: back at the next quiet moment (the crossing lands on it on the next step).
+        val quiet = mix.quietMoments.firstOrNull { it >= mixTime }
+        val atQuiet = quiet == null || quiet - mixTime <= 0.045
         val ended = player.playbackState == Player.STATE_ENDED || !player.isPlaying
-        if (inStep >= 4 || mixTime >= mix.length - 1.0 || ended) handBack(mix, drift)
+        if (inStep >= 3 && atQuiet || mixTime >= mix.length - 1.0 || ended) handBack(mix, drift)
     }
 
     /** The main player takes the next song back from the file: half and half for a moment, then all its own. */

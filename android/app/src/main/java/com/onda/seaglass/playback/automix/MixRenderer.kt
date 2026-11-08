@@ -31,6 +31,10 @@ data class MixInfo(
     val length: Double,
     /** Seconds into the file where the next song comes in (at its time [TransitionPlan.inStart]). */
     val incomingAt: Double,
+    /** The outgoing song's time when the file takes over from it: a quiet moment shortly before the mix. */
+    val takeover: Double = plan.outStart - 1.0,
+    /** Quiet moments (seconds into the file) where the next song alone can be handed back, one a second. */
+    val quietMoments: List<Double> = emptyList(),
 ) {
     /** Seconds into the file when the outgoing song has gone. */
     val mixEnd: Double get() = plan.outEnd - start
@@ -42,6 +46,35 @@ data class MixInfo(
 /** The mix's samples (interleaved stereo, 16-bit) at [rate], before they're written to a file. */
 class RenderedMix(val plan: TransitionPlan, val samples: ShortArray, val rate: Int, val start: Double, val incomingAt: Double) {
     val length: Double get() = samples.size / 2.0 / rate
+
+    /**
+     * Where, in seconds of the file, the quietest [MixRenderer.CROSSING] seconds between [from] and
+     * [to] start: where the players cross, what's heard twice (or skipped) if they're a few
+     * milliseconds apart is least heard there, between the beats rather than on one (as on the iPhone).
+     */
+    fun quietest(from: Double, to: Double): Double {
+        val span = (MixRenderer.CROSSING * rate).toInt()
+        val first = (from * rate).toInt().coerceIn(0, samples.size / 2 - 1)
+        val last = (to * rate).toInt().coerceIn(first, samples.size / 2 - span - 1)
+        if (last <= first) return from
+        fun energy(frame: Int): Double {
+            val l = samples[frame * 2].toDouble()
+            val r = samples[frame * 2 + 1].toDouble()
+            return l * l + r * r
+        }
+        var sum = 0.0
+        for (f in first until first + span) sum += energy(f)
+        var best = first
+        var bestSum = sum
+        for (f in first + 1..last) {
+            sum += energy(f + span - 1) - energy(f - 1)
+            if (sum < bestSum) {
+                bestSum = sum
+                best = f
+            }
+        }
+        return best.toDouble() / rate
+    }
 
     /** Writes a WAV file and describes it. */
     fun write(file: File): MixInfo {
@@ -61,7 +94,13 @@ class RenderedMix(val plan: TransitionPlan, val samples: ShortArray, val rate: I
                 out.write(bytes.array(), 0, bytes.position())
             }
         }
-        return MixInfo(plan, file, start, length, incomingAt)
+        // The takeover between 2.5 s and 0.6 s before the next song comes in (the song alone there),
+        // and a quiet moment in each second where the next song plays alone, for handing it back.
+        val takeover = start + quietest(incomingAt - 2.5, incomingAt - 0.6)
+        val mixEnd = plan.outEnd - start
+        val moments = generateSequence(mixEnd + 0.3) { it + 1.0 }.takeWhile { it + 1.0 < length - 1.0 }
+            .map { quietest(it, it + 1.0) }.toList()
+        return MixInfo(plan, file, start, length, incomingAt, takeover, moments)
     }
 }
 
@@ -71,6 +110,8 @@ object MixRenderer {
     const val BEFORE = 6.0
     /** Seconds of the next song alone at the end, for the main player to fall in step with the file. */
     const val AFTER = 10.0
+    /** How long the two players cross when one takes over from the other (as the iPhone app's handover). */
+    const val CROSSING = 0.04
     /** Peaks of the two songs together are kept under this. */
     private const val CEILING = 0.98f
     private const val BLOCK = 128
