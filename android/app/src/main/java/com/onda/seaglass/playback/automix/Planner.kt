@@ -59,7 +59,8 @@ data class TransitionPlan(
     fun levels(progress: Double): Levels {
         val p = progress.coerceIn(0.0, 1.0)
         fun ramp(from: Double, to: Double) = if (to > from) ((p - from) / (to - from)).coerceIn(0.0, 1.0) else if (p >= from) 1.0 else 0.0
-        // Equal-power curves: over the same stretch the two add up to a steady loudness.
+        // Equal-power curves: over the same stretch (the whole mix, unless the song fades out by itself)
+        // the two add up to a steady loudness, with no rise or dip in the middle.
         val comeIn = ramp(fadeInFrom, fadeIn)
         val goOut = ramp(fadeOutFrom, 1.0)
         var swap = 0.0
@@ -126,7 +127,6 @@ object Planner {
         return TransitionPlan(
             style = TransitionPlan.Style.BLEND,
             outStart = soundEnd - length, outEnd = soundEnd, inStart = soundStart, incomingRate = 1.0,
-            fadeInFrom = 0.0, fadeIn = 0.55, fadeOutFrom = 0.4,
             filterOut = if (outgoing.hasBeat) 0.5 else null,
         )
     }
@@ -162,8 +162,6 @@ object Planner {
                 outStart = outStart, outEnd = outEnd, inStart = entry, incomingRate = incomingRate,
                 bars = bars,
                 swapStart = 0.45, swapEnd = 0.6,
-                fadeInFrom = 0.0, fadeIn = 0.35,
-                fadeOutFrom = 0.65,
                 filterOut = 0.75,
                 beatLength = beat,
             )

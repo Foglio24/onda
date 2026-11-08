@@ -1,14 +1,15 @@
 package com.onda.seaglass.playback.automix
 
 import android.content.Context
-import android.media.MediaCodec
 import android.media.MediaExtractor
 import android.media.MediaFormat
+import android.os.SystemClock
 import android.util.Log
 import androidx.annotation.OptIn
 import androidx.media3.common.C
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DataSpec
+import com.onda.seaglass.data.Streams
 import com.onda.seaglass.playback.audioDataSourceFactory
 import com.onda.seaglass.playback.streamUri
 import kotlinx.coroutines.Deferred
@@ -20,7 +21,6 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.File
-import java.nio.ByteOrder
 import java.util.concurrent.ConcurrentHashMap
 
 /** A song's two ends as AutoMix needs them: its first and last minute. */
@@ -61,15 +61,19 @@ object AutoMixLibrary {
 
     fun init(context: Context) {
         folder = File(context.cacheDir, "automix").apply { mkdirs() }
+        // Mixes are made for the songs about to play: none from before is any use.
+        folder.listFiles { f -> f.name.startsWith("mix-") || f.name.endsWith(".part") }?.forEach { it.delete() }
     }
 
-    fun known(videoId: String): SongAnalysis? = memory[videoId] ?: load(videoId)?.also { memory[videoId] = it }
+    fun known(videoId: String): SongAnalysis? =
+        if (!isVideoId(videoId)) null else memory[videoId] ?: load(videoId)?.also { memory[videoId] = it }
 
     private fun load(videoId: String): SongAnalysis? =
         runCatching { SongAnalysis.fromJson(JSONObject(File(folder, "$videoId.json").readText())) }.getOrNull()
 
     /** The song's analysis, made now unless it was before; null when it can't be. */
     suspend fun analysis(videoId: String): SongAnalysis? {
+        if (!isVideoId(videoId)) return null
         known(videoId)?.let { return it }
         val lock = locks.getOrPut(videoId) { Mutex() }
         return lock.withLock {
@@ -85,25 +89,88 @@ object AutoMixLibrary {
         }
     }
 
-    private suspend fun analyze(videoId: String): SongAnalysis? = coroutineScope {
-        val file = File(folder, "$videoId.audio")
-        try {
-            fetch(videoId, file)
-            val duration = durationOf(file) ?: return@coroutineScope null
-            if (duration > LENGTH_LIMIT || duration < 30) return@coroutineScope null
-            val head: Deferred<WindowAnalysis> = async(Dispatchers.Default) {
-                Analyzer.analyze(decode(file, 0.0, WINDOW), 0.0)
-            }
-            val tailStart = maxOf(0.0, duration - WINDOW)
-            val tail = async(Dispatchers.Default) { Analyzer.analyze(decode(file, tailStart, WINDOW), tailStart) }
-            SongAnalysis(videoId, duration, head.await(), tail.await()).also {
-                Log.i(TAG, "$videoId: ${"%.1f".format(it.head.tempo)}/${"%.1f".format(it.tail.tempo)} BPM, " +
-                    "confidence ${"%.2f".format(it.head.confidence)}/${"%.2f".format(it.tail.confidence)}")
-            }
-        } finally {
-            file.delete()
+    /**
+     * The [plan]'s mix between two songs, rendered into a file (see [MixRenderer]) with each song at
+     * the volume [gainOf] gives it; null when it can't be made.
+     */
+    suspend fun render(plan: TransitionPlan, outgoingId: String, incomingId: String, gainOf: (String) -> Float): MixInfo? {
+        if (!isVideoId(outgoingId) || !isVideoId(incomingId)) return null
+        return withContext(Dispatchers.IO) {
+            runCatching {
+                val started = SystemClock.elapsedRealtime()
+                val outgoingFile = locks.getOrPut(outgoingId) { Mutex() }.withLock { audio(outgoingId) }
+                val incomingFile = locks.getOrPut(incomingId) { Mutex() }.withLock { audio(incomingId) }
+                // The volumes come with the songs' links: make sure both are known.
+                for (id in listOf(outgoingId, incomingId)) if (Streams.loudness(id) == null) runCatching { Streams.resolve(id) }
+                val from = maxOf(0.0, plan.outStart - MixRenderer.BEFORE)
+                val outgoing = PcmDecoder.stereo(outgoingFile, from, plan.outEnd - from + 0.2)
+                val incomingSeconds = (plan.outEnd - plan.outStart + MixRenderer.AFTER) * plan.incomingRate + 0.5
+                val incoming = PcmDecoder.stereo(incomingFile, plan.inStart, incomingSeconds)
+                val mix = withContext(Dispatchers.Default) {
+                    MixRenderer.render(plan, outgoing, incoming, gainOf(outgoingId), gainOf(incomingId))
+                }
+                val file = File(folder, "mix-${System.currentTimeMillis()}.wav")
+                val info = mix.write(file)
+                pruneMixes(keep = file)
+                Log.i(TAG, "Mix $outgoingId → $incomingId rendered in ${SystemClock.elapsedRealtime() - started} ms: " +
+                    "${"%.1f".format(info.length)} s, the next song at ${"%.2f".format(info.incomingAt)} s")
+                info
+            }.onFailure { Log.w(TAG, "Mix of $outgoingId → $incomingId failed", it) }.getOrNull()
         }
     }
+
+    private suspend fun analyze(videoId: String): SongAnalysis? = coroutineScope {
+        val file = audio(videoId)
+        val duration = durationOf(file) ?: return@coroutineScope null
+        if (duration > LENGTH_LIMIT || duration < 30) return@coroutineScope null
+        val head: Deferred<WindowAnalysis> = async(Dispatchers.Default) {
+            Analyzer.analyze(decode(file, 0.0, WINDOW), 0.0)
+        }
+        val tailStart = maxOf(0.0, duration - WINDOW)
+        val tail = async(Dispatchers.Default) { Analyzer.analyze(decode(file, tailStart, WINDOW), tailStart) }
+        SongAnalysis(videoId, duration, head.await(), tail.await()).also {
+            Log.i(TAG, "$videoId: ${"%.1f".format(it.head.tempo)}/${"%.1f".format(it.tail.tempo)} BPM, " +
+                "confidence ${"%.2f".format(it.head.confidence)}/${"%.2f".format(it.tail.confidence)}")
+        }
+    }
+
+    /** The song's audio file, as the player plays it (for the karaoke too); null for what isn't a YouTube song. */
+    suspend fun songAudio(videoId: String): File? {
+        if (!isVideoId(videoId)) return null
+        return withContext(Dispatchers.IO) { locks.getOrPut(videoId) { Mutex() }.withLock { audio(videoId) } }
+    }
+
+    /**
+     * The song's audio, as the player plays it: kept for the newest few songs (the mix is made from
+     * it), otherwise read again. Call with the song's lock held.
+     */
+    private fun audio(videoId: String): File {
+        val file = File(folder, "$videoId.audio")
+        if (file.length() > 0) {
+            file.setLastModified(System.currentTimeMillis())
+            return file
+        }
+        val part = File(folder, "$videoId.part")
+        try {
+            fetch(videoId, part)
+            if (!part.renameTo(file)) error("Couldn't keep the audio of $videoId")
+        } finally {
+            part.delete()
+        }
+        // The newest four songs' audio stays.
+        folder.listFiles { f -> f.name.endsWith(".audio") }
+            ?.sortedByDescending { it.lastModified() }?.drop(4)?.forEach { it.delete() }
+        return file
+    }
+
+    /** The newest two mixes stay: the one playing and the next. */
+    private fun pruneMixes(keep: File) {
+        folder.listFiles { f -> f.name.startsWith("mix-") && f != keep }
+            ?.sortedByDescending { it.lastModified() }?.drop(1)?.forEach { it.delete() }
+    }
+
+    /** A YouTube video ID: these name files here, so nothing else is let through. */
+    private fun isVideoId(id: String) = id.length == 11 && id.all { it.isLetterOrDigit() && it.code < 128 || it == '-' || it == '_' }
 
     /** The whole file, through the player's data source (1 MB ranges, or the phone's copy). */
     private fun fetch(videoId: String, file: File) {
@@ -139,81 +206,13 @@ object AutoMixLibrary {
 
     /** [seconds] of the file from [from], as mono samples at the analyser's rate. */
     private fun decode(file: File, from: Double, seconds: Double): FloatArray {
-        val extractor = MediaExtractor()
-        var codec: MediaCodec? = null
-        try {
-            extractor.setDataSource(file.path)
-            val track = (0 until extractor.trackCount).first {
-                extractor.getTrackFormat(it).getString(MediaFormat.KEY_MIME)?.startsWith("audio/") == true
-            }
-            extractor.selectTrack(track)
-            val format = extractor.getTrackFormat(track)
-            val mime = format.getString(MediaFormat.KEY_MIME)!!
-            var rate = format.getInteger(MediaFormat.KEY_SAMPLE_RATE)
-            var channels = format.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
-            val startUs = (from * 1_000_000).toLong()
-            val endUs = ((from + seconds) * 1_000_000).toLong()
-            if (from > 0) extractor.seekTo(startUs, MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
-            codec = MediaCodec.createDecoderByType(mime).apply {
-                configure(format, null, null, 0)
-                start()
-            }
-            val out = Resampler(Analyzer.SAMPLE_RATE)
-            val info = MediaCodec.BufferInfo()
-            var inputDone = false
-            var outputDone = false
-            while (!outputDone) {
-                if (!inputDone) {
-                    val index = codec.dequeueInputBuffer(10_000)
-                    if (index >= 0) {
-                        val buffer = codec.getInputBuffer(index)!!
-                        val size = extractor.readSampleData(buffer, 0)
-                        if (size < 0 || extractor.sampleTime > endUs + 500_000) {
-                            codec.queueInputBuffer(index, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
-                            inputDone = true
-                        } else {
-                            codec.queueInputBuffer(index, 0, size, extractor.sampleTime, 0)
-                            extractor.advance()
-                        }
-                    }
-                }
-                val index = codec.dequeueOutputBuffer(info, 10_000)
-                when {
-                    index == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
-                        val output = codec.outputFormat
-                        rate = output.getInteger(MediaFormat.KEY_SAMPLE_RATE)
-                        channels = output.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
-                    }
-                    index >= 0 -> {
-                        if (info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) outputDone = true
-                        val buffer = codec.getOutputBuffer(index)!!.order(ByteOrder.nativeOrder())
-                        buffer.position(info.offset)
-                        buffer.limit(info.offset + info.size)
-                        val shorts = buffer.asShortBuffer()
-                        val frames = shorts.remaining() / channels
-                        // Samples before the window (after seeking to the previous sync point) are skipped.
-                        val firstFrameUs = info.presentationTimeUs
-                        for (i in 0 until frames) {
-                            val timeUs = firstFrameUs + i * 1_000_000L / rate
-                            if (timeUs < startUs) continue
-                            if (timeUs >= endUs) {
-                                outputDone = true
-                                break
-                            }
-                            var sum = 0f
-                            for (c in 0 until channels) sum += shorts.get(i * channels + c)
-                            out.add(sum / channels / 32768f, rate)
-                        }
-                        codec.releaseOutputBuffer(index, false)
-                    }
-                }
-            }
-            return out.samples()
-        } finally {
-            runCatching { codec?.stop() }
-            codec?.release()
-            extractor.release()
+        val out = Resampler(Analyzer.SAMPLE_RATE)
+        PcmDecoder.decode(file, from, seconds) { _, samples, offset, channels, rate ->
+            var sum = 0f
+            for (c in 0 until channels) sum += samples[offset + c]
+            out.add(sum / channels / 32768f, rate)
         }
+        return out.samples()
     }
 
     /** Keeps the newest 500 analyses. */

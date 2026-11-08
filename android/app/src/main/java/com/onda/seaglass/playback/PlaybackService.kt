@@ -33,6 +33,9 @@ import com.onda.seaglass.data.Prefs
 import com.onda.seaglass.data.Recommendations
 import com.onda.seaglass.data.Streams
 import com.onda.seaglass.model.Track
+import com.onda.seaglass.playback.karaoke.Karaoke
+import com.onda.seaglass.playback.karaoke.KaraokeMode
+import com.onda.seaglass.playback.karaoke.KaraokeProcessor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -87,12 +90,14 @@ class PlaybackService : MediaSessionService() {
     private var transitions: Transitions? = null
     /** The main player's AutoMix filters (the next song's bass while the two play together). */
     private val mainFilter = com.onda.seaglass.playback.automix.MixFilter()
+    /** The karaoke in the main player's audio. */
+    private val karaokeProcessor = KaraokeProcessor()
     private var detachBitPerfect: () -> Unit = {}
 
     override fun onCreate() {
         super.onCreate()
         val resolving = audioDataSourceFactory()
-        val player = ExoPlayer.Builder(this, FilteredRenderers(this, mainFilter))
+        val player = ExoPlayer.Builder(this, FilteredRenderers(this, mainFilter, karaokeProcessor))
             .setMediaSourceFactory(DefaultMediaSourceFactory(resolving))
             .setAudioAttributes(
                 AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(),
@@ -102,7 +107,12 @@ class PlaybackService : MediaSessionService() {
             .setWakeMode(C.WAKE_MODE_NETWORK)
             .build()
         player.addListener(listener)
-        transitions = Transitions(this, player, mainFilter, scope, gainOf = ::gainOf, allowed = { !BitPerfect.active }).also { it.start() }
+        // Karaoke plays one song's parts: transitions wait until it's off (as on the iPhone).
+        transitions = Transitions(
+            this, player, mainFilter, scope, gainOf = ::gainOf,
+            allowed = { !BitPerfect.active && Karaoke.mode.value == KaraokeMode.OFF },
+        ).also { it.start() }
+        Karaoke.attach(this, player, karaokeProcessor, scope)
         detachBitPerfect = BitPerfect.attach(this, player)
         // A song's loudness arrives with its link, on a loading thread.
         Streams.onLoudness = { videoId -> scope.launch { if (player.currentMediaItem?.mediaId == videoId) applyVolume() } }
@@ -111,7 +121,10 @@ class PlaybackService : MediaSessionService() {
         }
         // Bit-perfect output passes the samples as they are: no equalizer then.
         scope.launch {
-            BitPerfect.status.collect { Equalizer.bypass = it is BitPerfect.Status.Active }
+            BitPerfect.status.collect {
+                Equalizer.bypass = it is BitPerfect.Status.Active
+                karaokeProcessor.bypass = it is BitPerfect.Status.Active
+            }
         }
         val open = PendingIntent.getActivity(
             this, 0,
@@ -143,6 +156,7 @@ class PlaybackService : MediaSessionService() {
         saveResumeState()
         Streams.onLoudness = null
         transitions?.release()
+        Karaoke.detach()
         detachBitPerfect()
         scope.cancel()
         session?.run {

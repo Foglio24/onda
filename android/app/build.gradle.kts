@@ -45,8 +45,8 @@ android {
         applicationId = "com.onda.seaglass"
         minSdk = 29
         targetSdk = 37
-        versionCode = 4
-        versionName = "0.3.0"
+        versionCode = 5
+        versionName = "0.4.0"
     }
 
     // Only the app's languages: the libraries' other translations stay out of the APK.
@@ -103,6 +103,9 @@ android {
     }
     packaging {
         resources.excludes += setOf("META-INF/*.version", "META-INF/LICENSE*", "META-INF/NOTICE*", "DebugProbesKt.bin")
+        // Native libraries compressed in the APK (ONNX Runtime alone is 34 MB as it is): a download
+        // of about half the size, unpacked once when the app installs.
+        jniLibs.useLegacyPackaging = true
     }
 }
 
@@ -141,9 +144,18 @@ dependencies {
     // Lyrics translation on the phone (models downloaded once per language).
     implementation(libs.mlkit.translate)
     implementation(libs.mlkit.language.id)
+    // AI karaoke: the vocal model (downloaded on first use) run on the phone.
+    implementation(libs.onnxruntime.android)
 
     // The checks in src/test run on the computer (or CI) against the real services.
     testImplementation(libs.junit)
     testImplementation(libs.json)
     testImplementation(libs.robolectric)
+    // The same ONNX Runtime API for the computer, to run the karaoke's model in the checks.
+    testImplementation(libs.onnxruntime.jvm)
+}
+
+// The Android build of ONNX Runtime can't load on the computer: the checks use the desktop one.
+configurations.matching { it.name.endsWith("UnitTestRuntimeClasspath") }.configureEach {
+    exclude(group = "com.microsoft.onnxruntime", module = "onnxruntime-android")
 }

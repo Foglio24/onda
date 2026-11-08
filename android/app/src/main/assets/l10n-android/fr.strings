@@ -8,3 +8,5 @@
 "Attivo: %@ · %@ kHz · %lld bit" = "Activé : %@ · %@ kHz · %lld bits";
 "%@ non accetta l'audio bit-perfect" = "%@ n’accepte pas l’audio bit-perfect";
 "Il bit-perfect invia l'audio senza modifiche: l'equalizzatore riprende quando lo spegni." = "Le mode bit-perfect envoie l’audio sans modification : l’égaliseur reprend quand vous le désactivez.";
+"Karaoke: download del modello %@" = "Karaoké : téléchargement du modèle %@";
+"Il karaoke non funziona con l'uscita bit-perfect." = "Le karaoké ne fonctionne pas avec la sortie bit-perfect.";

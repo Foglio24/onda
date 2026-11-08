@@ -122,11 +122,12 @@ The app can check GitHub for new releases and notify you or download the IPA to 
 - **Audio quality** for Wi-Fi, mobile data and downloads, as on the iPhone, with **Dolby** when the phone decodes it and **volume normalisation**.
 - **AutoMix**: the app finds each song's tempo, beats and bars on the phone and mixes into the next song in time, bar by bar, with a bass swap and a filter sweep (a simple crossfade when the songs don't suit it). Or a plain **crossfade**, or none.
 - **Equaliser** with Spotify's six bands and all of its 22 presets, or a curve of your own.
+- **AI karaoke**: the song without its voice, or the voice alone, separated on the phone by the same AI model as on the iPhone (downloaded once, the first time).
 - Synced lyrics with **on-device translation**, favourites, playlists (also imported from YouTube links), history and a sleep timer.
 - **Bit-perfect output to USB DACs** on Android 14 and later.
 - The same eleven languages as the iPhone app, with Arabic right to left.
 
-AI karaoke, podcasts, Last.fm and Spotify/Apple Music import are coming next.
+Podcasts, Last.fm and Spotify/Apple Music import are coming next.
 
 1. On the phone, open the [Android releases](https://github.com/Foglio24/onda/releases?q=android-v&expanded=true) and download the latest `Seaglass-x.y.z.apk` (the `-32bit` one only for older 32-bit phones).
 2. Open it, and allow installs from the browser when Android asks.

@@ -13,7 +13,8 @@ work by others, which keeps its own licence or terms.
 ### UVR-MDX-NET Voc_FT (AI karaoke model)
 - **What:** the vocal separation model used by the karaoke mode, and by AutoMix to find where songs
   are sung near where they meet, bundled in the IPA as a Core ML model. It is converted in CI from
-  ONNX to Core ML; the weights are not changed.
+  ONNX to Core ML; the weights are not changed. The Android app downloads the ONNX version itself
+  from sherpa-onnx the first time karaoke is used (its checksum checked), unchanged.
 - **Authors:** trained by the [Ultimate Vocal Remover](https://github.com/Anjok07/ultimatevocalremovergui)
   project (MIT), on the MDX-Net architecture by [KUIELab](https://github.com/kuielab/mdx-net) (MIT).
 - **Downloaded from:** the ONNX version published by
@@ -29,6 +30,9 @@ All under the Apache License 2.0:
 - [Coil](https://github.com/coil-kt/coil): artwork loading.
 - [OkHttp](https://github.com/square/okhttp) (Square): networking.
 - [Kotlin coroutines](https://github.com/Kotlin/kotlinx.coroutines) (JetBrains).
+
+Also in the Android app, under the MIT License: [ONNX Runtime](https://github.com/microsoft/onnxruntime)
+(Microsoft), which runs the karaoke's model on the phone. Its usage reporting is left out of the app.
 
 Also in the Android app, under Google's [ML Kit terms](https://developers.google.com/ml-kit/terms):
 [ML Kit](https://developers.google.com/ml-kit) on-device translation and language identification, for

@@ -75,8 +75,18 @@ class PlannerCheck {
         assertEquals(1f, start.outgoing, 0.001f)
         assertEquals(0f, start.incoming, 0.001f)
         assertTrue(start.incomingBassCut > 0.9f && start.outgoingBassCut < 0.01f)
-        assertTrue(middle.incoming > 0.99f && middle.outgoing > 0.99f)
+        assertTrue(middle.incoming > 0.6f && middle.outgoing > 0.6f)
         assertTrue(end.outgoing < 0.01f && end.incoming > 0.99f && end.outgoingBassCut > 0.9f && end.incomingBassCut < 0.01f)
+        assertSteady(plan)
+    }
+
+    /** All along the mix the two songs' volumes add up to one song's loudness (equal power, within 0.2 dB). */
+    private fun assertSteady(plan: TransitionPlan) {
+        for (step in 0..100) {
+            val levels = plan.levels(step / 100.0)
+            val power = levels.outgoing * levels.outgoing + levels.incoming * levels.incoming
+            assertEquals("power at ${step}%", 1.0, power.toDouble(), 0.05)
+        }
     }
 
     @Test
@@ -98,6 +108,7 @@ class PlannerCheck {
         println("124 → 90 BPM: ${plan.style}, ${"%.1f".format(plan.overlap)} s, in ${"%.2f".format(plan.inStart)}")
         assertEquals(TransitionPlan.Style.BLEND, plan.style)
         assertEquals(1.0, plan.incomingRate, 0.0)
+        assertSteady(plan)
         // No silence: the mix ends with the sound, the next song starts with its own.
         assertEquals(238.0, plan.outEnd, 0.15)
         assertTrue(plan.inStart in 1.9..2.4)

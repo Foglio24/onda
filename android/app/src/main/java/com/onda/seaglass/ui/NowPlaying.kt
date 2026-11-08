@@ -95,7 +95,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -289,6 +288,7 @@ private fun Controls(track: Track, position: () -> Long, state: PlayerController
     val equalizerOn = com.onda.seaglass.playback.Equalizer.state.collectAsStateWithLifecycle().value.isOn
     val timer by PlayerController.sleepTimer.collectAsStateWithLifecycle()
 
+    KaraokeBadge(Modifier.padding(bottom = 10.dp))
     Row(verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(
@@ -348,6 +348,7 @@ private fun Controls(track: Track, position: () -> Long, state: PlayerController
             PanelButton(Icons.Rounded.Lyrics, tr("Testi"), panel == Panel.LYRICS) { onPanel(Panel.LYRICS) }
             PanelButton(Icons.Rounded.Bedtime, tr("Timer di spegnimento"), timer != null) { timerDialog = true }
             PanelButton(Icons.Rounded.Equalizer, tr("Equalizzatore"), equalizerOn) { equalizerSheet = true }
+            KaraokeButton()
             PanelButton(Icons.AutoMirrored.Rounded.QueueMusic, tr("Coda"), panel == Panel.QUEUE) { onPanel(Panel.QUEUE) }
         }
     }
@@ -496,11 +497,12 @@ private fun SyncedLyrics(lyrics: LyricsState.Synced, position: () -> Long, trans
     }
     val list = rememberLazyListState()
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        val third = with(LocalDensity.current) { (maxHeight / 3).roundToPx() }
+        // The line being sung sits high, a fifth of the way down (as on the iPhone), with the lines
+        // to come below it; the padding lets the first and the last lines get there too.
         LaunchedEffect(current) {
-            if (current >= 0) list.animateScrollToItem(current, -third)
+            list.animateScrollToItem(maxOf(current, 0))
         }
-        LazyColumn(state = list, contentPadding = PaddingValues(vertical = maxHeight / 2)) {
+        LazyColumn(state = list, contentPadding = PaddingValues(top = maxHeight * 0.2f, bottom = maxHeight * 0.75f)) {
             itemsIndexed(lyrics.lines, key = { index, _ -> index }) { index, line ->
                 val active = index == current
                 val alpha by animateFloatAsState(if (active) 1f else 0.35f, label = "line")

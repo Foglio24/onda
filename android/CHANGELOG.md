@@ -1,5 +1,15 @@
 # Changelog (Android)
 
+## 0.4.0 (2026-11-08)
+
+### Added
+- **AI karaoke**, as on the iPhone: the karaoke button in the player takes the voice away from the song ("Senza voce") or keeps it alone ("Solo voce"), at three strengths (light, medium, full). The voice is separated on the phone by the same AI model the iPhone app uses (UVR MDX-Net "Voc_FT"), which downloads once (64 MB) the first time karaoke is used. The song keeps playing meanwhile: the separation starts where it plays, a few seconds at a time, and the karaoke starts as soon as that part is ready ("Karaoke: preparazione 35% · 12 s"); the rest follows. The last three songs stay separated for next time. While karaoke is on, songs follow each other without AutoMix or crossfade, as on the iPhone.
+
+### Fixed
+- **AutoMix mixes in time.** The next song no longer starts loud over the playing one and then drops out: another part of the player put it back to full volume just as the transition began. Beat-matched mixes are now rendered ahead of time into a file, as the iPhone app does, so the two songs' beats stay together sample for sample (the next song is time-stretched to the playing song's tempo, its pitch kept); the players only have to take over from the song and hand back to the next one, where each plays the same music.
+- **The crossfade keeps one steady volume.** The two songs cross at equal power all along, with no swell in the middle or dip at the end; AutoMix's blends too.
+- **Lyrics sit higher.** The line being sung is a fifth of the way down the lyrics, with the lines to come below it, instead of near the bottom.
+
 ## 0.3.0 (2026-11-05)
 
 ### Added

@@ -8,3 +8,5 @@
 "Attivo: %@ · %@ kHz · %lld bit" = "Açık: %@ · %@ kHz · %lld bit";
 "%@ non accetta l'audio bit-perfect" = "%@ bit-perfect sesi kabul etmiyor";
 "Il bit-perfect invia l'audio senza modifiche: l'equalizzatore riprende quando lo spegni." = "Bit-perfect sesi değiştirmeden gönderir: kapattığınızda ekolayzer yeniden devreye girer.";
+"Karaoke: download del modello %@" = "Karaoke: model indiriliyor %@";
+"Il karaoke non funziona con l'uscita bit-perfect." = "Karaoke, bit-perfect çıkışla çalışmaz.";

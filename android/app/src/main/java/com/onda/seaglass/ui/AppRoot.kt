@@ -303,12 +303,22 @@ private suspend fun handleLaunch(
             delay(1_500)
             app.openPlayer()
         }
+        "karaoke" -> {
+            // The AI karaoke on the emulator: the model downloaded, the chorus separated and the voice taken away.
+            val song = runCatching { InnerTube.radio(request.videoId ?: "dQw4w9WgXcQ").firstOrNull() }.getOrNull() ?: return
+            com.onda.seaglass.playback.karaoke.Karaoke.setMode(com.onda.seaglass.playback.karaoke.KaraokeMode.NO_VOCALS)
+            PlayerController.play(listOf(song))
+            delay(3_000)
+            PlayerController.seek(43_000)
+            app.openPlayer()
+        }
         "automix" -> {
-            // AutoMix on the emulator: a song into itself, from near its end.
+            // AutoMix on the emulator: a song into itself, from a minute before its end (the analysis
+            // and the mix's rendering have the time the song played before then).
             val song = runCatching { InnerTube.radio(request.videoId ?: "dQw4w9WgXcQ").firstOrNull() }.getOrNull() ?: return
             PlayerController.play(listOf(song, song))
             delay(5_000)
-            PlayerController.seek((((song.duration ?: 213.0) - 50) * 1000).toLong())
+            PlayerController.seek((((song.duration ?: 213.0) - 60) * 1000).toLong())
             app.openPlayer()
         }
         "artist", "album" -> {

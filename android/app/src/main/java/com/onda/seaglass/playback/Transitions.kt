@@ -1,6 +1,7 @@
 package com.onda.seaglass.playback
 
 import android.content.Context
+import android.net.Uri
 import android.os.SystemClock
 import android.util.Log
 import androidx.annotation.OptIn
@@ -9,6 +10,7 @@ import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.audio.AudioSink
@@ -19,8 +21,10 @@ import com.onda.seaglass.data.Prefs
 import com.onda.seaglass.data.SongTransition
 import com.onda.seaglass.playback.automix.AutoMixLibrary
 import com.onda.seaglass.playback.automix.MixFilter
+import com.onda.seaglass.playback.automix.MixInfo
 import com.onda.seaglass.playback.automix.Planner
 import com.onda.seaglass.playback.automix.TransitionPlan
+import com.onda.seaglass.playback.karaoke.KaraokeProcessor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -29,13 +33,20 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 
-/** A player whose audio passes through the equalizer and [filter] (AutoMix's bass and high-pass filters). */
+/**
+ * A player whose audio passes through the [karaoke] (the main player's only), the equalizer and
+ * [filter] (AutoMix's bass and high-pass filters).
+ */
 @OptIn(UnstableApi::class)
-class FilteredRenderers(context: Context, private val filter: MixFilter) : DefaultRenderersFactory(context) {
+class FilteredRenderers(
+    context: Context,
+    private val filter: MixFilter,
+    private val karaoke: KaraokeProcessor? = null,
+) : DefaultRenderersFactory(context) {
     override fun buildAudioSink(context: Context, enableFloatOutput: Boolean, enableAudioTrackPlaybackParams: Boolean): AudioSink =
         DefaultAudioSink.Builder(context)
-            // The equalizer first, then AutoMix's filters.
-            .setAudioProcessors(arrayOf(EqualizerProcessor(), filter))
+            // The karaoke first (it works on the song as decoded), then the equalizer, then AutoMix's filters.
+            .setAudioProcessors(listOfNotNull(karaoke, EqualizerProcessor(), filter).toTypedArray())
             .setEnableFloatOutput(false)
             .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
             .build()
@@ -52,12 +63,16 @@ object TransitionInfo {
  * the two songs, see [Planner]) and the plain crossfade.
  *
  * The queue stays in the main player (the one the notification and the screens control). A hidden
- * second player loads the playing song and plays it muted, kept in step with the main one (it speeds
- * up or slows down slightly, unheard). Shortly before the transition it takes over the song, audibly,
- * while the main player moves to the next song: for AutoMix to its first downbeat, at the outgoing
- * song's tempo, where it plays muted until it's in step with the outgoing song's beats; then the two
- * cross: the next song comes in, the bass passes from one to the other, the outgoing song is filtered
- * and fades. Afterwards the next song glides back to its own tempo.
+ * second player plays, muted and kept in step with the main one, the same music: the playing song
+ * itself, or, for AutoMix's beat-matched mixes, the mix rendered ahead of time into a file (which
+ * starts with the song alone, see [MixRenderer]). Shortly before the transition it takes over,
+ * audibly, while the main player moves to the next song:
+ * - for a crossfade or a blend, the two players cross: the next song comes in as the hidden player's
+ *   song fades (and, for AutoMix, is filtered);
+ * - for a beat-matched mix, the file plays the mix with its beats matched sample for sample, while
+ *   the main player plays the next song muted, at the mix's tempo, falling in step with the file;
+ *   once the file has only the next song left, the main player takes it back. Afterwards the next
+ *   song glides back to its own tempo.
  *
  * Songs of the same album follow each other as on the album, with no transition.
  */
@@ -72,7 +87,7 @@ class Transitions(
     /** False while bit-perfect output is on: it can't change the samples. */
     private val allowed: () -> Boolean,
 ) {
-    private enum class Phase { IDLE, PREPARED, SYNCING, ALIGNING, FADING, GLIDING }
+    private enum class Phase { IDLE, PREPARED, SYNCING, FADING, MIXING, GLIDING }
 
     private val faderFilter = MixFilter()
     private var fader: ExoPlayer? = null
@@ -84,15 +99,30 @@ class Transitions(
     private var plan: TransitionPlan? = null
     private var planFor: String? = null
     private var analysing: Job? = null
+    /** The beat-matched plan's mix, once rendered. */
+    private var mix: MixInfo? = null
+    /** The transition the hidden player was readied for, kept from then on, and its mix. */
+    private var locked: TransitionPlan? = null
+    private var lockedMix: MixInfo? = null
+    /** The outgoing song's time at the hidden player's 0 (the mix's start, or 0 for the song itself). */
+    private var faderOffset = 0.0
+    private var active: TransitionPlan? = null
     private var incomingId = ""
     private var outgoingId = ""
-    private var fadeStarted = 0L
     private var glideFrom = 1f
     private var glideStarted = 0L
     private var switching = false
+    /** The second half of a handover between the players, made on the next step (40 ms later). */
+    private var crossing: (() -> Unit)? = null
+    private var seeks = 0
+    private var lastSeek = 0L
+    /** How long the main player takes to sound after a seek, learnt from its seeks. */
+    private var seekLatency = 0.15
+    private var inStep = 0
 
-    /** True while the transition sets the volumes. */
-    val fading: Boolean get() = phase == Phase.ALIGNING || phase == Phase.FADING
+    /** True while the transition sets the main player's volume (so nothing else should). */
+    val fading: Boolean
+        get() = switching || crossing != null || phase == Phase.FADING || phase == Phase.MIXING
 
     fun start() {
         main.addListener(listener)
@@ -118,7 +148,7 @@ class Transitions(
         }
 
         override fun onPositionDiscontinuity(oldPosition: Player.PositionInfo, newPosition: Player.PositionInfo, reason: Int) {
-            // A seek or a skip by the user (not the transition's own move to the next song) ends it.
+            // A seek or a skip by the user (not the transition's own moves) ends it.
             if (!switching && reason == Player.DISCONTINUITY_REASON_SEEK) stop()
         }
 
@@ -128,6 +158,7 @@ class Transitions(
             if (!switching && phase != Phase.GLIDING) stop()
             plan = null
             planFor = null
+            mix = null
             TransitionInfo.next.value = null
         }
     }
@@ -135,17 +166,23 @@ class Transitions(
     private fun mode(): SongTransition = if (allowed()) Prefs.transition.value else SongTransition.OFF
 
     private fun createFader(): ExoPlayer = fader ?: ExoPlayer.Builder(context, FilteredRenderers(context, faderFilter))
-        .setMediaSourceFactory(DefaultMediaSourceFactory(audioDataSourceFactory()))
+        // Songs through the player's own data source, rendered mixes from their files.
+        .setMediaSourceFactory(DefaultMediaSourceFactory(DefaultDataSource.Factory(context, audioDataSourceFactory())))
         // No audio focus of its own: it would pause the main player.
         .setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(), false)
         .setWakeMode(C.WAKE_MODE_NETWORK)
         .build()
         .also { fader = it }
 
-    private suspend fun tick() {
+    private fun tick() {
+        crossing?.let {
+            crossing = null
+            it()
+            return
+        }
         when (phase) {
-            Phase.ALIGNING -> return align()
             Phase.FADING -> return fade()
+            Phase.MIXING -> return followMix()
             Phase.GLIDING -> return glide()
             else -> Unit
         }
@@ -153,7 +190,7 @@ class Transitions(
         val key = current?.let { "${main.currentMediaItemIndex}:${it.mediaId}" }
         if (preparedFor != null && preparedFor != key) stop()
         val mode = mode()
-        if (mode == SongTransition.OFF || current == null || !main.isPlaying || key == gaveUp) return
+        if (mode == SongTransition.OFF || current == null || !main.isPlaying || key == null || key == gaveUp) return
         if (main.repeatMode == Player.REPEAT_MODE_ONE || !main.hasNextMediaItem()) return
         val duration = main.duration
         if (duration == C.TIME_UNSET || duration < 45_000) return
@@ -166,25 +203,17 @@ class Transitions(
         val position = main.currentPosition / 1000.0
 
         // The plan: AutoMix's from the two songs' analyses (asked for well ahead), else a crossfade.
-        if (mode == SongTransition.AUTOMIX && planFor != "$key>${next.mediaId}") requestPlan(key!!, current.mediaId, next.mediaId)
+        if (mode == SongTransition.AUTOMIX && planFor != "$key>${next.mediaId}") requestPlan(key, current.mediaId, next.mediaId)
         val seconds = Prefs.crossfadeSeconds.value.toDouble()
-        val fallback = TransitionPlan(
+        val simple = TransitionPlan(
             style = TransitionPlan.Style.BLEND, outStart = duration / 1000.0 - seconds, outEnd = duration / 1000.0,
             inStart = 0.0, incomingRate = 1.0,
         )
-        val simple = if (mode == SongTransition.AUTOMIX) fallback.copy(fadeOutFrom = 0.3, fadeIn = 0.7) else fallback
-        // Seconds before the mix when the hidden player takes over the song: AutoMix needs a moment
-        // for the next song to start and fall in step, muted.
-        fun lead(p: TransitionPlan) = if (p.style == TransitionPlan.Style.BEAT_MATCHED || p.inStart > 0.5) LEAD else 0.0
-        var chosen = if (mode == SongTransition.AUTOMIX) plan ?: simple else simple
-        // AutoMix's plan came too late (a slow analysis), or the hidden player isn't in step yet when
-        // it should take over: the plain crossfade at the end instead.
-        val due = chosen.outStart - lead(chosen)
-        val late = position > due + 1.0 || (position > due && (phase != Phase.SYNCING || fader?.isPlaying != true))
-        if (chosen !== simple && late) chosen = simple
+        // Once the hidden player is readied for a transition, that's the one made.
+        val chosen = locked ?: choose(mode, simple, position)
+        val rendered = if (locked != null) lockedMix else mix?.takeIf { it.plan == chosen }
         TransitionInfo.next.value = if (mode == SongTransition.AUTOMIX) "${tr("AutoMix")} · ${chosen.description}" else chosen.description
-        val lead = lead(chosen)
-        val handover = chosen.outStart - lead
+        val handover = handoverTime(chosen, rendered)
         if (handover < position + 0.2 && phase == Phase.IDLE) {
             // Too late for this one (a seek near the end): the song ends as it is.
             if (position > handover + 1) gaveUp = key
@@ -192,59 +221,93 @@ class Transitions(
         }
         when {
             position < handover - 14 -> return
-            preparedFor != key -> {
-                val player = createFader()
-                faderFilter.bassCut = 0f
-                faderFilter.highPass = 0f
-                player.volume = 0f
-                player.setPlaybackSpeed(1f)
-                player.setMediaItem(current, ((handover - 3) * 1000).toLong().coerceAtLeast(0))
-                player.prepare()
-                preparedFor = key
-                phase = Phase.PREPARED
-            }
-            position >= handover -> handOver(chosen, lead, nextIndex, current.mediaId)
-            position >= handover - 3 -> keepInStep()
+            preparedFor != key -> prepare(current, key, chosen, rendered, handover)
+            position >= handover -> handOver(chosen, rendered, nextIndex, current.mediaId)
+            position >= syncFrom(handover, rendered) -> keepInStep()
         }
     }
 
-    /** Asks for both songs' analyses (in the background) and plans the transition when they're there. */
+    /** AutoMix's plan when it can be made in time (a beat-matched one once its mix is rendered), else [simple]. */
+    private fun choose(mode: SongTransition, simple: TransitionPlan, position: Double): TransitionPlan {
+        val automix = plan?.takeIf { mode == SongTransition.AUTOMIX } ?: return simple
+        if (automix.style == TransitionPlan.Style.BEAT_MATCHED && mix?.plan != automix) return simple
+        // Too close to get the hidden player ready for it (the plan came late): the plain blend.
+        return if (position > handoverTime(automix, mix) - 2.5) simple else automix
+    }
+
+    /** When the hidden player takes over: a beat-matched mix a second before the next song comes in. */
+    private fun handoverTime(plan: TransitionPlan, rendered: MixInfo?): Double =
+        if (rendered != null) maxOf(plan.outStart - 1.0, rendered.start + 3.0) else plan.outStart
+
+    /** When the hidden player starts playing, muted, to fall in step: from the mix's start, or 3 s ahead. */
+    private fun syncFrom(handover: Double, rendered: MixInfo?): Double =
+        if (rendered != null) minOf(rendered.start + 0.3, handover - 2.0) else handover - 3.0
+
+    private fun prepare(current: MediaItem, key: String, chosen: TransitionPlan, rendered: MixInfo?, handover: Double) {
+        val player = createFader()
+        faderFilter.bassCut = 0f
+        faderFilter.highPass = 0f
+        player.volume = 0f
+        player.setPlaybackSpeed(1f)
+        if (rendered != null) {
+            player.setMediaItem(MediaItem.fromUri(Uri.fromFile(rendered.file)))
+            faderOffset = rendered.start
+        } else {
+            player.setMediaItem(current, ((handover - 3) * 1000).toLong().coerceAtLeast(0))
+            faderOffset = 0.0
+        }
+        player.prepare()
+        preparedFor = key
+        locked = chosen
+        lockedMix = rendered
+        phase = Phase.PREPARED
+    }
+
+    /** Asks for both songs' analyses (in the background), plans the transition and renders a beat-matched one. */
     private fun requestPlan(key: String, outgoing: String, incoming: String) {
         val target = "$key>$incoming"
         if (planFor == target) return
         planFor = target
         plan = null
+        mix = null
         analysing?.cancel()
         analysing = scope.launch {
             val out = AutoMixLibrary.analysis(outgoing)
             val into = AutoMixLibrary.analysis(incoming)
             if (planFor != target || out == null || into == null) return@launch
-            plan = Planner.plan(out.tail, out.duration, into.head).also {
+            val made = Planner.plan(out.tail, out.duration, into.head).also {
                 Log.i(TAG, "Plan $outgoing → $incoming: ${it.style} ${it.description}, out ${"%.2f".format(it.outStart)}–" +
                     "${"%.2f".format(it.outEnd)}, in ${"%.2f".format(it.inStart)}, rate ${"%.4f".format(it.incomingRate)}")
+            }
+            plan = made
+            if (made.style == TransitionPlan.Style.BEAT_MATCHED) {
+                val rendered = AutoMixLibrary.render(made, outgoing, incoming, gainOf)
+                if (planFor == target && plan == made) mix = rendered
             }
         }
     }
 
-    /** The hidden copy plays muted, nudging its speed until it runs with the main player. */
+    /** The hidden player plays muted, nudging its speed until it runs with the main player. */
     private fun keepInStep() {
         val player = fader ?: return
+        val offset = (faderOffset * 1000).toLong()
         if (!player.isPlaying) {
             if (player.playbackState != Player.STATE_READY) return
-            player.seekTo(main.currentPosition + 120)
+            player.seekTo((main.currentPosition - offset + 120).coerceAtLeast(0))
             player.play()
             phase = Phase.SYNCING
             return
         }
-        val drift = player.currentPosition - main.currentPosition
+        val drift = player.currentPosition + offset - main.currentPosition
         val speed = if (abs(drift) <= 12) 1f else (1f - drift / 1000f).coerceIn(0.85f, 1.15f)
         if (abs(player.playbackParameters.speed - speed) > 0.001f) player.setPlaybackSpeed(speed)
     }
 
-    private var active: TransitionPlan? = null
-
-    /** The hidden player takes the song over, audibly; the main one moves to the next song. */
-    private fun handOver(plan: TransitionPlan, lead: Double, nextIndex: Int, outgoing: String) {
+    /**
+     * The hidden player takes over, audibly: half and half for a moment (the two play the same music,
+     * a few milliseconds apart at most), then all its own; the main player moves to the next song.
+     */
+    private fun handOver(plan: TransitionPlan, rendered: MixInfo?, nextIndex: Int, outgoing: String) {
         val player = fader
         if (player == null || !player.isPlaying) {
             // Not ready in time (a slow connection): this song ends without a transition.
@@ -252,85 +315,90 @@ class Transitions(
             gaveUp = main.currentMediaItem?.let { "${main.currentMediaItemIndex}:${it.mediaId}" }
             return
         }
+        Log.i(TAG, "Taking over within ${player.currentPosition + (faderOffset * 1000).toLong() - main.currentPosition} ms")
         active = plan
         outgoingId = outgoing
+        val gain = gainOf(outgoing)
+        // The mix has the songs' volumes in it; the song itself plays at its volume.
+        val full = if (rendered != null) 1f else gain
         player.setPlaybackSpeed(1f)
-        player.volume = gainOf(outgoing)
-        main.volume = 0f
-        switching = true
-        if (lead > 0) {
-            val start = plan.inStart - lead * plan.incomingRate
-            main.seekTo(nextIndex, (start * 1000).toLong().coerceAtLeast(0))
-            main.setPlaybackSpeed(plan.incomingRate.toFloat())
-        } else {
-            main.seekToDefaultPosition(nextIndex)
+        player.volume = full * 0.5f
+        main.volume = gain * 0.5f
+        val automix = mode() == SongTransition.AUTOMIX
+        val missed = automix && this.plan?.style == TransitionPlan.Style.BEAT_MATCHED && rendered == null
+        TransitionInfo.last.value = when {
+            missed -> "${tr("AutoMix")} · ${tr("Mix non riuscito: dissolvenza semplice")}"
+            automix -> "${tr("AutoMix")} · ${plan.description}"
+            else -> plan.description
         }
-        switching = false
-        incomingId = main.currentMediaItem?.mediaId.orEmpty()
-        TransitionInfo.last.value = (if (mode() == SongTransition.AUTOMIX) "${tr("AutoMix")} · " else "") + plan.description
-        phase = if (lead > 0) Phase.ALIGNING else Phase.FADING
-        alignSeeks = 0
-        lastAlignSeek = SystemClock.elapsedRealtime()
-        fadeStarted = SystemClock.elapsedRealtime()
+        phase = if (rendered != null) Phase.MIXING else Phase.FADING
+        crossing = {
+            player.volume = full
+            main.volume = 0f
+            switching = true
+            when {
+                rendered != null -> {
+                    // Into the next song where the file will have it in a moment, at the mix's tempo.
+                    val ahead = rendered.incomingTime(player.currentPosition / 1000.0 + 1.0)
+                    main.seekTo(nextIndex, (maxOf(0.0, ahead) * 1000).toLong())
+                    main.setPlaybackSpeed(plan.incomingRate.toFloat())
+                }
+                plan.inStart > 0.5 -> main.seekTo(nextIndex, (plan.inStart * 1000).toLong())
+                else -> main.seekToDefaultPosition(nextIndex)
+            }
+            switching = false
+            incomingId = main.currentMediaItem?.mediaId.orEmpty()
+            seeks = 0
+            inStep = 0
+            lastSeek = SystemClock.elapsedRealtime()
+        }
     }
-
-    /** Where the next song should be now, in its own seconds, from the outgoing song's position. */
-    private fun target(plan: TransitionPlan, outgoingTime: Double) = plan.inStart + (outgoingTime - plan.outStart) * plan.incomingRate
-
-    private var alignSeeks = 0
-    private var lastAlignSeek = 0L
-    /** How long the next song takes to sound after a seek, learnt from the seeks themselves. */
-    private var seekLatency = 0.15
 
     /**
-     * Before the mix: the next song, muted, falls in step with the outgoing song's beats. Far off,
-     * it jumps there (it's muted, nothing is heard), allowing for the time a seek takes to sound,
-     * which each jump measures for the next; close, it changes speed a little.
+     * While the file plays the mix: the main player, muted, plays the next song where the file has it
+     * (far off it jumps there, allowing for the time a jump takes to sound; close, it changes speed a
+     * little). Once the file has only the next song left and the two are in step, it takes it back.
      */
-    private fun align() {
-        val plan = active ?: return stop()
+    private fun followMix() {
         val player = fader ?: return stop()
-        val outTime = player.currentPosition / 1000.0
-        val settled = SystemClock.elapsedRealtime() - lastAlignSeek > 450
-        if (main.isPlaying && settled) {
-            val drift = main.currentPosition / 1000.0 - target(plan, outTime)
-            if (abs(drift) > 0.05 && alignSeeks < 4 && plan.outStart - outTime > 1.2) {
+        val mix = lockedMix ?: return stop()
+        val mixTime = player.currentPosition / 1000.0
+        val rate = mix.plan.incomingRate
+        val target = mix.incomingTime(mixTime)
+        var drift: Double? = null
+        if (main.isPlaying && SystemClock.elapsedRealtime() - lastSeek > 500 && target > 0.3) {
+            val off = main.currentPosition / 1000.0 - target
+            drift = off
+            if (abs(off) > 0.06 && seeks < 6 && mixTime < mix.length - 2.5) {
                 // (Negative when the player reports a seek's position before it sounds.)
-                if (alignSeeks > 0) seekLatency = (seekLatency - drift / plan.incomingRate).coerceIn(-0.5, 0.8)
-                val goal = target(plan, outTime + seekLatency)
+                if (seeks > 0) seekLatency = (seekLatency - off / rate).coerceIn(-0.5, 1.0)
                 switching = true
-                main.seekTo((goal * 1000).toLong())
+                main.seekTo((mix.incomingTime(mixTime + seekLatency) * 1000).toLong())
                 switching = false
-                main.setPlaybackSpeed(plan.incomingRate.toFloat())
-                alignSeeks++
-                lastAlignSeek = SystemClock.elapsedRealtime()
+                main.setPlaybackSpeed(rate.toFloat())
+                seeks++
+                lastSeek = SystemClock.elapsedRealtime()
             } else {
-                nudge(plan, outTime, strength = 1.5, limit = 0.12)
+                val correction = (off * 1.5).coerceIn(-0.1, 0.1)
+                val speed = (rate * (1 - correction)).toFloat()
+                if (abs(main.playbackParameters.speed - speed) > 0.002f) main.setPlaybackSpeed(speed)
             }
+            inStep = if (mixTime >= mix.mixEnd && abs(off) <= 0.02) inStep + 1 else 0
         }
-        if (outTime >= plan.outStart) {
-            val drift = main.currentPosition / 1000.0 - target(plan, outTime)
-            Log.i(TAG, "In step within ${"%.0f".format(drift * 1000)} ms after $alignSeeks jumps (seek latency ${"%.0f".format(seekLatency * 1000)} ms)")
-            if (!main.isPlaying || abs(drift) > 0.08) {
-                // Couldn't fall in step in time: a short crossfade at the song's own tempo instead.
-                Log.i(TAG, "Not in step (${"%.0f".format(drift * 1000)} ms): short crossfade")
-                TransitionInfo.last.value = "${tr("AutoMix")} · ${tr("Mix non riuscito: dissolvenza semplice")}"
-                main.setPlaybackSpeed(1f)
-                active = plan.copy(
-                    style = TransitionPlan.Style.BLEND, outEnd = plan.outStart + 3, incomingRate = 1.0,
-                    swapStart = null, swapEnd = null, fadeInFrom = 0.0, fadeIn = 1.0, fadeOutFrom = 0.0, filterOut = null,
-                )
-            }
-            phase = Phase.FADING
-        }
+        val ended = player.playbackState == Player.STATE_ENDED || !player.isPlaying
+        if (inStep >= 4 || mixTime >= mix.length - 1.0 || ended) handBack(mix, drift)
     }
 
-    /** Keeps the next song on the outgoing song's beats by changing its speed a little. */
-    private fun nudge(plan: TransitionPlan, outTime: Double, strength: Double, limit: Double) {
-        val drift = main.currentPosition / 1000.0 - target(plan, outTime)
-        val correction = (drift * strength).coerceIn(-limit, limit)
-        val speed = (plan.incomingRate * (1 - correction)).toFloat()
-        if (abs(main.playbackParameters.speed - speed) > 0.002f) main.setPlaybackSpeed(speed)
+    /** The main player takes the next song back from the file: half and half for a moment, then all its own. */
+    private fun handBack(mix: MixInfo, drift: Double?) {
+        val player = fader
+        Log.i(TAG, "Handing back " + (drift?.let { "within ${"%.0f".format(it * 1000)} ms" } ?: "out of step") +
+            " after $seeks jumps (seek latency ${"%.0f".format(seekLatency * 1000)} ms)")
+        val gain = gainOf(incomingId)
+        main.setPlaybackSpeed(mix.plan.incomingRate.toFloat())
+        player?.volume = 0.5f
+        main.volume = gain * 0.5f
+        crossing = { finishMix() }
     }
 
     /** The mix itself: volumes, the bass passing over and the outgoing song's filter, by its progress. */
@@ -345,16 +413,16 @@ class Transitions(
         faderFilter.bassCut = levels.outgoingBassCut
         faderFilter.highPass = levels.outgoingHighPass
         mainFilter.bassCut = levels.incomingBassCut
-        if (plan.style == TransitionPlan.Style.BEAT_MATCHED && main.isPlaying) nudge(plan, outTime, strength = 0.6, limit = 0.03)
         if (outTime >= plan.outEnd || player.playbackState == Player.STATE_ENDED || !player.isPlaying && outTime > plan.outStart) {
-            finishMix(plan)
+            finishMix()
         }
     }
 
-    private fun finishMix(plan: TransitionPlan) {
+    private fun finishMix() {
         fader?.let {
             it.stop()
             it.clearMediaItems()
+            it.setPlaybackSpeed(1f)
         }
         faderFilter.bassCut = 0f
         faderFilter.highPass = 0f
@@ -363,6 +431,8 @@ class Transitions(
         main.volume = gainOf(incomingId)
         preparedFor = null
         active = null
+        locked = null
+        lockedMix = null
         if (abs(main.playbackParameters.speed - 1f) > 0.001f) {
             // The next song glides back to its own tempo over about eight bars.
             glideFrom = main.playbackParameters.speed
@@ -383,9 +453,12 @@ class Transitions(
 
     /** Ends any transition: the hidden player stops, the main one plays at its volume and speed. */
     fun stop() {
-        val wasMixing = phase != Phase.IDLE && phase != Phase.PREPARED && phase != Phase.SYNCING
+        val wasMixing = phase == Phase.FADING || phase == Phase.MIXING || phase == Phase.GLIDING || crossing != null
+        crossing = null
         preparedFor = null
         active = null
+        locked = null
+        lockedMix = null
         fader?.let {
             it.stop()
             it.clearMediaItems()
@@ -395,7 +468,7 @@ class Transitions(
         faderFilter.highPass = 0f
         mainFilter.bassCut = 0f
         mainFilter.highPass = 0f
-        if (wasMixing || phase == Phase.GLIDING) {
+        if (wasMixing) {
             main.setPlaybackSpeed(1f)
             main.volume = main.currentMediaItem?.mediaId?.let(gainOf) ?: 1f
         }
@@ -409,7 +482,5 @@ class Transitions(
 
     private companion object {
         const val TAG = "Transitions"
-        /** Seconds before the mix when the next song starts, muted, to fall in step. */
-        const val LEAD = 6.0
     }
 }

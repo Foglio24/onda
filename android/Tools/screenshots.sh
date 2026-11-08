@@ -46,17 +46,22 @@ shot 09-home-after-listening 20
 adb shell cmd locale set-app-locales "$pkg" --locales it
 shot 06b-lyrics-translated 45 --es scene translate --es query "'Daft Punk Get Lucky'"
 
-# AutoMix: a song into itself from 50 s before its end; the mix is planned from the two ends'
-# analyses (decoded on the phone) and made about 20 s before the end.
+# AutoMix: a song into itself from a minute before its end; the mix is planned from the two ends'
+# analyses (decoded on the phone), rendered into a file and played about 20 s before the end.
 adb shell cmd locale set-app-locales "$pkg" --locales ""
 shot 13-automix-before 25 --es scene automix
-sleep 12
+sleep 22
 adb exec-out screencap -p > "$out/14-automix-mixing.png"
-sleep 20
+sleep 25
 adb shell am start -n "$pkg/.MainActivity" --es scene settings/playback > /dev/null
 sleep 5
 adb exec-out screencap -p > "$out/15-automix-last.png"
 adb logcat -d -s AutoMix:* Transitions:* > "$out/automix-log.txt" || true
+
+# AI karaoke: the vocal model downloaded (64 MB), the song separated from the chorus on, the voice
+# taken away where it plays.
+shot 16-karaoke 90 --es scene karaoke
+adb logcat -d -s Karaoke:* > "$out/karaoke-log.txt" || true
 
 # Right to left, and another script.
 adb shell cmd locale set-app-locales "$pkg" --locales ar

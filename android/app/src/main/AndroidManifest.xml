@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -51,5 +52,12 @@
             android:name=".playback.SeaglassDownloadService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
+
+        <!-- ONNX Runtime (the karaoke's model) would start sending usage data to Microsoft at launch:
+             Seaglass sends nothing about its users anywhere, so that part of it is left out. -->
+        <provider
+            android:name="ai.onnxruntime.TelemetryInitializer"
+            android:authorities="${applicationId}.onnxruntime_telemetry_initializer"
+            tools:node="remove" />
     </application>
 </manifest>
