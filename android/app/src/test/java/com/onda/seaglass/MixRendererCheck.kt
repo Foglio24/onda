@@ -104,6 +104,17 @@ class MixRendererCheck {
     }
 
     @Test
+    fun almostTheSameTempo() {
+        // A song into itself: a change of tempo too small for the time stretch to make.
+        val plan = beatMatched(outStart = 60.0, bars = 4, beat = 0.5, inStart = 0.5, rate = 0.99995)
+        val start = plan.outStart - MixRenderer.BEFORE
+        val mix = MixRenderer.render(
+            plan, noise(outRate, start, plan.outEnd - start + 0.2, 0.3f, 5), noise(outRate, plan.inStart, 30.0, 0.3f, 6), 1f, 1f,
+        )
+        assertTrue(mix.length > plan.outEnd - start)
+    }
+
+    @Test
     fun startsAndEndsAsTheSongs() {
         val plan = beatMatched(outStart = 60.0, bars = 4, beat = 0.5, inStart = 0.5, rate = 1.0)
         val start = plan.outStart - MixRenderer.BEFORE

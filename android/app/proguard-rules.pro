@@ -4,3 +4,6 @@
 # registered and translating failed with a NullPointerException. Keep them whole.
 -keep class * implements com.google.firebase.components.ComponentRegistrar { *; }
 -keep class com.google.firebase.components.** { *; }
+
+# ONNX Runtime (the karaoke's model): its native code finds its Java classes and their members by name.
+-keep class ai.onnxruntime.** { *; }

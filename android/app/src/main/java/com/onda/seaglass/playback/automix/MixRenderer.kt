@@ -136,6 +136,8 @@ object MixRenderer {
         sonic.setPitch(1f)
         if (pcm.rate != outputRate) sonic.setOutputSampleRateHz(outputRate)
         sonic.configure(AudioProcessor.AudioFormat(pcm.rate, 2, C.ENCODING_PCM_16BIT))
+        // A change too small for Sonic to make (under 0.01 %) at the same rate: the song as it is.
+        if (!sonic.isActive) return pcm.samples
         sonic.flush(AudioProcessor.StreamMetadata.DEFAULT)
         var out = FloatArray(((pcm.samples.size / speed) * outputRate / pcm.rate).toInt() + 8192)
         var size = 0
