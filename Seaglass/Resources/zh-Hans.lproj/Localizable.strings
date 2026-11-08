@@ -638,6 +638,7 @@
 /* The tempo fader in the player. */
 "Tempo" = "速度";
 "Reimposta" = "重置";
+"Intervallo" = "范围";
 "Blocca tonalità" = "锁定音调";
 "Accelera o rallenta i brani fino al %@, come il cursore del tempo di un'app da DJ. Resta così per tutti i brani finché non lo reimposti; i podcast hanno la loro velocità." = "像 DJ 应用的速度推子一样，将歌曲加快或放慢最多 %@。设置会对所有歌曲生效，直到你重置；播客保持各自的播放速度。";
 "La voce resta alla sua altezza a qualsiasi tempo. Disattivato, cambia con il tempo come su un giradischi: più veloce è più acuta, più lenta è più grave." = "无论速度如何，人声都保持原有音高。关闭后，音高会随速度变化，就像唱机一样：越快越高，越慢越低。";

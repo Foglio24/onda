@@ -31,7 +31,7 @@ An independent music player for iPhone, iPad and <strong>now Android</strong>, w
 - **Playlist Mix** automatically transitions through a playlist. For downloaded songs, you can also customise transitions using waveforms, volume, EQ and effects.
 - **Adjustable audio quality** for Wi-Fi, mobile data and downloads. Maximum quality can use Opus; Dolby Digital Plus or AAC may be used when available. The actual format depends on the song and device conditions.
 - **Equaliser and volume normalisation** let you tailor your listening experience.
-- **Tempo fader** (iPhone and iPad), as in a DJ app: songs up to 15% faster or slower, with their BPM, and a key lock to keep voices at their pitch or let it move with the tempo as on a turntable.
+- **Tempo fader** (iPhone and iPad), as in a DJ app: songs up to 15% faster or slower (or 8, 25 or 50%), with their BPM, and a key lock to keep voices at their pitch or let it move with the tempo as on a turntable.
 
 ### A library of your own
 

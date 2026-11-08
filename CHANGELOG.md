@@ -3,8 +3,8 @@
 ## 1.25.0 (2026-11-08)
 
 ### Added
-- **Tempo fader**, as in a DJ app (djay Pro's): the metronome button in the player makes songs up to 15% faster or slower, in steps of 0.1% (a slider, the − and + buttons, and Reset). Once AutoMix's analysis has measured the song, it shows its tempo in BPM and the new one ("113.6 → 118.7 BPM"). The tempo stays for every song until it's reset; podcasts keep their own speed.
-- **Key lock**: on (the default), voices keep their pitch at any tempo; off, the pitch moves with the tempo as on a turntable, higher when faster and lower when slower.
+- **Tempo fader**, laid out as in a DJ app (djay Pro's): the metronome button in the player opens an upright fader with notches that makes songs up to 15% faster or slower (up for slower, down for faster, as on a turntable), with − and + to nudge by 0.1% and the dot beside it to go back to 0. Above it, the song's tempo in BPM once AutoMix's analysis has measured it, and the change in percent, whose arrow sets the fader's range: ±8%, ±15%, ±25% or ±50%. The tempo stays for every song until it's reset; podcasts keep their own speed.
+- **Key lock**, the note beside the fader: on (the default), voices keep their pitch at any tempo; off, the pitch moves with the tempo as on a turntable, higher when faster and lower when slower.
 - AutoMix's mixes and the crossfade play at the same tempo as the songs, so the beats stay matched.
 
 ## 1.24.0 (2026-11-04)

@@ -111,6 +111,7 @@ final class PlayerController: ObservableObject {
     @Published private(set) var episodeSpeed: Float
     /// The songs' tempo, -0.15…+0.15, and the key lock (see `PlaybackTempo`).
     @Published private(set) var songTempo: Double = PlaybackTempo.tempo
+    @Published private(set) var tempoLimit: Double = PlaybackTempo.limit
     @Published private(set) var keyLock: Bool = PlaybackTempo.keyLock
     /// The playing song's own tempo in BPM, once measured (AutoMix's analysis), for the tempo fader.
     @Published private(set) var songBPM: (trackID: String, bpm: Double)?
@@ -358,6 +359,14 @@ final class PlayerController: ObservableObject {
         songTempo = value
         UserDefaults.standard.set(value, forKey: Preferences.songTempo)
         applyRate()
+    }
+
+    /// How far the tempo fader goes either way (one of `PlaybackTempo.ranges`); the tempo set stays within it.
+    func setTempoLimit(_ limit: Double) {
+        guard PlaybackTempo.ranges.contains(limit) else { return }
+        tempoLimit = limit
+        UserDefaults.standard.set(limit, forKey: Preferences.tempoRange)
+        if abs(songTempo) > limit { setSongTempo(songTempo) }
     }
 
     /// The voice at its own pitch whatever the tempo (on), or higher when faster, as on a turntable (off).

@@ -638,6 +638,7 @@
 /* The tempo fader in the player. */
 "Tempo" = "Andamento";
 "Reimposta" = "Redefinir";
+"Intervallo" = "Intervalo";
 "Blocca tonalità" = "Bloquear tom";
 "Accelera o rallenta i brani fino al %@, come il cursore del tempo di un'app da DJ. Resta così per tutti i brani finché non lo reimposti; i podcast hanno la loro velocità." = "Acelera ou desacelera as músicas em até %@, como o controle de andamento de um app de DJ. Vale para todas as músicas até você redefinir; os podcasts mantêm a própria velocidade.";
 "La voce resta alla sua altezza a qualsiasi tempo. Disattivato, cambia con il tempo come su un giradischi: più veloce è più acuta, più lenta è più grave." = "As vozes mantêm o tom em qualquer andamento. Desativado, o tom muda com o andamento, como num toca-discos: mais rápido fica mais agudo, mais lento fica mais grave.";
