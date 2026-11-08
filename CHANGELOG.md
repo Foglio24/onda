@@ -5,7 +5,10 @@
 ### Added
 - **Tempo fader**, laid out as in a DJ app (djay Pro's): the metronome button in the player opens an upright fader with notches that makes songs up to 15% faster or slower (up for slower, down for faster, as on a turntable), with − and + to nudge by 0.1% and the dot beside it to go back to 0. Above it, the song's tempo in BPM once AutoMix's analysis has measured it, and the change in percent, whose arrow sets the fader's range: ±8%, ±15%, ±25% or ±50%. The tempo stays for every song until it's reset; podcasts keep their own speed.
 - **Key lock**, the note beside the fader: on (the default), voices keep their pitch at any tempo; off, the pitch moves with the tempo as on a turntable, higher when faster and lower when slower.
-- AutoMix's mixes and the crossfade play at the same tempo as the songs, so the beats stay matched.
+- While the tempo is changed, AutoMix and the crossfade pause and songs follow each other without a mix; at 0 they come back.
+
+### Fixed
+- **Songs added to the queue play next.** "Add to queue" put a song at the very end, after the rest of the album, playlist or radio: it now goes right after the song playing and after the songs added before it, in the order they were added, as in Spotify's queue ("Play next" still puts it first). Shuffle leaves the added songs where they are.
 
 ## 1.24.0 (2026-11-04)
 

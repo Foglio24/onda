@@ -75,10 +75,20 @@ final class PlayerController: ObservableObject {
     }
     @Published private(set) var index = 0 {
         didSet {
+            // Moving on through the songs added to the queue uses them up; going back starts over.
+            if index > oldValue {
+                queuedAhead = max(0, oldValue + queuedAhead - index)
+            } else if index < oldValue {
+                queuedAhead = 0
+            }
             scheduleQueueSave()
             syncNowPlaying()
         }
     }
+    /// How many songs added to the queue ("Riproduci dopo", "Aggiungi in coda") wait right after the
+    /// one playing: the next one added goes after them, before the rest of the album, playlist or
+    /// radio, as in Spotify's queue. Shuffle leaves them where they are.
+    private var queuedAhead = 0
     /// The queue was restored at launch and nothing has been loaded yet: the Home's "Riprendi"
     /// card carries on from the saved position.
     @Published private(set) var isRestoredSession = false {
@@ -140,6 +150,8 @@ final class PlayerController: ObservableObject {
         let unshuffled: [Track]
         /// The playlist the queue was started from, so its Mix plays after a relaunch too.
         var playlist: UUID?
+        /// Songs added to the queue still waiting after the one playing (see `queuedAhead`).
+        var queued: Int?
     }
 
     private static var queueFile: URL { Storage.support.appending(path: "queue.json") }
@@ -302,6 +314,7 @@ final class PlayerController: ObservableObject {
         }
         queue = list
         index = first
+        queuedAhead = 0
         self.source = source
         failuresInARow = 0
         loadCurrent()
@@ -356,9 +369,14 @@ final class PlayerController: ObservableObject {
     func setSongTempo(_ tempo: Double) {
         let value = PlaybackTempo.snapped(tempo)
         guard value != songTempo else { return }
+        let wasMixing = songTempo == 0
         songTempo = value
         UserDefaults.standard.set(value, forKey: Preferences.songTempo)
         applyRate()
+        // AutoMix and the crossfade pause while the tempo is changed, and come back at 0.
+        if wasMixing != (value == 0) {
+            if value == 0 { prepareAutoMix() } else { resetAutoMix() }
+        }
     }
 
     /// How far the tempo fader goes either way (one of `PlaybackTempo.ranges`); the tempo set stays within it.
@@ -423,6 +441,7 @@ final class PlayerController: ObservableObject {
               saved.tracks.indices.contains(saved.index) else { return }
         queue = saved.tracks
         index = saved.index
+        queuedAhead = min(max(0, saved.queued ?? 0), saved.tracks.count - saved.index - 1)
         source = saved.source
         shuffleEnabled = saved.shuffled
         unshuffledUpcoming = saved.unshuffled
@@ -446,6 +465,7 @@ final class PlayerController: ObservableObject {
         advanceTask?.cancel()
         queue = tracks
         index = 0
+        queuedAhead = 0
         self.source = source
         unshuffledUpcoming = []
         playlistContext = nil
@@ -473,22 +493,24 @@ final class PlayerController: ObservableObject {
         let range = max(0, index - 50)..<min(queue.count, index + 201)
         let saved = SavedQueue(tracks: Array(queue[range]), index: index - range.lowerBound, source: source,
                                shuffled: shuffleEnabled, unshuffled: Array(unshuffledUpcoming.prefix(200)),
-                               playlist: playlistContext)
+                               playlist: playlistContext, queued: queuedAhead)
         guard let data = try? JSONEncoder().encode(saved) else { return }
         try? data.write(to: Self.queueFile, options: .atomic)
     }
 
+    /// Right after the song playing, before the songs added earlier.
     func playNext(_ track: Track) {
         guard current != nil else { return play([track], source: String(localized: "Coda")) }
         queue.insert(track, at: index + 1)
-        unshuffledUpcoming.insert(track, at: 0)
+        queuedAhead += 1
         offerUpcoming()
     }
 
+    /// After the song playing and the songs added before it, ahead of the rest of the queue.
     func addToQueue(_ track: Track) {
         guard current != nil else { return play([track], source: String(localized: "Coda")) }
-        queue.append(track)
-        unshuffledUpcoming.append(track)
+        queue.insert(track, at: min(queue.count, index + 1 + queuedAhead))
+        queuedAhead += 1
         offerUpcoming()
     }
 
@@ -503,16 +525,18 @@ final class PlayerController: ObservableObject {
             shuffleEnabled.toggle()
             return
         }
-        let upcomingTracks = Array(queue[(index + 1)...])
+        // The songs added to the queue stay first, in their order; the rest is shuffled or put back.
+        let start = min(queue.count, index + 1 + queuedAhead)
+        let upcomingTracks = Array(queue[start...])
         if shuffleEnabled {
             // Back to the original order; songs added while shuffled keep their place at the end.
             let restored = PlaybackQueueOrder.restoring(original: unshuffledUpcoming,
                                                         upcoming: upcomingTracks, id: { $0.id })
-            queue.replaceSubrange((index + 1)..., with: restored)
+            queue.replaceSubrange(start..., with: restored)
             unshuffledUpcoming = []
         } else {
             unshuffledUpcoming = upcomingTracks
-            queue.replaceSubrange((index + 1)..., with: upcomingTracks.shuffled())
+            queue.replaceSubrange(start..., with: upcomingTracks.shuffled())
         }
         shuffleEnabled.toggle()
         offerUpcoming()
@@ -520,6 +544,7 @@ final class PlayerController: ObservableObject {
 
     func removeUpcoming(atOffsets offsets: IndexSet) {
         let removed = offsets.map { queue[$0 + index + 1] }
+        queuedAhead -= offsets.filter { $0 < queuedAhead }.count
         queue.remove(atOffsets: IndexSet(offsets.map { $0 + index + 1 }))
         unshuffledUpcoming = PlaybackQueueOrder.removing(removed, from: unshuffledUpcoming, id: { $0.id })
         offerUpcoming()
@@ -1452,7 +1477,7 @@ final class PlayerController: ObservableObject {
 
     private var canCrossfade: Bool {
         index + 1 < queue.count && repeatMode != .one && sleepTimer != .endOfTrack && playWhenReady
-            && !involvesEpisode
+            && !involvesEpisode && songTempo == 0
     }
 
     /// An episode playing or next: no crossfade, no AutoMix (talk isn't mixed into music).
@@ -1539,8 +1564,10 @@ final class PlayerController: ObservableObject {
     }
 
     /// AutoMix (the setting) or a playlist's Mix makes the transitions.
+    /// With the tempo fader away from 0, the songs follow each other without AutoMix or crossfade:
+    /// the tempo is the listener's, as in a DJ app when the fader is ridden by hand.
     private var mixesTransitions: Bool {
-        Preferences.songTransitionSetting == .autoMix || playlistMix != nil
+        (Preferences.songTransitionSetting == .autoMix || playlistMix != nil) && songTempo == 0
     }
 
     /// Seconds of plain crossfade at the end of a song: the setting's with "Dissolvenza incrociata";

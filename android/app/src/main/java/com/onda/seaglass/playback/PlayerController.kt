@@ -64,6 +64,20 @@ object PlayerController {
     private var colorFor: String? = null
     private var timerJob: Job? = null
     private var stopAtEnd = false
+    /**
+     * How many songs added to the queue ("Riproduci dopo", "Aggiungi in coda") wait right after the
+     * one playing: the next one added goes after them, before the rest of the album, playlist or
+     * radio, as in Spotify's queue. Shuffle leaves them where they are.
+     */
+    private var queuedAhead = 0
+    private var lastIndex = -1
+    /**
+     * Shuffle reorders the songs to come (rather than the player's own shuffle, which plays them in an
+     * order the queue doesn't show and puts added songs anywhere in it); [unshuffled] is their order
+     * before, to put back.
+     */
+    private var shuffled = false
+    private var unshuffled: List<MediaItem> = emptyList()
 
     fun init(context: Context) {
         appContext = context.applicationContext
@@ -118,13 +132,21 @@ object PlayerController {
         val player = controller ?: return
         val queue = (0 until player.mediaItemCount).mapNotNull { player.getMediaItemAt(it).toTrack() }
         val index = if (queue.isEmpty()) -1 else player.currentMediaItemIndex
+        // Moving on through the songs added to the queue uses them up; going back starts over.
+        if (index != lastIndex) {
+            queuedAhead = when {
+                lastIndex < 0 || index < lastIndex -> 0
+                else -> maxOf(0, lastIndex + queuedAhead - index)
+            }
+            lastIndex = index
+        }
         _state.value = State(
             queue = queue,
             index = index,
             isPlaying = player.isPlaying || (player.playWhenReady && player.playbackState == Player.STATE_BUFFERING),
             isBuffering = player.playbackState == Player.STATE_BUFFERING,
             durationMs = player.duration.takeIf { it > 0 } ?: queue.getOrNull(index)?.duration?.times(1000)?.toLong() ?: 0,
-            shuffle = player.shuffleModeEnabled,
+            shuffle = shuffled,
             repeatMode = player.repeatMode,
         )
         updateArtworkColor(queue.getOrNull(index))
@@ -140,9 +162,19 @@ object PlayerController {
         if (tracks.isEmpty()) return
         val items = tracks.map { it.toMediaItem() }
         withController { player ->
-            player.shuffleModeEnabled = shuffle
-            val first = if (shuffle) tracks.indices.random() else start.coerceIn(tracks.indices)
-            player.setMediaItems(items, first, 0)
+            player.shuffleModeEnabled = false
+            queuedAhead = 0
+            lastIndex = -1
+            shuffled = shuffle
+            if (shuffle) {
+                // A random song first, then the rest in a random order (their own order kept to put back).
+                val first = items.indices.random()
+                unshuffled = items.filterIndexed { i, _ -> i != first }
+                player.setMediaItems(listOf(items[first]) + unshuffled.shuffled(), 0, 0)
+            } else {
+                unshuffled = emptyList()
+                player.setMediaItems(items, start.coerceIn(tracks.indices), 0)
+            }
             player.prepare()
             player.play()
         }
@@ -166,16 +198,25 @@ object PlayerController {
         }
     }
 
+    /** Right after the song playing, before the songs added earlier. */
     fun playNext(track: Track) = withController { player ->
         if (player.mediaItemCount == 0) {
             play(listOf(track))
         } else {
             player.addMediaItem(player.currentMediaItemIndex + 1, track.toMediaItem())
+            queuedAhead++
         }
     }
 
+    /** After the song playing and the songs added before it, ahead of the rest of the queue. */
     fun addToQueue(track: Track) = withController { player ->
-        if (player.mediaItemCount == 0) play(listOf(track)) else player.addMediaItem(track.toMediaItem())
+        if (player.mediaItemCount == 0) {
+            play(listOf(track))
+        } else {
+            val position = (player.currentMediaItemIndex + 1 + queuedAhead).coerceAtMost(player.mediaItemCount)
+            player.addMediaItem(position, track.toMediaItem())
+            queuedAhead++
+        }
     }
 
     fun toggle() = withController { player ->
@@ -203,7 +244,13 @@ object PlayerController {
     }
 
     fun removeFromQueue(index: Int) = withController { player ->
-        if (index in 0 until player.mediaItemCount && index != player.currentMediaItemIndex) player.removeMediaItem(index)
+        val current = player.currentMediaItemIndex
+        if (index in 0 until player.mediaItemCount && index != current) {
+            // One of the songs added to the queue, or one before the song playing (which moves up one).
+            if (index > current && index <= current + queuedAhead) queuedAhead--
+            if (index < current) lastIndex--
+            player.removeMediaItem(index)
+        }
     }
 
     fun moveInQueue(from: Int, to: Int) = withController { player ->
@@ -213,9 +260,29 @@ object PlayerController {
     fun clearUpNext() = withController { player ->
         val count = player.mediaItemCount
         if (player.currentMediaItemIndex + 1 < count) player.removeMediaItems(player.currentMediaItemIndex + 1, count)
+        queuedAhead = 0
+        unshuffled = emptyList()
     }
 
-    fun toggleShuffle() = withController { it.shuffleModeEnabled = !it.shuffleModeEnabled }
+    /**
+     * Shuffles the songs to come, or puts them back in their order (songs added meanwhile at the
+     * end); the songs added to the queue stay first, in their order.
+     */
+    fun toggleShuffle() = withController { player ->
+        player.shuffleModeEnabled = false
+        val count = player.mediaItemCount
+        val start = (player.currentMediaItemIndex + 1 + queuedAhead).coerceIn(0, count)
+        val upcoming = (start until count).map { player.getMediaItemAt(it) }
+        if (!shuffled) {
+            unshuffled = upcoming
+            if (upcoming.size > 1) player.replaceMediaItems(start, count, upcoming.shuffled())
+        } else {
+            if (upcoming.size > 1) player.replaceMediaItems(start, count, QueueOrder.restoring(unshuffled, upcoming) { it.mediaId })
+            unshuffled = emptyList()
+        }
+        shuffled = !shuffled
+        sync()
+    }
 
     fun cycleRepeat() = withController { player ->
         player.repeatMode = when (player.repeatMode) {
@@ -289,4 +356,27 @@ object PlayerController {
     }
 
     fun isLiked(track: Track) = Library.isLiked(track)
+}
+
+/** The order of songs in the queue, as the iPhone app's `PlaybackQueueOrder`. */
+object QueueOrder {
+    /**
+     * [upcoming] in [original]'s order, as many times as each is still to come; the songs that weren't
+     * in [original] (added meanwhile) after them, in their order.
+     */
+    fun <T, K> restoring(original: List<T>, upcoming: List<T>, key: (T) -> K): List<T> {
+        val remaining = HashMap<K, Int>()
+        for (item in upcoming) remaining[key(item)] = (remaining[key(item)] ?: 0) + 1
+        val restored = ArrayList<T>(upcoming.size)
+        for (list in listOf(original, upcoming)) {
+            for (item in list) {
+                val left = remaining[key(item)] ?: 0
+                if (left > 0) {
+                    restored += item
+                    remaining[key(item)] = left - 1
+                }
+            }
+        }
+        return restored
+    }
 }

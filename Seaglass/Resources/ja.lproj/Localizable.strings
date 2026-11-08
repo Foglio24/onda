@@ -642,3 +642,4 @@
 "Blocca tonalità" = "キーロック";
 "Accelera o rallenta i brani fino al %@, come il cursore del tempo di un'app da DJ. Resta così per tutti i brani finché non lo reimposti; i podcast hanno la loro velocità." = "DJ アプリのテンポフェーダーのように、曲を最大 %@ 速く、または遅くします。リセットするまですべての曲に適用されます。ポッドキャストは独自の再生速度のままです。";
 "La voce resta alla sua altezza a qualsiasi tempo. Disattivato, cambia con il tempo come su un giradischi: più veloce è più acuta, più lenta è più grave." = "どのテンポでも声の高さは変わりません。オフにすると、レコードプレーヤーのように音程もテンポと一緒に変わります（速いほど高く、遅いほど低く）。";
+"Con il tempo cambiato, AutoMix e la dissolvenza si fermano: i brani si susseguono senza mix." = "テンポを変えている間は AutoMix とクロスフェードが止まり、曲はミックスせずに続けて再生されます。";

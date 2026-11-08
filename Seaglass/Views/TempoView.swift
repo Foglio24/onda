@@ -55,7 +55,10 @@ struct TempoView: View {
                 .environment(\.layoutDirection, .leftToRight)
                 .sensoryFeedback(.selection, trigger: player.songTempo == 0)
             } footer: {
-                Text("Accelera o rallenta i brani fino al \(player.tempoLimit.formatted(.percent)), come il cursore del tempo di un'app da DJ. Resta così per tutti i brani finché non lo reimposti; i podcast hanno la loro velocità.")
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Accelera o rallenta i brani fino al \(player.tempoLimit.formatted(.percent)), come il cursore del tempo di un'app da DJ. Resta così per tutti i brani finché non lo reimposti; i podcast hanno la loro velocità.")
+                    Text("Con il tempo cambiato, AutoMix e la dissolvenza si fermano: i brani si susseguono senza mix.")
+                }
             }
             Section {
                 Toggle(isOn: Binding(get: { player.keyLock }, set: { player.setKeyLock($0) })) {

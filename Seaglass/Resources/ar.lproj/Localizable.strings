@@ -642,3 +642,4 @@
 "Blocca tonalità" = "تثبيت طبقة الصوت";
 "Accelera o rallenta i brani fino al %@, come il cursore del tempo di un'app da DJ. Resta così per tutti i brani finché non lo reimposti; i podcast hanno la loro velocità." = "يسرّع الأغاني أو يبطئها حتى %@، مثل منزلق الإيقاع في تطبيقات الـDJ. يبقى الإعداد لكل الأغاني حتى تعيد تعيينه، وتحتفظ البودكاست بسرعتها الخاصة.";
 "La voce resta alla sua altezza a qualsiasi tempo. Disattivato, cambia con il tempo come su un giradischi: più veloce è più acuta, più lenta è più grave." = "تحافظ الأصوات على طبقتها مهما كانت السرعة. عند إيقافه تتغير الطبقة مع السرعة كما في مشغّل الأسطوانات: الأسرع أعلى والأبطأ أخفض.";
+"Con il tempo cambiato, AutoMix e la dissolvenza si fermano: i brani si susseguono senza mix." = "عند تغيير الإيقاع يتوقف AutoMix والانتقال التدريجي: تتتابع الأغاني دون مزج.";

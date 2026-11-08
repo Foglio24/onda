@@ -1,5 +1,11 @@
 # Changelog (Android)
 
+## 0.4.1 (2026-11-08)
+
+### Fixed
+- **Songs added to the queue play next.** "Aggiungi in coda" put a song at the very end, after the rest of the album, playlist or radio, and with shuffle on anywhere in the order: it now goes right after the song playing and after the songs added before it, in the order they were added, as in Spotify's queue ("Riproduci dopo" still puts it first).
+- **Shuffle shows the order it plays.** Shuffle now reorders the songs to come, as on the iPhone, so "Prossimi brani" lists them as they'll play; turning it off puts them back in their order. The songs added to the queue stay first.
+
 ## 0.4.0 (2026-11-08)
 
 ### Added
