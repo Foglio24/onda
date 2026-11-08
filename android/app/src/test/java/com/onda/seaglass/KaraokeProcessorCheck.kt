@@ -76,6 +76,7 @@ class KaraokeProcessorCheck {
         val start = rate * 3
         processor.flush(AudioProcessor.StreamMetadata(start * 1_000_000L / rate))
         processor.stems = stems
+        processor.enabled = true
         processor.vocalsGain = 0f
         processor.instrumentalGain = 1f
 
@@ -136,6 +137,21 @@ class KaraokeProcessorCheck {
         val after = play(4096)
         assertTrue(voiceLeft(after, frame - 4096) > 0.95)
         stems.close()
+    }
+
+    @Test
+    fun startsOnlyWhenItCanStayAhead() {
+        val karaoke = com.onda.seaglass.playback.karaoke.Karaoke
+        // Faster than the music: a few seconds ahead are enough.
+        assertFalse(karaoke.canPlay(ahead = 2.0, left = 180.0, pace = 0.5))
+        assertTrue(karaoke.canPlay(ahead = 5.0, left = 180.0, pace = 0.5))
+        // Not measured yet: wait.
+        assertFalse(karaoke.canPlay(ahead = 5.0, left = 180.0, pace = null))
+        // Half as fast again as the music, 100 s left: it needs 55 s ahead.
+        assertFalse(karaoke.canPlay(ahead = 30.0, left = 100.0, pace = 1.5))
+        assertTrue(karaoke.canPlay(ahead = 56.0, left = 100.0, pace = 1.5))
+        // Everything to the end separated.
+        assertTrue(karaoke.canPlay(ahead = 20.0, left = 0.0, pace = 3.0))
     }
 
     @Test

@@ -152,6 +152,7 @@ object Karaoke {
         val scope = scope ?: return
         job?.cancel()
         processor?.stems = null
+        processor?.enabled = false
         stems?.close()
         stems = null
         audio = null
@@ -215,7 +216,8 @@ object Karaoke {
             }
             lastRun = "$made pieces in ${(SystemClock.elapsedRealtime() - started) / 1000} s"
             Log.i(TAG, "$videoId separated: $lastRun")
-            _status.value = KaraokeStatus.Ready
+            report(opened, secondsPerPiece)
+            prepareNext(separator)
         } catch (e: CancellationException) {
             throw e
         } catch (e: OutOfMemoryError) {
@@ -231,6 +233,32 @@ object Karaoke {
 
     private class KaraokeException(message: String) : Exception(message)
 
+    /**
+     * The next song in the queue separated now too, while this one plays, so its karaoke is ready from
+     * its first note (on phones slower than the music, that's where it can start).
+     */
+    private suspend fun prepareNext(separator: MdxSeparator) {
+        val player = player ?: return
+        if (!player.hasNextMediaItem()) return
+        val videoId = player.getMediaItemAt(player.nextMediaItemIndex).mediaId
+        runCatching {
+            val file = AutoMixLibrary.songAudio(videoId) ?: return
+            withContext(work) {
+                val rate = PcmDecoder.stereo(file, 0.0, 0.2).rate
+                val duration = durationOf(file) ?: return@withContext
+                if (duration > LENGTH_LIMIT) return@withContext
+                val folder = File(context.cacheDir, "karaoke")
+                KaraokeStems.prune(folder, KEEP_SONGS, except = videoId)
+                KaraokeStems.open(folder, videoId, rate, (duration * rate).toInt()).use { next ->
+                    for (k in 0 until next.pieces) {
+                        if (!next.isDone(k)) separatePiece(separator, next, file, k)
+                    }
+                }
+            }
+            Log.i(TAG, "$videoId (next) separated")
+        }.onFailure { if (it is CancellationException) throw it else Log.w(TAG, "Karaoke of the next song $videoId failed", it) }
+    }
+
     /** The song's frame playing now (the separation's count). */
     private fun playingFrame(stems: KaraokeStems): Int =
         ((player?.currentPosition ?: 0L) / 1000.0 * stems.rate).toInt().coerceIn(0, stems.frames - 1)
@@ -244,20 +272,50 @@ object Karaoke {
         return playing
     }
 
-    /** Ready where it plays (and the next seconds), or still preparing with the share done. */
+    /**
+     * Whether the karaoke can play without gaps from here: [ahead] seconds separated from where the song
+     * plays, [left] seconds still to separate after them, at [pace] seconds of work per second of music.
+     * Faster than the music, a few seconds ahead are enough; slower, the separation must be far enough
+     * ahead to reach the end before playback catches up with it (the gap shrinks by (pace - 1) seconds
+     * for each second separated).
+     */
+    internal fun canPlay(ahead: Double, left: Double, pace: Double?): Boolean = when {
+        left <= 0 -> ahead > 0.5
+        pace == null -> false
+        else -> ahead >= max(3.0, left * (pace - 1) * 1.1)
+    }
+
+    /**
+     * Turns the karaoke on once the separation is far enough ahead of where the song plays to stay
+     * ahead until the end, at the speed it goes on this phone (on a phone faster than the music, a
+     * few seconds ahead; slower, enough to make up for it, or the whole rest of the song); off again
+     * when playback jumps where it isn't. Says how it's going meanwhile.
+     */
     private fun report(stems: KaraokeStems, secondsPerPiece: Double?) {
+        val processor = processor ?: return
         val frame = playingFrame(stems)
-        val ahead = min(stems.frames - frame, stems.rate * 3)
-        if (stems.isReady(frame.toLong(), max(1, ahead))) {
+        // How far the separated part goes on, without a gap, from where it plays.
+        var end = frame
+        while (end < stems.frames && stems.isReady(end.toLong(), min(KaraokeStems.BLOCK, stems.frames - end))) end += KaraokeStems.BLOCK
+        val ahead = (min(end, stems.frames) - frame).toDouble() / stems.rate
+        val left = (stems.frames - min(end, stems.frames)).toDouble() / stems.rate
+        // Seconds of work per second of music.
+        val pieceSeconds = (if (stems.pieces > 1) stems.modelStart(1) else stems.modelCount(0)).coerceAtLeast(1) /
+            MdxSpectrogram.SAMPLE_RATE.toDouble()
+        val pace = secondsPerPiece?.let { it / pieceSeconds }
+        if (canPlay(ahead, left, pace) || processor.enabled && ahead > 0.5) {
+            processor.enabled = true
             _status.value = KaraokeStatus.Ready
             return
         }
-        val playing = stems.pieceAt(frame)
-        val needed = (playing..min(stems.pieces - 1, playing + 1)).count { !stems.isDone(it) }
-        _status.value = KaraokeStatus.Preparing(
-            stems.doneCount.toDouble() / stems.pieces,
-            secondsPerPiece?.let { it * needed },
-        )
+        processor.enabled = false
+        val remaining = when {
+            secondsPerPiece == null -> null
+            pace != null && pace <= 1 -> secondsPerPiece * (stems.pieceAt(frame)..min(stems.pieces - 1, stems.pieceAt(frame) + 1)).count { !stems.isDone(it) }
+            // Slower than the music: it plays once the rest of the song is separated.
+            else -> secondsPerPiece * (0 until stems.pieces).count { !stems.isDone(it) }
+        }
+        _status.value = KaraokeStatus.Preparing(stems.doneCount.toDouble() / stems.pieces, remaining)
     }
 
     /**

@@ -27,6 +27,11 @@ class KaraokeProcessor : BaseAudioProcessor() {
     @Volatile var instrumentalGain = 1f
     /** Set while the samples mustn't change (bit-perfect output). */
     @Volatile var bypass = false
+    /**
+     * Set by [Karaoke] once the separation is far enough ahead of where the song plays to stay ahead
+     * to the end: the karaoke then doesn't come and go with the pieces separated.
+     */
+    @Volatile var enabled = false
 
     /** A moment of the playing song for [Karaoke] to find the offset of. */
     class Check {
@@ -113,7 +118,7 @@ class KaraokeProcessor : BaseAudioProcessor() {
         // A moment to check the offset against: after a jump or a change of song, then every 5 s.
         if (check.state == Check.IDLE && start >= nextCheck) capture(inputBuffer, start, frames, song)
         val revision = song.revision
-        val apply = verified && revision >= 0 && song.isReady(start + offset, frames)
+        val apply = enabled && verified && revision >= 0 && song.isReady(start + offset, frames)
         if (!apply && level == 0f) {
             passThrough(inputBuffer, output)
             return
