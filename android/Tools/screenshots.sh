@@ -17,6 +17,16 @@ adb shell settings put global window_animation_scale 0
 adb shell settings put global transition_animation_scale 0
 adb shell settings put global animator_duration_scale 0
 
+# Just after booting, the emulator optimises its apps and starts its services: on CI's software GPU
+# that leaves Seaglass missing its input deadlines (ANR) and being closed. Wait (up to 4 minutes)
+# until the load falls.
+for _ in $(seq 1 48); do
+  load=$(adb shell cat /proc/loadavg | cut -d' ' -f1)
+  awk -v l="$load" 'BEGIN { exit !(l < 4.0) }' && break
+  sleep 5
+done
+echo "Load before the screenshots: $(adb shell cat /proc/loadavg)"
+
 # Opens the app on a scene (see ui/Launch.kt), waits for it to load, and saves what the screen shows.
 # adb joins the arguments into one shell line: values with spaces are quoted twice ("'Daft Punk'").
 shot() {
