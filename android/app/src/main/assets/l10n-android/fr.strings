@@ -1,8 +1,6 @@
 /* Texts only the Android app shows, in addition to the iPhone app's Localizable.strings. */
 
 "Questo telefono non decodifica il Dolby." = "Ce téléphone ne décode pas le Dolby.";
-"Invia l'audio al DAC USB così com'è, alla frequenza di ogni brano, senza il mixer di Android. Il volume diventa quello del DAC; volume uniforme e dissolvenza si fermano." = "Envoie l’audio au DAC USB tel quel, à la fréquence de chaque morceau, sans le mélangeur d’Android. Le volume devient celui du DAC ; le volume uniforme et le fondu enchaîné s’arrêtent.";
-"Bit-perfect (DAC USB)" = "Bit-perfect (DAC USB)";
 "Richiede Android 14 o successivi" = "Nécessite Android 14 ou version ultérieure";
 "Collega un DAC USB" = "Branchez un DAC USB";
 "Attivo: %@ · %@ kHz · %lld bit" = "Activé : %@ · %@ kHz · %lld bits";
@@ -10,3 +8,10 @@
 "Il bit-perfect invia l'audio senza modifiche: l'equalizzatore riprende quando lo spegni." = "Le mode bit-perfect envoie l’audio sans modification : l’égaliseur reprend quand vous le désactivez.";
 "Karaoke: download del modello %@" = "Karaoké : téléchargement du modèle %@";
 "Il karaoke non funziona con l'uscita bit-perfect." = "Le karaoké ne fonctionne pas avec la sortie bit-perfect.";
+"Bit-perfect" = "Bit-perfect";
+"Invia l'audio così com'è, alla frequenza di ogni brano, senza il mixer di Android: a DAC e cuffie USB e alle altre uscite che lo permettono. Il Bluetooth no: ricodifica sempre l'audio. Il volume diventa quello del dispositivo; volume uniforme e dissolvenza si fermano." = "Envoie l'audio tel quel, à la fréquence de chaque morceau, sans le mixeur d'Android : aux DAC et casques USB et aux autres sorties qui le permettent. Pas en Bluetooth, qui réencode toujours l'audio. Le volume devient celui de l'appareil ; le volume uniforme et le fondu enchaîné s'arrêtent.";
+"%@ è Bluetooth: l'audio viene ricodificato, il bit-perfect non è possibile." = "%@ est en Bluetooth : l'audio est réencodé, le bit-perfect n'est pas possible.";
+"%@ non supporta il bit-perfect: collega un DAC o delle cuffie USB." = "%@ ne prend pas en charge le bit-perfect : branchez un DAC ou un casque USB.";
+"%@ non accetta l'audio bit-perfect a %@ kHz" = "%@ n'accepte pas l'audio bit-perfect à %@ kHz";
+"Cuffie" = "Casque";
+"Altoparlante del telefono" = "Haut-parleur du téléphone";

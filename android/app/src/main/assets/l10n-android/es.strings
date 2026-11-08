@@ -1,8 +1,6 @@
 /* Texts only the Android app shows, in addition to the iPhone app's Localizable.strings. */
 
 "Questo telefono non decodifica il Dolby." = "Este teléfono no decodifica Dolby.";
-"Invia l'audio al DAC USB così com'è, alla frequenza di ogni brano, senza il mixer di Android. Il volume diventa quello del DAC; volume uniforme e dissolvenza si fermano." = "Envía el audio al DAC USB tal cual, a la frecuencia de cada canción, sin el mezclador de Android. El volumen pasa a ser el del DAC; el volumen uniforme y el fundido se detienen.";
-"Bit-perfect (DAC USB)" = "Bit-perfect (DAC USB)";
 "Richiede Android 14 o successivi" = "Requiere Android 14 o posterior";
 "Collega un DAC USB" = "Conecta un DAC USB";
 "Attivo: %@ · %@ kHz · %lld bit" = "Activo: %@ · %@ kHz · %lld bits";
@@ -10,3 +8,10 @@
 "Il bit-perfect invia l'audio senza modifiche: l'equalizzatore riprende quando lo spegni." = "El modo bit-perfect envía el audio sin cambios: el ecualizador vuelve cuando lo desactivas.";
 "Karaoke: download del modello %@" = "Karaoke: descargando el modelo %@";
 "Il karaoke non funziona con l'uscita bit-perfect." = "El karaoke no funciona con la salida bit-perfect.";
+"Bit-perfect" = "Bit-perfect";
+"Invia l'audio così com'è, alla frequenza di ogni brano, senza il mixer di Android: a DAC e cuffie USB e alle altre uscite che lo permettono. Il Bluetooth no: ricodifica sempre l'audio. Il volume diventa quello del dispositivo; volume uniforme e dissolvenza si fermano." = "Envía el audio tal cual, a la frecuencia de cada canción, sin el mezclador de Android: a DAC y auriculares USB y a las demás salidas que lo permiten. Por Bluetooth no, porque siempre vuelve a codificar el audio. El volumen pasa a ser el del dispositivo; el volumen uniforme y el fundido se detienen.";
+"%@ è Bluetooth: l'audio viene ricodificato, il bit-perfect non è possibile." = "%@ es Bluetooth: el audio se vuelve a codificar, el bit-perfect no es posible.";
+"%@ non supporta il bit-perfect: collega un DAC o delle cuffie USB." = "%@ no admite bit-perfect: conecta un DAC o auriculares USB.";
+"%@ non accetta l'audio bit-perfect a %@ kHz" = "%@ no acepta audio bit-perfect a %@ kHz";
+"Cuffie" = "Auriculares";
+"Altoparlante del telefono" = "Altavoz del teléfono";

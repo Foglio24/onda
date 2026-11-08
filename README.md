@@ -124,7 +124,7 @@ The app can check GitHub for new releases and notify you or download the IPA to 
 - **Equaliser** with Spotify's six bands and all of its 22 presets, or a curve of your own.
 - **AI karaoke**: the song without its voice, or the voice alone, separated on the phone by the same AI model as on the iPhone (downloaded once, the first time).
 - Synced lyrics with **on-device translation**, favourites, playlists (also imported from YouTube links), history and a sleep timer.
-- **Bit-perfect output to USB DACs** on Android 14 and later.
+- **Bit-perfect output** on Android 14 and later: to USB DACs, USB-C headphones and dongles, and the other outputs Android allows it on (Bluetooth can't: it always encodes the sound again).
 - The same eleven languages as the iPhone app, with Arabic right to left.
 
 Podcasts, Last.fm and Spotify/Apple Music import are coming next.

@@ -1,8 +1,6 @@
 /* Texts only the Android app shows, in addition to the iPhone app's Localizable.strings. */
 
 "Questo telefono non decodifica il Dolby." = "This phone doesn't decode Dolby.";
-"Invia l'audio al DAC USB così com'è, alla frequenza di ogni brano, senza il mixer di Android. Il volume diventa quello del DAC; volume uniforme e dissolvenza si fermano." = "Sends the audio to the USB DAC as it is, at each song's own sample rate, bypassing Android's mixer. The volume becomes the DAC's; uniform volume and crossfade pause.";
-"Bit-perfect (DAC USB)" = "Bit-perfect (USB DAC)";
 "Richiede Android 14 o successivi" = "Requires Android 14 or later";
 "Collega un DAC USB" = "Connect a USB DAC";
 "Attivo: %@ · %@ kHz · %lld bit" = "On: %@ · %@ kHz · %lld-bit";
@@ -10,3 +8,10 @@
 "Il bit-perfect invia l'audio senza modifiche: l'equalizzatore riprende quando lo spegni." = "Bit-perfect sends the audio unchanged: the equalizer comes back when you turn it off.";
 "Karaoke: download del modello %@" = "Karaoke: downloading the model %@";
 "Il karaoke non funziona con l'uscita bit-perfect." = "Karaoke doesn't work with bit-perfect output.";
+"Bit-perfect" = "Bit-perfect";
+"Invia l'audio così com'è, alla frequenza di ogni brano, senza il mixer di Android: a DAC e cuffie USB e alle altre uscite che lo permettono. Il Bluetooth no: ricodifica sempre l'audio. Il volume diventa quello del dispositivo; volume uniforme e dissolvenza si fermano." = "Sends the audio as it is, at each song's own sample rate, bypassing Android's mixer: to USB DACs and headphones and to the other outputs that allow it. Not Bluetooth: it always encodes the audio again. The volume becomes the device's; uniform volume and crossfade pause.";
+"%@ è Bluetooth: l'audio viene ricodificato, il bit-perfect non è possibile." = "%@ is Bluetooth: the audio is encoded again, so bit-perfect isn't possible.";
+"%@ non supporta il bit-perfect: collega un DAC o delle cuffie USB." = "%@ doesn't support bit-perfect: connect a USB DAC or USB headphones.";
+"%@ non accetta l'audio bit-perfect a %@ kHz" = "%@ doesn't accept bit-perfect audio at %@ kHz";
+"Cuffie" = "Headphones";
+"Altoparlante del telefono" = "Phone speaker";

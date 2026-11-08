@@ -1,8 +1,6 @@
 /* Texts only the Android app shows, in addition to the iPhone app's Localizable.strings. */
 
 "Questo telefono non decodifica il Dolby." = "Bu telefon Dolby'nin kodunu çözemiyor.";
-"Invia l'audio al DAC USB così com'è, alla frequenza di ogni brano, senza il mixer di Android. Il volume diventa quello del DAC; volume uniforme e dissolvenza si fermano." = "Sesi USB DAC'ye olduğu gibi, her şarkının kendi örnekleme hızında ve Android'in karıştırıcısını atlayarak gönderir. Ses düzeyi DAC'ninki olur; tek tip ses düzeyi ve çapraz geçiş duraklar.";
-"Bit-perfect (DAC USB)" = "Bit-perfect (USB DAC)";
 "Richiede Android 14 o successivi" = "Android 14 veya üzeri gerekir";
 "Collega un DAC USB" = "Bir USB DAC bağlayın";
 "Attivo: %@ · %@ kHz · %lld bit" = "Açık: %@ · %@ kHz · %lld bit";
@@ -10,3 +8,10 @@
 "Il bit-perfect invia l'audio senza modifiche: l'equalizzatore riprende quando lo spegni." = "Bit-perfect sesi değiştirmeden gönderir: kapattığınızda ekolayzer yeniden devreye girer.";
 "Karaoke: download del modello %@" = "Karaoke: model indiriliyor %@";
 "Il karaoke non funziona con l'uscita bit-perfect." = "Karaoke, bit-perfect çıkışla çalışmaz.";
+"Bit-perfect" = "Bit-perfect";
+"Invia l'audio così com'è, alla frequenza di ogni brano, senza il mixer di Android: a DAC e cuffie USB e alle altre uscite che lo permettono. Il Bluetooth no: ricodifica sempre l'audio. Il volume diventa quello del dispositivo; volume uniforme e dissolvenza si fermano." = "Sesi olduğu gibi, her şarkının kendi örnekleme hızında ve Android'in mikserini atlayarak gönderir: USB DAC'lere, USB kulaklıklara ve buna izin veren diğer çıkışlara. Bluetooth hariç: sesi her zaman yeniden kodlar. Ses düzeyi cihazınki olur; tek tip ses düzeyi ve geçiş efekti duraklar.";
+"%@ è Bluetooth: l'audio viene ricodificato, il bit-perfect non è possibile." = "%@ Bluetooth: ses yeniden kodlandığı için bit-perfect mümkün değil.";
+"%@ non supporta il bit-perfect: collega un DAC o delle cuffie USB." = "%@ bit-perfect'i desteklemiyor: bir USB DAC veya USB kulaklık bağlayın.";
+"%@ non accetta l'audio bit-perfect a %@ kHz" = "%@, %@ kHz'de bit-perfect sesi kabul etmiyor";
+"Cuffie" = "Kulaklık";
+"Altoparlante del telefono" = "Telefon hoparlörü";

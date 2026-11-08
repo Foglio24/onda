@@ -1,8 +1,6 @@
 /* Texts only the Android app shows, in addition to the iPhone app's Localizable.strings. */
 
 "Questo telefono non decodifica il Dolby." = "Este telefone não decodifica Dolby.";
-"Invia l'audio al DAC USB così com'è, alla frequenza di ogni brano, senza il mixer di Android. Il volume diventa quello del DAC; volume uniforme e dissolvenza si fermano." = "Envia o áudio ao DAC USB como está, na frequência de cada música, sem o mixer do Android. O volume passa a ser o do DAC; o volume uniforme e a transição suave são pausados.";
-"Bit-perfect (DAC USB)" = "Bit-perfect (DAC USB)";
 "Richiede Android 14 o successivi" = "Requer Android 14 ou posterior";
 "Collega un DAC USB" = "Conecte um DAC USB";
 "Attivo: %@ · %@ kHz · %lld bit" = "Ativo: %@ · %@ kHz · %lld bits";
@@ -10,3 +8,10 @@
 "Il bit-perfect invia l'audio senza modifiche: l'equalizzatore riprende quando lo spegni." = "O bit-perfect envia o áudio sem alterações: o equalizador volta quando você o desativa.";
 "Karaoke: download del modello %@" = "Karaokê: baixando o modelo %@";
 "Il karaoke non funziona con l'uscita bit-perfect." = "O karaokê não funciona com a saída bit-perfect.";
+"Bit-perfect" = "Bit-perfect";
+"Invia l'audio così com'è, alla frequenza di ogni brano, senza il mixer di Android: a DAC e cuffie USB e alle altre uscite che lo permettono. Il Bluetooth no: ricodifica sempre l'audio. Il volume diventa quello del dispositivo; volume uniforme e dissolvenza si fermano." = "Envia o áudio como está, na taxa de amostragem de cada música, sem o mixer do Android: para DACs e fones USB e para as outras saídas que permitem. Pelo Bluetooth não, porque ele sempre recodifica o áudio. O volume passa a ser o do dispositivo; o volume uniforme e a transição suave são pausados.";
+"%@ è Bluetooth: l'audio viene ricodificato, il bit-perfect non è possibile." = "%@ é Bluetooth: o áudio é recodificado, o bit-perfect não é possível.";
+"%@ non supporta il bit-perfect: collega un DAC o delle cuffie USB." = "%@ não suporta bit-perfect: conecte um DAC ou fones USB.";
+"%@ non accetta l'audio bit-perfect a %@ kHz" = "%@ não aceita áudio bit-perfect a %@ kHz";
+"Cuffie" = "Fones de ouvido";
+"Altoparlante del telefono" = "Alto-falante do telefone";

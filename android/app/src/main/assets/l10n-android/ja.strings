@@ -1,8 +1,6 @@
 /* Texts only the Android app shows, in addition to the iPhone app's Localizable.strings. */
 
 "Questo telefono non decodifica il Dolby." = "このスマートフォンはドルビーをデコードできません。";
-"Invia l'audio al DAC USB così com'è, alla frequenza di ogni brano, senza il mixer di Android. Il volume diventa quello del DAC; volume uniforme e dissolvenza si fermano." = "オーディオを曲ごとのサンプルレートのまま、Android のミキサーを通さずに USB DAC へ送ります。音量は DAC 側で調整され、音量の均一化とクロスフェードは停止します。";
-"Bit-perfect (DAC USB)" = "ビットパーフェクト（USB DAC）";
 "Richiede Android 14 o successivi" = "Android 14 以降が必要です";
 "Collega un DAC USB" = "USB DAC を接続してください";
 "Attivo: %@ · %@ kHz · %lld bit" = "オン：%@ · %@ kHz · %lld ビット";
@@ -10,3 +8,10 @@
 "Il bit-perfect invia l'audio senza modifiche: l'equalizzatore riprende quando lo spegni." = "ビットパーフェクトは音声を変更せずに出力します。オフにするとイコライザが再び有効になります。";
 "Karaoke: download del modello %@" = "カラオケ：モデルをダウンロード中 %@";
 "Il karaoke non funziona con l'uscita bit-perfect." = "カラオケはビットパーフェクト出力では使えません。";
+"Bit-perfect" = "ビットパーフェクト";
+"Invia l'audio così com'è, alla frequenza di ogni brano, senza il mixer di Android: a DAC e cuffie USB e alle altre uscite che lo permettono. Il Bluetooth no: ricodifica sempre l'audio. Il volume diventa quello del dispositivo; volume uniforme e dissolvenza si fermano." = "各曲のサンプルレートのまま、Android のミキサーを通さずに音声をそのまま出力します。対象は USB DAC、USB ヘッドホン、対応するその他の出力です。Bluetooth は常に音声を再エンコードするため対象外です。音量はデバイス側になり、音量の均一化とクロスフェードは一時停止します。";
+"%@ è Bluetooth: l'audio viene ricodificato, il bit-perfect non è possibile." = "%@ は Bluetooth です。音声が再エンコードされるため、ビットパーフェクトはできません。";
+"%@ non supporta il bit-perfect: collega un DAC o delle cuffie USB." = "%@ はビットパーフェクトに対応していません。USB DAC または USB ヘッドホンを接続してください。";
+"%@ non accetta l'audio bit-perfect a %@ kHz" = "%@ は %@ kHz のビットパーフェクト再生に対応していません";
+"Cuffie" = "ヘッドホン";
+"Altoparlante del telefono" = "本体スピーカー";

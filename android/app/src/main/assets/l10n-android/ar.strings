@@ -1,8 +1,6 @@
 /* Texts only the Android app shows, in addition to the iPhone app's Localizable.strings. */
 
 "Questo telefono non decodifica il Dolby." = "هذا الهاتف لا يفك ترميز Dolby.";
-"Invia l'audio al DAC USB così com'è, alla frequenza di ogni brano, senza il mixer di Android. Il volume diventa quello del DAC; volume uniforme e dissolvenza si fermano." = "يرسل الصوت إلى محول DAC عبر USB كما هو، بمعدل عينات كل أغنية، دون المرور بمازج Android. يصبح التحكم في مستوى الصوت من المحول؛ ويتوقف توحيد مستوى الصوت والتلاشي المتقاطع.";
-"Bit-perfect (DAC USB)" = "Bit-perfect ‏(DAC عبر USB)";
 "Richiede Android 14 o successivi" = "يتطلب Android 14 أو أحدث";
 "Collega un DAC USB" = "وصّل محول DAC عبر USB";
 "Attivo: %@ · %@ kHz · %lld bit" = "مفعّل: %@ · %@ كيلوهرتز · %lld بت";
@@ -10,3 +8,10 @@
 "Il bit-perfect invia l'audio senza modifiche: l'equalizzatore riprende quando lo spegni." = "يرسل وضع bit-perfect الصوت دون تعديل: يعود المُعادِل عند إيقاف تشغيله.";
 "Karaoke: download del modello %@" = "الكاريوكي: جارٍ تنزيل النموذج %@";
 "Il karaoke non funziona con l'uscita bit-perfect." = "لا يعمل الكاريوكي مع إخراج الصوت bit-perfect.";
+"Bit-perfect" = "Bit-perfect";
+"Invia l'audio così com'è, alla frequenza di ogni brano, senza il mixer di Android: a DAC e cuffie USB e alle altre uscite che lo permettono. Il Bluetooth no: ricodifica sempre l'audio. Il volume diventa quello del dispositivo; volume uniforme e dissolvenza si fermano." = "يرسل الصوت كما هو، بمعدل العينات الخاص بكل أغنية، متجاوزًا مازج Android: إلى محولات DAC وسماعات USB وإلى المخارج الأخرى التي تسمح بذلك. ولا يعمل عبر البلوتوث لأنه يعيد ترميز الصوت دائمًا. يصبح مستوى الصوت هو مستوى الجهاز، ويتوقف توحيد مستوى الصوت والانتقال التدريجي.";
+"%@ è Bluetooth: l'audio viene ricodificato, il bit-perfect non è possibile." = "%@ يعمل بالبلوتوث: يُعاد ترميز الصوت، لذا لا يمكن تشغيل bit-perfect.";
+"%@ non supporta il bit-perfect: collega un DAC o delle cuffie USB." = "%@ لا يدعم bit-perfect: وصّل محول DAC أو سماعات USB.";
+"%@ non accetta l'audio bit-perfect a %@ kHz" = "%@ لا يقبل صوت bit-perfect بتردد %@ كيلوهرتز";
+"Cuffie" = "سماعات الرأس";
+"Altoparlante del telefono" = "مكبر صوت الهاتف";

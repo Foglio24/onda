@@ -1,8 +1,6 @@
 /* Texts only the Android app shows, in addition to the iPhone app's Localizable.strings. */
 
 "Questo telefono non decodifica il Dolby." = "此手机无法解码杜比音频。";
-"Invia l'audio al DAC USB così com'è, alla frequenza di ogni brano, senza il mixer di Android. Il volume diventa quello del DAC; volume uniforme e dissolvenza si fermano." = "将音频原样发送到 USB DAC，按每首歌曲的采样率输出，绕过 Android 混音器。音量将由 DAC 控制；统一音量和交叉淡入淡出会暂停。";
-"Bit-perfect (DAC USB)" = "比特完美（USB DAC）";
 "Richiede Android 14 o successivi" = "需要 Android 14 或更高版本";
 "Collega un DAC USB" = "请连接 USB DAC";
 "Attivo: %@ · %@ kHz · %lld bit" = "已开启：%@ · %@ kHz · %lld 位";
@@ -10,3 +8,10 @@
 "Il bit-perfect invia l'audio senza modifiche: l'equalizzatore riprende quando lo spegni." = "比特完美会原样输出音频：关闭后均衡器即会恢复。";
 "Karaoke: download del modello %@" = "卡拉OK：正在下载模型 %@";
 "Il karaoke non funziona con l'uscita bit-perfect." = "卡拉OK 无法与比特完美输出同时使用。";
+"Bit-perfect" = "比特完美";
+"Invia l'audio così com'è, alla frequenza di ogni brano, senza il mixer di Android: a DAC e cuffie USB e alle altre uscite che lo permettono. Il Bluetooth no: ricodifica sempre l'audio. Il volume diventa quello del dispositivo; volume uniforme e dissolvenza si fermano." = "按每首歌的原始采样率原样输出音频，绕过 Android 混音器：适用于 USB DAC、USB 耳机以及其他支持的输出。蓝牙不行：它总会重新编码音频。音量将由设备控制；统一音量和淡入淡出会暂停。";
+"%@ è Bluetooth: l'audio viene ricodificato, il bit-perfect non è possibile." = "%@ 是蓝牙设备：音频会被重新编码，无法比特完美输出。";
+"%@ non supporta il bit-perfect: collega un DAC o delle cuffie USB." = "%@ 不支持比特完美：请连接 USB DAC 或 USB 耳机。";
+"%@ non accetta l'audio bit-perfect a %@ kHz" = "%@ 不接受 %@ kHz 的比特完美音频";
+"Cuffie" = "耳机";
+"Altoparlante del telefono" = "手机扬声器";

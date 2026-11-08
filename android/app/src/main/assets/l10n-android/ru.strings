@@ -1,8 +1,6 @@
 /* Texts only the Android app shows, in addition to the iPhone app's Localizable.strings. */
 
 "Questo telefono non decodifica il Dolby." = "Этот телефон не декодирует Dolby.";
-"Invia l'audio al DAC USB così com'è, alla frequenza di ogni brano, senza il mixer di Android. Il volume diventa quello del DAC; volume uniforme e dissolvenza si fermano." = "Передаёт звук на USB-ЦАП без изменений, с частотой каждого трека, минуя микшер Android. Громкость регулирует ЦАП; выравнивание громкости и плавный переход приостанавливаются.";
-"Bit-perfect (DAC USB)" = "Bit-perfect (USB-ЦАП)";
 "Richiede Android 14 o successivi" = "Требуется Android 14 или новее";
 "Collega un DAC USB" = "Подключите USB-ЦАП";
 "Attivo: %@ · %@ kHz · %lld bit" = "Вкл.: %@ · %@ кГц · %lld бит";
@@ -10,3 +8,10 @@
 "Il bit-perfect invia l'audio senza modifiche: l'equalizzatore riprende quando lo spegni." = "Bit-perfect передаёт звук без изменений: эквалайзер заработает снова, когда вы его отключите.";
 "Karaoke: download del modello %@" = "Караоке: загрузка модели %@";
 "Il karaoke non funziona con l'uscita bit-perfect." = "Караоке не работает с бит-перфект выводом.";
+"Bit-perfect" = "Bit-perfect";
+"Invia l'audio così com'è, alla frequenza di ogni brano, senza il mixer di Android: a DAC e cuffie USB e alle altre uscite che lo permettono. Il Bluetooth no: ricodifica sempre l'audio. Il volume diventa quello del dispositivo; volume uniforme e dissolvenza si fermano." = "Передаёт звук как есть, с частотой дискретизации каждой песни, в обход микшера Android: на USB-ЦАП, USB-наушники и другие выходы, которые это позволяют. Но не по Bluetooth: он всегда перекодирует звук. Громкость регулируется устройством; выравнивание громкости и плавный переход приостанавливаются.";
+"%@ è Bluetooth: l'audio viene ricodificato, il bit-perfect non è possibile." = "%@ — это Bluetooth: звук перекодируется, bit-perfect невозможен.";
+"%@ non supporta il bit-perfect: collega un DAC o delle cuffie USB." = "%@ не поддерживает bit-perfect: подключите USB-ЦАП или USB-наушники.";
+"%@ non accetta l'audio bit-perfect a %@ kHz" = "%@ не принимает bit-perfect звук с частотой %@ кГц";
+"Cuffie" = "Наушники";
+"Altoparlante del telefono" = "Динамик телефона";

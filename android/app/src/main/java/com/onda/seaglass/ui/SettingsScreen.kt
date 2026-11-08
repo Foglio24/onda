@@ -233,9 +233,9 @@ private fun AudioSettings() {
         ToggleRow(tr("Volume uniforme"), normalize) { Prefs.normalizeVolume.set(it) }
     }
     Group(
-        footer = tr("Invia l'audio al DAC USB così com'è, alla frequenza di ogni brano, senza il mixer di Android. Il volume diventa quello del DAC; volume uniforme e dissolvenza si fermano."),
+        footer = tr("Invia l'audio così com'è, alla frequenza di ogni brano, senza il mixer di Android: a DAC e cuffie USB e alle altre uscite che lo permettono. Il Bluetooth no: ricodifica sempre l'audio. Il volume diventa quello del dispositivo; volume uniforme e dissolvenza si fermano."),
     ) {
-        ToggleRow(tr("Bit-perfect (DAC USB)"), bitPerfect, enabled = BitPerfect.supported) { Prefs.bitPerfect.set(it) }
+        ToggleRow(tr("Bit-perfect"), bitPerfect, enabled = BitPerfect.supported) { Prefs.bitPerfect.set(it) }
         if (bitPerfect || !BitPerfect.supported) {
             Divider()
             Text(
