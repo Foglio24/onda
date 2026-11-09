@@ -251,7 +251,10 @@ final class SeaglassMacBridge: NSObject, NSMenuDelegate {
         let current = Bundle.main.bundleURL
         guard canUpdateInPlace().boolValue else { return "can't update in place" }
         do {
-            _ = try FileManager.default.replaceItemAt(current, withItemAt: URL(fileURLWithPath: staged))
+            // The new app's own metadata only: the old copy's would carry its quarantine over, and
+            // macOS would ask again whether to open it.
+            _ = try FileManager.default.replaceItemAt(current, withItemAt: URL(fileURLWithPath: staged),
+                                                      options: .usingNewMetadataOnly)
         } catch {
             return error.localizedDescription as NSString
         }
