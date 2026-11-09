@@ -13,8 +13,16 @@ final class PlaybackVolume: ObservableObject {
     private let defaults: UserDefaults
     private let controlsVolume: Bool
     private struct Output {
-        weak var player: AVPlayer?
+        weak var player: AVPlayer? = nil
+        weak var preview: AVAudioPlayer? = nil
         var level: Float
+
+        var isAlive: Bool { player != nil || preview != nil }
+
+        func apply(gain: Float) {
+            player?.volume = level * gain
+            preview?.volume = level * gain
+        }
     }
     private var outputs: [ObjectIdentifier: Output] = [:]
 
@@ -28,18 +36,26 @@ final class PlaybackVolume: ObservableObject {
     func set(_ volume: Double) {
         value = Self.clamp(volume)
         defaults.set(value, forKey: Self.key)
-        outputs = outputs.filter { $0.value.player != nil }
+        outputs = outputs.filter { $0.value.isAlive }
         for output in outputs.values {
-            output.player?.volume = output.level * gain
+            output.apply(gain: gain)
         }
     }
 
     /// Call before a player can produce sound, including the player armed for AutoMix.
     func register(_ player: AVPlayer) {
-        outputs = outputs.filter { $0.value.player != nil }
+        outputs = outputs.filter { $0.value.isAlive }
         let id = ObjectIdentifier(player)
         if outputs[id]?.player !== player { outputs[id] = Output(player: player, level: 1) }
         player.volume = (outputs[id]?.level ?? 1) * gain
+    }
+
+    /// Playlist Mix previews use AVAudioPlayer, but share the same live app volume.
+    func register(_ preview: AVAudioPlayer) {
+        outputs = outputs.filter { $0.value.isAlive }
+        let id = ObjectIdentifier(preview)
+        outputs[id] = Output(preview: preview, level: 1)
+        preview.volume = gain
     }
 
     func level(of player: AVPlayer) -> Float { outputs[ObjectIdentifier(player)]?.level ?? 1 }

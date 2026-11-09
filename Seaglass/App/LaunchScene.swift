@@ -1,5 +1,6 @@
 import AVFoundation
 import SwiftUI
+import UIKit
 
 /// Opens a given screen at launch, for the screenshots CI takes on a simulator
 /// (Tools/Screenshots/run.sh): `-SeaglassScene home | library | settings | search:<query> |
@@ -106,6 +107,43 @@ enum LaunchScene {
                 guard let tracks = try? await InnerTube.shared.radio(for: value), !tracks.isEmpty else { return }
                 PlayerController.shared.cue(tracks, source: "Radio")
                 router.openPlayer()
+            }
+        case "player-close" where ProcessInfo.processInfo.isMacCatalystApp:
+            // Exercise the same native button used by a pointer click, without Accessibility
+            // automation permissions or a network fixture on the Mac CI runner.
+            PlayerController.shared.cue([Track(videoId: nil, title: "Player close check", artists: ["Seaglass"], duration: 180)],
+                                        source: "Seaglass")
+            router.openPlayer()
+            Task {
+                func closeButton(in view: UIView) -> UIButton? {
+                    if let button = view as? UIButton, button.accessibilityIdentifier == "player.close" { return button }
+                    return view.subviews.lazy.compactMap { closeButton(in: $0) }.first
+                }
+                for _ in 0..<30 {
+                    try? await Task.sleep(for: .milliseconds(100))
+                    let windows = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.flatMap(\.windows)
+                    if let button = windows.lazy.compactMap({ closeButton(in: $0) }).first,
+                       let window = button.window {
+                        // Wait for the opening animation to finish before issuing the click.
+                        try? await Task.sleep(for: .milliseconds(600))
+                        let frame = button.convert(button.bounds, to: window)
+                        guard frame.minY >= 40, button.isEnabled else {
+                            print("player-close: FAIL button overlaps the titlebar")
+                            return
+                        }
+                        let point = CGPoint(x: frame.midX, y: frame.midY)
+                        let hit = window.hitTest(point, with: nil)
+                        guard hit === button || hit?.isDescendant(of: button) == true else {
+                            print("player-close: FAIL button is not hit-testable")
+                            return
+                        }
+                        button.sendActions(for: .touchUpInside)
+                        try? await Task.sleep(for: .milliseconds(800))
+                        print(router.showPlayer ? "player-close: FAIL cover stayed open" : "player-close: PASS")
+                        return
+                    }
+                }
+                print("player-close: FAIL button not found")
             }
         case "update":
             // CI (Tools/Screenshots/mac.sh): installs the Mac app in this zip over the running one, as an

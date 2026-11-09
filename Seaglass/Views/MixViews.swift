@@ -1264,6 +1264,7 @@ final class MixPreview: ObservableObject {
                                                      outgoingGain: 1, incomingGain: 1, to: url)
                 guard !Task.isCancelled else { return }
                 let player = try AVAudioPlayer(contentsOf: url)
+                PlaybackVolume.shared.register(player)
                 try? AVAudioSession.sharedInstance().setActive(true)
                 player.currentTime = max(0, plan.outStart - plan.handover - 4)
                 player.play()

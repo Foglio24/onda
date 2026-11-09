@@ -661,3 +661,5 @@
 "Download annullato." = "ダウンロードがキャンセルされました。";
 "Aggiornamento pronto" = "アップデートの準備完了";
 "Vuoi riavviare Seaglass per installare l'aggiornamento? La riproduzione verrà interrotta." = "アップデートをインストールするために Seaglass を再起動しますか？再生は中断されます。";
+
+"Chiudi player" = "プレーヤーを閉じる";

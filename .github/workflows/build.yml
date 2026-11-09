@@ -281,6 +281,10 @@ jobs:
         timeout-minutes: 5
         run: bash Tools/MacUpdateCheck/run.sh build-mac/Build/Products/Release-maccatalyst/Seaglass.app Seaglass-mac.zip
 
+      - name: Check the Mac player close button
+        timeout-minutes: 2
+        run: bash Tools/MacPlayerCheck/run.sh build-mac/Build/Products/Release-maccatalyst/Seaglass.app
+
       - name: Upload the Mac app
         uses: actions/upload-artifact@v4
         with:

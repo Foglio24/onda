@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 extension EnvironmentValues {
     /// The Mac player's text follows its panel's space; other lists keep their normal typography.
@@ -220,7 +221,13 @@ struct NowPlayingView: View {
 
     /// The chevron button: the card shrinks back into the mini player.
     private func close() {
-        if let card { card.close() } else { dismiss() }
+        if let card {
+            card.close()
+        } else if Self.isMac {
+            router.closePlayerNow()
+        } else {
+            dismiss()
+        }
     }
 
     // MARK: Pieces
@@ -645,11 +652,8 @@ struct NowPlayingView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .overlay(alignment: .topLeading) {
             macCapsule {
-                Button { close() } label: {
-                    Image(systemName: "xmark")
-                        .font(.body.weight(.semibold))
-                        .frame(width: 36, height: 36)
-                }
+                MacPlayerCloseButton(action: close)
+                    .frame(width: 44, height: 44)
             }
         }
         .overlay(alignment: .topTrailing) {
@@ -747,6 +751,36 @@ struct NowPlayingView: View {
                 .background(Color.white.opacity(panel == target ? 0.2 : 0), in: .circle)
         }
         .buttonStyle(.plain)
+    }
+}
+
+/// A native control keeps the Mac's close action separate from titlebar dragging and SwiftUI's
+/// card gestures. The identifier also lets the Mac smoke check exercise the same action as a click.
+private struct MacPlayerCloseButton: UIViewRepresentable {
+    let action: () -> Void
+
+    func makeUIView(context: Context) -> UIButton {
+        let button = UIButton(type: .system)
+        var configuration = UIButton.Configuration.plain()
+        configuration.image = UIImage(systemName: "xmark")
+        configuration.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(pointSize: 17, weight: .semibold)
+        configuration.baseForegroundColor = .white
+        button.configuration = configuration
+        button.accessibilityLabel = String(localized: "Chiudi player")
+        button.accessibilityIdentifier = "player.close"
+        button.addAction(UIAction { _ in context.coordinator.action() }, for: .touchUpInside)
+        return button
+    }
+
+    func updateUIView(_ button: UIButton, context: Context) {
+        context.coordinator.action = action
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator(action: action) }
+
+    final class Coordinator {
+        var action: () -> Void
+        init(action: @escaping () -> Void) { self.action = action }
     }
 }
 

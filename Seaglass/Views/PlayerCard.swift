@@ -25,6 +25,7 @@ struct PlayerCard: View {
     /// 0: the card is the mini player; 1: it fills the screen.
     @State private var progress: CGFloat = 0
     @State private var closing = false
+    @State private var closeTask: Task<Void, Never>?
     @State private var screenHeight: CGFloat = 800
     /// The card spans the whole screen, status bar included, so it can shrink as one piece; the
     /// player inside gets the screen's safe area back from these.
@@ -43,7 +44,7 @@ struct PlayerCard: View {
                     .allowsHitTesting(false)
                 NowPlayingView()
                     .environment(\.layoutDirection, layoutDirection)
-                    .safeAreaPadding(insets)
+                    .safeAreaPadding(playerInsets)
                     .frame(width: screen.width, height: screen.height)
                     // Fades out as the card nears the mini player, so it lands as a plain card.
                     .opacity(min(1, max(0, (progress - 0.08) / 0.3)))
@@ -64,6 +65,20 @@ struct PlayerCard: View {
             let target = LaunchScene.playerCardProgress ?? 1
             withAnimation(.spring(duration: 0.5, bounce: 0.12)) { progress = target }
         }
+        .onDisappear {
+            closeTask?.cancel()
+            closeTask = nil
+        }
+    }
+
+    /// Catalyst can report no top safe area for a full-screen cover, even while its transparent
+    /// titlebar still handles pointer events. Keep the controls below that area, not over the
+    /// window's traffic lights. iPhone and iPad retain their system-provided insets.
+    private var playerInsets: EdgeInsets {
+        guard ProcessInfo.processInfo.isMacCatalystApp else { return insets }
+        var result = insets
+        result.top = max(64, result.top + 16)
+        return result
     }
 
     private static var windowInsets: EdgeInsets {
@@ -119,6 +134,16 @@ struct PlayerCard: View {
             progress = 0
         } completion: {
             router.closePlayerNow()
+        }
+        if ProcessInfo.processInfo.isMacCatalystApp {
+            // Catalyst may discard an animation completion when the window resizes or its
+            // presentation transaction disables animations. Dismiss after the same short close
+            // animation even then, so an invisible cover can never block the library underneath.
+            closeTask = Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(500))
+                guard !Task.isCancelled else { return }
+                router.closePlayerNow()
+            }
         }
     }
 }

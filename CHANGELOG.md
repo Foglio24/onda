@@ -7,6 +7,9 @@
 - **Mac: Seaglass's own volume.** The sliders control only this app, including AutoMix, crossfades and karaoke, keep their level between launches, and work with HDMI and USB outputs too.
 - **Mac: visible, cancellable update downloads.** A progress bar shows the transfer, with an option to cancel. Seaglass checks and prepares the update automatically, then asks before restarting. Choosing later keeps it ready to install when the app quits. Restarting exits the whole app, including its menu bar and background playback.
 
+### Fixed
+- **Mac: the player closes reliably.** Its close button sits below the titlebar, away from the window controls, and dismisses the player even if Catalyst drops an animation completion.
+
 Nothing changes on iPhone and iPad.
 
 ## 1.28.1 (2026-11-09)
