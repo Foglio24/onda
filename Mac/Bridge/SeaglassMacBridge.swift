@@ -110,22 +110,48 @@ final class SeaglassMacBridge: NSObject, NSMenuDelegate {
     /// The volume of the Mac's sound output (0…1), the one in the menu bar; nil when the output has
     /// none to set (some HDMI and USB outputs).
     @objc func systemVolume() -> NSNumber? {
-        guard let output = Self.output() else { return nil }
-        var address = Self.volumeAddress
-        var settable: DarwinBoolean = false
-        guard AudioObjectHasProperty(output, &address),
-              AudioObjectIsPropertySettable(output, &address, &settable) == noErr, settable.boolValue else { return nil }
+        guard let output = Self.output(), let address = Self.volumeAddresses(of: output).first else { return nil }
         var volume: Float32 = 0
         var size = UInt32(MemoryLayout<Float32>.size)
-        guard AudioObjectGetPropertyData(output, &address, 0, nil, &size, &volume) == noErr else { return nil }
+        var where_ = address
+        guard AudioObjectGetPropertyData(output, &where_, 0, nil, &size, &volume) == noErr else { return nil }
         return NSNumber(value: volume)
     }
 
+    /// Sets the output's volume: its overall one, or else each of its channels'.
     @objc func setSystemVolume(_ value: NSNumber) {
         guard let output = Self.output() else { return }
-        var address = Self.volumeAddress
         var volume = Float32(max(0, min(1, value.floatValue)))
-        AudioObjectSetPropertyData(output, &address, 0, nil, UInt32(MemoryLayout<Float32>.size), &volume)
+        let size = UInt32(MemoryLayout<Float32>.size)
+        let addresses = Self.volumeAddresses(of: output)
+        for address in addresses {
+            var where_ = address
+            let status = AudioObjectSetPropertyData(output, &where_, 0, nil, size, &volume)
+            // The overall volume done, the channels follow it by themselves.
+            if status == noErr, address.mSelector == kAudioHardwareServiceDeviceProperty_VirtualMainVolume { return }
+        }
+    }
+
+    /// Where an output's volume can be set: its overall (virtual) volume as the menu bar uses it, or
+    /// its main volume, or its first two channels'; empty when it has none (some HDMI and USB outputs).
+    nonisolated private static func volumeAddresses(of output: AudioObjectID) -> [AudioObjectPropertyAddress] {
+        var candidates = [volumeAddress]
+        for element in [kAudioObjectPropertyElementMain, 1, 2] as [UInt32] {
+            candidates.append(AudioObjectPropertyAddress(mSelector: kAudioDevicePropertyVolumeScalar,
+                                                         mScope: kAudioDevicePropertyScopeOutput, mElement: element))
+        }
+        let settable = candidates.filter { candidate in
+            var address = candidate
+            var isSettable: DarwinBoolean = false
+            return AudioObjectHasProperty(output, &address)
+                && AudioObjectIsPropertySettable(output, &address, &isSettable) == noErr && isSettable.boolValue
+        }
+        // The overall volume alone when there is one; otherwise the main one, or the channels.
+        if let overall = settable.first(where: { $0.mSelector == kAudioHardwareServiceDeviceProperty_VirtualMainVolume }) {
+            return [overall]
+        }
+        if let main = settable.first(where: { $0.mElement == kAudioObjectPropertyElementMain }) { return [main] }
+        return settable
     }
 
     /// Calls `block` (taking the volume, or nil) now and whenever the volume changes (from Seaglass,
@@ -183,6 +209,22 @@ final class SeaglassMacBridge: NSObject, NSMenuDelegate {
         guard AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size, &output) == noErr,
               output != AudioObjectID(kAudioObjectUnknown) else { return nil }
         return output
+    }
+
+    // MARK: Keyboard
+
+    private var spaceMonitor: Any?
+
+    /// The space bar plays or pauses wherever Seaglass is, as in Apple Music: `block` (returning
+    /// whether it took the key, which it doesn't while text is being typed) is called for each press.
+    @objc func handleSpaceBar(_ block: Any) {
+        guard spaceMonitor == nil else { return }
+        let handler = unsafeBitCast(block as AnyObject, to: (@convention(block) () -> Bool).self)
+        spaceMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask).subtracting(.capsLock)
+            guard event.keyCode == 49, modifiers.isEmpty, !event.isARepeat else { return event }
+            return handler() ? nil : event
+        }
     }
 
     // MARK: Updates

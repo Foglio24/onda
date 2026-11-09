@@ -31,6 +31,8 @@ struct SeaglassApp: App {
                 .onAppear {
                     // Seaglass in the menu bar: the song playing, its controls, and the window again.
                     MacBridge.shared.startMenuBar()
+                    // The space bar plays or pauses anywhere, as in Apple Music.
+                    MacBridge.shared.handleSpaceBar()
                     for case let scene as UIWindowScene in UIApplication.shared.connectedScenes {
                         // On a Mac, a window no smaller than an iPad in landscape: the player's two columns fit.
                         scene.sizeRestrictions?.minimumSize = CGSize(width: 960, height: 640)

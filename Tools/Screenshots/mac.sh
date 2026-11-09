@@ -93,4 +93,10 @@ shot mac-5-settings 6 settings
 shot mac-6-home-played 20 "home:K0HSD_i2DvA"
 pkill -x Seaglass 2>/dev/null
 
+# The volume bar's way of setting the Mac's volume, on this machine's output.
+NSUnbufferedIO=YES "$binary" -SeaglassScene "volume:0.25" >"$logs/volume.log" 2>&1 &
+sleep 8
+grep "volume:" "$logs/volume.log" || echo "::warning::The volume wasn't set"
+pkill -x Seaglass 2>/dev/null
+
 exit 0

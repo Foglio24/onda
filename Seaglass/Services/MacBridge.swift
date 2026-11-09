@@ -83,6 +83,36 @@ final class MacBridge {
         return unsafeBitCast(block, to: AnyObject.self)
     }
 
+    // MARK: Keyboard
+
+    /// Text fields and views being typed in: the space bar is theirs then.
+    private var editing = 0
+    private var keyboardObservers: Set<AnyCancellable> = []
+
+    /// The space bar plays or pauses the music anywhere in the app, unless text is being typed.
+    func handleSpaceBar() {
+        guard let plugIn, keyboardObservers.isEmpty else { return }
+        let center = NotificationCenter.default
+        for begin in [UITextField.textDidBeginEditingNotification, UITextView.textDidBeginEditingNotification] {
+            center.publisher(for: begin).sink { [weak self] _ in self?.editing += 1 }.store(in: &keyboardObservers)
+        }
+        for end in [UITextField.textDidEndEditingNotification, UITextView.textDidEndEditingNotification] {
+            center.publisher(for: end).sink { [weak self] _ in
+                guard let self else { return }
+                editing = max(0, editing - 1)
+            }.store(in: &keyboardObservers)
+        }
+        let block: @convention(block) () -> Bool = {
+            MainActor.assumeIsolated {
+                let player = PlayerController.shared
+                guard MacBridge.shared.editing == 0, player.current != nil else { return false }
+                player.togglePlayPause()
+                return true
+            }
+        }
+        _ = plugIn.perform(NSSelectorFromString("handleSpaceBar:"), with: unsafeBitCast(block, to: AnyObject.self))
+    }
+
     // MARK: Volume
 
     /// The Mac's sound output volume (0…1), or nil when it has none to set.

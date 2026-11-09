@@ -87,17 +87,51 @@ struct MacVolumeControl: View {
     }
 }
 
+/// The volume's bar, drawn here rather than a `Slider`: in the player and the player bar the
+/// system's slider lost its drags to the glass around it, as the scrubber did (see `PlayerScrubber`).
+/// A click sets the volume where it lands, and a drag follows the pointer.
 private struct MacVolumeSlider: View {
     var tint: Color = .white
     @ObservedObject private var volume = MacVolume.shared
 
     var body: some View {
-        Slider(value: Binding(get: { volume.value }, set: { volume.set($0) }), in: 0...1) { editing in
-            volume.dragging = editing
+        GeometryReader { geometry in
+            let width = max(geometry.size.width, 1)
+            let knob: CGFloat = 12
+            let x = (width - knob) * CGFloat(volume.value)
+            ZStack(alignment: .leading) {
+                Capsule().fill(tint.opacity(0.25)).frame(height: 4)
+                Capsule().fill(tint).frame(width: x + knob / 2, height: 4)
+                Circle()
+                    .fill(tint)
+                    .frame(width: knob, height: knob)
+                    .shadow(color: .black.opacity(0.25), radius: 2, y: 1)
+                    .offset(x: x)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .contentShape(.rect)
+            .highPriorityGesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { value in
+                        volume.dragging = true
+                        volume.set(Double(min(max((value.location.x - knob / 2) / (width - knob), 0), 1)))
+                    }
+                    .onEnded { _ in volume.dragging = false }
+            )
         }
-        .tint(tint)
-        .disabled(!volume.available)
+        .frame(height: 20)
+        .opacity(volume.available ? 1 : 0.4)
+        .allowsHitTesting(volume.available)
+        .accessibilityElement()
         .accessibilityLabel(Text("Volume"))
+        .accessibilityValue(Text(volume.value.formatted(.percent.precision(.fractionLength(0)))))
+        .accessibilityAdjustableAction { direction in
+            switch direction {
+            case .increment: volume.set(min(1, volume.value + 0.0625))
+            case .decrement: volume.set(max(0, volume.value - 0.0625))
+            @unknown default: break
+            }
+        }
         .onAppear { volume.start() }
     }
 }

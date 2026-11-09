@@ -7,6 +7,7 @@ import SwiftUI
 /// equalizer | info:<album browseId> | mix | mix:options | mix:edit | home:<videoId>`.
 /// `home:<videoId>` records the song's radio as listened to, so the Home has recent songs and mixes.
 /// `update:<zip>` (a Mac) installs the app in the zip over the running one, as an update would.
+/// `volume:<0…1>` (a Mac) sets the output's volume and prints it before and after.
 /// `mix` makes two short songs and a playlist of them, and opens their transition in the Mix editor
 /// (`mix:options` with the options sheet too, `mix:edit` drawing the volume lines by hand).
 /// `downloads` downloads the first songs of a song's radio and shows them downloading;
@@ -109,6 +110,13 @@ enum LaunchScene {
                     print("update: \(error)")
                 }
             }
+        case "volume":
+            // CI (Tools/Screenshots/mac.sh): sets the Mac's output volume as the volume bar does, and
+            // reads it back.
+            let before = MacBridge.shared.systemVolume
+            MacBridge.shared.setSystemVolume(Float(value) ?? 0.5)
+            print("volume: before \(before.map { String($0) } ?? "none"), now \(MacBridge.shared.systemVolume.map { String($0) } ?? "none")")
+            if let before { MacBridge.shared.setSystemVolume(before) }
         case "home" where !value.isEmpty:
             // The song's radio as if listened to: the Home's recent covers and daily mixes.
             select(.home)

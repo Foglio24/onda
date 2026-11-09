@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.28.1 (2026-11-09)
+
+### Fixed
+- **Mac: the space bar plays or pauses** anywhere in Seaglass, as in Apple Music, not only in the player. While you type (search, a playlist's name), it's a space.
+- **Mac: the volume bar works**, in the player and in the player bar. A click sets the volume and a drag follows the pointer: the system's slider lost its drags to the glass around it. An output with no overall volume has each of its channels set instead.
+
 ## 1.28.0 (2026-11-09)
 
 ### Changed
