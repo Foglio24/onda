@@ -20,7 +20,16 @@ func area(_ window: [String: Any]) -> Double {
     let bounds = window[kCGWindowBounds as String] as? [String: Double] ?? [:]
     return (bounds["Width"] ?? 0) * (bounds["Height"] ?? 0)
 }
-let wantsStatus = CommandLine.arguments.dropFirst().first == "status"
+let mode = CommandLine.arguments.dropFirst().first
+let wantsStatus = mode == "status"
+if mode == "list" {
+    // Every window of Seaglass's, on screen or not: layer and frame.
+    let all = CGWindowListCopyWindowInfo([.optionAll], kCGNullWindowID) as? [[String: Any]] ?? []
+    for window in all where (window[kCGWindowOwnerName as String] as? String) == "Seaglass" {
+        let bounds = window[kCGWindowBounds as String] as? [String: Double] ?? [:]
+        print("  layer \(window[kCGWindowLayer as String] ?? "?") \(bounds) onscreen \(window[kCGWindowIsOnscreen as String] ?? "?")")
+    }
+}
 let ours = windows.filter {
     guard ($0[kCGWindowOwnerName as String] as? String) == "Seaglass", let layer = $0[kCGWindowLayer as String] as? Int else {
         return false
@@ -98,6 +107,8 @@ if [ -n "$status" ]; then
 else
   echo "::warning::No Seaglass icon in the menu bar"
 fi
+[ -x "$tools/window" ] && "$tools/window" list
+grep "MacBridge" "$logs/mac-1-home.log" || true
 shot mac-2-player 16 "player:K0HSD_i2DvA"
 shot mac-3-player-queue 16 "player:K0HSD_i2DvA" -SeaglassPanel queue
 shot mac-4-search 12 "search:daft punk"

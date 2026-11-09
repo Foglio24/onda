@@ -12,14 +12,21 @@ final class MacBridge {
     private var observers: Set<AnyCancellable> = []
 
     private init() {
-        guard ProcessInfo.processInfo.isMacCatalystApp,
-              let url = Bundle.main.builtInPlugInsURL?.appending(path: "SeaglassMac.bundle"),
-              let bundle = Bundle(url: url), bundle.load(),
-              let type = bundle.principalClass as? NSObject.Type else {
+        guard ProcessInfo.processInfo.isMacCatalystApp else {
             plugIn = nil
             return
         }
-        plugIn = type.init()
+        do {
+            guard let url = Bundle.main.builtInPlugInsURL?.appending(path: "SeaglassMac.bundle"),
+                  let bundle = Bundle(url: url) else { throw UpdateError.invalid }
+            try bundle.loadAndReturnError()
+            guard let type = bundle.principalClass as? NSObject.Type else { throw UpdateError.invalid }
+            plugIn = type.init()
+        } catch {
+            // Said where it can be read (Console, CI's log): without it there's no menu bar icon nor updates.
+            print("MacBridge: the AppKit plug-in didn't load: \(error)")
+            plugIn = nil
+        }
     }
 
     var isAvailable: Bool { plugIn != nil }
