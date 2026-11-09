@@ -330,7 +330,7 @@ struct HomeView: View {
     private static let macMargin: CGFloat = 28
 
     private var macSections: some View {
-        VStack(alignment: .leading, spacing: 34) {
+        VStack(alignment: .leading, spacing: 26) {
             if nowPlaying.isIdle, let point = player.resumePoint {
                 VStack(alignment: .leading, spacing: 12) {
                     macHeader("Riprendi da dove eri")

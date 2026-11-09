@@ -34,6 +34,8 @@ struct MacShelf<Card: View>: View {
                     }
                 }
                 .scrollTargetLayout()
+                // Room for the Mac's scroll bar under the cards (and their shadows).
+                .padding(.bottom, 14)
             }
             .contentMargins(.horizontal, margin, for: .scrollContent)
             .scrollPosition(id: $first, anchor: .leading)
