@@ -498,10 +498,12 @@ struct MiniPlayer: View {
 
 struct AirPlayButton: UIViewRepresentable {
     var activeTint: Color
+    /// White on the player; the text's colour on the Mac's player bar.
+    var tint: UIColor = .white
 
     func makeUIView(context: Context) -> AVRoutePickerView {
         let view = AVRoutePickerView()
-        view.tintColor = .white
+        view.tintColor = tint
         view.prioritizesVideoDevices = false
         return view
     }

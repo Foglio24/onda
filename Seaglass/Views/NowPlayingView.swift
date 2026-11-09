@@ -20,6 +20,8 @@ struct NowPlayingView: View {
     @State private var showEqualizer = false
     @State private var showTempo = false
 
+    private static let isMac = ProcessInfo.processInfo.isMacCatalystApp
+
     var body: some View {
         GeometryReader { geometry in
             let size = LaunchScene.previewsLandscape
@@ -72,13 +74,20 @@ struct NowPlayingView: View {
             if let open = LaunchScene.playerPanel {
                 if open == "tempo" { showTempo = true } else { panel = open == "queue" ? .queue : .lyrics }
             }
+            // The Mac's player bar opens the player on the lyrics or the queue.
+            if let open = router.playerPanel {
+                panel = open == .queue ? .queue : .lyrics
+                router.playerPanel = nil
+            }
         }
     }
 
     /// An iPad in landscape (or a wide window): the lyrics or the queue open beside the player
     /// instead of in the cover's place.
     @ViewBuilder private func layout(for size: CGSize) -> some View {
-        if size.width >= 900, size.width > size.height, panel != .artwork {
+        if Self.isMac {
+            macLayout
+        } else if size.width >= 900, size.width > size.height, panel != .artwork {
             wideLayout(width: size.width)
         } else {
             stackedLayout
@@ -245,12 +254,7 @@ struct NowPlayingView: View {
             }
             Spacer()
             Menu {
-                if let track = player.current { TrackMenu(track: track, inPlayer: true) }
-                Divider()
-                sleepTimerMenu
-                Button { showEqualizer = true } label: {
-                    Label("Equalizzatore", systemImage: "slider.vertical.3")
-                }
+                moreMenu
             } label: {
                 Image(systemName: "ellipsis")
                     .font(.title3.weight(.semibold))
@@ -258,6 +262,16 @@ struct NowPlayingView: View {
             }
         }
         .buttonStyle(.plain)
+    }
+
+    /// The song's actions, the sleep timer and the equalizer.
+    @ViewBuilder private var moreMenu: some View {
+        if let track = player.current { TrackMenu(track: track, inPlayer: true) }
+        Divider()
+        sleepTimerMenu
+        Button { showEqualizer = true } label: {
+            Label("Equalizzatore", systemImage: "slider.vertical.3")
+        }
     }
 
     private var sleepTimerMenu: some View {
@@ -596,6 +610,113 @@ struct NowPlayingView: View {
                 .background(Color.white.opacity(player.karaokeMode == .off ? 0 : 0.2), in: .circle)
         }
         .buttonStyle(.plain)
+    }
+
+    // MARK: Mac
+
+    /// On a Mac, as Apple Music's: the cover, the song and its controls in a column in the middle
+    /// (on the left, with the lyrics or the queue open beside it), and the rest in glass at the
+    /// corners: closing at the top left, AirPlay and the volume at the top right, karaoke, tempo,
+    /// lyrics and queue at the bottom right.
+    private var macLayout: some View {
+        HStack(spacing: 48) {
+            macColumn
+                .frame(width: 380)
+            if panel != .artwork {
+                panelContent
+                    .padding(.top, 60)
+                    .padding(.bottom, 60)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .overlay(alignment: .topLeading) {
+            macCapsule {
+                Button { close() } label: {
+                    Image(systemName: "xmark")
+                        .font(.body.weight(.semibold))
+                        .frame(width: 36, height: 36)
+                }
+            }
+        }
+        .overlay(alignment: .topTrailing) {
+            macCapsule {
+                AirPlayButton(activeTint: accent.color).frame(width: 36, height: 36)
+                MacVolumeControl()
+                    .frame(width: 130)
+                    .padding(.trailing, 8)
+            }
+        }
+        .overlay(alignment: .bottomTrailing) {
+            macCapsule {
+                if isEpisode { speedMenu } else { karaokeMenu }
+                if !isEpisode { tempoButton }
+                panelButton(.lyrics, symbol: isEpisode ? "list.bullet.rectangle" : "quote.bubble")
+                panelButton(.queue, symbol: "list.bullet")
+            }
+        }
+    }
+
+    private var macColumn: some View {
+        VStack(spacing: 16) {
+            Spacer(minLength: 56)
+            artwork
+                .frame(maxWidth: 320, maxHeight: 320)
+            VStack(spacing: 12) {
+                HStack(alignment: .center, spacing: 10) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(player.current?.title ?? "—")
+                            .font(.title3.bold())
+                            .lineLimit(1)
+                        Button {
+                            if let track = player.current, track.isPodcastEpisode {
+                                if let show = track.podcastID, !show.isEmpty { router.page = .podcast(id: show) }
+                            } else if let track = player.current, !track.primaryArtist.isEmpty {
+                                router.page = .artist(id: track.artistID, name: track.primaryArtist)
+                            }
+                        } label: {
+                            Text(macSubtitle)
+                                .font(.body)
+                                .foregroundStyle(Color.white.opacity(0.7))
+                                .lineLimit(1)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    Spacer(minLength: 8)
+                    if !isEpisode { likeButton }
+                    Menu {
+                        moreMenu
+                    } label: {
+                        Image(systemName: "ellipsis")
+                            .font(.body.weight(.semibold))
+                            .frame(width: 32, height: 32)
+                            .glassEffect(.regular.interactive(), in: .circle)
+                    }
+                    .buttonStyle(.plain)
+                }
+                PlayerScrubber()
+                badges
+                controls
+                    .scaleEffect(0.85)
+                errorLabel
+            }
+            Spacer(minLength: 64)
+        }
+    }
+
+    /// "Artist — Album", as Apple Music's player.
+    private var macSubtitle: String {
+        guard let track = player.current else { return "" }
+        if let album = track.album, !album.isEmpty, !track.isPodcastEpisode { return "\(track.artist) — \(album)" }
+        return track.artist
+    }
+
+    private func macCapsule<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        HStack(spacing: 2) { content() }
+            .padding(.horizontal, 6)
+            .frame(height: 46)
+            .glassEffect(.regular.interactive(), in: .capsule)
+            .buttonStyle(.plain)
     }
 
     private func panelButton(_ target: Panel, symbol: String) -> some View {

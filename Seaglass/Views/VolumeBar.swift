@@ -71,14 +71,31 @@ final class MacVolume: ObservableObject {
     }
 }
 
+/// The Mac's volume as Apple Music shows it in its corner and its player bar: the slider, then the
+/// speaker (its waves following the level).
+struct MacVolumeControl: View {
+    var tint: Color = .white
+    @ObservedObject private var volume = MacVolume.shared
+
+    var body: some View {
+        HStack(spacing: 8) {
+            MacVolumeSlider(tint: tint)
+            Image(systemName: "speaker.wave.3.fill", variableValue: volume.value)
+                .font(.caption)
+                .foregroundStyle(tint.opacity(0.8))
+        }
+    }
+}
+
 private struct MacVolumeSlider: View {
+    var tint: Color = .white
     @ObservedObject private var volume = MacVolume.shared
 
     var body: some View {
         Slider(value: Binding(get: { volume.value }, set: { volume.set($0) }), in: 0...1) { editing in
             volume.dragging = editing
         }
-        .tint(.white)
+        .tint(tint)
         .disabled(!volume.available)
         .accessibilityLabel(Text("Volume"))
         .onAppear { volume.start() }

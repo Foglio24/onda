@@ -65,7 +65,10 @@ struct HomeView: View {
                     phoneSections
                 }
             }
-            .background { AmbientBackground() }
+            .background {
+                // On a Mac the window's own background, as Apple Music's Home.
+                if Self.isMac { Color(.systemBackground).ignoresSafeArea() } else { AmbientBackground() }
+            }
             .navigationTitle(Self.isMac ? String(localized: "Home") : greeting)
             // Once a day, and as soon as there is a first song to go on.
             .task(id: "\(Recommendations.today)|\(library.history.isEmpty)") {

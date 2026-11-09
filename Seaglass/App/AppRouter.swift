@@ -80,6 +80,15 @@ final class AppRouter: ObservableObject {
         withTransaction(transaction) { showPlayer = true }
     }
 
+    /// The panel the player opens with, once (the Mac's player bar opens it on the lyrics or the queue).
+    enum PlayerPanel { case lyrics, queue }
+    @Published var playerPanel: PlayerPanel?
+
+    func openPlayer(on panel: PlayerPanel) {
+        playerPanel = panel
+        openPlayer()
+    }
+
     /// Removes the player at once, after `PlayerCard` has shrunk it into the mini player.
     func closePlayerNow() {
         var transaction = Transaction()
