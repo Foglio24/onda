@@ -81,6 +81,7 @@ final class PlayerController: ObservableObject {
             } else if index < oldValue {
                 queuedAhead = 0
             }
+            if queue.indices.contains(index) { playedInQueue.insert(queue[index].id) }
             scheduleQueueSave()
             syncNowPlaying()
         }
@@ -89,6 +90,9 @@ final class PlayerController: ObservableObject {
     /// one playing: the next one added goes after them, before the rest of the album, playlist or
     /// radio, as in Spotify's queue. Shuffle leaves them where they are.
     private var queuedAhead = 0
+    /// The songs of this queue that have played (or started): turning shuffle on brings back the
+    /// others, those before the song playing too, as Spotify and Apple Music do.
+    private var playedInQueue: Set<String> = []
     /// The queue was restored at launch and nothing has been loaded yet: the Home's "Riprendi"
     /// card carries on from the saved position.
     @Published private(set) var isRestoredSession = false {
@@ -318,6 +322,7 @@ final class PlayerController: ObservableObject {
         } else {
             unshuffledUpcoming = []
         }
+        playedInQueue = []
         queue = list
         index = first
         queuedAhead = 0
@@ -469,6 +474,7 @@ final class PlayerController: ObservableObject {
         guard let first = tracks.first else { return }
         requests.replaceQueue()
         advanceTask?.cancel()
+        playedInQueue = []
         queue = tracks
         index = 0
         queuedAhead = 0
@@ -532,6 +538,7 @@ final class PlayerController: ObservableObject {
             return
         }
         // The songs added to the queue stay first, in their order; the rest is shuffled or put back.
+        queuedAhead = min(queuedAhead, queue.count - index - 1)
         let start = min(queue.count, index + 1 + queuedAhead)
         let upcomingTracks = Array(queue[start...])
         if shuffleEnabled {
@@ -541,8 +548,18 @@ final class PlayerController: ObservableObject {
             queue.replaceSubrange(start..., with: restored)
             unshuffledUpcoming = []
         } else {
-            unshuffledUpcoming = upcomingTracks
-            queue.replaceSubrange(start..., with: upcomingTracks.shuffled())
+            // Every song of the queue not played yet, those before the one playing too (a song
+            // chosen near the end of a playlist doesn't leave only the few after it).
+            let earlier = queue[..<index]
+            let waiting = earlier.filter { !playedInQueue.contains($0.id) }
+            let others = waiting + upcomingTracks
+            let played = earlier.filter { playedInQueue.contains($0.id) }
+            let playingAndQueued = Array(queue[index..<start])
+            let queued = queuedAhead
+            unshuffledUpcoming = others
+            queue = played + playingAndQueued + others.shuffled()
+            index = played.count
+            queuedAhead = queued
         }
         shuffleEnabled.toggle()
         offerUpcoming()

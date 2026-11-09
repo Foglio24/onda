@@ -119,7 +119,7 @@ fun PillButton(title: String, icon: ImageVector, modifier: Modifier = Modifier, 
 @Composable
 private fun PlayButtons(tracks: List<Track>) {
     Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        PillButton(tr("Riproduci"), Icons.Rounded.PlayArrow, Modifier.weight(1f), filled = true) { PlayerController.play(tracks) }
+        PillButton(tr("Riproduci"), Icons.Rounded.PlayArrow, Modifier.weight(1f), filled = true) { PlayerController.play(tracks, shuffle = false) }
         PillButton(tr("Casuale"), Icons.Rounded.Shuffle, Modifier.weight(1f)) { PlayerController.play(tracks, shuffle = true) }
     }
 }
@@ -172,7 +172,7 @@ fun ArtistScreen(id: String) {
         item {
             Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 PillButton(tr("Riproduci"), Icons.Rounded.PlayArrow, Modifier.weight(1f), filled = true) {
-                    PlayerController.play(page.topSongs)
+                    PlayerController.play(page.topSongs, shuffle = false)
                 }
                 PillButton(tr("Radio dell'artista"), Icons.Rounded.Radio, Modifier.weight(1f)) {
                     page.topSongs.firstOrNull()?.let(PlayerController::playRadio)

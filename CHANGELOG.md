@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.25.2 (2026-11-09)
+
+### Fixed
+- **Shuffle takes the whole playlist.** A song chosen near the end of a playlist, and shuffle turned on afterwards, shuffled only the few songs after it: shuffle now brings back every song of the queue not played yet, those before it too, as Spotify and Apple Music do. (A song chosen with shuffle already on was played with all the others shuffled after it, and still is.)
+
 ## 1.25.1 (2026-11-09)
 
 ### Fixed

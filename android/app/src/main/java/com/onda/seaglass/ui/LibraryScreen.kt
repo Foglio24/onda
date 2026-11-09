@@ -183,7 +183,7 @@ fun TrackListPage(
                 }
                 item {
                     Row(Modifier.padding(16.dp), horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp)) {
-                        PillButton(tr("Riproduci"), Icons.Rounded.PlayArrow, Modifier.weight(1f), filled = true) { PlayerController.play(tracks) }
+                        PillButton(tr("Riproduci"), Icons.Rounded.PlayArrow, Modifier.weight(1f), filled = true) { PlayerController.play(tracks, shuffle = false) }
                         PillButton(tr("Casuale"), Icons.Rounded.Shuffle, Modifier.weight(1f)) { PlayerController.play(tracks, shuffle = true) }
                     }
                 }

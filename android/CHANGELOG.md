@@ -1,5 +1,10 @@
 # Changelog (Android)
 
+## 0.4.2 (2026-11-09)
+
+### Fixed
+- **Shuffle takes the whole playlist.** A song chosen from a list turned shuffle off, and turning it on shuffled only the songs after that one: a song chosen now keeps shuffle as it was (on: all the other songs shuffled after it, those before it in the list too), and turning shuffle on brings back every song of the queue not played yet, as Spotify and Apple Music do. "Riproduci" plays in order, "Casuale" shuffled.
+
 ## 0.4.1 (2026-11-08)
 
 ### Fixed
