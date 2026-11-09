@@ -25,6 +25,15 @@
       ],
       "versions": [
         {
+          "version": "1.26.1",
+          "buildVersion": "52",
+          "date": "2026-11-09T13:15:44Z",
+          "localizedDescription": "Fixed\n- Mac: the music keeps playing with the window closed, as with Apple Music: closing the window no longer quits Seaglass. It stays open in the Dock and the menu bar, its Dock icon opens the window again, and ⌘Q quits it. With the window closed or minimised it also goes on preparing what comes next (AutoMix's mixes, the karaoke, the songs' best quality), as with it open.\n- Mac: the player's corners match the window's. They were rounded as an iPhone's screen, more than a Mac window, and left the app showing at the corners.\n\nChanged\n- Mac: the Home is laid out as Apple Music's: big cards for the daily mixes, with the title on the cover's own colours; square covers for the songs played lately and the quick access; the moods as coloured cards; and rows that scroll a page at a time with the arrows at their ends, under the pointer. A play button shows on the cover under the pointer.\n\nNothing changes on iPhone and iPad.",
+          "downloadURL": "https://github.com/Foglio24/onda/releases/download/v1.26.1/Seaglass.ipa",
+          "size": 36100803,
+          "minOSVersion": "26.0"
+        },
+        {
           "version": "1.26.0",
           "buildVersion": "51",
           "date": "2026-11-09T11:21:19Z",
@@ -141,6 +150,17 @@
     }
   ],
   "news": [
+    {
+      "title": "Seaglass 1.26.1",
+      "identifier": "release-1.26.1",
+      "caption": "A new Seaglass update is available. Tap to see what's new.",
+      "date": "2026-11-09T13:15:44Z",
+      "tintColor": "#EC3F8E",
+      "imageURL": "https://raw.githubusercontent.com/Foglio24/onda/main/docs/images/seaglass-banner.jpg",
+      "notify": false,
+      "url": "https://github.com/Foglio24/onda/releases/tag/v1.26.1",
+      "appID": "com.onda.player"
+    },
     {
       "title": "Seaglass 1.26.0",
       "identifier": "release-1.26.0",
