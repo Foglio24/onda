@@ -116,6 +116,7 @@ struct NowPlayingView: View {
             PlayerScrubber()
             badges
             controls
+            PlayerVolumeBar()
             bottomBar
         }
     }
@@ -137,6 +138,7 @@ struct NowPlayingView: View {
                 PlayerScrubber()
                 badges
                 controls
+                PlayerVolumeBar()
                 bottomBar
             }
             .frame(width: min(520, width * 0.42))

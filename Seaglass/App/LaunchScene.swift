@@ -6,6 +6,7 @@ import SwiftUI
 /// artist:<browseId> | album:<browseId> | player:<videoId> | downloads:<videoId> | storage |
 /// equalizer | info:<album browseId> | mix | mix:options | mix:edit | home:<videoId>`.
 /// `home:<videoId>` records the song's radio as listened to, so the Home has recent songs and mixes.
+/// `update:<zip>` (a Mac) installs the app in the zip over the running one, as an update would.
 /// `mix` makes two short songs and a playlist of them, and opens their transition in the Mix editor
 /// (`mix:options` with the options sheet too, `mix:edit` drawing the volume lines by hand).
 /// `downloads` downloads the first songs of a song's radio and shows them downloading;
@@ -95,6 +96,18 @@ enum LaunchScene {
                 guard let tracks = try? await InnerTube.shared.radio(for: value), !tracks.isEmpty else { return }
                 PlayerController.shared.cue(tracks, source: "Radio")
                 router.openPlayer()
+            }
+        case "update":
+            // CI (Tools/Screenshots/mac.sh): installs the Mac app in this zip over the running one, as an
+            // update would, and opens it again; what happened goes to the output.
+            Task {
+                do {
+                    let app = try await MacBridge.shared.stage(zip: URL(fileURLWithPath: value), version: AppUpdater.currentVersion)
+                    print("update: staged \(app.path)")
+                    if let error = MacBridge.shared.install(app: app, relaunch: true) { print("update: \(error)") }
+                } catch {
+                    print("update: \(error)")
+                }
             }
         case "home" where !value.isEmpty:
             // The song's radio as if listened to: the Home's recent covers and daily mixes.

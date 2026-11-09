@@ -76,6 +76,25 @@ final class MacBridge {
         return unsafeBitCast(block, to: AnyObject.self)
     }
 
+    // MARK: Volume
+
+    /// The Mac's sound output volume (0…1), or nil when it has none to set.
+    var systemVolume: Float? {
+        (plugIn?.perform(NSSelectorFromString("systemVolume"))?.takeUnretainedValue() as? NSNumber)?.floatValue
+    }
+
+    func setSystemVolume(_ volume: Float) {
+        _ = plugIn?.perform(NSSelectorFromString("setSystemVolume:"), with: NSNumber(value: volume))
+    }
+
+    /// Calls `handler` now and whenever the volume changes, wherever from (nil: none to set).
+    func observeVolume(_ handler: @escaping @MainActor (Float?) -> Void) {
+        let block: @convention(block) (NSNumber?) -> Void = { volume in
+            MainActor.assumeIsolated { handler(volume?.floatValue) }
+        }
+        _ = plugIn?.perform(NSSelectorFromString("observeVolume:"), with: unsafeBitCast(block, to: AnyObject.self))
+    }
+
     // MARK: Updates
 
     /// Whether the app can replace itself where it is (not run from Downloads before being moved,

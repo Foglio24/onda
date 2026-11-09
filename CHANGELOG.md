@@ -3,6 +3,7 @@
 ## 1.27.0 (2026-11-09)
 
 ### Added
+- **Volume bar in the player**, under the controls, as in Apple Music. On iPhone and iPad it's the system's volume and follows the buttons. On a Mac it's the volume of the sound output, the same as in the menu bar, and follows the keyboard's keys. It's dimmed for an output with no volume to set.
 - **Mac: Seaglass in the menu bar.** Its note sits in the menu bar while the app is open, even with the window closed, so you can see it's still there. Its menu shows the song playing, with play or pause, next and previous, opening the window again, and quitting.
 - **Mac: automatic updates.** A new version downloads and installs by itself, with no zip to open and no "Open Anyway". It installs right away if nothing is playing, otherwise when you quit Seaglass, and Seaglass opens again on the new version. Settings › Updates can also install it now ("Install and relaunch"), or only tell you about it. Before installing, the download is checked against GitHub's (size and SHA-256), and the app inside must be Seaglass, at that version, with a valid signature. Seaglass must be in the Applications folder to update itself. This first time, 1.27.0 still has to be downloaded by hand.
 

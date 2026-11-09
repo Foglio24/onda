@@ -275,6 +275,11 @@ jobs:
           ditto -c -k --sequesterRsrc --keepParent "$app" Seaglass-mac.zip
           ls -lh Seaglass-mac.zip
 
+      # The Mac's updater, for real: the zip installed over a copy of the app, which opens again.
+      - name: Check the Mac updater
+        timeout-minutes: 5
+        run: bash Tools/MacUpdateCheck/run.sh build-mac/Build/Products/Release-maccatalyst/Seaglass.app Seaglass-mac.zip
+
       - name: Upload the Mac app
         uses: actions/upload-artifact@v4
         with:

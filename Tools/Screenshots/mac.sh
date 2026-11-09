@@ -105,4 +105,5 @@ shot mac-5-settings 6 settings
 # The Home with songs listened to (a song's radio, see LaunchScene): recent covers and mixes.
 shot mac-6-home-played 20 "home:K0HSD_i2DvA"
 pkill -x Seaglass 2>/dev/null
+
 exit 0

@@ -1,4 +1,6 @@
 import AppKit
+import AudioToolbox
+import CoreAudio
 
 /// What the Mac app needs from AppKit, which a Mac Catalyst app can't use itself: its icon in the
 /// menu bar, and installing an update over itself. The app loads this bundle from its PlugIns and
@@ -13,6 +15,9 @@ final class SeaglassMacBridge: NSObject, NSMenuDelegate {
     private var song: String?
     private var artist: String?
     private var playing = false
+    private var volumeHandler: ((NSNumber?) -> Void)?
+    private var listenedOutput = AudioObjectID(kAudioObjectUnknown)
+    private var outputVolumeListener: AudioObjectPropertyListenerBlock?
 
     // MARK: Menu bar
 
@@ -98,6 +103,86 @@ final class SeaglassMacBridge: NSObject, NSMenuDelegate {
 
     @objc private func quit(_ sender: NSMenuItem) {
         NSApp.terminate(nil)
+    }
+
+    // MARK: Volume
+
+    /// The volume of the Mac's sound output (0…1), the one in the menu bar; nil when the output has
+    /// none to set (some HDMI and USB outputs).
+    @objc func systemVolume() -> NSNumber? {
+        guard let output = Self.output() else { return nil }
+        var address = Self.volumeAddress
+        var settable: DarwinBoolean = false
+        guard AudioObjectHasProperty(output, &address),
+              AudioObjectIsPropertySettable(output, &address, &settable) == noErr, settable.boolValue else { return nil }
+        var volume: Float32 = 0
+        var size = UInt32(MemoryLayout<Float32>.size)
+        guard AudioObjectGetPropertyData(output, &address, 0, nil, &size, &volume) == noErr else { return nil }
+        return NSNumber(value: volume)
+    }
+
+    @objc func setSystemVolume(_ value: NSNumber) {
+        guard let output = Self.output() else { return }
+        var address = Self.volumeAddress
+        var volume = Float32(max(0, min(1, value.floatValue)))
+        AudioObjectSetPropertyData(output, &address, 0, nil, UInt32(MemoryLayout<Float32>.size), &volume)
+    }
+
+    /// Calls `block` (taking the volume, or nil) now and whenever the volume changes (from Seaglass,
+    /// the keyboard or the menu bar) or the sound goes to another output.
+    @objc func observeVolume(_ block: Any) {
+        let handler = unsafeBitCast(block as AnyObject, to: (@convention(block) (NSNumber?) -> Void).self)
+        let first = volumeHandler == nil
+        volumeHandler = { handler($0) }
+        if first {
+            var address = Self.outputAddress
+            AudioObjectAddPropertyListenerBlock(AudioObjectID(kAudioObjectSystemObject), &address, .main) { [weak self] _, _ in
+                MainActor.assumeIsolated { self?.listenToOutput() }
+            }
+        }
+        listenToOutput()
+    }
+
+    private func listenToOutput() {
+        var address = Self.volumeAddress
+        if let listener = outputVolumeListener {
+            AudioObjectRemovePropertyListenerBlock(listenedOutput, &address, .main, listener)
+            outputVolumeListener = nil
+        }
+        if let output = Self.output() {
+            let listener: AudioObjectPropertyListenerBlock = { [weak self] _, _ in
+                MainActor.assumeIsolated { self?.reportVolume() }
+            }
+            if AudioObjectAddPropertyListenerBlock(output, &address, .main, listener) == noErr {
+                listenedOutput = output
+                outputVolumeListener = listener
+            }
+        }
+        reportVolume()
+    }
+
+    private func reportVolume() {
+        volumeHandler?(systemVolume())
+    }
+
+    nonisolated private static var outputAddress: AudioObjectPropertyAddress {
+        AudioObjectPropertyAddress(mSelector: kAudioHardwarePropertyDefaultOutputDevice,
+                                   mScope: kAudioObjectPropertyScopeGlobal, mElement: kAudioObjectPropertyElementMain)
+    }
+
+    /// The output's overall volume, as the menu bar sets it, whatever its channels.
+    nonisolated private static var volumeAddress: AudioObjectPropertyAddress {
+        AudioObjectPropertyAddress(mSelector: kAudioHardwareServiceDeviceProperty_VirtualMainVolume,
+                                   mScope: kAudioDevicePropertyScopeOutput, mElement: kAudioObjectPropertyElementMain)
+    }
+
+    nonisolated private static func output() -> AudioObjectID? {
+        var address = outputAddress
+        var output = AudioObjectID(kAudioObjectUnknown)
+        var size = UInt32(MemoryLayout<AudioObjectID>.size)
+        guard AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size, &output) == noErr,
+              output != AudioObjectID(kAudioObjectUnknown) else { return nil }
+        return output
     }
 
     // MARK: Updates
