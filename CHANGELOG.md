@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.26.0 (2026-11-09)
+
+### Added
+- **Seaglass for Mac**, for Macs with Apple silicon (M1 or later) and macOS 26 Tahoe or later: the same app as on the iPad, with its Liquid Glass design, in a window of its own, with every feature: AutoMix, the tempo fader and key lock, the AI karaoke, the equalizer, lyrics and their translation, downloads, podcasts, Last.fm, playlists and the library. The keyboard's media keys and Now Playing in Control Center control the music; ⌘→ and ⌘← skip, and the space bar plays or pauses in the player. Download `Seaglass-mac.zip` from the release, open it and drag Seaglass to Applications; the first time, allow it in System Settings › Privacy & Security ("Open Anyway"), since it isn't signed by an Apple developer account. On a Mac, updates download in the browser, and Last.fm is connected in the browser too.
+
 ## 1.25.2 (2026-11-09)
 
 ### Fixed

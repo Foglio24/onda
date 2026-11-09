@@ -357,8 +357,11 @@ private struct LastFMSettingsView: View {
     @State private var secretDraft = ""
     @State private var editingKeys = false
     @State private var authURL: IdentifiedURL?
+    /// On a Mac: the Last.fm page is open in the browser, waiting for the user to come back.
+    @State private var authInBrowser = false
     @State private var working = false
     @State private var alertText: String?
+    @Environment(\.openURL) private var openURL
 
     var body: some View {
         Form {
@@ -409,6 +412,12 @@ private struct LastFMSettingsView: View {
         .sheet(item: $authURL, onDismiss: finishAuth) { item in
             SafariView(url: item.url).ignoresSafeArea()
         }
+        .alert("Last.fm", isPresented: $authInBrowser) {
+            Button("Annulla", role: .cancel) {}
+            Button("OK") { finishAuth() }
+        } message: {
+            Text("Consenti l'accesso a Seaglass nella pagina di Last.fm aperta nel browser, poi torna qui e fai clic su OK.")
+        }
         .alert("Last.fm", isPresented: Binding(get: { alertText != nil }, set: { if !$0 { alertText = nil } })) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -421,7 +430,13 @@ private struct LastFMSettingsView: View {
         Task {
             do {
                 let url = try await lastfm.beginAuth()
-                authURL = IdentifiedURL(url: url)
+                if ProcessInfo.processInfo.isMacCatalystApp {
+                    // On a Mac, Safari's sheet would hand the page to the browser anyway (and stay empty).
+                    openURL(url)
+                    authInBrowser = true
+                } else {
+                    authURL = IdentifiedURL(url: url)
+                }
             } catch {
                 alertText = error.localizedDescription
             }
@@ -503,10 +518,13 @@ private struct UpdatesSettingsView: View {
     var body: some View {
         Form {
             Section {
-                Picker(selection: $updateMode) {
-                    ForEach(UpdateMode.allCases) { Text($0.title).tag($0) }
-                } label: {
-                    Label("Nuove versioni", systemImage: "arrow.down.app")
+                // On a Mac the browser downloads updates, so there's nothing to download on its own.
+                if !ProcessInfo.processInfo.isMacCatalystApp {
+                    Picker(selection: $updateMode) {
+                        ForEach(UpdateMode.allCases) { Text($0.title).tag($0) }
+                    } label: {
+                        Label("Nuove versioni", systemImage: "arrow.down.app")
+                    }
                 }
                 Button {
                     Task { await updater.check(userInitiated: true) }
@@ -532,7 +550,11 @@ private struct UpdatesSettingsView: View {
                         .foregroundStyle(.orange)
                 }
             } footer: {
-                Text("Gli aggiornamenti si installano con Sideloadly, AltStore o SideStore. Quelli scaricati sono nell'app File, in Seaglass › \(Storage.updatesFolderName).")
+                if ProcessInfo.processInfo.isMacCatalystApp {
+                    Text("Gli aggiornamenti si scaricano dal browser: apri lo zip e trascina Seaglass in Applicazioni, al posto di quella che hai.")
+                } else {
+                    Text("Gli aggiornamenti si installano con Sideloadly, AltStore o SideStore. Quelli scaricati sono nell'app File, in Seaglass › \(Storage.updatesFolderName).")
+                }
             }
         }
         .settingsPage("Aggiornamenti")

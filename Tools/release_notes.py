@@ -35,7 +35,12 @@ def notes(changelog, version, previous):
         text = chosen[0][2]
     else:
         text = "\n\n".join(f"{heading}\n\n{body}" for _, heading, body in chosen)
-    return text + "\n\n**Install:** download `Seaglass.ipa` below and sideload it as usual.\n"
+    return text + (
+        "\n\n**Install:** on iPhone and iPad, download `Seaglass.ipa` below and sideload it as usual. "
+        "On a Mac with Apple silicon (macOS 26 or later), download `Seaglass-mac.zip`, open it and drag "
+        "Seaglass to Applications; the first time, allow it in System Settings › Privacy & Security "
+        "(“Open Anyway”).\n"
+    )
 
 
 if __name__ == "__main__":

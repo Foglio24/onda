@@ -1,6 +1,6 @@
 import Foundation
 
-#if canImport(NowPlaying)
+#if canImport(NowPlaying) && !targetEnvironment(macCatalyst)
 import NowPlaying
 import Observation
 

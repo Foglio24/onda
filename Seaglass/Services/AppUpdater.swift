@@ -1,4 +1,5 @@
 import Combine
+import UIKit
 import Foundation
 
 /// What happens when a newer version of Seaglass is published on GitHub (Settings → Aggiornamenti).
@@ -81,7 +82,8 @@ final class AppUpdater: ObservableObject {
             }
             status = .available
             downloadedFile = Self.file(for: release).flatMap { FileManager.default.fileExists(atPath: $0.path) ? $0 : nil }
-            if Preferences.updateModeSetting == .download, downloadedFile == nil {
+            // On a Mac the download is the browser's, so it never starts on its own.
+            if Preferences.updateModeSetting == .download, downloadedFile == nil, !ProcessInfo.processInfo.isMacCatalystApp {
                 await download()
             }
             if userInitiated || shouldNotify(release) {
@@ -97,6 +99,13 @@ final class AppUpdater: ObservableObject {
     /// Saves the new version's IPA in the updates folder, replacing older ones.
     func download() async {
         guard let release = latest, !isDownloading else { return }
+        #if targetEnvironment(macCatalyst)
+        // On a Mac the browser downloads it, into Downloads, where it's unzipped and dragged to Applications.
+        if let source = release.ipa {
+            await UIApplication.shared.open(source)
+            return
+        }
+        #endif
         guard let source = release.ipa, let destination = Self.file(for: release) else {
             downloadError = UpdateError.noIPA.localizedDescription
             return
@@ -168,7 +177,12 @@ final class AppUpdater: ObservableObject {
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         let release = try decoder.decode(GitHubRelease.self, from: data)
+        #if targetEnvironment(macCatalyst)
+        // On a Mac, the Mac app's zip.
+        let ipa = release.assets.first { $0.name.lowercased().hasSuffix("-mac.zip") }?.browserDownloadUrl
+        #else
         let ipa = release.assets.first { $0.name.lowercased().hasSuffix(".ipa") }?.browserDownloadUrl
+        #endif
         let version = AppVersion.components(release.tagName).map(String.init).joined(separator: ".")
         return Release(version: version, notes: release.body ?? "", page: release.htmlUrl, ipa: ipa)
     }

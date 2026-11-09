@@ -20,7 +20,7 @@ permissions:
 
 jobs:
   build:
-    # macOS 26 is needed for Xcode 27 and its iOS 27 SDK (NowPlaying framework).
+    # The iPhone and iPad app. macOS 26 is needed for Xcode 27 and its iOS 27 SDK (NowPlaying framework).
     runs-on: macos-26
     timeout-minutes: 45
     steps:
@@ -80,40 +80,9 @@ jobs:
       - name: Install XcodeGen
         run: brew install xcodegen
 
-      # The AI karaoke's vocal model (UVR MDX-Net Voc_FT), converted from ONNX to Core ML.
-      # Cached: it only changes with the conversion script.
-      - name: Restore the karaoke model
-        id: karaoke-model
-        uses: actions/cache@v4
-        with:
-          path: |
-            Generated/VocFT.mlpackage
-            Generated/karaoke-fixture.bin
-          key: karaoke-model-${{ hashFiles('Tools/convert_karaoke_model.py') }}
-
-      - name: Set up Python
-        if: steps.karaoke-model.outputs.cache-hit != 'true'
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Convert the karaoke model to Core ML
-        if: steps.karaoke-model.outputs.cache-hit != 'true'
-        run: |
-          python -m pip install --quiet "numpy==1.26.4" "torch==2.5.1" "coremltools==8.3.0" \
-            "onnx==1.17.0" "onnx2torch==1.5.15" "onnxruntime==1.20.1"
-          mkdir -p Generated
-          curl -fsSL -o Generated/Voc_FT.onnx \
-            https://github.com/k2-fsa/sherpa-onnx/releases/download/source-separation-models/UVR-MDX-NET-Voc_FT.onnx
-          python Tools/convert_karaoke_model.py Generated/Voc_FT.onnx Generated/VocFT.mlpackage \
-            Generated/karaoke-fixture.bin
-          rm Generated/Voc_FT.onnx
-
-      - name: Compile the karaoke model
-        run: |
-          mkdir -p Generated/Karaoke
-          xcrun coremlcompiler compile Generated/VocFT.mlpackage Generated/Karaoke
-          du -sh Generated/Karaoke/VocFT.mlmodelc
+      # The AI karaoke's vocal model, converted to Core ML (cached) and compiled.
+      - name: Karaoke model
+        uses: ./.github/actions/karaoke-model
 
       # Runs the app's own Swift separation code on macOS against onnxruntime's result.
       - name: Check the karaoke separation
@@ -183,42 +152,10 @@ jobs:
           if-no-files-found: ignore
           retention-days: 90
 
-      # The release's name and notes, which the app's update sheet shows: the version's section of
-      # CHANGELOG.md, with those of any versions since the last release that were never released.
-      # A version tag, or a run by hand with "release" (which tags this commit with the version in
-      # project.yml).
-      - name: Write the release notes
-        id: notes
-        if: startsWith(github.ref, 'refs/tags/v') || inputs.release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-            tag="$GITHUB_REF_NAME"
-          else
-            tag="v$(sed -n 's/^ *MARKETING_VERSION: "\(.*\)"/\1/p' project.yml)"
-          fi
-          previous=$(gh api "repos/${{ github.repository }}/releases/latest" --jq .tag_name 2>/dev/null || true)
-          python3 Tools/release_notes.py CHANGELOG.md "${tag#v}" "${previous#v}" > release-notes.md
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          echo "name=Seaglass ${tag#v}" >> "$GITHUB_OUTPUT"
-          head -20 release-notes.md
-
-      - name: Attach IPA and debug symbols to the release
-        if: startsWith(github.ref, 'refs/tags/v') || inputs.release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.notes.outputs.tag }}
-          target_commitish: ${{ github.sha }}
-          name: ${{ steps.notes.outputs.name }}
-          body_path: release-notes.md
-          files: |
-            Seaglass.ipa
-            Seaglass.app.dSYM.zip
-
-      # Screenshots of the main screens on an iPhone simulator, to check the UI without a device.
+      # Screenshots of the main screens on an iPhone simulator, to check the UI without a device
+      # (not when releasing: the release waits for this job).
       - name: Build for the simulator
-        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        if: ${{ !startsWith(github.ref, 'refs/tags/') && !inputs.release }}
         continue-on-error: true
         run: |
           xcodebuild \
@@ -236,13 +173,13 @@ jobs:
             build
 
       - name: Take screenshots
-        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        if: ${{ !startsWith(github.ref, 'refs/tags/') && !inputs.release }}
         continue-on-error: true
         timeout-minutes: 20
         run: bash Tools/Screenshots/run.sh build-sim/Build/Products/Debug-iphonesimulator/Seaglass.app screenshots
 
       - name: Upload screenshots
-        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        if: ${{ !startsWith(github.ref, 'refs/tags/') && !inputs.release }}
         continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
@@ -252,16 +189,157 @@ jobs:
 
       # The same app on a 13-inch iPad Pro (its player also laid out as in landscape).
       - name: Take iPad screenshots
-        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        if: ${{ !startsWith(github.ref, 'refs/tags/') && !inputs.release }}
         continue-on-error: true
         timeout-minutes: 15
         run: bash Tools/Screenshots/run.sh build-sim/Build/Products/Debug-iphonesimulator/Seaglass.app screenshots-ipad ipad
 
       - name: Upload iPad screenshots
-        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        if: ${{ !startsWith(github.ref, 'refs/tags/') && !inputs.release }}
         continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: Seaglass-screenshots-ipad
           path: screenshots-ipad
           retention-days: 14
+
+  mac:
+    # The same app for Macs with Apple silicon (Mac Catalyst), built beside the iPhone's.
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select the newest Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest
+
+      - name: Show toolchain
+        run: |
+          xcodebuild -version
+          xcrun --sdk macosx --show-sdk-version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Karaoke model
+        uses: ./.github/actions/karaoke-model
+
+      - name: Generate Xcode project
+        run: |
+          mkdir -p Support
+          xcodegen generate
+
+      - name: Build for Mac (unsigned)
+        run: |
+          xcodebuild \
+            -project Seaglass.xcodeproj \
+            -scheme Seaglass \
+            -configuration Release \
+            -destination 'generic/platform=macOS,variant=Mac Catalyst' \
+            -derivedDataPath build-mac \
+            -skipPackagePluginValidation \
+            -skipMacroValidation \
+            -quiet \
+            ARCHS=arm64 \
+            ONLY_ACTIVE_ARCH=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+
+      # Signed ad hoc (there is no Developer ID), with the sandbox and network entitlements: macOS
+      # asks once, in Privacy & Security, before opening it. Zipped with ditto to keep the signature.
+      - name: Sign and package the Mac app
+        run: |
+          app=build-mac/Build/Products/Release-maccatalyst/Seaglass.app
+          find "$app/Contents" -depth \( -name "*.framework" -o -name "*.dylib" -o -name "*.appex" -o -name "*.xpc" \) \
+            -exec codesign --force --sign - --timestamp=none {} \;
+          codesign --force --sign - --timestamp=none --entitlements Mac/Seaglass.entitlements "$app"
+          codesign --verify --deep --strict --verbose=2 "$app"
+          codesign --display --entitlements - "$app"
+          lipo -archs "$app/Contents/MacOS/Seaglass"
+          /usr/libexec/PlistBuddy -c "Print :LSMinimumSystemVersion" "$app/Contents/Info.plist" || true
+          ls "$app/Contents/Resources" | grep -i -e karaoke -e VocFT -e icns || true
+          ditto -c -k --sequesterRsrc --keepParent "$app" Seaglass-mac.zip
+          ls -lh Seaglass-mac.zip
+
+      - name: Upload the Mac app
+        uses: actions/upload-artifact@v4
+        with:
+          name: Seaglass-mac
+          path: Seaglass-mac.zip
+          retention-days: 30
+
+      # The Mac app's window at a few screens, as on the simulators.
+      - name: Take Mac screenshots
+        if: ${{ !startsWith(github.ref, 'refs/tags/') && !inputs.release }}
+        continue-on-error: true
+        timeout-minutes: 10
+        run: bash Tools/Screenshots/mac.sh build-mac/Build/Products/Release-maccatalyst/Seaglass.app screenshots-mac
+
+      - name: Upload Mac screenshots
+        if: ${{ !startsWith(github.ref, 'refs/tags/') && !inputs.release }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: Seaglass-screenshots-mac
+          path: screenshots-mac
+          retention-days: 14
+
+  release:
+    # Published once both apps are built: the IPA, its debug symbols and the Mac app.
+    needs: [build, mac]
+    if: startsWith(github.ref, 'refs/tags/v') || inputs.release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download the IPA
+        uses: actions/download-artifact@v4
+        with:
+          name: Seaglass-ipa
+
+      - name: Download the debug symbols
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: Seaglass-dSYM
+
+      - name: Download the Mac app
+        uses: actions/download-artifact@v4
+        with:
+          name: Seaglass-mac
+
+      # The release's name and notes, which the app's update sheet shows: the version's section of
+      # CHANGELOG.md, with those of any versions since the last release that were never released.
+      # A version tag, or a run by hand with "release" (which tags this commit with the version in
+      # project.yml).
+      - name: Write the release notes
+        id: notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            tag="$GITHUB_REF_NAME"
+          else
+            tag="v$(sed -n 's/^ *MARKETING_VERSION: "\(.*\)"/\1/p' project.yml)"
+          fi
+          previous=$(gh api "repos/${{ github.repository }}/releases/latest" --jq .tag_name 2>/dev/null || true)
+          python3 Tools/release_notes.py CHANGELOG.md "${tag#v}" "${previous#v}" > release-notes.md
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "name=Seaglass ${tag#v}" >> "$GITHUB_OUTPUT"
+          head -20 release-notes.md
+
+      - name: Publish the release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.notes.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: ${{ steps.notes.outputs.name }}
+          body_path: release-notes.md
+          files: |
+            Seaglass.ipa
+            Seaglass-mac.zip
+            Seaglass.app.dSYM.zip

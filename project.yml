@@ -14,8 +14,8 @@ settings:
   base:
     SWIFT_VERSION: "5.0"
     SWIFT_STRICT_CONCURRENCY: minimal
-    MARKETING_VERSION: "1.25.2"
-    CURRENT_PROJECT_VERSION: "50"
+    MARKETING_VERSION: "1.26.0"
+    CURRENT_PROJECT_VERSION: "51"
     # Lists the localizable strings of each Swift file, for Tools/check_localization.py.
     SWIFT_EMIT_LOC_STRINGS: YES
 
@@ -81,6 +81,8 @@ targets:
         # not only scrolling. An iPad uses it without asking.
         CADisableMinimumFrameDurationOnPhone: true
         ITSAppUsesNonExemptEncryption: false
+        # Where a Mac files it (Finder, Launchpad).
+        LSApplicationCategoryType: public.app-category.music
     settings:
       base:
         PRODUCT_NAME: Seaglass
@@ -88,6 +90,13 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.onda.player
         # iPhone and iPad: one app (and one IPA) for both.
         TARGETED_DEVICE_FAMILY: "1,2"
+        # And Macs with Apple silicon (Mac Catalyst): the iPad app, laid out as on an iPad, in a window.
+        # CI builds it for arm64 and signs it ad hoc with Mac/Seaglass.entitlements (see build.yml).
+        SUPPORTS_MACCATALYST: YES
+        SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
+        # The same identifier on a Mac, not "maccatalyst.com.onda.player".
+        DERIVE_MACCATALYST_PRODUCT_BUNDLE_IDENTIFIER: NO
+        "CODE_SIGN_ENTITLEMENTS[sdk=macosx*]": Mac/Seaglass.entitlements
         GENERATE_INFOPLIST_FILE: NO
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor

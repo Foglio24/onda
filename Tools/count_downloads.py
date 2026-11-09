@@ -2,14 +2,14 @@
 """Build a Shields endpoint badge from paginated GitHub release API responses.
 
 It counts every download of the app itself, whatever the platform: the iPhone and iPad IPA
-(Onda.ipa, Seaglass.ipa) and the Android APKs (Seaglass-x.y.z.apk, Seaglass-x.y.z-32bit.apk).
-Debug symbols and other files are left out.
+(Onda.ipa, Seaglass.ipa), the Mac app (Seaglass-mac.zip) and the Android APKs
+(Seaglass-x.y.z.apk, Seaglass-x.y.z-32bit.apk). Debug symbols and other files are left out.
 """
 
 import json
 import sys
 
-APP_EXTENSIONS = (".ipa", ".apk")
+APP_EXTENSIONS = (".ipa", ".apk", "-mac.zip")
 
 
 def is_app(name):

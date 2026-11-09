@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 @main
 struct SeaglassApp: App {
@@ -38,6 +39,17 @@ struct SeaglassApp: App {
                     await lastfm.flushPending()
                 }
                 .task { await updater.check(userInitiated: false) }
+                #if targetEnvironment(macCatalyst)
+                .onAppear {
+                    for case let scene as UIWindowScene in UIApplication.shared.connectedScenes {
+                        // On a Mac, a window no smaller than an iPad in landscape: the player's two columns fit.
+                        scene.sizeRestrictions?.minimumSize = CGSize(width: 960, height: 640)
+                        // No title over the glass: the tabs and pages say where you are.
+                        scene.titlebar?.titleVisibility = .hidden
+                        scene.titlebar?.toolbar = nil
+                    }
+                }
+                #endif
         }
     }
 }

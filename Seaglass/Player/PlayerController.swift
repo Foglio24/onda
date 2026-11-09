@@ -272,7 +272,7 @@ final class PlayerController: ObservableObject {
         try? session.setSupportsMultichannelContent(true)
         lastOutputs = Self.outputs(session.currentRoute)
         var usesNowPlayingFramework = false
-        #if canImport(NowPlaying)
+        #if canImport(NowPlaying) && !targetEnvironment(macCatalyst)
         if #available(iOS 27, *) {
             let system = SystemNowPlaying()
             system.model.handlers = SeaglassMediaSessionModel.Handlers(
@@ -2208,7 +2208,7 @@ final class PlayerController: ObservableObject {
 
     private func activateSession() {
         try? AVAudioSession.sharedInstance().setActive(true)
-        #if canImport(NowPlaying)
+        #if canImport(NowPlaying) && !targetEnvironment(macCatalyst)
         if #available(iOS 27, *), let system = systemNowPlayingBox as? SystemNowPlaying {
             system.claim()
         }
@@ -2521,7 +2521,7 @@ final class PlayerController: ObservableObject {
     }
 
     private func updateNowPlayingInfo() {
-        #if canImport(NowPlaying)
+        #if canImport(NowPlaying) && !targetEnvironment(macCatalyst)
         if #available(iOS 27, *), let system = systemNowPlayingBox as? SystemNowPlaying {
             let model = system.model
             guard let track = current else {
