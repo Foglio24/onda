@@ -179,21 +179,6 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             build
 
-      - name: Take recognition screenshots
-        if: ${{ !startsWith(github.ref, 'refs/tags/') && !inputs.release }}
-        continue-on-error: true
-        timeout-minutes: 3
-        run: bash Tools/Screenshots/run.sh build-sim/Build/Products/Debug-iphonesimulator/Seaglass.app screenshots-recognition recognition
-
-      - name: Upload recognition screenshots
-        if: ${{ !startsWith(github.ref, 'refs/tags/') && !inputs.release }}
-        continue-on-error: true
-        uses: actions/upload-artifact@v4
-        with:
-          name: Seaglass-recognition-screenshots
-          path: screenshots-recognition
-          retention-days: 14
-
       - name: Take screenshots
         if: ${{ !startsWith(github.ref, 'refs/tags/') && !inputs.release }}
         continue-on-error: true
@@ -207,6 +192,22 @@ jobs:
         with:
           name: Seaglass-screenshots
           path: screenshots
+          retention-days: 14
+
+      # After the iPhone screenshots, on the simulator they booted (booting it took the whole time).
+      - name: Take recognition screenshots
+        if: ${{ !startsWith(github.ref, 'refs/tags/') && !inputs.release }}
+        continue-on-error: true
+        timeout-minutes: 8
+        run: bash Tools/Screenshots/run.sh build-sim/Build/Products/Debug-iphonesimulator/Seaglass.app screenshots-recognition recognition
+
+      - name: Upload recognition screenshots
+        if: ${{ !startsWith(github.ref, 'refs/tags/') && !inputs.release }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: Seaglass-recognition-screenshots
+          path: screenshots-recognition
           retention-days: 14
 
       # The same app on a 13-inch iPad Pro (its player also laid out as in landscape).
