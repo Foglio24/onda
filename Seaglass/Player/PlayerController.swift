@@ -223,6 +223,12 @@ final class PlayerController: ObservableObject {
     private var deferredPreparation: (generation: UUID, track: Track)?
     private let startupMetrics = PlaybackStartupMetrics.shared
     private var lastTick: TimeInterval = 0
+    /**
+     What the lock screen was told: the song's position, when (system uptime), whether it plays, and
+     the speed it moves on from there by itself. iOS 27's NowPlaying moves it at normal speed (it
+     isn't told the tempo): `tick` sends the position again whenever what it shows strays.
+     */
+    private var reportedPosition: (elapsed: TimeInterval, at: TimeInterval, playing: Bool, rate: Double)?
     /// When the music paused because the headphones went away (see `handleRouteChange`).
     private var pausedForHeadphones: Date?
     /// Where the sound went at the last route change (for when iOS doesn't say where it was).
@@ -2302,6 +2308,13 @@ final class PlayerController: ObservableObject {
         let delta = seconds - lastTick
         lastTick = seconds
         progress.currentTime = seconds
+        // The lock screen's position, moved on by the system since it was sent: sent again when it
+        // strays from the song's (with the tempo changed, or after anything that moved the song).
+        if let reported = reportedPosition, player.timeControlStatus == .playing {
+            let shown = reported.elapsed
+                + (reported.playing ? (ProcessInfo.processInfo.systemUptime - reported.at) * reported.rate : 0)
+            if abs(shown - seconds) > 0.75 { updateNowPlayingInfo() }
+        }
         if abs(seconds - (resumePoint?.time ?? 0)) >= 5 || resumePoint?.track.id != current?.id {
             rememberPosition(seconds)
         }
@@ -2506,6 +2519,7 @@ final class PlayerController: ObservableObject {
             model.elapsed = progress.currentTime
             model.timestamp = .now
             model.artworkData = currentArtworkData
+            reportedPosition = (progress.currentTime, ProcessInfo.processInfo.systemUptime, model.isPlaying, 1)
             return
         }
         #endif
@@ -2532,6 +2546,8 @@ final class PlayerController: ObservableObject {
         if let album = track.album { info[MPMediaItemPropertyAlbumTitle] = album }
         if let nowPlayingArtwork { info[MPMediaItemPropertyArtwork] = nowPlayingArtwork }
         center.nowPlayingInfo = info
+        reportedPosition = (progress.currentTime, ProcessInfo.processInfo.systemUptime,
+                            player.timeControlStatus == .playing, rate)
     }
 
     /// Built outside the main actor: the system calls the handler on a background queue.

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.25.1 (2026-11-09)
+
+### Fixed
+- **The lock screen's time follows the song.** On iOS 27 the lock screen and the Dynamic Island move the song's position on by themselves at normal speed: with the tempo changed it ran ahead of the song, and after some moves (a new song, a jump) it could stay well off it. The app now checks it while the song plays and sends the position again as soon as it strays by more than three quarters of a second.
+
 ## 1.25.0 (2026-11-08)
 
 ### Added
