@@ -39,6 +39,8 @@ final class SeaglassMacBridge: NSObject, NSMenuDelegate {
         menu.delegate = self
         item.menu = menu
         statusItem = item
+        // For the CI's log (and Console): where the icon went.
+        print("SeaglassMacBridge: menu bar icon at \(item.button?.window?.frame ?? .zero), visible \(item.isVisible)")
     }
 
     /// `info`: "title" and "artist" (absent when nothing is loaded) and "playing" (a Bool).

@@ -108,7 +108,10 @@ else
   echo "::warning::No Seaglass icon in the menu bar"
 fi
 [ -x "$tools/window" ] && "$tools/window" list
-grep "MacBridge" "$logs/mac-1-home.log" || true
+grep -i "MacBridge" "$logs/mac-1-home.log" || true
+# The whole menu bar too (its height on this screen), where the icon should be on the right.
+screencapture -x -R"0,0,$(system_profiler SPDisplaysDataType 2>/dev/null | awk '/Resolution/ {print $2; exit}' || echo 1024),32" \
+  "$out/mac-0-menu-bar-whole.png" && echo "Saved the menu bar"
 shot mac-2-player 16 "player:K0HSD_i2DvA"
 shot mac-3-player-queue 16 "player:K0HSD_i2DvA" -SeaglassPanel queue
 shot mac-4-search 12 "search:daft punk"
