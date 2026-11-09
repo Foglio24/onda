@@ -1,0 +1,2 @@
+/* Microphone permission for song recognition. */
+"NSMicrophoneUsageDescription" = "Seaglass usa el micrófono solo cuando identificas una canción. A Shazam se envía una huella de audio, no la grabación.";

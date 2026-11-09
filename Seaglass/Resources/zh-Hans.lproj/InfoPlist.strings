@@ -1,0 +1,2 @@
+/* Microphone permission for song recognition. */
+"NSMicrophoneUsageDescription" = "Seaglass 仅在你识别歌曲时使用麦克风。发送至 Shazam 的是音频指纹，而非录音。";

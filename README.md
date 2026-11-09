@@ -48,6 +48,7 @@ An independent music player for iPhone, iPad, <strong>Mac</strong> and Android, 
 - **Synced lyrics** from LRCLIB, with automatic scrolling and tap-to-seek.
 - **Lyrics translation** using Apple's tools when the language is available on your device.
 - **AI karaoke** to adjust vocals and accompaniment. Processing takes place on your device and may take time.
+- **Song recognition** on iPhone, iPad and Mac: tap the button in Home or Search, grant microphone access and identify nearby music. An animated panel shows listening, then song details and actions for favorites, downloads and playlists. It uses a community Shazam endpoint without an API key; see [how recognition works](docs/music-recognition.md).
 - Controls on the Lock Screen, in Control Center and through AirPlay. The interface is in English, Italian, French, Spanish, German, Portuguese, Chinese (Simplified), Japanese, Russian, Turkish and Arabic, following your device's language.
 
 ## Screenshots

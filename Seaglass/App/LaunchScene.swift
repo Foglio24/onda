@@ -48,6 +48,30 @@ enum LaunchScene {
         scene != nil && UserDefaults.standard.string(forKey: "SeaglassOrientation") == "landscape"
     }
 
+    /// No recording or recognition request runs for these screenshot-only scenes.
+    static var opensRecognition: Bool {
+        scene == "recognition" || scene?.hasPrefix("recognition:") == true
+    }
+
+    static var recognitionPreview: MusicRecognizer.Phase? {
+        guard opensRecognition else { return nil }
+        if scene == "recognition:listening" { return .listening }
+        guard scene == "recognition:result", let track = previewTracks.first else { return .idle }
+        return .found(RecognizedSong(track: track, releaseDate: "2026-01-01", label: "Seaglass Records",
+                                     genre: "Electronic", composer: "Seaglass Demo", isrc: "ITAAA2600001",
+                                     songURL: nil, appleMusicURL: nil, spotifyURL: nil))
+    }
+
+    /// Original demo lyrics go through the real lyrics layout, independent of LRCLIB availability.
+    static var playerPreviewLyrics: [LyricLine]? {
+        guard scene == "player-demo" else { return nil }
+        return ["Under a neon sky", "We follow where the water glows", "Every wave becomes a rhythm",
+                "Every street will lead us home", "Let the city fade behind us", "Keep the night inside this song",
+                "With the tide we move together", "Let the morning come along"].enumerated().map {
+            LyricLine(id: $0.offset, time: Double($0.offset) * 22, text: $0.element)
+        }
+    }
+
     /// CI captures the Mac layout at two real window sizes, without Accessibility permissions.
     static var macWindowSize: CGSize? {
         guard scene != nil, let value = UserDefaults.standard.string(forKey: "SeaglassWindowSize") else { return nil }
@@ -108,6 +132,14 @@ enum LaunchScene {
                 PlayerController.shared.cue(tracks, source: "Radio")
                 router.openPlayer()
             }
+        case "player-demo":
+            PlayerController.shared.cue(previewTracks, source: "Seaglass Demo")
+            PlayerController.shared.progress.currentTime = 66
+            router.openPlayer()
+        case "sidebar-demo":
+            select(.home)
+            let playlist = Library.shared.createPlaylist(named: "Coastal Nights · Demo", tracks: previewTracks)
+            if let cover = previewCover(index: 4) { Library.shared.setCover(cover, for: playlist.id) }
         case "player-close" where ProcessInfo.processInfo.isMacCatalystApp:
             // Exercise the same native button used by a pointer click, without Accessibility
             // automation permissions or a network fixture on the Mac CI runner.
@@ -183,6 +215,40 @@ enum LaunchScene {
         default:
             select(.home)
         }
+    }
+
+    /// Generated locally and used only by explicitly requested demo scenes; no external media.
+    private static let previewTracks: [Track] = {
+        ["Neon Coast", "Moonlit Avenue", "Tide Pools", "Afterglow"].enumerated().map { index, title in
+            let id = "DemoMusic0\(index + 1)"
+            if let cover = previewCover(index: index) {
+                try? cover.write(to: Storage.artworkFile(for: id), options: .atomic)
+            }
+            return Track(videoId: id, title: title, artists: ["Seaglass Demo"], album: "Coastal Nights", duration: 204)
+        }
+    }()
+
+    private static func previewCover(index: Int) -> Data? {
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        let image = UIGraphicsImageRenderer(size: CGSize(width: 512, height: 512), format: format).image { renderer in
+            let context = renderer.cgContext
+            let first = UIColor(hue: (0.52 + CGFloat(index) * 0.09).truncatingRemainder(dividingBy: 1),
+                                saturation: 0.75, brightness: 0.8, alpha: 1)
+            let second = UIColor(hue: (0.85 + CGFloat(index) * 0.06).truncatingRemainder(dividingBy: 1),
+                                 saturation: 0.8, brightness: 0.55, alpha: 1)
+            if let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(),
+                                         colors: [first.cgColor, second.cgColor] as CFArray, locations: [0, 1]) {
+                context.drawLinearGradient(gradient, start: .zero, end: CGPoint(x: 512, y: 512), options: [])
+            }
+            context.setFillColor(UIColor.white.withAlphaComponent(0.14).cgColor)
+            context.fillEllipse(in: CGRect(x: 220, y: -80, width: 420, height: 420))
+            context.fillEllipse(in: CGRect(x: -160, y: 280, width: 480, height: 480))
+            UIImage(systemName: index == 4 ? "sparkles" : "waveform")?
+                .withTintColor(.white, renderingMode: .alwaysOriginal)
+                .draw(in: CGRect(x: 116, y: 116, width: 280, height: 280))
+        }
+        return image.jpegData(compressionQuality: 0.9)
     }
 
     /// A short song made to a click (kick, hi-hat, a chord per bar), quieter for its first

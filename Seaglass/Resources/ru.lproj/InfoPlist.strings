@@ -1,0 +1,2 @@
+/* Microphone permission for song recognition. */
+"NSMicrophoneUsageDescription" = "Seaglass использует микрофон только при распознавании песни. В Shazam отправляется аудиоотпечаток, а не запись.";

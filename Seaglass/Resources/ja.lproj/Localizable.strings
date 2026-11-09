@@ -662,4 +662,39 @@
 "Aggiornamento pronto" = "アップデートの準備完了";
 "Vuoi riavviare Seaglass per installare l'aggiornamento? La riproduzione verrà interrotta." = "アップデートをインストールするために Seaglass を再起動しますか？再生は中断されます。";
 
+/* Song recognition errors. */
+"Consenti l’accesso al microfono nelle impostazioni per riconoscere un brano." = "曲を認識するには、「設定」でマイクへのアクセスを許可してください。";
+"Il microfono non è disponibile. Controlla l’ingresso audio e riprova." = "マイクを使用できません。音声入力を確認して、もう一度お試しください。";
+"Impossibile registrare il campione audio. Riprova." = "音声サンプルを録音できません。もう一度お試しください。";
+"Il campione audio non è valido. Riprova ad ascoltare il brano." = "音声サンプルが無効です。もう一度曲を聴かせてください。";
+"Il servizio di riconoscimento ha restituito una risposta non valida." = "認識サービスから無効な応答が返されました。";
+"Il servizio di riconoscimento non è disponibile. Riprova più tardi." = "認識サービスを利用できません。しばらくしてからもう一度お試しください。";
+"Connessione non riuscita. Controlla la rete e riprova." = "接続に失敗しました。ネットワークを確認して、もう一度お試しください。";
+
+/* Song recognition. */
+"Riconosci un brano" = "曲を認識";
+"Ascolta e riconosci" = "聴いて認識";
+"Avvicina il dispositivo alla musica, poi tocca il pulsante." = "デバイスを音楽に近づけてから、ボタンをタップしてください。";
+"Autorizzazione microfono…" = "マイクへのアクセスを要求中…";
+"In ascolto…" = "聴き取り中…";
+"Tieni il dispositivo vicino alla musica." = "デバイスを音楽の近くに置いてください。";
+"Riconoscimento in corso…" = "認識中…";
+"Stiamo cercando il brano." = "曲を探しています。";
+"Brano riconosciuto" = "曲が見つかりました";
+"Riconosci un altro brano" = "別の曲を認識";
+"Nessun brano riconosciuto" = "曲が見つかりませんでした";
+"Prova ad avvicinarti alla musica e ripeti l'ascolto." = "音楽に近づいて、もう一度聴かせてください。";
+"Riconoscimento non riuscito" = "認識できませんでした";
+"Genere" = "ジャンル";
+"Apri il brano" = "曲を開く";
+"Apri in Apple Music" = "Apple Music で開く";
+"Apri impostazioni microfono" = "マイク設定を開く";
+"Interrompi" = "停止";
+
+/* Expanded player close action. */
 "Chiudi player" = "プレーヤーを閉じる";
+"Il microfono si attiva solo durante il riconoscimento. A Shazam viene inviata un’impronta audio, non la registrazione." = "マイクは曲を認識している間のみ有効になります。Shazam には録音ではなく、音声のフィンガープリントが送信されます。";
+"L’ascolto si interrompe automaticamente dopo pochi secondi." = "聴き取りは数秒後に自動で終了します。";
+"Shazam ha rifiutato la richiesta di riconoscimento." = "Shazam が認識リクエストを拒否しました。";
+"Troppe richieste di riconoscimento. Attendi un minuto e riprova." = "認識リクエストが多すぎます。1 分待ってからもう一度お試しください。";
+"Impossibile creare l’impronta audio. Riprova ad ascoltare il brano." = "音声のフィンガープリントを作成できません。もう一度曲を聴かせてください。";

@@ -38,11 +38,20 @@ Out of scope:
   - Spotify's and Apple Music's public pages (`open.spotify.com`, `music.apple.com` and their
     short links), when the user imports a playlist from a link;
   - the GitHub API, to check for updates.
+  - Shazam (`amp.shazam.com`), only when the user starts song recognition on iPhone, iPad or
+    Mac. Only a locally generated audio fingerprint is sent, not the recorded audio. Artwork
+    and optional catalog links in the response are accepted only over HTTPS.
 - **Last.fm credentials.** On iOS the Last.fm API secret and session key are kept in the
   Keychain; on a Mac, in the Mac's login keychain (the app is signed ad hoc, without the
   entitlements the iOS keychain needs there).
 - **Lyrics translation.** It runs on the device: Apple's Translation framework on iOS, ML Kit on
   Android.
+- **Song recognition.** The microphone is requested only after a tap on the recognition control.
+  A short recording stays in the app's private temporary folder and is deleted after generating
+  its fingerprint, on cancellation and on errors. Capturing stops on dismissal, backgrounding,
+  interruption or app termination. There is no continuous or background listening, account,
+  shared API credential or paid provider. The community Shazam endpoint is unofficial; refusals
+  and rate limits stop the request, without client rotation or automatic retries.
 
 ## Security review guidelines
 

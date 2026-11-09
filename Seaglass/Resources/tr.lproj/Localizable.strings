@@ -662,4 +662,39 @@
 "Aggiornamento pronto" = "Güncelleme hazır";
 "Vuoi riavviare Seaglass per installare l'aggiornamento? La riproduzione verrà interrotta." = "Güncellemeyi yüklemek için Seaglass yeniden başlatılsın mı? Çalma durdurulacak.";
 
+/* Song recognition errors. */
+"Consenti l’accesso al microfono nelle impostazioni per riconoscere un brano." = "Bir şarkıyı tanımlamak için ayarlardan mikrofon erişimine izin verin.";
+"Il microfono non è disponibile. Controlla l’ingresso audio e riprova." = "Mikrofon kullanılamıyor. Ses girişini kontrol edip tekrar deneyin.";
+"Impossibile registrare il campione audio. Riprova." = "Ses örneği kaydedilemedi. Tekrar deneyin.";
+"Il campione audio non è valido. Riprova ad ascoltare il brano." = "Ses örneği geçersiz. Şarkıyı tekrar dinlemeyi deneyin.";
+"Il servizio di riconoscimento ha restituito una risposta non valida." = "Tanıma hizmeti geçersiz bir yanıt döndürdü.";
+"Il servizio di riconoscimento non è disponibile. Riprova più tardi." = "Tanıma hizmeti kullanılamıyor. Daha sonra tekrar deneyin.";
+"Connessione non riuscita. Controlla la rete e riprova." = "Bağlantı kurulamadı. Ağı kontrol edip tekrar deneyin.";
+
+/* Song recognition. */
+"Riconosci un brano" = "Bir şarkıyı tanımla";
+"Ascolta e riconosci" = "Dinle ve tanımla";
+"Avvicina il dispositivo alla musica, poi tocca il pulsante." = "Cihazı müziğe yaklaştırın ve düğmeye dokunun.";
+"Autorizzazione microfono…" = "Mikrofon izni isteniyor…";
+"In ascolto…" = "Dinleniyor…";
+"Tieni il dispositivo vicino alla musica." = "Cihazı müziğe yakın tutun.";
+"Riconoscimento in corso…" = "Tanımlanıyor…";
+"Stiamo cercando il brano." = "Şarkıyı arıyoruz.";
+"Brano riconosciuto" = "Şarkı tanımlandı";
+"Riconosci un altro brano" = "Başka bir şarkı tanımla";
+"Nessun brano riconosciuto" = "Hiçbir şarkı tanımlanamadı";
+"Prova ad avvicinarti alla musica e ripeti l'ascolto." = "Müziğe yaklaşıp tekrar dinlemeyi deneyin.";
+"Riconoscimento non riuscito" = "Tanıma başarısız oldu";
+"Genere" = "Tür";
+"Apri il brano" = "Şarkıyı aç";
+"Apri in Apple Music" = "Apple Music’te aç";
+"Apri impostazioni microfono" = "Mikrofon ayarlarını aç";
+"Interrompi" = "Durdur";
+
+/* Expanded player close action. */
 "Chiudi player" = "Oynatıcıyı kapat";
+"Il microfono si attiva solo durante il riconoscimento. A Shazam viene inviata un’impronta audio, non la registrazione." = "Mikrofon yalnızca tanıma sırasında etkinleşir. Shazam’a kayıt değil, ses parmak izi gönderilir.";
+"L’ascolto si interrompe automaticamente dopo pochi secondi." = "Dinleme birkaç saniye sonra otomatik olarak sona erer.";
+"Shazam ha rifiutato la richiesta di riconoscimento." = "Shazam tanıma isteğini reddetti.";
+"Troppe richieste di riconoscimento. Attendi un minuto e riprova." = "Çok fazla tanıma isteği. Bir dakika bekleyip tekrar deneyin.";
+"Impossibile creare l’impronta audio. Riprova ad ascoltare il brano." = "Ses parmak izi oluşturulamadı. Şarkıyı tekrar dinlemeyi deneyin.";

@@ -88,12 +88,15 @@ screencapture -x -m "$out/mac-0-screen.png" && echo "Saved the screen"
 shot mac-2-player 16 "player:K0HSD_i2DvA"
 shot mac-3-player-queue 16 "player:K0HSD_i2DvA" -SeaglassPanel queue
 # The same player at both bounds: cover sizing and lyrics/queue type must follow the window.
-shot mac-7-player-small 16 "player:K0HSD_i2DvA" -SeaglassWindowSize 960x640
-shot mac-8-player-large 16 "player:K0HSD_i2DvA" -SeaglassWindowSize 1440x900
-shot mac-9-lyrics-small 16 "player:K0HSD_i2DvA" -SeaglassPanel lyrics -SeaglassWindowSize 960x640
-shot mac-10-lyrics-large 16 "player:K0HSD_i2DvA" -SeaglassPanel lyrics -SeaglassWindowSize 1440x900
-shot mac-11-queue-small 16 "player:K0HSD_i2DvA" -SeaglassPanel queue -SeaglassWindowSize 960x640
-shot mac-12-queue-large 16 "player:K0HSD_i2DvA" -SeaglassPanel queue -SeaglassWindowSize 1440x900
+shot mac-7-player-small 6 player-demo -SeaglassWindowSize 960x640
+shot mac-8-player-large 6 player-demo -SeaglassWindowSize 1440x900
+shot mac-9-lyrics-small 6 player-demo -SeaglassPanel lyrics -SeaglassWindowSize 960x640
+shot mac-10-lyrics-large 6 player-demo -SeaglassPanel lyrics -SeaglassWindowSize 1440x900
+shot mac-11-queue-small 6 player-demo -SeaglassPanel queue -SeaglassWindowSize 960x640
+shot mac-12-queue-large 6 player-demo -SeaglassPanel queue -SeaglassWindowSize 1440x900
+shot mac-13-sidebar 6 sidebar-demo
+shot mac-14-recognition-listening 4 recognition:listening
+shot mac-15-recognition-result 4 recognition:result
 shot mac-4-search 12 "search:daft punk"
 shot mac-5-settings 6 settings
 # The Home with songs listened to (a song's radio, see LaunchScene): recent covers and mixes.

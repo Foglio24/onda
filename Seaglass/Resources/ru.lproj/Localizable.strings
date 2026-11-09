@@ -662,4 +662,39 @@
 "Aggiornamento pronto" = "Обновление готово";
 "Vuoi riavviare Seaglass per installare l'aggiornamento? La riproduzione verrà interrotta." = "Перезапустить Seaglass для установки обновления? Воспроизведение будет прервано.";
 
+/* Song recognition errors. */
+"Consenti l’accesso al microfono nelle impostazioni per riconoscere un brano." = "Разрешите доступ к микрофону в настройках, чтобы распознать песню.";
+"Il microfono non è disponibile. Controlla l’ingresso audio e riprova." = "Микрофон недоступен. Проверьте аудиовход и повторите попытку.";
+"Impossibile registrare il campione audio. Riprova." = "Не удалось записать аудиофрагмент. Повторите попытку.";
+"Il campione audio non è valido. Riprova ad ascoltare il brano." = "Аудиофрагмент недействителен. Попробуйте прослушать песню ещё раз.";
+"Il servizio di riconoscimento ha restituito una risposta non valida." = "Сервис распознавания вернул некорректный ответ.";
+"Il servizio di riconoscimento non è disponibile. Riprova più tardi." = "Сервис распознавания недоступен. Повторите попытку позже.";
+"Connessione non riuscita. Controlla la rete e riprova." = "Не удалось подключиться. Проверьте сеть и повторите попытку.";
+
+/* Song recognition. */
+"Riconosci un brano" = "Распознать песню";
+"Ascolta e riconosci" = "Слушать и распознать";
+"Avvicina il dispositivo alla musica, poi tocca il pulsante." = "Поднесите устройство к источнику музыки и нажмите кнопку.";
+"Autorizzazione microfono…" = "Запрос доступа к микрофону…";
+"In ascolto…" = "Слушаем…";
+"Tieni il dispositivo vicino alla musica." = "Держите устройство рядом с источником музыки.";
+"Riconoscimento in corso…" = "Распознавание…";
+"Stiamo cercando il brano." = "Ищем песню.";
+"Brano riconosciuto" = "Песня распознана";
+"Riconosci un altro brano" = "Распознать другую песню";
+"Nessun brano riconosciuto" = "Песня не распознана";
+"Prova ad avvicinarti alla musica e ripeti l'ascolto." = "Попробуйте приблизиться к источнику музыки и повторить прослушивание.";
+"Riconoscimento non riuscito" = "Не удалось распознать песню";
+"Genere" = "Жанр";
+"Apri il brano" = "Открыть песню";
+"Apri in Apple Music" = "Открыть в Apple Music";
+"Apri impostazioni microfono" = "Открыть настройки микрофона";
+"Interrompi" = "Остановить";
+
+/* Expanded player close action. */
 "Chiudi player" = "Закрыть плеер";
+"Il microfono si attiva solo durante il riconoscimento. A Shazam viene inviata un’impronta audio, non la registrazione." = "Микрофон включается только во время распознавания. В Shazam отправляется аудиоотпечаток, а не запись.";
+"L’ascolto si interrompe automaticamente dopo pochi secondi." = "Прослушивание автоматически завершается через несколько секунд.";
+"Shazam ha rifiutato la richiesta di riconoscimento." = "Shazam отклонил запрос на распознавание.";
+"Troppe richieste di riconoscimento. Attendi un minuto e riprova." = "Слишком много запросов на распознавание. Подождите минуту и повторите попытку.";
+"Impossibile creare l’impronta audio. Riprova ad ascoltare il brano." = "Не удалось создать аудиоотпечаток. Попробуйте прослушать песню ещё раз.";

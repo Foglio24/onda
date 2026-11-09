@@ -2,6 +2,9 @@
 
 ## 1.29.0 (2026-11-09)
 
+### Added
+- **Recognize a song on iPhone, iPad and Mac.** The button in Home and Search opens an animated listening panel. With microphone permission, Seaglass records a short sample, computes an audio fingerprint on the device and looks it up through Shazam's community endpoint, without API keys or paid services. The result shows the cover and song metadata, with actions to play, favorite, download or add it to an existing playlist. Recording stops on cancellation, closing the panel, backgrounding or an interruption. This is an unofficial integration; service errors and rate limits stop the request without automatic retries.
+
 ### Changed
 - **Mac: a larger player that follows the window.** The cover and controls use the available space, and lyrics and queue text scale with the panel. The sidebar shows each playlist's artwork.
 - **Mac: Seaglass's own volume.** The sliders control only this app, including AutoMix, crossfades and karaoke, keep their level between launches, and work with HDMI and USB outputs too.
@@ -10,7 +13,7 @@
 ### Fixed
 - **Mac: the player closes reliably.** Its close button sits below the titlebar, away from the window controls, and dismisses the player even if Catalyst drops an animation completion.
 
-Nothing changes on iPhone and iPad.
+The player layout, volume and updater changes apply to Mac; song recognition is shared with iPhone and iPad.
 
 ## 1.28.1 (2026-11-09)
 

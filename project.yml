@@ -69,6 +69,7 @@ targets:
         UILaunchScreen: {}
         UIBackgroundModes:
           - audio
+        NSMicrophoneUsageDescription: "Seaglass usa il microfono solo quando riconosci un brano. A Shazam viene inviata un’impronta audio, non la registrazione."
         # Shows Documents in the Files app (Sul mio iPhone › Seaglass), where app updates are saved.
         UIFileSharingEnabled: true
         LSSupportsOpeningDocumentsInPlace: true

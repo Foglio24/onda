@@ -662,4 +662,39 @@
 "Aggiornamento pronto" = "更新已就绪";
 "Vuoi riavviare Seaglass per installare l'aggiornamento? La riproduzione verrà interrotta." = "要重新启动 Seaglass 以安装更新吗？播放将会中断。";
 
+/* Song recognition errors. */
+"Consenti l’accesso al microfono nelle impostazioni per riconoscere un brano." = "请在“设置”中允许访问麦克风，以识别歌曲。";
+"Il microfono non è disponibile. Controlla l’ingresso audio e riprova." = "麦克风不可用。请检查音频输入后重试。";
+"Impossibile registrare il campione audio. Riprova." = "无法录制音频样本。请重试。";
+"Il campione audio non è valido. Riprova ad ascoltare il brano." = "音频样本无效。请重新收听歌曲。";
+"Il servizio di riconoscimento ha restituito una risposta non valida." = "识别服务返回了无效响应。";
+"Il servizio di riconoscimento non è disponibile. Riprova più tardi." = "识别服务不可用。请稍后重试。";
+"Connessione non riuscita. Controlla la rete e riprova." = "连接失败。请检查网络后重试。";
+
+/* Song recognition. */
+"Riconosci un brano" = "识别歌曲";
+"Ascolta e riconosci" = "聆听并识别";
+"Avvicina il dispositivo alla musica, poi tocca il pulsante." = "将设备靠近音乐，然后轻点按钮。";
+"Autorizzazione microfono…" = "正在请求麦克风权限…";
+"In ascolto…" = "正在聆听…";
+"Tieni il dispositivo vicino alla musica." = "请将设备保持在音乐附近。";
+"Riconoscimento in corso…" = "正在识别…";
+"Stiamo cercando il brano." = "正在查找歌曲。";
+"Brano riconosciuto" = "已识别歌曲";
+"Riconosci un altro brano" = "识别另一首歌曲";
+"Nessun brano riconosciuto" = "未识别到歌曲";
+"Prova ad avvicinarti alla musica e ripeti l'ascolto." = "请尝试靠近音乐后重新聆听。";
+"Riconoscimento non riuscito" = "识别失败";
+"Genere" = "流派";
+"Apri il brano" = "打开歌曲";
+"Apri in Apple Music" = "在 Apple Music 中打开";
+"Apri impostazioni microfono" = "打开麦克风设置";
+"Interrompi" = "停止";
+
+/* Expanded player close action. */
 "Chiudi player" = "关闭播放器";
+"Il microfono si attiva solo durante il riconoscimento. A Shazam viene inviata un’impronta audio, non la registrazione." = "麦克风仅在识别歌曲时启用。发送至 Shazam 的是音频指纹，而非录音。";
+"L’ascolto si interrompe automaticamente dopo pochi secondi." = "聆听会在几秒钟后自动停止。";
+"Shazam ha rifiutato la richiesta di riconoscimento." = "Shazam 拒绝了识别请求。";
+"Troppe richieste di riconoscimento. Attendi un minuto e riprova." = "识别请求过多。请稍等一分钟后重试。";
+"Impossibile creare l’impronta audio. Riprova ad ascoltare il brano." = "无法创建音频指纹。请重新收听歌曲。";

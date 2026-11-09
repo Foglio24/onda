@@ -7,6 +7,14 @@ struct LyricsView: View {
     @Environment(\.playerTextScale) private var textScale
 
     var body: some View {
+        if let lines = LaunchScene.playerPreviewLyrics {
+            LyricsClock(lines: lines, textScale: textScale)
+        } else {
+            lyricsContent
+        }
+    }
+
+    @ViewBuilder private var lyricsContent: some View {
         switch player.lyrics {
         case .idle, .loading:
             ProgressView()

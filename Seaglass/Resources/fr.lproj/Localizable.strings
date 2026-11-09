@@ -662,4 +662,39 @@
 "Aggiornamento pronto" = "Mise à jour prête";
 "Vuoi riavviare Seaglass per installare l'aggiornamento? La riproduzione verrà interrotta." = "Voulez-vous redémarrer Seaglass pour installer la mise à jour ? La lecture sera interrompue.";
 
+/* Song recognition errors. */
+"Consenti l’accesso al microfono nelle impostazioni per riconoscere un brano." = "Autorisez l’accès au microphone dans les réglages pour reconnaître un morceau.";
+"Il microfono non è disponibile. Controlla l’ingresso audio e riprova." = "Le microphone n’est pas disponible. Vérifiez l’entrée audio et réessayez.";
+"Impossibile registrare il campione audio. Riprova." = "Impossible d’enregistrer l’extrait audio. Réessayez.";
+"Il campione audio non è valido. Riprova ad ascoltare il brano." = "L’extrait audio n’est pas valide. Réessayez d’écouter le morceau.";
+"Il servizio di riconoscimento ha restituito una risposta non valida." = "Le service de reconnaissance a renvoyé une réponse non valide.";
+"Il servizio di riconoscimento non è disponibile. Riprova più tardi." = "Le service de reconnaissance n’est pas disponible. Réessayez plus tard.";
+"Connessione non riuscita. Controlla la rete e riprova." = "La connexion a échoué. Vérifiez le réseau et réessayez.";
+
+/* Song recognition. */
+"Riconosci un brano" = "Reconnaître un morceau";
+"Ascolta e riconosci" = "Écouter et reconnaître";
+"Avvicina il dispositivo alla musica, poi tocca il pulsante." = "Approchez l’appareil de la musique, puis touchez le bouton.";
+"Autorizzazione microfono…" = "Autorisation du microphone…";
+"In ascolto…" = "Écoute en cours…";
+"Tieni il dispositivo vicino alla musica." = "Gardez l’appareil près de la musique.";
+"Riconoscimento in corso…" = "Reconnaissance en cours…";
+"Stiamo cercando il brano." = "Nous recherchons le morceau.";
+"Brano riconosciuto" = "Morceau reconnu";
+"Riconosci un altro brano" = "Reconnaître un autre morceau";
+"Nessun brano riconosciuto" = "Aucun morceau reconnu";
+"Prova ad avvicinarti alla musica e ripeti l'ascolto." = "Essayez de vous rapprocher de la musique et relancez l’écoute.";
+"Riconoscimento non riuscito" = "La reconnaissance a échoué";
+"Genere" = "Genre";
+"Apri il brano" = "Ouvrir le morceau";
+"Apri in Apple Music" = "Ouvrir dans Apple Music";
+"Apri impostazioni microfono" = "Ouvrir les réglages du microphone";
+"Interrompi" = "Arrêter";
+
+/* Expanded player close action. */
 "Chiudi player" = "Fermer le lecteur";
+"Il microfono si attiva solo durante il riconoscimento. A Shazam viene inviata un’impronta audio, non la registrazione." = "Le microphone est actif uniquement pendant la reconnaissance. Une empreinte audio est envoyée à Shazam, pas l’enregistrement.";
+"L’ascolto si interrompe automaticamente dopo pochi secondi." = "L’écoute s’arrête automatiquement au bout de quelques secondes.";
+"Shazam ha rifiutato la richiesta di riconoscimento." = "Shazam a refusé la demande de reconnaissance.";
+"Troppe richieste di riconoscimento. Attendi un minuto e riprova." = "Trop de demandes de reconnaissance. Attendez une minute et réessayez.";
+"Impossibile creare l’impronta audio. Riprova ad ascoltare il brano." = "Impossible de créer l’empreinte audio. Réessayez d’écouter le morceau.";

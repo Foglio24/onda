@@ -1,0 +1,2 @@
+/* Microphone permission for song recognition. */
+"NSMicrophoneUsageDescription" = "Seaglass mikrofonu yalnızca bir şarkıyı tanımladığınızda kullanır. Shazam’a kayıt değil, ses parmak izi gönderilir.";

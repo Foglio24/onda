@@ -33,6 +33,9 @@ struct SearchView: View {
             .background { AmbientBackground() }
             .overlay { overlay }
             .navigationTitle("Cerca")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) { RecognitionButton() }
+            }
             .navigationDestination(for: MusicPage.self) { MusicPageView(page: $0) }
             .searchable(text: $query, prompt: "Brani, playlist e artisti")
             .onSubmit(of: .search) { remember(query) }

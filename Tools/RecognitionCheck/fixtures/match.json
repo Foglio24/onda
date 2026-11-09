@@ -1,0 +1,18 @@
+{
+  "matches": [{"id": "fixture-recording", "offset": 8.5}],
+  "track": {
+    "key": "fixture-song", "type": "MUSIC", "title": "Test Song", "subtitle": "Test Artist",
+    "url": "https://www.shazam.com/track/123/test-song",
+    "images": {"coverart": "https://is1-ssl.mzstatic.com/image/cover.jpg", "coverarthq": "https://is1-ssl.mzstatic.com/image/large.jpg"},
+    "genres": {"primary": "Pop"}, "isrc": "USAAA2600001",
+    "sections": [
+      {"type": "RELATED", "metadata": [{"title": "Album", "text": "Must not be used"}]},
+      {"type": "SONG", "metadata": [{"title": "Album", "text": "Test Album"}, {"title": "Label", "text": "Test Label"}, {"title": "Released", "text": "2026"}]}
+    ],
+    "hub": {
+      "actions": [{"uri": "https://audio-ssl.itunes.apple.com/preview.m4a"}],
+      "options": [{"actions": [{"uri": "https://music.apple.com/gb/album/test/123?i=456"}]}],
+      "providers": [{"type": "SPOTIFY", "actions": [{"uri": "https://open.spotify.com/track/example"}]}]
+    }
+  }
+}

@@ -39,6 +39,15 @@ shot() {
   xcrun simctl io "$device" screenshot "$out/$name.png" >/dev/null && echo "Saved $name"
 }
 
+if [ "$kind" = "recognition" ] || [ "$kind" = "ipad" ]; then
+  shot recognition-1-listening en 4 recognition:listening
+  shot recognition-2-result en 4 recognition:result
+fi
+if [ "$kind" = "recognition" ]; then
+  xcrun simctl shutdown "$device" || true
+  exit 0
+fi
+
 if [ "$kind" = "ipad" ]; then
   shot ipad-1-home en 14 home
   shot ipad-2-search en 12 "search:daft punk"

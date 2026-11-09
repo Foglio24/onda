@@ -662,4 +662,39 @@
 "Aggiornamento pronto" = "التحديث جاهز";
 "Vuoi riavviare Seaglass per installare l'aggiornamento? La riproduzione verrà interrotta." = "هل تريد إعادة تشغيل Seaglass لتثبيت التحديث؟ سيتوقف التشغيل.";
 
+/* Song recognition errors. */
+"Consenti l’accesso al microfono nelle impostazioni per riconoscere un brano." = "اسمح بالوصول إلى الميكروفون في الإعدادات للتعرّف على أغنية.";
+"Il microfono non è disponibile. Controlla l’ingresso audio e riprova." = "الميكروفون غير متاح. تحقّق من إدخال الصوت وحاول مجددًا.";
+"Impossibile registrare il campione audio. Riprova." = "تعذّر تسجيل العينة الصوتية. حاول مجددًا.";
+"Il campione audio non è valido. Riprova ad ascoltare il brano." = "العينة الصوتية غير صالحة. حاول الاستماع إلى الأغنية مجددًا.";
+"Il servizio di riconoscimento ha restituito una risposta non valida." = "أعادت خدمة التعرّف استجابة غير صالحة.";
+"Il servizio di riconoscimento non è disponibile. Riprova più tardi." = "خدمة التعرّف غير متاحة. حاول لاحقًا.";
+"Connessione non riuscita. Controlla la rete e riprova." = "فشل الاتصال. تحقّق من الشبكة وحاول مجددًا.";
+
+/* Song recognition. */
+"Riconosci un brano" = "التعرّف على أغنية";
+"Ascolta e riconosci" = "الاستماع والتعرّف";
+"Avvicina il dispositivo alla musica, poi tocca il pulsante." = "قرّب الجهاز من الموسيقى، ثم اضغط على الزر.";
+"Autorizzazione microfono…" = "طلب إذن الميكروفون…";
+"In ascolto…" = "جارٍ الاستماع…";
+"Tieni il dispositivo vicino alla musica." = "أبقِ الجهاز قريبًا من الموسيقى.";
+"Riconoscimento in corso…" = "جارٍ التعرّف…";
+"Stiamo cercando il brano." = "نبحث عن الأغنية.";
+"Brano riconosciuto" = "تم التعرّف على الأغنية";
+"Riconosci un altro brano" = "التعرّف على أغنية أخرى";
+"Nessun brano riconosciuto" = "لم يتم التعرّف على أي أغنية";
+"Prova ad avvicinarti alla musica e ripeti l'ascolto." = "حاول الاقتراب من الموسيقى والاستماع مجددًا.";
+"Riconoscimento non riuscito" = "فشل التعرّف";
+"Genere" = "النوع";
+"Apri il brano" = "فتح الأغنية";
+"Apri in Apple Music" = "فتح في Apple Music";
+"Apri impostazioni microfono" = "فتح إعدادات الميكروفون";
+"Interrompi" = "إيقاف";
+
+/* Expanded player close action. */
 "Chiudi player" = "إغلاق المشغّل";
+"Il microfono si attiva solo durante il riconoscimento. A Shazam viene inviata un’impronta audio, non la registrazione." = "لا يُفعّل الميكروفون إلا أثناء التعرّف. تُرسل بصمة صوتية إلى Shazam، وليس التسجيل.";
+"L’ascolto si interrompe automaticamente dopo pochi secondi." = "ينتهي الاستماع تلقائيًا بعد بضع ثوانٍ.";
+"Shazam ha rifiutato la richiesta di riconoscimento." = "رفض Shazam طلب التعرّف.";
+"Troppe richieste di riconoscimento. Attendi un minuto e riprova." = "طلبات تعرّف كثيرة جدًا. انتظر دقيقة وحاول مجددًا.";
+"Impossibile creare l’impronta audio. Riprova ad ascoltare il brano." = "تعذّر إنشاء البصمة الصوتية. حاول الاستماع إلى الأغنية مجددًا.";

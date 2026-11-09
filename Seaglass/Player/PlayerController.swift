@@ -221,6 +221,19 @@ final class PlayerController: ObservableObject {
     /// The upcoming songs in their original order, to restore when shuffle is turned off.
     private var unshuffledUpcoming: [Track] = []
     private var playWhenReady = true
+    /// A microphone session temporarily owns the shared audio session. Its stop callback must
+    /// stop recording and restore the playback category synchronously before playback can resume.
+    private struct RecognitionAudioReservation {
+        let id: UUID
+        let stop: @MainActor () -> Void
+        let wasPlaying: Bool
+        let queueGeneration: UUID
+        let loadGeneration: UUID
+        let trackID: String?
+        let index: Int
+        var mayResume = true
+    }
+    private var recognitionAudio: RecognitionAudioReservation?
     private var failuresInARow = 0
     private var retriedCurrentItem = false
     /// Set once the current song has ended (or started fading out), so it is never finished twice.
@@ -311,6 +324,7 @@ final class PlayerController: ObservableObject {
     func play(_ tracks: [Track], startAt start: Int = 0, source: String, startRadio: Bool = false,
               shuffled: Bool? = nil, playlist: UUID? = nil) {
         guard tracks.indices.contains(start) else { return }
+        stopMusicRecognitionForPlayback()
         playlistContext = playlist
         requests.replaceQueue()
         advanceTask?.cancel()
@@ -483,6 +497,7 @@ final class PlayerController: ObservableObject {
     /// the screenshots (see `LaunchScene`), as YouTube doesn't hand audio to CI's machines.
     func cue(_ tracks: [Track], source: String) {
         guard let first = tracks.first else { return }
+        stopMusicRecognitionForPlayback()
         requests.replaceQueue()
         advanceTask?.cancel()
         playedInQueue = []
@@ -607,6 +622,7 @@ final class PlayerController: ObservableObject {
     }
 
     func pause() {
+        stopMusicRecognitionForPlayback()
         endCrossfade()
         playWhenReady = false
         stopPreparationWork()
@@ -618,9 +634,57 @@ final class PlayerController: ObservableObject {
         updateNowPlayingInfo()
     }
 
+    /// Gives an explicitly requested recognition recording exclusive use of the audio session.
+    /// The current song and position stay in place. In-flight startup and delayed automatic skips
+    /// are invalidated so they cannot start music over the microphone or change the saved song.
+    @discardableResult
+    func reserveAudioForMusicRecognition(onStop: @escaping @MainActor () -> Void) -> UUID {
+        stopMusicRecognitionForPlayback()
+        let wasPlaying = playWhenReady && current != nil && !isRestoredSession
+        pause()
+        pausedForHeadphones = nil
+        resetAutoMix()
+        loadTask?.cancel()
+        retryTask?.cancel()
+        advanceTask?.cancel()
+        _ = requests.beginLoad()
+        deferredPreparation = nil
+        isLoading = false
+        isPlaying = false
+        PreparedPlayback.shared.suspendForStartup(keeping: nil)
+        StemSeparator.releaseEngine()
+        let id = UUID()
+        recognitionAudio = RecognitionAudioReservation(id: id, stop: onStop, wasPlaying: wasPlaying,
+            queueGeneration: requests.queueGeneration, loadGeneration: requests.loadGeneration,
+            trackID: current?.id, index: index)
+        return id
+    }
+
+    /// The recording service restores the audio session before releasing this reservation. By
+    /// default music stays paused; optional resumption requires the exact saved playback intent.
+    func releaseAudioForMusicRecognition(_ id: UUID, resume: Bool = false) {
+        guard let reservation = recognitionAudio, reservation.id == id else { return }
+        recognitionAudio = nil
+        PreparedPlayback.shared.resumeAfterStartup()
+        guard resume, reservation.wasPlaying, reservation.mayResume,
+              requests.isCurrentQueue(reservation.queueGeneration),
+              requests.isCurrentLoad(reservation.loadGeneration),
+              current?.id == reservation.trackID, index == reservation.index else { return }
+        self.resume()
+    }
+
+    private func stopMusicRecognitionForPlayback() {
+        guard let reservation = recognitionAudio else { return }
+        // Clear ownership before the callback, which calls release as part of its cleanup too.
+        recognitionAudio = nil
+        reservation.stop()
+        PreparedPlayback.shared.resumeAfterStartup()
+    }
+
     /// The updater is about to quit the whole Mac app, including its menu-bar session. Persist
     /// playback before releasing every player and invalidate in-flight results before they return.
     func prepareForAppTermination() {
+        stopMusicRecognitionForPlayback()
         pause()
         saveQueueTask?.cancel()
         saveQueue()
@@ -653,9 +717,10 @@ final class PlayerController: ObservableObject {
 
     func resume() {
         guard current != nil else { return }
+        stopMusicRecognitionForPlayback()
         pausedForHeadphones = nil
         playWhenReady = true
-        if player.currentItem != nil {
+        if let item = player.currentItem, item.status != .failed {
             activateSession()
             player.play()
             // Prepared right here, so the first note doesn't start it again.
@@ -676,12 +741,14 @@ final class PlayerController: ObservableObject {
     }
 
     func next() {
+        stopMusicRecognitionForPlayback()
         // Counts as a skip for the recommendations if the song played less than 30 seconds.
         ListeningLog.shared.noteSkip()
         advance(reason: .skip)
     }
 
     func previous() {
+        stopMusicRecognitionForPlayback()
         if progress.currentTime > 3 || index == 0 {
             seek(to: 0)
         } else {
@@ -691,6 +758,7 @@ final class PlayerController: ObservableObject {
     }
 
     func seek(to seconds: TimeInterval) {
+        recognitionAudio?.mayResume = false
         if outgoingPlayer != nil { endCrossfade() }
         if let mix = mixItem, player.currentItem === mix.item, let track = current {
             // An AutoMix item holds the song only from the end of its mix: before that, the song's
@@ -893,6 +961,7 @@ final class PlayerController: ObservableObject {
     /// `reason` only sorts the startup timings shown in Settings → Diagnostica.
     private func loadCurrent(crossfading: Bool = false, reason: StartupReason = .selection,
                              adopting transition: ArmedTransition? = nil) {
+        guard recognitionAudio == nil else { return }
         if !crossfading { endCrossfade() }
         let generation = requests.beginLoad()
         startupMetrics.begin(generation, reason: crossfading ? .automatic : reason)
@@ -1446,7 +1515,7 @@ final class PlayerController: ObservableObject {
     }
 
     private func itemStatusChanged(_ status: AVPlayerItem.Status, item: AVPlayerItem, track: Track) {
-        guard item === player.currentItem else { return }
+        guard recognitionAudio == nil, item === player.currentItem else { return }
         switch status {
         case .readyToPlay:
             isLoading = false
@@ -1505,6 +1574,7 @@ final class PlayerController: ObservableObject {
     }
 
     private func advance(reason: StartupReason = .automatic) {
+        guard recognitionAudio == nil else { return }
         advanceTask?.cancel()
         if index + 1 < queue.count {
             index += 1
@@ -1530,7 +1600,7 @@ final class PlayerController: ObservableObject {
     }
 
     private func itemFinished() {
-        guard !finishedCurrent else { return }
+        guard recognitionAudio == nil, !finishedCurrent else { return }
         finishedCurrent = true
         if let track = current, track.isPodcastEpisode, let videoId = track.videoId {
             PodcastLibrary.shared.setFinished(true, videoId)
@@ -2262,7 +2332,11 @@ final class PlayerController: ObservableObject {
     // MARK: System integration
 
     private func activateSession() {
-        try? AVAudioSession.sharedInstance().setActive(true)
+        let session = AVAudioSession.sharedInstance()
+        // Recording normally restores this category itself. Reclaim it before playback too, so
+        // a failed restoration or audio-services reset cannot leave music on a recording route.
+        try? session.setCategory(.playback, mode: .default)
+        try? session.setActive(true)
         #if canImport(NowPlaying) && !targetEnvironment(macCatalyst)
         if #available(iOS 27, *), let system = systemNowPlayingBox as? SystemNowPlaying {
             system.claim()
@@ -2288,6 +2362,7 @@ final class PlayerController: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak newPlayer] status in
                 guard let newPlayer, newPlayer === self.player else { return }
+                guard self.recognitionAudio == nil else { return }
                 self.requestedSeek?.setPlaying(status == .playing, now: ProcessInfo.processInfo.systemUptime)
                 // While the next song loads during a crossfade, the previous one is still audible.
                 self.isPlaying = status != .paused || self.outgoingPlayer != nil
@@ -2458,6 +2533,10 @@ final class PlayerController: ObservableObject {
     /// the sound moving from somewhere else to the iPhone itself. A route still settling (no output
     /// yet) is looked at again a moment later. The last change is kept for Settings → Informazioni.
     private func handleRouteChange(_ note: Notification) {
+        guard recognitionAudio == nil else {
+            lastOutputs = Self.outputs(AVAudioSession.sharedInstance().currentRoute)
+            return
+        }
         let raw = note.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt
         let reason = raw.flatMap(AVAudioSession.RouteChangeReason.init(rawValue:))
         let previous = (note.userInfo?[AVAudioSessionRouteChangePreviousRouteKey] as? AVAudioSessionRouteDescription)
@@ -2520,6 +2599,7 @@ final class PlayerController: ObservableObject {
     }
 
     private func handleInterruption(_ note: Notification) {
+        guard recognitionAudio == nil else { return }
         guard let rawType = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
               let type = AVAudioSession.InterruptionType(rawValue: rawType) else { return }
         if type == .began {

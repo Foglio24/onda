@@ -70,6 +70,9 @@ struct HomeView: View {
                 if Self.isMac { Color(.systemBackground).ignoresSafeArea() } else { AmbientBackground() }
             }
             .navigationTitle(Self.isMac ? String(localized: "Home") : greeting)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) { RecognitionButton() }
+            }
             // Once a day, and as soon as there is a first song to go on.
             .task(id: "\(Recommendations.today)|\(library.history.isEmpty)") {
                 quickPicks = await Recommendations.quickPicks(refresh: false)

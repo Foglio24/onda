@@ -48,6 +48,9 @@ the lyrics translation; each language's model is downloaded from Google the firs
   Commons licence), downloaded by the "AutoMix on real songs" workflow to check AutoMix's voice
   detection against the timed lyrics and to render test transitions. Only the songs whose licence
   allows derivative works are mixed; the excerpts stay in that workflow's artifacts, with credits.
+- [ShazamIO](https://github.com/shazamio/ShazamIO/tree/3578d409e647843d94492bfdccb39dcdc7983222)
+  (MIT, copyright 2021 dotX12): one public fingerprint fixture for the offline native signature
+  compatibility check. Its [license](Tools/RecognitionCheck/LICENSE.ShazamIO.txt) is retained.
 
 ## Services Seaglass connects to
 Seaglass is not affiliated with, endorsed by or sponsored by any of these services. Their names and
@@ -59,4 +62,8 @@ to their respective rights holders.
 - **Last.fm**: scrobbling and listening data, through each user's own API key.
 - **Spotify** and **Apple Music**: public playlist pages, read only to import song titles.
 - **Apple Translation**: on-device lyrics translation.
+- **Shazam** (Apple): optional song recognition through an unofficial community endpoint.
+  Only a locally generated audio fingerprint is sent. The request format was checked against
+  [ShazamIO](https://github.com/shazamio/ShazamIO/tree/3578d409e647843d94492bfdccb39dcdc7983222)
+  (MIT); the app uses Apple's local ShazamKit signature generator and does not bundle ShazamIO.
 - **GitHub**: release information and downloads for the update check.
