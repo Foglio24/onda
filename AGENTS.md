@@ -10,6 +10,10 @@ Music (InnerTube) directly from the device. It comes in two apps:
 - **iPhone and iPad**: SwiftUI, iOS 26 or later. The Xcode project is generated from `project.yml`
   with XcodeGen. The sources are in `Seaglass/` (`App`, `Models`, `Player`, `Services`, `Views`,
   `Utilities`). It is distributed as an unsigned IPA for sideloading and through an AltStore source.
+  The same target also builds for Macs with Apple silicon (Mac Catalyst, iPad idiom, macOS 26 or
+  later): CI signs it ad hoc, without the sandbox, and publishes `Seaglass-mac.zip` beside the IPA.
+  Mac-only behaviour checks `ProcessInfo.processInfo.isMacCatalystApp` (so its text is compiled,
+  and checked, in the iOS build too) or `#if targetEnvironment(macCatalyst)`.
 - **Android**: Kotlin, Jetpack Compose and Media3, in `android/`, for Android 10 or later. It is
   distributed as APKs on GitHub Releases, tagged `android-vX.Y.Z`, not on Google Play.
 
@@ -48,7 +52,8 @@ Other folders:
     the runner.
   - `./gradlew assembleRelease` builds the APKs, one per ABI.
 - **iOS** (macOS with Xcode 27):
-  - `xcodegen generate`, then build the `Seaglass` scheme.
+  - `xcodegen generate`, then build the `Seaglass` scheme (for the Mac:
+    `-destination 'generic/platform=macOS,variant=Mac Catalyst'`).
   - The logic checks are `bash Tools/<Name>/run.sh`: PlaybackCheck, LibraryCheck,
     EqualizerCheck, AutoMixCheck and the others listed in `build.yml`.
   - `python3 Tools/check_localization.py` checks the translations against the strings the

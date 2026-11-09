@@ -123,6 +123,13 @@ The app can check GitHub for new releases and notify you or download the IPA to 
 2. Drag Seaglass to **Applications**.
 3. Open it. The first time, macOS says it can't verify the developer, because the app is signed on its own rather than with an Apple developer account: click **Done**, then go to **System Settings → Privacy & Security**, scroll down to Seaglass and click **Open Anyway**. (Or, in Terminal, `xattr -dr com.apple.quarantine /Applications/Seaglass.app`.)
 
+<table>
+  <tr>
+    <td align="center"><img src="docs/screenshots/mac/home.jpg" width="420" alt="Home on Mac"><br><sub>Home</sub></td>
+    <td align="center"><img src="docs/screenshots/mac/player.jpg" width="420" alt="Player and queue on Mac"><br><sub>Player and queue</sub></td>
+  </tr>
+</table>
+
 The keyboard's media keys and Now Playing in Control Center control the music; ⌘→ and ⌘← skip, and the space bar plays or pauses in the player. **Settings → Updates** finds new versions and opens their zip in the browser: replace the app in Applications with the new one, and your library stays.
 
 ## Android
