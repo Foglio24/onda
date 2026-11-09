@@ -259,10 +259,14 @@ final class MusicRecognizer: NSObject, ObservableObject, AVAudioRecorderDelegate
         })
         observers.append(center.addObserver(forName: AVAudioSession.routeChangeNotification, object: nil, queue: .main) { [weak self] note in
             MainActor.assumeIsolated {
+                // Only when the microphone has gone (unplugged, switched off). Switching to recording
+                // reconfigures an output in use: on a Mac, with a song just played, that change
+                // came while listening and stopped every recognition after the first.
                 guard let self, self.phase == .listening,
                       let raw = note.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt,
                       let reason = AVAudioSession.RouteChangeReason(rawValue: raw),
-                      reason != .categoryChange, reason != .override else { return }
+                      reason == .oldDeviceUnavailable || reason == .noSuitableRouteForCategory,
+                      !AVAudioSession.sharedInstance().isInputAvailable else { return }
                 self.stop()
             }
         })

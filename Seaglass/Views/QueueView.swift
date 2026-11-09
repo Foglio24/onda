@@ -49,6 +49,20 @@ struct QueueView: View {
             .listRowSeparator(.hidden)
             .listRowInsets(EdgeInsets(top: 10, leading: 4, bottom: 4, trailing: 0))
 
+            if player.upcoming.isEmpty {
+                // A row under the header: laid over the list, it covered the header and Shuffle in
+                // the iPhone's short panel.
+                ContentUnavailableView(
+                    "La coda è vuota", systemImage: "list.bullet",
+                    description: Text(player.autoRadio
+                        ? "Con la radio automatica arriveranno brani simili."
+                        : "Aggiungi brani dal menu ··· di ogni canzone."))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+            }
+
             ForEach(player.upcoming) { entry in
                 TrackRow(track: entry.track, queues: false, remove: {
                     if let offset = player.upcoming.firstIndex(where: { $0.id == entry.id }) {
@@ -70,15 +84,6 @@ struct QueueView: View {
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
         .scrollIndicators(.hidden)
-        .overlay {
-            if player.upcoming.isEmpty {
-                ContentUnavailableView(
-                    "La coda è vuota", systemImage: "list.bullet",
-                    description: Text(player.autoRadio
-                        ? "Con la radio automatica arriveranno brani simili."
-                        : "Aggiungi brani dal menu ··· di ogni canzone."))
-            }
-        }
     }
 
     private var textScale: CGFloat { min(playerTextScale, 1.4) }

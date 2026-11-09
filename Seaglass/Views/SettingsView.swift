@@ -134,6 +134,7 @@ private struct AudioSettingsView: View {
     @AppStorage(Preferences.opusFromStart) private var opusFromStart = true
     @AppStorage(Preferences.spatialAudio) private var spatialAudio = true
     @AppStorage(Preferences.normalizeVolume) private var normalizeVolume = true
+    @AppStorage(Preferences.playerVolumeBar) private var playerVolumeBar = true
 
     var body: some View {
         Form {
@@ -165,6 +166,12 @@ private struct AudioSettingsView: View {
                 }
                 Toggle(isOn: $normalizeVolume) {
                     Label("Volume uniforme", systemImage: "speaker.wave.2")
+                }
+                // A Mac's player always has its volume, in its corner and in the player bar.
+                if !ProcessInfo.processInfo.isMacCatalystApp {
+                    Toggle(isOn: $playerVolumeBar) {
+                        Label("Volume nel player", systemImage: "speaker.wave.3")
+                    }
                 }
                 NavigationLink { EqualizerView() } label: {
                     LabeledContent {

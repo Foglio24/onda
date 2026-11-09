@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.29.1 (2026-11-09)
+
+### Fixed
+- **A recognized song's radio.** Playing a song found by recognition now fills the queue with its radio of similar songs, as any song does. A song known only by its title and artist (recognized, or from Last.fm) had no radio until it was found on YouTube Music, so the queue stayed empty.
+- **The queue's layout when it's empty.** Its "The queue is empty" message sits below the header. In the iPhone's short panel it used to cover the header and the Shuffle button.
+- **Mac: recognizing a song more than once.** After the first time, especially with a song playing, recognition stopped as soon as it started: switching to the microphone changes the audio output, and that counted as losing the microphone. Now only the microphone really going away stops it.
+
+### Added
+- **Settings › Audio › Volume in the player** (iPhone and iPad) shows or hides the volume bar under the player's controls. A Mac's player always has its volume.
+
 ## 1.29.0 (2026-11-09)
 
 ### Added

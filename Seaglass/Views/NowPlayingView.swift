@@ -16,6 +16,7 @@ struct NowPlayingView: View {
     /// The card the player sits on (see `PlayerCard`): it follows drags and animates closing.
     @Environment(\.playerCard) private var card
     @AppStorage(Preferences.spatialAudio) private var spatialAudio = true
+    @AppStorage(Preferences.playerVolumeBar) private var playerVolumeBar = true
     @AppStorage(Preferences.accent) private var accent: AccentChoice = .pink
 
     private enum Panel { case artwork, lyrics, queue }
@@ -132,7 +133,7 @@ struct NowPlayingView: View {
             PlayerScrubber()
             badges
             controls
-            PlayerVolumeBar()
+            if playerVolumeBar { PlayerVolumeBar() }
             bottomBar
         }
     }
@@ -154,7 +155,7 @@ struct NowPlayingView: View {
                 PlayerScrubber()
                 badges
                 controls
-                PlayerVolumeBar()
+                if playerVolumeBar { PlayerVolumeBar() }
                 bottomBar
             }
             .frame(width: min(520, width * 0.42))

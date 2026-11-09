@@ -138,6 +138,8 @@ enum Preferences {
     static let cellularQuality = "audio.quality.cellular"
     static let downloadQuality = "audio.quality.download"
     static let spatialAudio = "audio.spatial"
+    /// The volume bar under the player's controls (iPhone and iPad; a Mac always has its own).
+    static let playerVolumeBar = "player.volumeBar"
     static let equalizerOn = "audio.equalizer.on"
     static let equalizerPreset = "audio.equalizer.preset"
     static let equalizerCustom = "audio.equalizer.custom"

@@ -348,12 +348,21 @@ final class PlayerController: ObservableObject {
         loadCurrent()
         if startRadio {
             let generation = requests.queueGeneration
-            Task {
-                guard self.requests.isCurrentQueue(generation) else { return }
-                await self.extendQueue()
+            if tracks[start].videoId == nil {
+                // A song known only by its title and artist (recognized, from Last.fm) has no
+                // radio to ask for until it's found on YouTube Music: it starts then (`loadCurrent`).
+                radioAwaitingSong = generation
+            } else {
+                Task {
+                    guard self.requests.isCurrentQueue(generation) else { return }
+                    await self.extendQueue()
+                }
             }
         }
     }
+
+    /// The queue whose radio waits for its first song to be found on YouTube Music.
+    private var radioAwaitingSong: UUID?
 
     /// Plays a song followed by YouTube Music's radio of similar songs.
     func playRadio(from track: Track) {
@@ -1036,6 +1045,19 @@ final class PlayerController: ObservableObject {
                 if playable != track {
                     self.queue[position] = playable
                     self.loadArtwork(for: playable)
+                }
+                // Found now: its radio, asked for or automatic, can start (it had no seed before).
+                if track.videoId == nil, playable.videoId != nil {
+                    if self.radioAwaitingSong == self.requests.queueGeneration {
+                        self.radioAwaitingSong = nil
+                        let queueGeneration = self.requests.queueGeneration
+                        Task {
+                            guard self.requests.isCurrentQueue(queueGeneration) else { return }
+                            await self.extendQueue()
+                        }
+                    } else {
+                        self.extendQueueIfNeeded()
+                    }
                 }
                 // A player prepared while the song was on screen or next in the queue already
                 // has audio buffered: play that one (not during a crossfade, which has its own).

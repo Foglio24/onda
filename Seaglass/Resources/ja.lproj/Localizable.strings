@@ -698,3 +698,4 @@
 "Shazam ha rifiutato la richiesta di riconoscimento." = "Shazam が認識リクエストを拒否しました。";
 "Troppe richieste di riconoscimento. Attendi un minuto e riprova." = "認識リクエストが多すぎます。1 分待ってからもう一度お試しください。";
 "Impossibile creare l’impronta audio. Riprova ad ascoltare il brano." = "音声のフィンガープリントを作成できません。もう一度曲を聴かせてください。";
+"Volume nel player" = "プレーヤーに音量を表示";
