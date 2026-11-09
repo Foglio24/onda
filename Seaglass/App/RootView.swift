@@ -38,20 +38,22 @@ struct RootView: View {
         // mini player, with the app still visible behind it.
         .fullScreenCover(isPresented: $router.showPlayer) {
             PlayerCard()
+                .appEnvironment()
                 .presentationBackground(.clear)
         }
         .sheet(item: router.addToPlaylistBinding(fromPlayer: false)) { track in
-            AddToPlaylistSheet(track: track)
+            AddToPlaylistSheet(track: track).appEnvironment()
         }
         .sheet(isPresented: $updater.showsNotice) {
-            UpdateSheet()
+            UpdateSheet().appEnvironment()
         }
         .sheet(item: router.pageBinding(fromPlayer: false)) { page in
-            MusicPageSheet(page: page)
+            MusicPageSheet(page: page).appEnvironment()
         }
         .sheet(item: $router.mixTarget) { target in
             PlaylistMixView(playlistID: target.playlistID, opensFirst: target.opensFirst, opensOptions: target.options,
                             opensEditing: target.editing)
+                .appEnvironment()
         }
         .trackToasts(.root)
         .task { LaunchScene.apply(select: { selection = $0 }) }

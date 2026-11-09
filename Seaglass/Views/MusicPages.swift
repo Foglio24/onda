@@ -19,7 +19,7 @@ struct MusicPageSheet: View {
         // On an iPad a page opens as a large sheet, not a small window in the middle.
         .pageSized(!isSongDetails)
         .sheet(item: router.addToPlaylistBinding(for: .page)) { track in
-            AddToPlaylistSheet(track: track)
+            AddToPlaylistSheet(track: track).appEnvironment()
         }
         .trackToasts(.page)
     }

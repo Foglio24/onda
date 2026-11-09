@@ -116,7 +116,7 @@ struct PlaylistDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { PlaylistUsage.noteOpened(playlistID) }
         .photosPicker(isPresented: $showPhotoPicker, selection: $photoItem, matching: .images)
-        .sheet(isPresented: $showMix) { PlaylistMixView(playlistID: playlistID) }
+        .sheet(isPresented: $showMix) { PlaylistMixView(playlistID: playlistID).appEnvironment() }
         .onChange(of: photoItem) { _, item in
             guard let item else { return }
             Task {

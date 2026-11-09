@@ -130,6 +130,7 @@ struct LibraryView: View {
                     PlaylistImportReviewView(playlistID: playlist.id)
                         .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Fine") { importResult = nil } } }
                 }
+                .appEnvironment()
             }
             .sheet(isPresented: $showFilePlaylists) {
                 NavigationStack {
@@ -149,6 +150,7 @@ struct LibraryView: View {
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Annulla") { showFilePlaylists = false } } }
                 }
+                .appEnvironment()
             }
         }
     }

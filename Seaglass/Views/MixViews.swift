@@ -334,12 +334,14 @@ struct TransitionEditorView: View {
                 options = nil
                 beginEditing(chosen)
             }
+            .appEnvironment()
             .presentationDetents([.medium, .large])
         }
         .sheet(isPresented: $showsBars) {
             if let analyses {
                 MixBarsSheet(choices: MixDesigner.barChoices(from: analyses.outgoing, to: analyses.incoming, design: design),
                              selected: plan.map(MixDesigner.bars(of:)) ?? 0) { bars in setBars(bars) }
+                    .appEnvironment()
             }
         }
     }

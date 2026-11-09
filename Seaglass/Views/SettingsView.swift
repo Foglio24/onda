@@ -34,7 +34,11 @@ struct SettingsView: View {
                         SettingsRow("Aspetto", symbol: "paintbrush.fill", tint: .blue, value: accent.title)
                     }
                     Button {
-                        if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
+                        // On a Mac an app's language is in System Settings › General › Language & Region.
+                        let settings = ProcessInfo.processInfo.isMacCatalystApp
+                            ? "x-apple.systempreferences:com.apple.Localization-Settings.extension"
+                            : UIApplication.openSettingsURLString
+                        if let url = URL(string: settings) { UIApplication.shared.open(url) }
                     } label: {
                         SettingsRow("Lingua", symbol: "globe", tint: .teal, value: Self.appLanguage)
                     }

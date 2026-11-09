@@ -36,10 +36,10 @@ struct NowPlayingView: View {
         .environment(\.colorScheme, .dark)
         .animation(.smooth(duration: 0.35), value: panel)
         .sheet(item: router.addToPlaylistBinding(fromPlayer: true)) { track in
-            AddToPlaylistSheet(track: track)
+            AddToPlaylistSheet(track: track).appEnvironment()
         }
         .sheet(item: router.pageBinding(fromPlayer: true)) { page in
-            MusicPageSheet(page: page)
+            MusicPageSheet(page: page).appEnvironment()
         }
         .sheet(isPresented: $showEqualizer) {
             NavigationStack {
@@ -50,6 +50,7 @@ struct NowPlayingView: View {
                         }
                     }
             }
+            .appEnvironment()
         }
         .sheet(isPresented: $showTempo) {
             NavigationStack {
@@ -60,6 +61,7 @@ struct NowPlayingView: View {
                         }
                     }
             }
+            .appEnvironment()
             .presentationDetents([.medium, .large])
         }
         .downloadErrorAlert(isActive: router.showPlayer)
