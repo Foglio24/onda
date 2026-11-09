@@ -25,6 +25,15 @@
       ],
       "versions": [
         {
+          "version": "1.29.0",
+          "buildVersion": "56",
+          "date": "2026-11-09T20:48:16Z",
+          "localizedDescription": "Added\n- Recognize a song on iPhone, iPad and Mac. The button in Home and Search opens an animated listening panel. With microphone permission, Seaglass records a short sample, computes an audio fingerprint on the device and looks it up through Shazam's community endpoint, without API keys or paid services. The result shows the cover and song metadata, with actions to play, favorite, download or add it to an existing playlist. Recording stops on cancellation, closing the panel, backgrounding or an interruption. This is an unofficial integration; service errors and rate limits stop the request without automatic retries.\n\nChanged\n- Mac: a larger player that follows the window. The cover and controls use the available space, and lyrics and queue text scale with the panel. The sidebar shows each playlist's artwork.\n- Mac: Seaglass's own volume. The sliders control only this app, including AutoMix, crossfades and karaoke, keep their level between launches, and work with HDMI and USB outputs too.\n- Mac: visible, cancellable update downloads. A progress bar shows the transfer, with an option to cancel. Seaglass checks and prepares the update automatically, then asks before restarting. Choosing later keeps it ready to install when the app quits. Restarting exits the whole app, including its menu bar and background playback.\n\nFixed\n- Mac: the player closes reliably. Its close button sits below the titlebar, away from the window controls, and dismisses the player even if Catalyst drops an animation completion.\n\nThe player layout, volume and updater changes apply to Mac; song recognition is shared with iPhone and iPad.",
+          "downloadURL": "https://github.com/Foglio24/onda/releases/download/v1.29.0/Seaglass.ipa",
+          "size": 36508039,
+          "minOSVersion": "26.0"
+        },
+        {
           "version": "1.28.1",
           "buildVersion": "55",
           "date": "2026-11-09T15:44:58Z",
@@ -171,12 +180,25 @@
       ],
       "appPermissions": {
         "entitlements": [],
-        "privacy": {}
+        "privacy": {
+          "NSMicrophoneUsageDescription": "Seaglass usa il microfono solo quando riconosci un brano. A Shazam viene inviata un’impronta audio, non la registrazione."
+        }
       },
       "category": "entertainment"
     }
   ],
   "news": [
+    {
+      "title": "Seaglass 1.29.0",
+      "identifier": "release-1.29.0",
+      "caption": "A new Seaglass update is available. Tap to see what's new.",
+      "date": "2026-11-09T20:48:16Z",
+      "tintColor": "#EC3F8E",
+      "imageURL": "https://raw.githubusercontent.com/Foglio24/onda/main/docs/images/seaglass-banner.jpg",
+      "notify": false,
+      "url": "https://github.com/Foglio24/onda/releases/tag/v1.29.0",
+      "appID": "com.onda.player"
+    },
     {
       "title": "Seaglass 1.28.1",
       "identifier": "release-1.28.1",
