@@ -25,6 +25,15 @@
       ],
       "versions": [
         {
+          "version": "1.26.0",
+          "buildVersion": "51",
+          "date": "2026-11-09T11:21:19Z",
+          "localizedDescription": "Added\n- Seaglass for Mac, for Macs with Apple silicon (M1 or later) and macOS 26 Tahoe or later: the same app as on the iPad, with its Liquid Glass design, in a window of its own, with every feature: AutoMix, the tempo fader and key lock, the AI karaoke, the equalizer, lyrics and their translation, downloads, podcasts, Last.fm, playlists and the library. The keyboard's media keys and Now Playing in Control Center control the music; ⌘→ and ⌘← skip, and the space bar plays or pauses in the player. Download Seaglass-mac.zip from the release, open it and drag Seaglass to Applications; the first time, allow it in System Settings › Privacy & Security (\"Open Anyway\"), since it isn't signed by an Apple developer account. On a Mac, updates download in the browser, and Last.fm is connected in the browser too.",
+          "downloadURL": "https://github.com/Foglio24/onda/releases/download/v1.26.0/Seaglass.ipa",
+          "size": 36025521,
+          "minOSVersion": "26.0"
+        },
+        {
           "version": "1.25.2",
           "buildVersion": "50",
           "date": "2026-11-09T09:57:29Z",
@@ -132,6 +141,17 @@
     }
   ],
   "news": [
+    {
+      "title": "Seaglass 1.26.0",
+      "identifier": "release-1.26.0",
+      "caption": "A new Seaglass update is available. Tap to see what's new.",
+      "date": "2026-11-09T11:21:19Z",
+      "tintColor": "#EC3F8E",
+      "imageURL": "https://raw.githubusercontent.com/Foglio24/onda/main/docs/images/seaglass-banner.jpg",
+      "notify": false,
+      "url": "https://github.com/Foglio24/onda/releases/tag/v1.26.0",
+      "appID": "com.onda.player"
+    },
     {
       "title": "Seaglass 1.25.2",
       "identifier": "release-1.25.2",
