@@ -4,7 +4,7 @@
 
 ### Changed
 - **Mac: laid out as Apple Music.**
-  - **Sidebar:** Search at the top, then the Home, the library (Library, Favorites, History, Downloads, Podcasts) and every one of your playlists, and Settings at the bottom.
+  - **Sidebar:** Search at the top with the Home and Settings, then the library (Library, Favorites, History, Downloads, Podcasts) and every one of your playlists.
   - **Player bar:** along the bottom of the window, as Apple Music's. It has shuffle, back, play, forward and repeat, the song with its progress (a click opens the player), the lyrics, the queue, AirPlay and the volume.
   - **Player:** the cover, the song and its controls are in the middle, with "Artist — Album", the favorite button and the ⋯ menu. The rest sits in glass at the corners: closing at the top left; AirPlay and the volume at the top right; karaoke, tempo, lyrics and queue at the bottom right. The lyrics and the queue open beside the player.
   - **Home:** on the window's own background.

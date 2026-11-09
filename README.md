@@ -117,7 +117,7 @@ The app can check GitHub for new releases and notify you or download the IPA to 
 
 ## Mac
 
-**Seaglass for Mac** is the same app as on the iPad, with the same Liquid Glass design and every feature (AutoMix, the tempo fader, the AI karaoke, the equaliser, lyrics and translation, downloads, podcasts, Last.fm), in a window of its own. It needs a Mac with **Apple silicon** (M1 or later) running **macOS 26 Tahoe** or later.
+**Seaglass for Mac** is laid out as Apple Music on the Mac: the sidebar with the library and your playlists, the player bar along the bottom, and the player with its controls in glass. It has the Liquid Glass design and every feature (AutoMix, the tempo fader, the AI karaoke, the equaliser, lyrics and translation, downloads, podcasts, Last.fm), in a window of its own. It needs a Mac with **Apple silicon** (M1 or later) running **macOS 26 Tahoe** or later.
 
 1. [Download Seaglass-mac.zip](https://github.com/Foglio24/onda/releases/latest/download/Seaglass-mac.zip) and open it: the zip becomes `Seaglass.app`.
 2. Drag Seaglass to **Applications**.
