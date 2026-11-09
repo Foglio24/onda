@@ -28,14 +28,49 @@ if let window = ours.max(by: { area($0) < area($1) }), let number = window[kCGWi
 SWIFT
 swiftc -O "$tools/window.swift" -o "$tools/window" || true
 
+logs=$(mktemp -d)
+
+# The newest crash report of Seaglass, if there is one: why it stopped and where.
+crash() {
+  sleep 3
+  local report
+  report=$(ls -t "$HOME"/Library/Logs/DiagnosticReports/Seaglass*.ips 2>/dev/null | head -1)
+  [ -n "$report" ] || { echo "No crash report"; return; }
+  echo "Crash report: $report"
+  python3 - "$report" <<'PY'
+import json, sys
+text = open(sys.argv[1]).read()
+header, _, body = text.partition("\n")
+report = json.loads(body)
+print("exception:", report.get("exception"))
+print("termination:", report.get("termination", {}).get("indicator"), report.get("termination", {}).get("reasons"))
+for key in ("asi", "lastExceptionBacktrace"):
+    if key in report:
+        print(key, json.dumps(report[key])[:1500])
+images = report.get("usedImages", [])
+thread = report["threads"][report.get("faultingThread", 0)]
+print("thread:", thread.get("name") or thread.get("queue"))
+for frame in thread.get("frames", [])[:40]:
+    image = images[frame["imageIndex"]].get("name", "?") if frame.get("imageIndex", -1) < len(images) else "?"
+    print(f'  {image:28} {frame.get("symbol", hex(frame.get("imageOffset", 0)))} +{frame.get("symbolLocation", 0)}', frame.get("sourceFile", ""), frame.get("sourceLine", ""))
+PY
+  rm -f "$report"
+}
+
 # shot <file name> <seconds to wait> <scene> [more launch arguments]
 shot() {
   local name="$1" wait="$2" scene="$3"
   shift 3
   pkill -x Seaglass 2>/dev/null
   sleep 1
-  "$binary" -AppleLanguages "(en)" -AppleInterfaceStyle Dark -SeaglassScene "$scene" "$@" >/dev/null 2>&1 &
+  "$binary" -AppleLanguages "(en)" -AppleInterfaceStyle Dark -SeaglassScene "$scene" "$@" >"$logs/$name.log" 2>&1 &
+  local pid=$!
   sleep "$wait"
+  if ! kill -0 "$pid" 2>/dev/null; then
+    echo "::warning::Seaglass quit at $name"
+    grep -i -E "fatal|error|exception|assert" "$logs/$name.log" | tail -20
+    crash
+  fi
   local window=""
   [ -x "$tools/window" ] && window=$("$tools/window")
   if [ -n "$window" ]; then
