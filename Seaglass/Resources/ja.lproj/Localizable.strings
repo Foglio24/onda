@@ -643,7 +643,15 @@
 "Accelera o rallenta i brani fino al %@, come il cursore del tempo di un'app da DJ. Resta così per tutti i brani finché non lo reimposti; i podcast hanno la loro velocità." = "DJ アプリのテンポフェーダーのように、曲を最大 %@ 速く、または遅くします。リセットするまですべての曲に適用されます。ポッドキャストは独自の再生速度のままです。";
 "La voce resta alla sua altezza a qualsiasi tempo. Disattivato, cambia con il tempo come su un giradischi: più veloce è più acuta, più lenta è più grave." = "どのテンポでも声の高さは変わりません。オフにすると、レコードプレーヤーのように音程もテンポと一緒に変わります（速いほど高く、遅いほど低く）。";
 "Con il tempo cambiato, AutoMix e la dissolvenza si fermano: i brani si susseguono senza mix." = "テンポを変えている間は AutoMix とクロスフェードが止まり、曲はミックスせずに続けて再生されます。";
-"Gli aggiornamenti si scaricano dal browser: apri lo zip e trascina Seaglass in Applicazioni, al posto di quella che hai." = "アップデートはブラウザでダウンロードされます。zip を開き、Seaglass を「アプリケーション」にドラッグして今のものと置き換えてください。";
 "Consenti l'accesso a Seaglass nella pagina di Last.fm aperta nel browser, poi torna qui e fai clic su OK." = "ブラウザで開いた Last.fm のページで Seaglass へのアクセスを許可してから、ここに戻って「OK」をクリックしてください。";
 "Pagina precedente" = "前のページ";
 "Pagina successiva" = "次のページ";
+"Installa in automatico" = "自動的にインストール";
+"Con «Installa in automatico» gli aggiornamenti si scaricano e si installano da soli: subito se non stai ascoltando, altrimenti quando chiudi Seaglass." = "「自動的にインストール」にすると、アップデートは自動でダウンロードされインストールされます。再生中でなければすぐに、再生中なら Seaglass を終了したときに行われます。";
+"Installa e riavvia" = "インストールして再起動";
+"Pronta: si installa quando chiudi Seaglass." = "準備完了：Seaglass を終了したときにインストールされます。";
+"Questo aggiornamento non è valido: non è stato installato." = "このアップデートは無効なため、インストールされませんでした。";
+"Sposta Seaglass nella cartella Applicazioni perché si aggiorni da sola." = "Seaglass が自動でアップデートできるよう、「アプリケーション」フォルダに移動してください。";
+"Pausa" = "一時停止";
+"Apri Seaglass" = "Seaglass を開く";
+"Esci da Seaglass" = "Seaglass を終了";

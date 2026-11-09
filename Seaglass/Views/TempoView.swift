@@ -80,6 +80,11 @@ struct TempoView: View {
                 Text(verbatim: (bpm * (1 + player.songTempo)).formatted(.number.precision(.fractionLength(1))))
                     .font(.system(size: 44, weight: .semibold).monospacedDigit())
                     .contentTransition(.numericText())
+            } else if player.measuringBPM == player.current?.id {
+                // The song's BPM on its way (its analysis).
+                ProgressView()
+                    .frame(height: 52)
+                    .accessibilityLabel(Text(verbatim: "BPM"))
             }
             Menu {
                 Picker("Intervallo", selection: Binding(get: { player.tempoLimit }, set: { player.setTempoLimit($0) })) {

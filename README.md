@@ -130,7 +130,9 @@ The app can check GitHub for new releases and notify you or download the IPA to 
   </tr>
 </table>
 
-Closing the window keeps the music playing, as with Apple Music: the Dock icon opens it again and ⌘Q quits. The keyboard's media keys and Now Playing in Control Center control the music; ⌘→ and ⌘← skip, and the space bar plays or pauses in the player. **Settings → Updates** finds new versions and opens their zip in the browser: replace the app in Applications with the new one, and your library stays.
+Closing the window keeps the music playing, as with Apple Music: Seaglass's note stays in the menu bar, with the song playing and its controls, and the Dock icon opens the window again; ⌘Q quits. The keyboard's media keys and Now Playing in Control Center control the music; ⌘→ and ⌘← skip, and the space bar plays or pauses in the player.
+
+**Updates install themselves** from 1.27.0 on: Seaglass downloads a new version, checks it (against GitHub's size and SHA-256, and its signature) and installs it right away if nothing is playing, otherwise when you quit; your library stays. Keep Seaglass in Applications for this. **Settings → Updates** can install a new version now, or only tell you about it.
 
 ## Android
 

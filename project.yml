@@ -14,8 +14,8 @@ settings:
   base:
     SWIFT_VERSION: "5.0"
     SWIFT_STRICT_CONCURRENCY: minimal
-    MARKETING_VERSION: "1.26.1"
-    CURRENT_PROJECT_VERSION: "52"
+    MARKETING_VERSION: "1.27.0"
+    CURRENT_PROJECT_VERSION: "53"
     # Lists the localizable strings of each Swift file, for Tools/check_localization.py.
     SWIFT_EMIT_LOC_STRINGS: YES
 
@@ -38,6 +38,13 @@ targets:
         optional: true
     dependencies:
       - package: YouTubeKit
+      # The Mac app's AppKit plug-in (menu bar icon, installing updates), in its PlugIns: Mac only.
+      - target: SeaglassMac
+        platformFilter: macOS
+        embed: true
+        codeSign: false
+        copy:
+          destination: plugins
     scheme: {}
     info:
       path: Support/Info.plist
@@ -100,3 +107,19 @@ targets:
         GENERATE_INFOPLIST_FILE: NO
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+
+  # What the Mac app needs from AppKit, which a Mac Catalyst app can't use itself: its icon in the
+  # menu bar and installing an update over itself. Loaded by Seaglass/Services/MacBridge.swift.
+  SeaglassMac:
+    type: bundle
+    platform: macOS
+    deploymentTarget: "26.0"
+    sources:
+      - path: Mac/Bridge
+    settings:
+      base:
+        PRODUCT_NAME: SeaglassMac
+        PRODUCT_BUNDLE_IDENTIFIER: com.onda.player.mac-bridge
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_NSPrincipalClass: SeaglassMacBridge
+        SKIP_INSTALL: YES

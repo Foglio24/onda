@@ -24,7 +24,8 @@ actor AutoMixLibrary {
     private var running: [String: Task<TrackAnalysis?, Never>] = [:]
 
     /// The analysis of a song's file, made now unless it was made before.
-    func analysis(of file: URL) async -> TrackAnalysis? {
+    /// `priority`: higher when someone waits for it (the tempo panel's BPM).
+    func analysis(of file: URL, priority: TaskPriority = .utility) async -> TrackAnalysis? {
         let key = file.deletingPathExtension().lastPathComponent
         if let known = recent[key] { return known }
         let saved = Self.directory.appending(path: "\(key).json")
@@ -35,7 +36,7 @@ actor AutoMixLibrary {
             return analysis
         }
         if let task = running[key] { return await task.value }
-        let task = Task.detached(priority: .utility) { () -> TrackAnalysis? in
+        let task = Task.detached(priority: priority) { () -> TrackAnalysis? in
             guard let samples = try? await AutoMixDecoder.samples(of: file) else { return nil }
             return TrackAnalyzer.analyze(samples, sampleRate: TrackAnalyzer.sampleRate)
         }

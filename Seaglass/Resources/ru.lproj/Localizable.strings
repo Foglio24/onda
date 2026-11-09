@@ -643,7 +643,15 @@
 "Accelera o rallenta i brani fino al %@, come il cursore del tempo di un'app da DJ. Resta così per tutti i brani finché non lo reimposti; i podcast hanno la loro velocità." = "Ускоряет или замедляет песни до %@, как фейдер темпа в DJ-приложении. Настройка действует для всех песен, пока вы её не сбросите; у подкастов своя скорость.";
 "La voce resta alla sua altezza a qualsiasi tempo. Disattivato, cambia con il tempo come su un giradischi: più veloce è più acuta, più lenta è più grave." = "Голос сохраняет высоту при любом темпе. Если выключить, высота меняется вместе с темпом, как на проигрывателе: быстрее — выше, медленнее — ниже.";
 "Con il tempo cambiato, AutoMix e la dissolvenza si fermano: i brani si susseguono senza mix." = "Пока темп изменён, AutoMix и плавный переход приостановлены: песни идут друг за другом без сведения.";
-"Gli aggiornamenti si scaricano dal browser: apri lo zip e trascina Seaglass in Applicazioni, al posto di quella che hai." = "Обновления загружаются в браузере: откройте zip и перетащите Seaglass в «Программы», заменив текущую версию.";
 "Consenti l'accesso a Seaglass nella pagina di Last.fm aperta nel browser, poi torna qui e fai clic su OK." = "Разрешите доступ Seaglass на странице Last.fm, открытой в браузере, затем вернитесь сюда и нажмите «ОК».";
 "Pagina precedente" = "Предыдущая страница";
 "Pagina successiva" = "Следующая страница";
+"Installa in automatico" = "Устанавливать автоматически";
+"Con «Installa in automatico» gli aggiornamenti si scaricano e si installano da soli: subito se non stai ascoltando, altrimenti quando chiudi Seaglass." = "С параметром «Устанавливать автоматически» обновления загружаются и устанавливаются сами: сразу, если ничего не играет, иначе при выходе из Seaglass.";
+"Installa e riavvia" = "Установить и перезапустить";
+"Pronta: si installa quando chiudi Seaglass." = "Готово: установится при выходе из Seaglass.";
+"Questo aggiornamento non è valido: non è stato installato." = "Это обновление недействительно и не было установлено.";
+"Sposta Seaglass nella cartella Applicazioni perché si aggiorni da sola." = "Переместите Seaglass в папку «Программы», чтобы она могла обновляться сама.";
+"Pausa" = "Пауза";
+"Apri Seaglass" = "Открыть Seaglass";
+"Esci da Seaglass" = "Завершить Seaglass";

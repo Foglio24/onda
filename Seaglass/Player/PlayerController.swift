@@ -129,6 +129,9 @@ final class PlayerController: ObservableObject {
     @Published private(set) var keyLock: Bool = PlaybackTempo.keyLock
     /// The playing song's own tempo in BPM, once measured (AutoMix's analysis), for the tempo fader.
     @Published private(set) var songBPM: (trackID: String, bpm: Double)?
+    /// The song whose tempo is being measured, for the tempo panel's spinner.
+    @Published private(set) var measuringBPM: String?
+    private var bpmTask: Task<Void, Never>?
 
     let progress = PlaybackProgress()
     let nowPlaying = NowPlayingState()
@@ -408,11 +411,19 @@ final class PlayerController: ObservableObject {
     /// The playing song's tempo, measured by AutoMix's analysis (made once per song), for the fader.
     func measureSongBPM() {
         guard let track = current, !track.isPodcastEpisode, let videoId = track.videoId,
-              songBPM?.trackID != track.id else { return }
-        Task {
-            guard let file = await self.analysisFile(for: track, videoId: videoId),
-                  let analysis = await AutoMixLibrary.shared.analysis(of: file.url),
-                  analysis.isGridLocked, self.current?.id == track.id else { return }
+              songBPM?.trackID != track.id, measuringBPM != track.id else { return }
+        bpmTask?.cancel()
+        measuringBPM = track.id
+        bpmTask = Task {
+            // The very file playing (the stream's own once it's all in), not a second download of the
+            // song, analysed ahead of other work: someone is waiting for the number.
+            let file = await self.outgoingFile(for: track, videoId: videoId, source: self.playingSource)
+            var analysis: TrackAnalysis?
+            if let file, !Task.isCancelled {
+                analysis = await AutoMixLibrary.shared.analysis(of: file, priority: .userInitiated)
+            }
+            if self.measuringBPM == track.id { self.measuringBPM = nil }
+            guard let analysis, analysis.isGridLocked, self.current?.id == track.id else { return }
             self.songBPM = (track.id, analysis.tempo)
         }
     }
@@ -1625,6 +1636,9 @@ final class PlayerController: ObservableObject {
     /// takes over from the playing song at the plan's handover. Until it is ready the song ends with
     /// a short plain crossfade.
     private func prepareAutoMix() {
+        // With the tempo changed AutoMix waits, but the tempo panel shows the song's BPM: each song's
+        // is measured as it starts, so it's there when the panel opens.
+        if songTempo != 0, playWhenReady { measureSongBPM() }
         guard mixesTransitions, karaokeMode == .off, playWhenReady, !involvesEpisode,
               let track = current, index + 1 < queue.count else {
             resetAutoMix()

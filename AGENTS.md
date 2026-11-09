@@ -13,7 +13,9 @@ Music (InnerTube) directly from the device. It comes in two apps:
   The same target also builds for Macs with Apple silicon (Mac Catalyst, iPad idiom, macOS 26 or
   later): CI signs it ad hoc, without the sandbox, sets `UIApplicationSupportsMultipleScenes` in
   its Info.plist (so it keeps playing with its window closed) and publishes `Seaglass-mac.zip`
-  beside the IPA.
+  beside the IPA. Its AppKit plug-in (`Mac/Bridge`, target `SeaglassMac`, embedded in the Mac
+  build only) puts it in the menu bar and installs updates; the app talks to it through
+  `Seaglass/Services/MacBridge.swift`.
   Mac-only behaviour checks `ProcessInfo.processInfo.isMacCatalystApp` (so its text is compiled,
   and checked, in the iOS build too) or `#if targetEnvironment(macCatalyst)`.
 - **Android**: Kotlin, Jetpack Compose and Media3, in `android/`, for Android 10 or later. It is

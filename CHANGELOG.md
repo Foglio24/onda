@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.27.0 (2026-11-09)
+
+### Added
+- **Mac: Seaglass in the menu bar.** Its note sits in the menu bar while the app is open, even with the window closed, so you can see it's still there. Its menu shows the song playing, with play or pause, next and previous, opening the window again, and quitting.
+- **Mac: automatic updates.** A new version downloads and installs by itself, with no zip to open and no "Open Anyway". It installs right away if nothing is playing, otherwise when you quit Seaglass, and Seaglass opens again on the new version. Settings › Updates can also install it now ("Install and relaunch"), or only tell you about it. Before installing, the download is checked against GitHub's (size and SHA-256), and the app inside must be Seaglass, at that version, with a valid signature. Seaglass must be in the Applications folder to update itself. This first time, 1.27.0 still has to be downloaded by hand.
+
+### Changed
+- **The tempo's BPM shows sooner.** With the tempo changed, each song's BPM is measured as it starts, so it's there when the tempo panel opens. It's measured from the file already playing, instead of downloading the song again, and ahead of other work. While it's measured, the panel shows a spinner.
+
 ## 1.26.1 (2026-11-09)
 
 ### Fixed

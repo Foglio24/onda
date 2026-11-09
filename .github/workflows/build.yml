@@ -262,6 +262,9 @@ jobs:
           app=build-mac/Build/Products/Release-maccatalyst/Seaglass.app
           find "$app/Contents" -depth \( -name "*.framework" -o -name "*.dylib" -o -name "*.appex" -o -name "*.xpc" \) \
             -exec codesign --force --sign - --timestamp=none {} \;
+          # The AppKit plug-in (menu bar, updates): there, and signed with the app.
+          test -x "$app/Contents/PlugIns/SeaglassMac.bundle/Contents/MacOS/SeaglassMac"
+          codesign --force --sign - --timestamp=none "$app/Contents/PlugIns/SeaglassMac.bundle"
           codesign --force --sign - --timestamp=none "$app"
           codesign --verify --deep --strict --verbose=2 "$app"
           codesign --display --entitlements - "$app"

@@ -52,7 +52,27 @@ struct UpdateSheet: View {
 
     private func actions(_ release: AppUpdater.Release) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            if let file = updater.downloadedFile {
+            if ProcessInfo.processInfo.isMacCatalystApp {
+                // A Mac installs it by itself: downloaded, checked, put in place and opened again.
+                if updater.macInstall == .downloading {
+                    HStack(spacing: 10) {
+                        ProgressView()
+                        Text("Download in corso…")
+                    }
+                    .font(.subheadline)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                } else {
+                    Button {
+                        Task { await updater.download() }
+                    } label: {
+                        Label("Installa e riavvia", systemImage: "arrow.triangle.2.circlepath")
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 4)
+                    }
+                    .buttonStyle(.glassProminent)
+                }
+            } else if let file = updater.downloadedFile {
                 Label("Scaricata in File › Sul mio iPhone › Seaglass › \(Storage.updatesFolderName)",
                       systemImage: "checkmark.circle.fill")
                     .font(.subheadline)
@@ -125,5 +145,35 @@ struct ReleaseNotesView: View {
     private static func inline(_ text: String) -> AttributedString {
         let options = AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace)
         return (try? AttributedString(markdown: text, options: options)) ?? AttributedString(text)
+    }
+}
+
+/// On a Mac: the update on its way, ready (it goes in when Seaglass quits, or now), or why it couldn't.
+struct MacInstallStatus: View {
+    @EnvironmentObject private var updater: AppUpdater
+
+    var body: some View {
+        switch updater.macInstall {
+        case .downloading:
+            HStack(spacing: 10) {
+                ProgressView()
+                Text("Download in corso…")
+            }
+        case .ready:
+            Button {
+                Task { await updater.download() }
+            } label: {
+                Label("Installa e riavvia", systemImage: "arrow.triangle.2.circlepath")
+            }
+            Text("Pronta: si installa quando chiudi Seaglass.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        case .failed(let message):
+            Text(message)
+                .font(.footnote)
+                .foregroundStyle(.orange)
+        case .none:
+            EmptyView()
+        }
     }
 }

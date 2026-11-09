@@ -643,7 +643,15 @@
 "Accelera o rallenta i brani fino al %@, come il cursore del tempo di un'app da DJ. Resta così per tutti i brani finché non lo reimposti; i podcast hanno la loro velocità." = "像 DJ 应用的速度推子一样，将歌曲加快或放慢最多 %@。设置会对所有歌曲生效，直到你重置；播客保持各自的播放速度。";
 "La voce resta alla sua altezza a qualsiasi tempo. Disattivato, cambia con il tempo come su un giradischi: più veloce è più acuta, più lenta è più grave." = "无论速度如何，人声都保持原有音高。关闭后，音高会随速度变化，就像唱机一样：越快越高，越慢越低。";
 "Con il tempo cambiato, AutoMix e la dissolvenza si fermano: i brani si susseguono senza mix." = "速度被调整后，AutoMix 和淡入淡出会暂停：歌曲之间不再混音衔接。";
-"Gli aggiornamenti si scaricano dal browser: apri lo zip e trascina Seaglass in Applicazioni, al posto di quella che hai." = "更新通过浏览器下载：打开 zip 文件，将 Seaglass 拖到“应用程序”中，替换现有的版本。";
 "Consenti l'accesso a Seaglass nella pagina di Last.fm aperta nel browser, poi torna qui e fai clic su OK." = "请在浏览器中打开的 Last.fm 页面上允许 Seaglass 访问，然后回到这里并点按“好”。";
 "Pagina precedente" = "上一页";
 "Pagina successiva" = "下一页";
+"Installa in automatico" = "自动安装";
+"Con «Installa in automatico» gli aggiornamenti si scaricano e si installano da soli: subito se non stai ascoltando, altrimenti quando chiudi Seaglass." = "选择“自动安装”后，更新会自行下载并安装：如果你没有在听歌则立即安装，否则在退出 Seaglass 时安装。";
+"Installa e riavvia" = "安装并重新打开";
+"Pronta: si installa quando chiudi Seaglass." = "已就绪：将在退出 Seaglass 时安装。";
+"Questo aggiornamento non è valido: non è stato installato." = "此更新无效，未安装。";
+"Sposta Seaglass nella cartella Applicazioni perché si aggiorni da sola." = "请将 Seaglass 移到“应用程序”文件夹，以便它自行更新。";
+"Pausa" = "暂停";
+"Apri Seaglass" = "打开 Seaglass";
+"Esci da Seaglass" = "退出 Seaglass";

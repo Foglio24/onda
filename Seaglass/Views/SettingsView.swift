@@ -517,18 +517,15 @@ private struct StorageSettingsView: View {
 
 private struct UpdatesSettingsView: View {
     @EnvironmentObject private var updater: AppUpdater
-    @AppStorage(Preferences.updateMode) private var updateMode: UpdateMode = .notify
+    @AppStorage(Preferences.updateMode) private var updateMode: UpdateMode = .standard
 
     var body: some View {
         Form {
             Section {
-                // On a Mac the browser downloads updates, so there's nothing to download on its own.
-                if !ProcessInfo.processInfo.isMacCatalystApp {
-                    Picker(selection: $updateMode) {
-                        ForEach(UpdateMode.allCases) { Text($0.title).tag($0) }
-                    } label: {
-                        Label("Nuove versioni", systemImage: "arrow.down.app")
-                    }
+                Picker(selection: $updateMode) {
+                    ForEach(UpdateMode.allCases) { Text($0.title).tag($0) }
+                } label: {
+                    Label("Nuove versioni", systemImage: "arrow.down.app")
                 }
                 Button {
                     Task { await updater.check(userInitiated: true) }
@@ -553,9 +550,10 @@ private struct UpdatesSettingsView: View {
                         .font(.footnote)
                         .foregroundStyle(.orange)
                 }
+                MacInstallStatus()
             } footer: {
                 if ProcessInfo.processInfo.isMacCatalystApp {
-                    Text("Gli aggiornamenti si scaricano dal browser: apri lo zip e trascina Seaglass in Applicazioni, al posto di quella che hai.")
+                    Text("Con «Installa in automatico» gli aggiornamenti si scaricano e si installano da soli: subito se non stai ascoltando, altrimenti quando chiudi Seaglass.")
                 } else {
                     Text("Gli aggiornamenti si installano con Sideloadly, AltStore o SideStore. Quelli scaricati sono nell'app File, in Seaglass › \(Storage.updatesFolderName).")
                 }

@@ -172,7 +172,7 @@ enum Preferences {
     static let updateMode = "updates.mode"
 
     static var updateModeSetting: UpdateMode {
-        UserDefaults.standard.string(forKey: updateMode).flatMap(UpdateMode.init(rawValue:)) ?? .notify
+        UserDefaults.standard.string(forKey: updateMode).flatMap(UpdateMode.init(rawValue:)) ?? .standard
     }
     static let lyricsTranslationTarget = "lyrics.translationTarget"
 

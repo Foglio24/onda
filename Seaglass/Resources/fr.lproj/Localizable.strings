@@ -643,7 +643,15 @@
 "Accelera o rallenta i brani fino al %@, come il cursore del tempo di un'app da DJ. Resta così per tutti i brani finché non lo reimposti; i podcast hanno la loro velocità." = "Accélère ou ralentit les morceaux jusqu'à %@, comme le curseur de tempo d'une app de DJ. Le réglage reste pour tous les morceaux jusqu'à ce que vous le réinitialisiez ; les podcasts gardent leur propre vitesse.";
 "La voce resta alla sua altezza a qualsiasi tempo. Disattivato, cambia con il tempo come su un giradischi: più veloce è più acuta, più lenta è più grave." = "Les voix gardent leur hauteur à n'importe quel tempo. Désactivé, la hauteur change avec le tempo, comme sur une platine : plus rapide, plus aigu ; plus lent, plus grave.";
 "Con il tempo cambiato, AutoMix e la dissolvenza si fermano: i brani si susseguono senza mix." = "Quand le tempo est modifié, AutoMix et le fondu enchaîné s'arrêtent : les morceaux s'enchaînent sans mix.";
-"Gli aggiornamenti si scaricano dal browser: apri lo zip e trascina Seaglass in Applicazioni, al posto di quella che hai." = "Les mises à jour se téléchargent dans le navigateur : ouvrez le zip et faites glisser Seaglass dans Applications, à la place de celle que vous avez.";
 "Consenti l'accesso a Seaglass nella pagina di Last.fm aperta nel browser, poi torna qui e fai clic su OK." = "Autorisez l’accès à Seaglass sur la page Last.fm ouverte dans le navigateur, puis revenez ici et cliquez sur OK.";
 "Pagina precedente" = "Page précédente";
 "Pagina successiva" = "Page suivante";
+"Installa in automatico" = "Installer automatiquement";
+"Con «Installa in automatico» gli aggiornamenti si scaricano e si installano da soli: subito se non stai ascoltando, altrimenti quando chiudi Seaglass." = "Avec « Installer automatiquement », les mises à jour se téléchargent et s’installent toutes seules : tout de suite si vous n’écoutez rien, sinon quand vous quittez Seaglass.";
+"Installa e riavvia" = "Installer et relancer";
+"Pronta: si installa quando chiudi Seaglass." = "Prête : elle s’installe quand vous quittez Seaglass.";
+"Questo aggiornamento non è valido: non è stato installato." = "Cette mise à jour n’est pas valide : elle n’a pas été installée.";
+"Sposta Seaglass nella cartella Applicazioni perché si aggiorni da sola." = "Placez Seaglass dans le dossier Applications pour qu’elle se mette à jour toute seule.";
+"Pausa" = "Pause";
+"Apri Seaglass" = "Ouvrir Seaglass";
+"Esci da Seaglass" = "Quitter Seaglass";

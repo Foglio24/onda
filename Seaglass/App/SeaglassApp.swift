@@ -29,6 +29,8 @@ struct SeaglassApp: App {
                 .task { await updater.check(userInitiated: false) }
                 #if targetEnvironment(macCatalyst)
                 .onAppear {
+                    // Seaglass in the menu bar: the song playing, its controls, and the window again.
+                    MacBridge.shared.startMenuBar()
                     for case let scene as UIWindowScene in UIApplication.shared.connectedScenes {
                         // On a Mac, a window no smaller than an iPad in landscape: the player's two columns fit.
                         scene.sizeRestrictions?.minimumSize = CGSize(width: 960, height: 640)
