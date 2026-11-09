@@ -9,3 +9,8 @@ https://github.com/shazamio/ShazamIO/blob/3578d409e647843d94492bfdccb39dcdc79832
 audio example at https://audd.tech/example.mp3, then sends exactly one request to the community
 Shazam endpoint. No AudD API, account, key or app impersonation is involved. This is not a supported
 Apple API; errors and rate limits stop the probe without retrying.
+
+The live fixture is a 5.304 s excerpt of **Everybody Wants To Rule The World**, by **Tears for Fears**,
+with SHA-256 `86544a7dfb3b8486ae648fbcf2a63a843d423d5f602e25b24fbf121f5b86f2b6`.
+The script checks that digest before sending its fingerprint; an extended-version catalog match
+is accepted if the title and artist still identify this recording.

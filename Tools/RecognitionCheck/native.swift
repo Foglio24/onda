@@ -28,7 +28,10 @@ import ShazamKit
                 exit(1)
             }
             print("NativeRecognitionCheck: matched \(result.title) — \(result.artist), \(payload.duration)s signature (\(payload.data.count) bytes)")
-            expect(result.title.localizedCaseInsensitiveContains("Warriors"), "known public fixture must match Warriors")
+            expect(result.title.localizedCaseInsensitiveContains("Everybody Wants To Rule The World"),
+                   "pinned public fixture must match Everybody Wants To Rule The World")
+            expect(result.artist.localizedCaseInsensitiveContains("Tears for Fears"),
+                   "pinned public fixture must identify Tears for Fears")
             return
         }
         let reference = try Data(contentsOf: URL(fileURLWithPath: "Tools/RecognitionCheck/reference.sig"))
