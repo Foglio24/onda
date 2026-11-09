@@ -25,10 +25,15 @@ final class MusicRecognizer: NSObject, ObservableObject, AVAudioRecorderDelegate
         },
         capture: { [weak self] check in
             guard let self else { throw CancellationError() }
-            self.playbackReservation = PlayerController.shared.reserveAudioForMusicRecognition { [weak self] in self?.stop() }
-            try self.configureRecordingSession()
+            let reservation = PlayerController.shared.reserveAudioForMusicRecognition { [weak self] in self?.stop() }
+            do { try check() } catch {
+                PlayerController.shared.releaseAudioForMusicRecognition(reservation)
+                throw error
+            }
+            self.playbackReservation = reservation
+            try self.configureRecordingSession(check: check)
             try check()
-            return try await self.recordSample()
+            return try await self.recordSample(check: check)
         },
         prepare: { sample in try await RecognitionSignature.make(from: sample) },
         match: { signature in
@@ -117,21 +122,28 @@ final class MusicRecognizer: NSObject, ObservableObject, AVAudioRecorderDelegate
         throw CancellationError()
     }
 
-    private func configureRecordingSession() throws {
+    private func configureRecordingSession(check: () throws -> Void) throws {
         let session = AVAudioSession.sharedInstance()
         previousSession = (session.category, session.mode, session.categoryOptions)
         do {
+            try check()
             try session.setActive(false, options: .notifyOthersOnDeactivation)
+            try check()
             try session.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker])
+            try check()
             try session.setActive(true)
+            try check()
             guard session.isInputAvailable else { throw RecordingError.microphoneUnavailable }
+        } catch is CancellationError {
+            throw CancellationError()
         } catch {
             throw RecordingError.microphoneUnavailable
         }
     }
 
-    private func recordSample() async throws -> URL {
+    private func recordSample(check: () throws -> Void) async throws -> URL {
         do {
+            try check()
             try FileManager.default.createDirectory(at: Self.recordingFolder, withIntermediateDirectories: true)
             let file = Self.recordingFolder.appending(path: "\(UUID().uuidString).m4a")
             sampleFile = file
@@ -148,8 +160,16 @@ final class MusicRecognizer: NSObject, ObservableObject, AVAudioRecorderDelegate
             return try await withCheckedThrowingContinuation { completion in
                 recordingCompletion = completion
                 // A bounded sample leaves room for AAC frame padding beneath the signature's 12 s window.
-                guard recorder.prepareToRecord(), recorder.record(forDuration: 10) else {
-                    finishRecording(error: RecordingError.recordingFailed)
+                do {
+                    try check()
+                    guard recorder.prepareToRecord() else { throw RecordingError.recordingFailed }
+                    try check()
+                    guard recorder.record(forDuration: 10) else { throw RecordingError.recordingFailed }
+                    try check()
+                } catch {
+                    // A synchronous audio notification may already have cleared self.recorder.
+                    recorder.stop()
+                    finishRecording(error: error)
                     return
                 }
                 recordingTimeout = Task { [weak self, weak recorder] in

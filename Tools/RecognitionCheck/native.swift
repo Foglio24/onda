@@ -44,7 +44,10 @@ import ShazamKit
               let channel = buffer.floatChannelData?[0] else { throw RecognitionSignature.Failure.invalidAudio }
         buffer.frameLength = buffer.frameCapacity
         for index in 0..<Int(buffer.frameLength) {
-            channel[index] = Float(0.15 * sin(Double(index) * 2 * .pi * 440 / 44_100))
+            let time = Double(index) / 44_100
+            channel[index] = Float(0.12 * sin(2 * .pi * (220 * time + 61 * time * time))
+                + 0.09 * sin(2 * .pi * (1100 * time + 137 * time * time))
+                + 0.07 * sin(2 * .pi * (2600 * time + 31 * time * time)))
         }
         do {
             let audio = try AVAudioFile(forWriting: file, settings: format.settings)
