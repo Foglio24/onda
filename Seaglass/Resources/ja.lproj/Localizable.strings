@@ -647,7 +647,7 @@
 "Pagina precedente" = "前のページ";
 "Pagina successiva" = "次のページ";
 "Installa in automatico" = "自動的にインストール";
-"Con «Installa in automatico» gli aggiornamenti si scaricano e si installano da soli: subito se non stai ascoltando, altrimenti quando chiudi Seaglass." = "「自動的にインストール」にすると、アップデートは自動でダウンロードされインストールされます。再生中でなければすぐに、再生中なら Seaglass を終了したときに行われます。";
+"Con «Installa in automatico» gli aggiornamenti si scaricano e si preparano da soli. Seaglass ti chiede prima di riavviarsi, oppure li installa quando esci dall'app." = "「自動的にインストール」にすると、アップデートは自動でダウンロードされ、準備されます。Seaglass は再起動する前に確認するか、アプリを終了したときにインストールします。";
 "Installa e riavvia" = "インストールして再起動";
 "Pronta: si installa quando chiudi Seaglass." = "準備完了：Seaglass を終了したときにインストールされます。";
 "Questo aggiornamento non è valido: non è stato installato." = "このアップデートは無効なため、インストールされませんでした。";
@@ -655,3 +655,9 @@
 "Pausa" = "一時停止";
 "Apri Seaglass" = "Seaglass を開く";
 "Esci da Seaglass" = "Seaglass を終了";
+
+/* Mac update download and restart. */
+"Verifica dell'aggiornamento…" = "アップデートを検証中…";
+"Download annullato." = "ダウンロードがキャンセルされました。";
+"Aggiornamento pronto" = "アップデートの準備完了";
+"Vuoi riavviare Seaglass per installare l'aggiornamento? La riproduzione verrà interrotta." = "アップデートをインストールするために Seaglass を再起動しますか？再生は中断されます。";

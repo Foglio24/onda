@@ -41,9 +41,6 @@ struct RootView: View {
         .sheet(item: router.addToPlaylistBinding(fromPlayer: false)) { track in
             AddToPlaylistSheet(track: track).appEnvironment()
         }
-        .sheet(isPresented: $updater.showsNotice) {
-            UpdateSheet().appEnvironment()
-        }
         .sheet(item: router.pageBinding(fromPlayer: false)) { page in
             MusicPageSheet(page: page).appEnvironment()
         }
@@ -63,6 +60,7 @@ struct RootView: View {
         // Outermost, so the player and sheets presented above inherit it too.
         .tint(accent.color)
         .downloadErrorAlert(isActive: !router.showPlayer)
+        .appUpdatePresentation(isActive: !router.showPlayer)
     }
 }
 
@@ -104,44 +102,44 @@ extension RootView {
     /// On a Mac, Apple Music's sidebar (search first, the Home, the library, the playlists) and its
     /// player bar along the bottom.
     private var macTabs: some View {
-        TabView(selection: $macSelection) {
-            Tab(value: MacSection.search, role: .search) {
-                SearchView()
-            }
-            Tab("Home", systemImage: "house", value: MacSection.home) {
-                HomeView()
-            }
-            TabSection("Libreria") {
-                Tab("Libreria", systemImage: "square.stack", value: MacSection.library) {
-                    LibraryView()
+        NavigationSplitView {
+            List(selection: Binding<MacSection?>(
+                get: { macSelection },
+                set: { if let selection = $0 { macSelection = selection } }
+            )) {
+                macSidebarItem("Cerca", symbol: "magnifyingglass", section: .search)
+                macSidebarItem("Home", symbol: "house", section: .home)
+                Section("Libreria") {
+                    macSidebarItem("Libreria", symbol: "square.stack", section: .library)
+                    macSidebarItem("Preferiti", symbol: "heart", section: .liked)
+                    macSidebarItem("Cronologia", symbol: "clock", section: .history)
+                    macSidebarItem("Download", symbol: "arrow.down.circle", section: .downloads)
+                    macSidebarItem("Podcast", symbol: "mic", section: .podcasts)
                 }
-                Tab("Preferiti", systemImage: "heart", value: MacSection.liked) {
-                    NavigationStack { TrackCollectionView(collection: .liked) }
-                }
-                Tab("Cronologia", systemImage: "clock", value: MacSection.history) {
-                    NavigationStack { TrackCollectionView(collection: .history) }
-                }
-                Tab("Download", systemImage: "arrow.down.circle", value: MacSection.downloads) {
-                    NavigationStack { DownloadsView() }
-                }
-                Tab("Podcast", systemImage: "mic", value: MacSection.podcasts) {
-                    NavigationStack { PodcastsView() }
-                }
-            }
-            TabSection("Playlist") {
-                ForEach(library.playlists) { playlist in
-                    Tab(playlist.name, systemImage: "music.note.list", value: MacSection.playlist(playlist.id)) {
-                        NavigationStack { PlaylistDetailView(playlistID: playlist.id) }
+                Section("Playlist") {
+                    ForEach(library.playlists) { playlist in
+                        NavigationLink(value: MacSection.playlist(playlist.id)) {
+                            HStack(spacing: 10) {
+                                PlaylistArtwork(playlist: playlist, size: 28, cornerRadius: 5)
+                                    .accessibilityHidden(true)
+                                Text(playlist.name).lineLimit(1)
+                            }
+                            .padding(.vertical, 2)
+                        }
                     }
                 }
+                macSidebarItem("Impostazioni", symbol: "gearshape", section: .settings)
             }
-            Tab("Impostazioni", systemImage: "gearshape", value: MacSection.settings) {
-                SettingsView()
-            }
+            .listStyle(.sidebar)
+            .navigationSplitViewColumnWidth(min: 200, ideal: 240, max: 320)
+        } detail: {
+            macDetail
+                .id(macSelection)
         }
-        .tabViewStyle(.sidebarAdaptable)
-        .tabViewBottomAccessory {
+        .navigationSplitViewStyle(.balanced)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
             MacPlayerBar()
+                .background(.bar)
                 .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
                     router.miniPlayerFrame = frame
                 }
@@ -151,6 +149,25 @@ extension RootView {
             if case .playlist(let id) = macSelection, !ids.contains(id) { macSelection = .home }
         }
     }
+
+    private func macSidebarItem(_ title: LocalizedStringKey, symbol: String, section: MacSection) -> some View {
+        NavigationLink(value: section) { Label(title, systemImage: symbol) }
+    }
+
+    @ViewBuilder private var macDetail: some View {
+        switch macSelection {
+        case .search: SearchView()
+        case .home: HomeView()
+        case .library: LibraryView()
+        case .liked: NavigationStack { TrackCollectionView(collection: .liked) }
+        case .history: NavigationStack { TrackCollectionView(collection: .history) }
+        case .downloads: NavigationStack { DownloadsView() }
+        case .podcasts: NavigationStack { PodcastsView() }
+        case .playlist(let id): NavigationStack { PlaylistDetailView(playlistID: id) }
+        case .settings: SettingsView()
+        }
+    }
+
 }
 
 /// Attach to each top-level presenter so failures are visible with the player open too.

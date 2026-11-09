@@ -4,6 +4,7 @@ import Translation
 
 struct LyricsView: View {
     @EnvironmentObject private var player: PlayerController
+    @Environment(\.playerTextScale) private var textScale
 
     var body: some View {
         switch player.lyrics {
@@ -12,11 +13,11 @@ struct LyricsView: View {
                 .tint(.white)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         case .synced(let lines):
-            LyricsClock(lines: lines)
+            LyricsClock(lines: lines, textScale: textScale)
         case .plain(let text):
             ScrollView {
                 Text(text)
-                    .font(.title3.weight(.semibold))
+                    .font(textScale == 1 ? .title3.weight(.semibold) : .system(size: 20 * textScale, weight: .semibold))
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.vertical, 32)
             }
@@ -43,12 +44,13 @@ struct LyricsView: View {
 /// which redraws only when the line changes.
 private struct LyricsClock: View {
     let lines: [LyricLine]
+    let textScale: CGFloat
     @EnvironmentObject private var progress: PlaybackProgress
 
     var body: some View {
         // Lines are sorted by time and their ids are their positions.
         let currentID = lines.last(where: { $0.time <= progress.currentTime + 0.25 })?.id
-        SyncedLyrics(lines: lines, currentID: currentID)
+        SyncedLyrics(lines: lines, currentID: currentID, textScale: textScale)
             .equatable()
     }
 }
@@ -59,6 +61,7 @@ private struct LyricsClock: View {
 private struct SyncedLyrics: View, Equatable {
     let lines: [LyricLine]
     let currentID: Int?
+    let textScale: CGFloat
     @EnvironmentObject private var translator: LyricsTranslator
     @AppStorage(Preferences.lyricsStyle) private var style: LyricsStyle = .focus
     @AppStorage(Preferences.lyricsSize) private var size: LyricsSize = .medium
@@ -98,7 +101,7 @@ private struct SyncedLyrics: View, Equatable {
     private var inactiveOpacity: Double { style == .fade ? 0.22 : 0.32 }
 
     nonisolated static func == (lhs: SyncedLyrics, rhs: SyncedLyrics) -> Bool {
-        lhs.currentID == rhs.currentID && lhs.lines == rhs.lines
+        lhs.currentID == rhs.currentID && lhs.lines == rhs.lines && lhs.textScale == rhs.textScale
     }
 
     /// Changes whenever the song or the translation settings change.
@@ -109,16 +112,16 @@ private struct SyncedLyrics: View, Equatable {
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                VStack(alignment: .leading, spacing: 26) {
+                VStack(alignment: .leading, spacing: 26 * textScale) {
                     ForEach(lines) { line in
                         let active = line.id == currentID
                         VStack(alignment: .leading, spacing: 6) {
                             Text(line.text.isEmpty ? "♪" : line.text)
-                                .font(.system(size: size.points, weight: .bold, design: .rounded))
+                                .font(.system(size: size.points * textScale, weight: .bold, design: .rounded))
                                 .foregroundStyle(Color.white.opacity(active ? 1 : inactiveOpacity))
                             if let translated = translations[line.id] {
                                 Text(translated)
-                                    .font(.system(size: size.points * 0.6, weight: .semibold, design: .rounded))
+                                    .font(.system(size: size.points * textScale * 0.6, weight: .semibold, design: .rounded))
                                     .foregroundStyle(Color.white.opacity(active ? 0.7 : inactiveOpacity * 0.8))
                             }
                         }
@@ -139,6 +142,9 @@ private struct SyncedLyrics: View, Equatable {
             .onChange(of: currentID) { _, id in
                 guard let id else { return }
                 withAnimation(.spring(duration: 0.6)) { proxy.scrollTo(id, anchor: .center) }
+            }
+            .onChange(of: textScale) { _, _ in
+                if let currentID { proxy.scrollTo(currentID, anchor: .center) }
             }
             .onAppear {
                 if let currentID { proxy.scrollTo(currentID, anchor: .center) }

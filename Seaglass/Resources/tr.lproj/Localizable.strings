@@ -647,7 +647,7 @@
 "Pagina precedente" = "Önceki sayfa";
 "Pagina successiva" = "Sonraki sayfa";
 "Installa in automatico" = "Otomatik olarak yükle";
-"Con «Installa in automatico» gli aggiornamenti si scaricano e si installano da soli: subito se non stai ascoltando, altrimenti quando chiudi Seaglass." = "“Otomatik olarak yükle” ile güncellemeler kendiliğinden indirilip yüklenir: bir şey dinlemiyorsanız hemen, dinliyorsanız Seaglass'tan çıktığınızda.";
+"Con «Installa in automatico» gli aggiornamenti si scaricano e si preparano da soli. Seaglass ti chiede prima di riavviarsi, oppure li installa quando esci dall'app." = "“Otomatik yükle” seçeneğiyle güncellemeler kendiliğinden indirilir ve hazırlanır. Seaglass yeniden başlatmadan önce sorar veya uygulamadan çıktığınızda güncellemeleri yükler.";
 "Installa e riavvia" = "Yükle ve yeniden başlat";
 "Pronta: si installa quando chiudi Seaglass." = "Hazır: Seaglass'tan çıktığınızda yüklenecek.";
 "Questo aggiornamento non è valido: non è stato installato." = "Bu güncelleme geçerli değil: yüklenmedi.";
@@ -655,3 +655,9 @@
 "Pausa" = "Duraklat";
 "Apri Seaglass" = "Seaglass'ı Aç";
 "Esci da Seaglass" = "Seaglass'tan Çık";
+
+/* Mac update download and restart. */
+"Verifica dell'aggiornamento…" = "Güncelleme doğrulanıyor…";
+"Download annullato." = "İndirme iptal edildi.";
+"Aggiornamento pronto" = "Güncelleme hazır";
+"Vuoi riavviare Seaglass per installare l'aggiornamento? La riproduzione verrà interrotta." = "Güncellemeyi yüklemek için Seaglass yeniden başlatılsın mı? Çalma durdurulacak.";

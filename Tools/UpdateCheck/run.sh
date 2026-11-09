@@ -5,3 +5,4 @@ binary="$(mktemp "${TMPDIR:-/tmp}/onda-update-check.XXXXXX")"
 trap 'rm -f "$binary"' EXIT
 swiftc -O Seaglass/Services/ReleaseNotes.swift Tools/UpdateCheck/main.swift -o "$binary"
 "$binary"
+bash Tools/UpdateDownloadCheck/run.sh

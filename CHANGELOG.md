@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.29.0 (2026-11-09)
+
+### Changed
+- **Mac: a larger player that follows the window.** The cover and controls use the available space, and lyrics and queue text scale with the panel. The sidebar shows each playlist's artwork.
+- **Mac: Seaglass's own volume.** The sliders control only this app, including AutoMix, crossfades and karaoke, keep their level between launches, and work with HDMI and USB outputs too.
+- **Mac: visible, cancellable update downloads.** A progress bar shows the transfer, with an option to cancel. Seaglass checks and prepares the update automatically, then asks before restarting. Choosing later keeps it ready to install when the app quits. Restarting exits the whole app, including its menu bar and background playback.
+
+Nothing changes on iPhone and iPad.
+
 ## 1.28.1 (2026-11-09)
 
 ### Fixed

@@ -1,5 +1,10 @@
 import SwiftUI
 
+extension EnvironmentValues {
+    /// The Mac player's text follows its panel's space; other lists keep their normal typography.
+    @Entry var playerTextScale: CGFloat = 1
+}
+
 /// The full-screen player. It doesn't observe the playback position itself: only the scrubber
 /// (and the lyrics) redraw as the song plays, not the cover, buttons and glass around them.
 struct NowPlayingView: View {
@@ -67,6 +72,7 @@ struct NowPlayingView: View {
             .presentationDetents([.medium, .large])
         }
         .downloadErrorAlert(isActive: router.showPlayer)
+        .appUpdatePresentation(isActive: true)
         .trackToasts(.player)
         .background { PlayerKeyboardShortcuts(includesSpace: true) }
         .onAppear {
@@ -86,7 +92,7 @@ struct NowPlayingView: View {
     /// instead of in the cover's place.
     @ViewBuilder private func layout(for size: CGSize) -> some View {
         if Self.isMac {
-            macLayout
+            macLayout(for: size)
         } else if size.width >= 900, size.width > size.height, panel != .artwork {
             wideLayout(width: size.width)
         } else {
@@ -618,12 +624,19 @@ struct NowPlayingView: View {
     /// (on the left, with the lyrics or the queue open beside it), and the rest in glass at the
     /// corners: closing at the top left, AirPlay and the volume at the top right, karaoke, tempo,
     /// lyrics and queue at the bottom right.
-    private var macLayout: some View {
-        HStack(spacing: 48) {
-            macColumn
-                .frame(width: 380)
+    private func macLayout(for size: CGSize) -> some View {
+        let spacing = min(64, max(28, size.width * 0.045))
+        let columnWidth = panel == .artwork
+            ? min(620, size.width * 0.68)
+            : min(540, (size.width - spacing) * 0.48)
+        let panelWidth = max(1, size.width - columnWidth - spacing)
+        let panelHeight = max(1, size.height - 120)
+        let textScale = min(1.6, max(0.85, min(panelWidth / 420, panelHeight / 440)))
+        return HStack(spacing: spacing) {
+            macColumn(width: columnWidth, height: size.height)
             if panel != .artwork {
                 panelContent
+                    .environment(\.playerTextScale, textScale)
                     .padding(.top, 60)
                     .padding(.bottom, 60)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -657,16 +670,19 @@ struct NowPlayingView: View {
         }
     }
 
-    private var macColumn: some View {
-        VStack(spacing: 16) {
-            Spacer(minLength: 56)
+    private func macColumn(width: CGFloat, height: CGFloat) -> some View {
+        // Leave room for the controls and corner capsules even at the minimum window height.
+        // In a larger window the cover grows with it, instead of stopping at 320 points.
+        let verticalReserve: CGFloat = player.errorMessage == nil ? 420 : 468
+        let coverSize = min(560, width, max(100, height - verticalReserve))
+        return VStack(spacing: 14) {
             artwork
-                .frame(maxWidth: 320, maxHeight: 320)
-            VStack(spacing: 12) {
+                .frame(width: coverSize, height: coverSize)
+            VStack(spacing: 10) {
                 HStack(alignment: .center, spacing: 10) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(player.current?.title ?? "—")
-                            .font(.title3.bold())
+                            .font(.system(size: min(28, max(20, width * 0.055)), weight: .bold))
                             .lineLimit(1)
                         Button {
                             if let track = player.current, track.isPodcastEpisode {
@@ -676,7 +692,7 @@ struct NowPlayingView: View {
                             }
                         } label: {
                             Text(macSubtitle)
-                                .font(.body)
+                                .font(.system(size: min(22, max(17, width * 0.043))))
                                 .foregroundStyle(Color.white.opacity(0.7))
                                 .lineLimit(1)
                         }
@@ -697,11 +713,13 @@ struct NowPlayingView: View {
                 PlayerScrubber()
                 badges
                 controls
-                    .scaleEffect(0.85)
                 errorLabel
             }
-            Spacer(minLength: 64)
         }
+        .frame(maxHeight: .infinity)
+        .padding(.top, 56)
+        .padding(.bottom, 60)
+        .frame(width: width, height: height)
     }
 
     /// "Artist — Album", as Apple Music's player.

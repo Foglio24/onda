@@ -47,8 +47,8 @@ enum UpdateError: LocalizedError {
 /// Checks GitHub for a newer stable release of Seaglass at launch or on request, and either shows it
 /// or downloads its IPA, as chosen in Settings. Installing stays manual (Sideloadly, AltStore…):
 /// iOS doesn't let a sideloaded app replace itself. A Mac does: there the update is downloaded,
-/// checked and installed by the app itself (`updateMac`), right away when nothing plays, else when
-/// Seaglass quits.
+/// checked and staged by the app itself (`updateMac`). It asks before restarting, or installs when
+/// Seaglass next quits normally.
 @MainActor
 final class AppUpdater: ObservableObject {
     static let shared = AppUpdater()
@@ -71,7 +71,7 @@ final class AppUpdater: ObservableObject {
 
     /// The Mac's update, once it's being downloaded or ready to put in place.
     enum MacInstall: Equatable {
-        case none, downloading, ready(URL), failed(String)
+        case none, downloading, verifying, cancelled, ready(URL), failed(String)
     }
 
     enum Status: Equatable {
@@ -86,6 +86,12 @@ final class AppUpdater: ObservableObject {
     /// Presents the update sheet (see RootView).
     @Published var showsNotice = false
     @Published private(set) var macInstall: MacInstall = .none
+    @Published private(set) var macDownloadProgress: Double?
+    @Published private(set) var macDownloadedBytes: Int64 = 0
+    @Published private(set) var macDownloadTotalBytes: Int64 = 0
+    @Published var showsRestartPrompt = false
+    private var macDownload: UpdateDownload?
+    private var cancelledMacVersion: String?
     private var lastCheck: Date?
     private var observers: [NSObjectProtocol] = []
 
@@ -103,7 +109,10 @@ final class AppUpdater: ObservableObject {
         })
         observers.append(NotificationCenter.default.addObserver(forName: UIApplication.willTerminateNotification,
                                                                 object: nil, queue: .main) { _ in
-            MainActor.assumeIsolated { AppUpdater.shared.installAtQuit() }
+            MainActor.assumeIsolated {
+                PlayerController.shared.prepareForAppTermination()
+                AppUpdater.shared.installAtQuit()
+            }
         })
     }
 
@@ -114,10 +123,31 @@ final class AppUpdater: ObservableObject {
     /// At launch the sheet shows up at most once a day for the same version; a manual check always shows it.
     func check(userInitiated: Bool) async {
         guard status != .checking else { return }
+        if ProcessInfo.processInfo.isMacCatalystApp {
+            switch macInstall {
+            case .downloading, .verifying, .ready:
+                // Keep the release metadata paired with the app being staged, even if a newer
+                // release appears while this download or restart prompt is still open.
+                if userInitiated { showsNotice = true }
+                return
+            default: break
+            }
+        }
         status = .checking
         lastCheck = .now
         do {
             let release = try await Self.fetchLatest()
+            if ProcessInfo.processInfo.isMacCatalystApp {
+                switch macInstall {
+                case .downloading, .verifying, .ready:
+                    // A manual download can start while fetchLatest is suspended, using the
+                    // previous check's metadata. Do not replace it when this response arrives.
+                    status = .available
+                    if userInitiated { showsNotice = true }
+                    return
+                default: break
+                }
+            }
             latest = release
             removeInstalledUpdates()
             guard AppVersion.isNewer(release.version, than: Self.currentVersion) else {
@@ -128,9 +158,14 @@ final class AppUpdater: ObservableObject {
             downloadedFile = Self.file(for: release).flatMap { FileManager.default.fileExists(atPath: $0.path) ? $0 : nil }
             if Preferences.updateModeSetting == .download {
                 if ProcessInfo.processInfo.isMacCatalystApp {
-                    // Downloaded and installed by itself: nothing to tell unless asked.
-                    await updateMac(now: false)
-                    if !userInitiated, case .ready = macInstall { return }
+                    // A cancelled transfer stays cancelled until explicitly retried, or a new
+                    // release appears; bringing the window forward must not start it again.
+                    if cancelledMacVersion != release.version {
+                        await updateMac(now: false)
+                        // updateMac presents progress before awaiting the transfer. Respect a
+                        // dismissal made during it, including when the restart prompt becomes ready.
+                        return
+                    }
                 } else if downloadedFile == nil {
                     await download()
                 }
@@ -173,34 +208,61 @@ final class AppUpdater: ObservableObject {
 
     // MARK: Mac
 
-    /// Downloads the Mac app of the latest release, checks it and gets it ready; then installs it and
-    /// opens it again, now (`now`, or nothing loaded in the player) or when Seaglass quits.
-    /// It only takes the repository's own release file, whose size and SHA-256 must be GitHub's, and
-    /// the app inside must be Seaglass, at that version, with a valid signature (see `MacBridge`).
+    /// Downloads and checks the repository's own release file, then prepares the verified app.
+    /// `now` requests the restart prompt again for an already prepared update; installing and
+    /// restarting always require `restartToInstallMac`, or the user's next normal quit.
     func updateMac(now: Bool) async {
-        guard let release = latest, AppVersion.isNewer(release.version, than: Self.currentVersion) else { return }
+        guard let release = latest, AppVersion.isNewer(release.version, than: Self.currentVersion),
+              macDownload == nil else { return }
         switch macInstall {
-        case .downloading:
+        case .downloading, .verifying:
             return
-        case .ready(let app):
-            if now { failIfNeeded(MacBridge.shared.install(app: app, relaunch: true)) }
+        case .ready:
+            if now { showsRestartPrompt = true }
             return
-        case .none, .failed:
+        case .none, .cancelled, .failed:
             break
         }
+        showsNotice = true
         guard MacBridge.shared.isAvailable, MacBridge.shared.canUpdateInPlace else {
             macInstall = .failed(UpdateError.notInPlace.localizedDescription)
             downloadError = UpdateError.notInPlace.localizedDescription
             return
         }
         macInstall = .downloading
+        macDownloadedBytes = 0
+        macDownloadTotalBytes = Int64(release.size ?? 0)
+        macDownloadProgress = macDownloadTotalBytes > 0 ? 0 : nil
+        cancelledMacVersion = nil
+        showsRestartPrompt = false
         downloadError = nil
+        isDownloading = true
+        defer {
+            isDownloading = false
+            macDownload = nil
+        }
         do {
-            guard let source = release.ipa, Self.isReleaseAsset(source), let size = release.size,
+            guard let source = release.ipa, Self.isReleaseAsset(source), let size = release.size, size > 0,
                   let digest = release.digest?.lowercased(), digest.hasPrefix("sha256:") else { throw UpdateError.invalid }
-            let (temporary, response) = try await URLSession.shared.download(from: source)
+            let transfer = UpdateDownload(expectedBytes: Int64(size))
+            macDownload = transfer
+            let (temporary, response) = try await transfer.fetch(from: source) { [weak self] received, total in
+                Task { @MainActor in
+                    guard let self, self.macDownload === transfer, self.macInstall == .downloading else { return }
+                    self.macDownloadedBytes = received
+                    self.macDownloadTotalBytes = total
+                    self.macDownloadProgress = total > 0 ? min(1, Double(received) / Double(total)) : nil
+                }
+            }
+            defer { try? FileManager.default.removeItem(at: temporary) }
+            try Task.checkCancellation()
+            // A click on Cancel can arrive just after URLSession completed, before this actor ran.
+            guard cancelledMacVersion != release.version else { throw CancellationError() }
             let status = (response as? HTTPURLResponse)?.statusCode ?? 0
             guard status == 200 else { throw UpdateError.server(status) }
+            macInstall = .verifying
+            macDownloadedBytes = Int64(size)
+            macDownloadProgress = 1
             let zip = Storage.updates.appending(path: "Seaglass-\(release.version)-mac.zip")
             try? FileManager.default.removeItem(at: zip)
             try FileManager.default.moveItem(at: temporary, to: zip)
@@ -212,13 +274,31 @@ final class AppUpdater: ObservableObject {
             }
             let app = try await MacBridge.shared.stage(zip: zip, version: release.version)
             macInstall = .ready(app)
-            if now || PlayerController.shared.nowPlaying.isIdle {
-                failIfNeeded(MacBridge.shared.install(app: app, relaunch: true))
-            }
+            showsRestartPrompt = true
+        } catch is CancellationError {
+            macInstall = .cancelled
+            macDownloadProgress = nil
+            downloadError = nil
         } catch {
             macInstall = .failed(error.localizedDescription)
             downloadError = error.localizedDescription
         }
+    }
+
+    /// Stops only the update transfer. The library and music downloads are left intact.
+    func cancelMacDownload() {
+        guard macInstall == .downloading else { return }
+        cancelledMacVersion = latest?.version
+        macDownload?.cancel()
+    }
+
+    /// Called only by the restart prompt's affirmative button.
+    func restartToInstallMac() {
+        guard case .ready(let app) = macInstall else { return }
+        showsRestartPrompt = false
+        // Clear the ready state before terminating, so willTerminate cannot install it a second time.
+        macInstall = .none
+        failIfNeeded(MacBridge.shared.install(app: app, relaunch: true))
     }
 
     /// An update that's ready goes in as Seaglass quits, and is there the next time it opens.
@@ -315,7 +395,9 @@ final class AppUpdater: ObservableObject {
         let release = try decoder.decode(GitHubRelease.self, from: data)
         // On a Mac, the Mac app's zip.
         let suffix = ProcessInfo.processInfo.isMacCatalystApp ? "-mac.zip" : ".ipa"
-        let asset = release.assets.first { $0.name.lowercased().hasSuffix(suffix) }
+        let asset = release.assets.first {
+            ProcessInfo.processInfo.isMacCatalystApp ? $0.name == "Seaglass-mac.zip" : $0.name.lowercased().hasSuffix(suffix)
+        }
         let version = AppVersion.components(release.tagName).map(String.init).joined(separator: ".")
         return Release(version: version, notes: release.body ?? "", page: release.htmlUrl, ipa: asset?.browserDownloadUrl,
                        size: asset?.size, digest: asset?.digest)

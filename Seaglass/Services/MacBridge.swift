@@ -162,7 +162,10 @@ final class MacBridge {
     /// Returns an error's description when it couldn't.
     func install(app: URL, relaunch: Bool) -> String? {
         guard let plugIn else { return UpdateError.invalid.localizedDescription }
-        let request: [String: Any] = ["app": app.path, "relaunch": NSNumber(value: relaunch)]
+        let request: [String: Any] = [
+            "app": app.path, "relaunch": NSNumber(value: relaunch),
+            "prepareToQuit": Self.block { PlayerController.shared.prepareForAppTermination() },
+        ]
         let result = plugIn.perform(NSSelectorFromString("installUpdate:"), with: request as NSDictionary)
         return result?.takeUnretainedValue() as? String
     }

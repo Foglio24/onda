@@ -618,6 +618,39 @@ final class PlayerController: ObservableObject {
         updateNowPlayingInfo()
     }
 
+    /// The updater is about to quit the whole Mac app, including its menu-bar session. Persist
+    /// playback before releasing every player and invalidate in-flight results before they return.
+    func prepareForAppTermination() {
+        pause()
+        saveQueueTask?.cancel()
+        saveQueue()
+        requests.replaceQueue()
+        loadTask?.cancel()
+        retryTask?.cancel()
+        advanceTask?.cancel()
+        lyricsTask?.cancel()
+        artworkTask?.cancel()
+        bpmTask?.cancel()
+        sleepTask?.cancel()
+        fadeInTask?.cancel()
+        resetAutoMix()
+        PreparedPlayback.shared.suspendForStartup(keeping: nil)
+        StemSeparator.releaseEngine()
+        opusPlayback?.stream.cancel()
+        opusPlayback = nil
+        deferredPreparation = nil
+        itemStatus = nil
+        playerCancellables.removeAll()
+        cancellables.removeAll()
+        if let observedPlayer, let timeObserver { observedPlayer.removeTimeObserver(timeObserver) }
+        timeObserver = nil
+        observedPlayer = nil
+        player.replaceCurrentItem(with: nil)
+        isLoading = false
+        isPlaying = false
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+    }
+
     func resume() {
         guard current != nil else { return }
         pausedForHeadphones = nil
@@ -1285,10 +1318,10 @@ final class PlayerController: ObservableObject {
         if !alreadyStarted {
             if pendingFadeIn != nil {
                 // Crossfading in: stay silent until the song really plays (see `startPendingFades`).
-                player.volume = 0
+                PlaybackVolume.shared.setLevel(0, for: player)
             } else if !isRetry {
                 fadeInTask?.cancel()
-                player.volume = 1
+                PlaybackVolume.shared.setLevel(1, for: player)
             }
             if playWhenReady {
                 startWithEffects(item, track: track)
@@ -1578,20 +1611,21 @@ final class PlayerController: ObservableObject {
         if interrupted {
             fadeInTask?.cancel()
             pendingFadeIn = nil
-            player.volume = 1
+            PlaybackVolume.shared.setLevel(1, for: player)
         }
         isPlaying = player.timeControlStatus != .paused
     }
 
     /// Equal-power fade, so the overall loudness stays steady while two songs overlap.
     private static func fade(_ target: AVPlayer, in fadingIn: Bool, over duration: TimeInterval) async {
-        let start = target.volume
+        let start = PlaybackVolume.shared.level(of: target)
         let steps = max(1, Int(duration * 25))
         for step in 1...steps {
             try? await Task.sleep(for: .milliseconds(40))
             if Task.isCancelled { return }
             let progress = Float(step) / Float(steps)
-            target.volume = fadingIn ? sin(progress * .pi / 2) : start * cos(progress * .pi / 2)
+            PlaybackVolume.shared.setLevel(fadingIn ? sin(progress * .pi / 2) : start * cos(progress * .pi / 2),
+                                           for: target)
         }
     }
 
@@ -1917,6 +1951,7 @@ final class PlayerController: ObservableObject {
         guard armed == nil, let track = current, index + 1 < queue.count, queue[index + 1].id == planned.nextID else { return }
         let next = queue[index + 1]
         let incoming = AVPlayer()
+        PlaybackVolume.shared.register(incoming)
         // AVPlayer starts at an exact moment (see `startOnTime`) only without its own waiting.
         incoming.automaticallyWaitsToMinimizeStalling = false
         // As in 1.15, the rendered mix starts fading in immediately at its scheduled start.
@@ -2020,7 +2055,7 @@ final class PlayerController: ObservableObject {
         fadeOutTask = Task {
             while !Task.isCancelled {
                 let elapsed = CMTimeSubtract(CMClockGetTime(CMClockGetHostTimeClock()), start).seconds
-                outgoing.volume = Float(max(0, min(1, 1 - elapsed / fade)))
+                PlaybackVolume.shared.setLevel(Float(max(0, min(1, 1 - elapsed / fade))), for: outgoing)
                 if elapsed >= fade { break }
                 try? await Task.sleep(for: .milliseconds(elapsed < 0 ? max(1, Int(-elapsed * 1000)) : 8))
             }
@@ -2237,6 +2272,7 @@ final class PlayerController: ObservableObject {
 
     /// Moves the time and state observers to the player of the current song.
     private func attach(_ newPlayer: AVPlayer) {
+        PlaybackVolume.shared.register(newPlayer)
         if let observedPlayer, let timeObserver {
             observedPlayer.removeTimeObserver(timeObserver)
         }

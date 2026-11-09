@@ -7,7 +7,7 @@ import SwiftUI
 /// equalizer | info:<album browseId> | mix | mix:options | mix:edit | home:<videoId>`.
 /// `home:<videoId>` records the song's radio as listened to, so the Home has recent songs and mixes.
 /// `update:<zip>` (a Mac) installs the app in the zip over the running one, as an update would.
-/// `volume:<0…1>` (a Mac) sets the output's volume and prints it before and after.
+/// `volume:<0…1>` (a Mac) checks the app's volume without changing the output device's volume.
 /// `mix` makes two short songs and a playlist of them, and opens their transition in the Mix editor
 /// (`mix:options` with the options sheet too, `mix:edit` drawing the volume lines by hand).
 /// `downloads` downloads the first songs of a song's radio and shows them downloading;
@@ -45,6 +45,15 @@ enum LaunchScene {
     /// into the screen (an iPad app can't turn itself, nor CI the simulator).
     static var previewsLandscape: Bool {
         scene != nil && UserDefaults.standard.string(forKey: "SeaglassOrientation") == "landscape"
+    }
+
+    /// CI captures the Mac layout at two real window sizes, without Accessibility permissions.
+    static var macWindowSize: CGSize? {
+        guard scene != nil, let value = UserDefaults.standard.string(forKey: "SeaglassWindowSize") else { return nil }
+        let parts = value.split(separator: "x")
+        guard parts.count == 2, let width = Double(parts[0]), let height = Double(parts[1]),
+              width.isFinite, height.isFinite, (960...2560).contains(width), (640...1600).contains(height) else { return nil }
+        return CGSize(width: width, height: height)
     }
 
     static func apply(select: (AppTab) -> Void) {
@@ -111,12 +120,21 @@ enum LaunchScene {
                 }
             }
         case "volume":
-            // CI (Tools/Screenshots/mac.sh): sets the Mac's output volume as the volume bar does, and
-            // reads it back.
-            let before = MacBridge.shared.systemVolume
-            MacBridge.shared.setSystemVolume(Float(value) ?? 0.5)
-            print("volume: before \(before.map { String($0) } ?? "none"), now \(MacBridge.shared.systemVolume.map { String($0) } ?? "none")")
-            if let before { MacBridge.shared.setSystemVolume(before) }
+            // Register two players as in a crossfade; app gain must reach both, and never the device.
+            let volume = PlaybackVolume.shared
+            let before = volume.value
+            let systemBefore = MacBridge.shared.systemVolume
+            let first = AVPlayer(), second = AVPlayer()
+            volume.register(first)
+            volume.setLevel(0.5, for: second)
+            let requested = Double(value) ?? 0.5
+            volume.set(requested)
+            let systemAfter = MacBridge.shared.systemVolume
+            let passed = abs(Double(first.volume) - volume.value) < 0.001
+                && abs(Double(second.volume) - volume.value * 0.5) < 0.001
+                && systemBefore == systemAfter
+            print("volume: \(passed ? "PASS" : "FAIL") app \(volume.value), players \(first.volume), \(second.volume)")
+            volume.set(before)
         case "home" where !value.isEmpty:
             // The song's radio as if listened to: the Home's recent covers and daily mixes.
             select(.home)

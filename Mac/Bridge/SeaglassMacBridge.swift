@@ -267,6 +267,8 @@ final class SeaglassMacBridge: NSObject, NSMenuDelegate {
     nonisolated private static func stage(zip: URL, version: String, identifier: String?) -> Result<URL, StageError> {
         let folder = zip.deletingPathExtension()
         try? FileManager.default.removeItem(at: folder)
+        var verified = false
+        defer { if !verified { try? FileManager.default.removeItem(at: folder) } }
         guard run("/usr/bin/ditto", ["-x", "-k", zip.path, folder.path]) else {
             return .failure(StageError(message: "unzip failed"))
         }
@@ -281,12 +283,14 @@ final class SeaglassMacBridge: NSObject, NSMenuDelegate {
         guard run("/usr/bin/codesign", ["--verify", "--deep", "--strict", app.path]) else {
             return .failure(StageError(message: "signature not valid"))
         }
+        verified = true
         return .success(app)
     }
 
     /// Puts a staged update in place of the running app (the running copy carries on from memory) and,
     /// with "relaunch", quits and opens the new one as soon as this one has gone.
-    /// `request`: "app" (the staged app's path), "relaunch" (a Bool). Returns nil, or an error.
+    /// `request`: "app" (the staged app's path), "relaunch" (a Bool), "prepareToQuit" (a block that
+    /// stops playback and saves its state after installation succeeds). Returns nil, or an error.
     @objc func installUpdate(_ request: NSDictionary) -> NSString? {
         guard let staged = request["app"] as? String else { return "no update" }
         let relaunch = (request["relaunch"] as? NSNumber)?.boolValue ?? false
@@ -311,6 +315,12 @@ final class SeaglassMacBridge: NSObject, NSMenuDelegate {
         } catch {
             return error.localizedDescription as NSString
         }
+        if let preparation = request["prepareToQuit"] {
+            let block = unsafeBitCast(preparation as AnyObject, to: (@convention(block) () -> Void).self)
+            block()
+        }
+        // This terminates the application, including the menu bar and its closed-window playback.
+        // The short-lived helper above is the only process left, and exits after opening the app.
         NSApp.terminate(nil)
         return nil
     }

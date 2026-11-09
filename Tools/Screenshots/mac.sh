@@ -87,16 +87,23 @@ shot mac-1-home 16 home
 screencapture -x -m "$out/mac-0-screen.png" && echo "Saved the screen"
 shot mac-2-player 16 "player:K0HSD_i2DvA"
 shot mac-3-player-queue 16 "player:K0HSD_i2DvA" -SeaglassPanel queue
+# The same player at both bounds: cover sizing and lyrics/queue type must follow the window.
+shot mac-7-player-small 16 "player:K0HSD_i2DvA" -SeaglassWindowSize 960x640
+shot mac-8-player-large 16 "player:K0HSD_i2DvA" -SeaglassWindowSize 1440x900
+shot mac-9-lyrics-small 16 "player:K0HSD_i2DvA" -SeaglassPanel lyrics -SeaglassWindowSize 960x640
+shot mac-10-lyrics-large 16 "player:K0HSD_i2DvA" -SeaglassPanel lyrics -SeaglassWindowSize 1440x900
+shot mac-11-queue-small 16 "player:K0HSD_i2DvA" -SeaglassPanel queue -SeaglassWindowSize 960x640
+shot mac-12-queue-large 16 "player:K0HSD_i2DvA" -SeaglassPanel queue -SeaglassWindowSize 1440x900
 shot mac-4-search 12 "search:daft punk"
 shot mac-5-settings 6 settings
 # The Home with songs listened to (a song's radio, see LaunchScene): recent covers and mixes.
 shot mac-6-home-played 20 "home:K0HSD_i2DvA"
 pkill -x Seaglass 2>/dev/null
 
-# The volume bar's way of setting the Mac's volume, on this machine's output.
+# The app's own volume reaches both fade players without changing the output device.
 NSUnbufferedIO=YES "$binary" -SeaglassScene "volume:0.25" >"$logs/volume.log" 2>&1 &
 sleep 8
-grep "volume:" "$logs/volume.log" || echo "::warning::The volume wasn't set"
+grep "volume: PASS" "$logs/volume.log" || echo "::warning::The app volume check failed"
 pkill -x Seaglass 2>/dev/null
 
 exit 0

@@ -647,7 +647,7 @@
 "Pagina precedente" = "上一页";
 "Pagina successiva" = "下一页";
 "Installa in automatico" = "自动安装";
-"Con «Installa in automatico» gli aggiornamenti si scaricano e si installano da soli: subito se non stai ascoltando, altrimenti quando chiudi Seaglass." = "选择“自动安装”后，更新会自行下载并安装：如果你没有在听歌则立即安装，否则在退出 Seaglass 时安装。";
+"Con «Installa in automatico» gli aggiornamenti si scaricano e si preparano da soli. Seaglass ti chiede prima di riavviarsi, oppure li installa quando esci dall'app." = "选择“自动安装”后，更新会自行下载并准备就绪。Seaglass 会在重新启动前询问你，或在你退出应用时安装更新。";
 "Installa e riavvia" = "安装并重新打开";
 "Pronta: si installa quando chiudi Seaglass." = "已就绪：将在退出 Seaglass 时安装。";
 "Questo aggiornamento non è valido: non è stato installato." = "此更新无效，未安装。";
@@ -655,3 +655,9 @@
 "Pausa" = "暂停";
 "Apri Seaglass" = "打开 Seaglass";
 "Esci da Seaglass" = "退出 Seaglass";
+
+/* Mac update download and restart. */
+"Verifica dell'aggiornamento…" = "正在验证更新…";
+"Download annullato." = "下载已取消。";
+"Aggiornamento pronto" = "更新已就绪";
+"Vuoi riavviare Seaglass per installare l'aggiornamento? La riproduzione verrà interrotta." = "要重新启动 Seaglass 以安装更新吗？播放将会中断。";

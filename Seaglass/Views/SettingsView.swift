@@ -553,7 +553,7 @@ private struct UpdatesSettingsView: View {
                 MacInstallStatus()
             } footer: {
                 if ProcessInfo.processInfo.isMacCatalystApp {
-                    Text("Con «Installa in automatico» gli aggiornamenti si scaricano e si installano da soli: subito se non stai ascoltando, altrimenti quando chiudi Seaglass.")
+                    Text("Con «Installa in automatico» gli aggiornamenti si scaricano e si preparano da soli. Seaglass ti chiede prima di riavviarsi, oppure li installa quando esci dall'app.")
                 } else {
                     Text("Gli aggiornamenti si installano con Sideloadly, AltStore o SideStore. Quelli scaricati sono nell'app File, in Seaglass › \(Storage.updatesFolderName).")
                 }

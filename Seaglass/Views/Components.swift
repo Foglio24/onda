@@ -121,12 +121,14 @@ struct TrackRow: View {
     @EnvironmentObject private var library: Library
     @EnvironmentObject private var downloads: DownloadManager
     @Environment(\.layoutDirection) private var layoutDirection
+    @Environment(\.playerTextScale) private var playerTextScale
     @State private var dragOffset: CGFloat = 0
     // Only for actions. Observing them would redraw every row on screen for each player change
     // (loading, karaoke progress, lyrics…); `NowPlayingState` says just which song plays.
     private var router: AppRouter { .shared }
 
     private var isCurrent: Bool { nowPlaying.currentID == track.id }
+    private var textScale: CGFloat { min(playerTextScale, 1.4) }
 
     /// How far a dragged row goes before letting go does something.
     private static let dragThreshold: CGFloat = 72
@@ -223,7 +225,7 @@ struct TrackRow: View {
                     artwork
                     VStack(alignment: .leading, spacing: 2) {
                         Text(track.title)
-                            .font(.body.weight(.medium))
+                            .font(textScale == 1 ? .body.weight(.medium) : .system(size: 17 * textScale, weight: .medium))
                             .foregroundStyle(isCurrent ? AnyShapeStyle(.tint) : AnyShapeStyle(.primary))
                             .lineLimit(1)
                         HStack(spacing: 4) {
@@ -232,7 +234,7 @@ struct TrackRow: View {
                             }
                             Text(track.subtitle).lineLimit(1)
                         }
-                        .font(.subheadline)
+                        .font(textScale == 1 ? .subheadline : .system(size: 15 * textScale))
                         .foregroundStyle(.secondary)
                     }
                     Spacer(minLength: 0)
@@ -259,7 +261,7 @@ struct TrackRow: View {
     }
 
     private var artwork: some View {
-        ArtworkView(track: track, size: 50, cornerRadius: 6)
+        ArtworkView(track: track, size: 50 * textScale, cornerRadius: 6)
             .overlay {
                 if isCurrent {
                     Image(systemName: "waveform")
@@ -278,7 +280,7 @@ struct TrackRow: View {
             DownloadIndicator(state: downloads.state(of: track))
             if let duration = track.duration {
                 Text(duration.formattedTime)
-                    .font(.caption.monospacedDigit())
+                    .font(textScale == 1 ? .caption.monospacedDigit() : .system(size: 12 * textScale).monospacedDigit())
                     .foregroundStyle(.secondary)
             }
         }

@@ -2,6 +2,7 @@ import SwiftUI
 
 struct QueueView: View {
     @EnvironmentObject private var player: PlayerController
+    @Environment(\.playerTextScale) private var playerTextScale
     @AppStorage(Preferences.songTransition) private var transition: SongTransition = Preferences.songTransitionSetting
 
     var body: some View {
@@ -9,16 +10,16 @@ struct QueueView: View {
             VStack(spacing: 10) {
                 Toggle(isOn: $player.autoRadio) {
                     Label("Radio automatica", systemImage: "infinity")
-                        .font(.subheadline.weight(.semibold))
+                        .font(controlFont)
                 }
                 Divider().opacity(0.4)
                 Toggle(isOn: autoMix) {
                     Label("AutoMix", systemImage: "waveform.path")
-                        .font(.subheadline.weight(.semibold))
+                        .font(controlFont)
                 }
                 if transition == .autoMix, let note = player.autoMixNote {
                     Text(note)
-                        .font(.caption)
+                        .font(textScale == 1 ? .caption : .system(size: 12 * textScale))
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
@@ -32,11 +33,11 @@ struct QueueView: View {
 
             HStack {
                 Text("Prossimi brani")
-                    .font(.headline)
+                    .font(textScale == 1 ? .headline : .system(size: 17 * textScale, weight: .semibold))
                 Spacer()
                 Button { player.toggleShuffle() } label: {
                     Label(player.shuffleEnabled ? "Casuale attivo" : "Casuale", systemImage: "shuffle")
-                        .font(.footnote.weight(.semibold))
+                        .font(textScale == 1 ? .footnote.weight(.semibold) : .system(size: 13 * textScale, weight: .semibold))
                         .padding(.horizontal, 12)
                         .padding(.vertical, 7)
                         .background(Color.white.opacity(player.shuffleEnabled ? 0.25 : 0.1), in: .capsule)
@@ -78,6 +79,12 @@ struct QueueView: View {
                         : "Aggiungi brani dal menu ··· di ogni canzone."))
             }
         }
+    }
+
+    private var textScale: CGFloat { min(playerTextScale, 1.4) }
+
+    private var controlFont: Font {
+        textScale == 1 ? .subheadline.weight(.semibold) : .system(size: 15 * textScale, weight: .semibold)
     }
 
     /// AutoMix on or off, as in Apple Music's queue (off means no transitions).

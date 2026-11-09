@@ -647,7 +647,7 @@
 "Pagina precedente" = "Página anterior";
 "Pagina successiva" = "Próxima página";
 "Installa in automatico" = "Instalar automaticamente";
-"Con «Installa in automatico» gli aggiornamenti si scaricano e si installano da soli: subito se non stai ascoltando, altrimenti quando chiudi Seaglass." = "Com “Instalar automaticamente”, as atualizações são baixadas e instaladas sozinhas: na hora, se você não estiver ouvindo nada, ou então ao encerrar o Seaglass.";
+"Con «Installa in automatico» gli aggiornamenti si scaricano e si preparano da soli. Seaglass ti chiede prima di riavviarsi, oppure li installa quando esci dall'app." = "Com “Instalar automaticamente”, as atualizações são baixadas e preparadas sozinhas. O Seaglass pergunta antes de reiniciar ou as instala quando você sai do app.";
 "Installa e riavvia" = "Instalar e reabrir";
 "Pronta: si installa quando chiudi Seaglass." = "Pronta: será instalada ao encerrar o Seaglass.";
 "Questo aggiornamento non è valido: non è stato installato." = "Esta atualização não é válida: não foi instalada.";
@@ -655,3 +655,9 @@
 "Pausa" = "Pausar";
 "Apri Seaglass" = "Abrir o Seaglass";
 "Esci da Seaglass" = "Encerrar o Seaglass";
+
+/* Mac update download and restart. */
+"Verifica dell'aggiornamento…" = "Verificando a atualização…";
+"Download annullato." = "Download cancelado.";
+"Aggiornamento pronto" = "Atualização pronta";
+"Vuoi riavviare Seaglass per installare l'aggiornamento? La riproduzione verrà interrotta." = "Quer reiniciar o Seaglass para instalar a atualização? A reprodução será interrompida.";
