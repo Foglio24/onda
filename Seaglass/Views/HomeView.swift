@@ -390,6 +390,8 @@ struct HomeView: View {
                             }
                         }
                         .scrollTargetLayout()
+                        // Room for the Mac's scroll bar under the rows.
+                        .padding(.bottom, 12)
                     }
                     .contentMargins(.horizontal, Self.macMargin, for: .scrollContent)
                     .scrollTargetBehavior(.viewAligned)

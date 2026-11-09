@@ -4,7 +4,8 @@ import SwiftUI
 /// Opens a given screen at launch, for the screenshots CI takes on a simulator
 /// (Tools/Screenshots/run.sh): `-SeaglassScene home | library | settings | search:<query> |
 /// artist:<browseId> | album:<browseId> | player:<videoId> | downloads:<videoId> | storage |
-/// equalizer | info:<album browseId> | mix | mix:options | mix:edit`.
+/// equalizer | info:<album browseId> | mix | mix:options | mix:edit | home:<videoId>`.
+/// `home:<videoId>` records the song's radio as listened to, so the Home has recent songs and mixes.
 /// `mix` makes two short songs and a playlist of them, and opens their transition in the Mix editor
 /// (`mix:options` with the options sheet too, `mix:edit` drawing the volume lines by hand).
 /// `downloads` downloads the first songs of a song's radio and shows them downloading;
@@ -94,6 +95,13 @@ enum LaunchScene {
                 guard let tracks = try? await InnerTube.shared.radio(for: value), !tracks.isEmpty else { return }
                 PlayerController.shared.cue(tracks, source: "Radio")
                 router.openPlayer()
+            }
+        case "home" where !value.isEmpty:
+            // The song's radio as if listened to: the Home's recent covers and daily mixes.
+            select(.home)
+            Task {
+                guard let tracks = try? await InnerTube.shared.radio(for: value) else { return }
+                for track in tracks.prefix(16).reversed() { Library.shared.recordPlay(track) }
             }
         default:
             select(.home)
