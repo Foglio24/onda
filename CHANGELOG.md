@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.26.1 (2026-11-09)
+
+### Fixed
+- **Mac: the music keeps playing with the window closed**, as with Apple Music: closing the window no longer quits Seaglass. It stays open in the Dock and the menu bar, its Dock icon opens the window again, and ⌘Q quits it. With the window closed or minimised it also goes on preparing what comes next (AutoMix's mixes, the karaoke, the songs' best quality), as with it open.
+- **Mac: the player's corners** match the window's. They were rounded as an iPhone's screen, more than a Mac window, and left the app showing at the corners.
+
+### Changed
+- **Mac: the Home is laid out as Apple Music's**: big cards for the daily mixes, with the title on the cover's own colours; square covers for the songs played lately and the quick access; the moods as coloured cards; and rows that scroll a page at a time with the arrows at their ends, under the pointer. A play button shows on the cover under the pointer.
+
+Nothing changes on iPhone and iPad.
+
 ## 1.26.0 (2026-11-09)
 
 ### Added

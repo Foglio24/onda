@@ -87,10 +87,12 @@ struct PlayerCard: View {
         return CGRect(x: screen.minX + 16, y: screen.maxY - 140, width: screen.width - 32, height: 56)
     }
 
-    /// The mini player's capsule ends up as the screen's rounded corners.
+    /// The mini player's capsule ends up as the screen's rounded corners. On a Mac the window rounds
+    /// its own (less than an iPhone's screen), so the card ends square and the window clips it.
     private func cornerRadius(_ card: CGRect) -> CGFloat {
         let mini = router.miniPlayerFrame.height > 0 ? router.miniPlayerFrame.height / 2 : 28
-        return mini + (50 - mini) * progress
+        let full: CGFloat = ProcessInfo.processInfo.isMacCatalystApp ? 0 : 50
+        return mini + (full - mini) * progress
     }
 
     // MARK: Actions

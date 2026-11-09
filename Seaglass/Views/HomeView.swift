@@ -52,28 +52,21 @@ struct HomeView: View {
              symbol: "radio.fill", tint: .purple),
     ]
 
+    /// On a Mac the Home is laid out as Apple Music's: big cards for the mixes, square covers, the
+    /// moods as coloured cards, rows that scroll by page.
+    private static let isMac = ProcessInfo.processInfo.isMacCatalystApp
+
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 30) {
-                    if nowPlaying.isIdle, let point = player.resumePoint {
-                        section("Riprendi da dove eri") {
-                            ResumeCard(point: point, accent: accent.color) { player.continueListening(point) }
-                                .padding(.horizontal)
-                        }
-                    }
-                    let shortcuts = self.shortcuts
-                    if !shortcuts.isEmpty { shortcutsSection(shortcuts) }
-                    let mixes = Recommendations.dailyMixes()
-                    if !mixes.isEmpty { dailyMixesSection(mixes) }
-                    moodsSection
-                    if !quickPicks.isEmpty { quickPicksShelf }
-                    if !library.history.isEmpty { recentShelf }
+                if Self.isMac {
+                    macSections
+                } else {
+                    phoneSections
                 }
-                .padding(.vertical, 8)
             }
             .background { AmbientBackground() }
-            .navigationTitle(greeting)
+            .navigationTitle(Self.isMac ? String(localized: "Home") : greeting)
             // Once a day, and as soon as there is a first song to go on.
             .task(id: "\(Recommendations.today)|\(library.history.isEmpty)") {
                 quickPicks = await Recommendations.quickPicks(refresh: false)
@@ -90,6 +83,25 @@ struct HomeView: View {
                 Text(errorText ?? "")
             }
         }
+    }
+
+    private var phoneSections: some View {
+        VStack(alignment: .leading, spacing: 30) {
+            if nowPlaying.isIdle, let point = player.resumePoint {
+                section("Riprendi da dove eri") {
+                    ResumeCard(point: point, accent: accent.color) { player.continueListening(point) }
+                        .padding(.horizontal)
+                }
+            }
+            let shortcuts = self.shortcuts
+            if !shortcuts.isEmpty { shortcutsSection(shortcuts) }
+            let mixes = Recommendations.dailyMixes()
+            if !mixes.isEmpty { dailyMixesSection(mixes) }
+            moodsSection
+            if !quickPicks.isEmpty { quickPicksShelf }
+            if !library.history.isEmpty { recentShelf }
+        }
+        .padding(.vertical, 8)
     }
 
     // MARK: Sections
@@ -145,40 +157,54 @@ struct HomeView: View {
         }
     }
 
-    @ViewBuilder private func shortcutTile(_ shortcut: HomeShortcut) -> some View {
+    private func shortcutTile(_ shortcut: HomeShortcut) -> some View {
+        shortcutLink(shortcut) {
+            ShortcutTile(title: title(of: shortcut), busy: busyItem == shortcut.id) { artwork(of: shortcut) }
+        }
+    }
+
+    private func title(of shortcut: HomeShortcut) -> String {
+        switch shortcut {
+        case .liked: return String(localized: "Preferiti")
+        case .downloads: return String(localized: "Download")
+        case .playlist(let playlist): return playlist.name
+        case .tasteMix: return "Taste Mix"
+        case .rediscover: return String(localized: "Riscopri")
+        case .topMonth: return String(localized: "Top del mese")
+        }
+    }
+
+    @ViewBuilder private func artwork(of shortcut: HomeShortcut) -> some View {
+        switch shortcut {
+        case .liked: SymbolArtwork(symbol: "heart.fill", tint: .pink)
+        case .downloads: SymbolArtwork(symbol: "arrow.down.circle.fill", tint: .blue)
+        case .playlist(let playlist): PlaylistArtwork(playlist: playlist, cornerRadius: 0)
+        case .tasteMix: SymbolArtwork(symbol: "sparkles", tint: .purple)
+        case .rediscover: SymbolArtwork(symbol: "arrow.counterclockwise", tint: .orange)
+        case .topMonth: SymbolArtwork(symbol: "chart.bar.fill", tint: .red)
+        }
+    }
+
+    /// What a shortcut opens (favourites, downloads, a playlist) or plays (the Last.fm mixes).
+    @ViewBuilder private func shortcutLink<Label: View>(_ shortcut: HomeShortcut,
+                                                        @ViewBuilder label: () -> Label) -> some View {
         switch shortcut {
         case .liked:
-            NavigationLink { TrackCollectionView(collection: .liked) } label: {
-                ShortcutTile(title: String(localized: "Preferiti")) {
-                    SymbolArtwork(symbol: "heart.fill", tint: .pink)
-                }
-            }
-            .buttonStyle(.plain)
+            NavigationLink { TrackCollectionView(collection: .liked) } label: { label() }
+                .buttonStyle(.plain)
         case .downloads:
-            NavigationLink { DownloadsView() } label: {
-                ShortcutTile(title: String(localized: "Download")) {
-                    SymbolArtwork(symbol: "arrow.down.circle.fill", tint: .blue)
-                }
-            }
-            .buttonStyle(.plain)
+            NavigationLink { DownloadsView() } label: { label() }
+                .buttonStyle(.plain)
         case .playlist(let playlist):
-            NavigationLink { PlaylistDetailView(playlistID: playlist.id) } label: {
-                ShortcutTile(title: playlist.name) {
-                    PlaylistArtwork(playlist: playlist, cornerRadius: 0)
-                }
-            }
-            .buttonStyle(.plain)
+            NavigationLink { PlaylistDetailView(playlistID: playlist.id) } label: { label() }
+                .buttonStyle(.plain)
         case .tasteMix:
             Button {
                 perform(shortcut.id) {
                     let tracks = try await lastfm.tasteMix()
                     player.play(tracks, source: "Taste Mix")
                 }
-            } label: {
-                ShortcutTile(title: "Taste Mix", busy: busyItem == shortcut.id) {
-                    SymbolArtwork(symbol: "sparkles", tint: .purple)
-                }
-            }
+            } label: { label() }
             .buttonStyle(.plain)
         case .rediscover:
             Button {
@@ -186,20 +212,12 @@ struct HomeView: View {
                     let tracks = try await lastfm.rediscoverMix()
                     player.play(tracks, source: String(localized: "Riscopri"))
                 }
-            } label: {
-                ShortcutTile(title: String(localized: "Riscopri"), busy: busyItem == shortcut.id) {
-                    SymbolArtwork(symbol: "arrow.counterclockwise", tint: .orange)
-                }
-            }
+            } label: { label() }
             .buttonStyle(.plain)
         case .topMonth:
             Button {
                 player.play(topTracks, source: "Top Last.fm")
-            } label: {
-                ShortcutTile(title: String(localized: "Top del mese")) {
-                    SymbolArtwork(symbol: "chart.bar.fill", tint: .red)
-                }
-            }
+            } label: { label() }
             .buttonStyle(.plain)
         }
     }
@@ -303,6 +321,118 @@ struct HomeView: View {
         case 5..<12: return String(localized: "Buongiorno")
         case 12..<18: return String(localized: "Buon pomeriggio")
         default: return String(localized: "Buonasera")
+        }
+    }
+
+    // MARK: Mac
+
+    /// Apple Music's margins on a Mac.
+    private static let macMargin: CGFloat = 28
+
+    private var macSections: some View {
+        VStack(alignment: .leading, spacing: 34) {
+            if nowPlaying.isIdle, let point = player.resumePoint {
+                VStack(alignment: .leading, spacing: 12) {
+                    macHeader("Riprendi da dove eri")
+                    ResumeCard(point: point, accent: accent.color) { player.continueListening(point) }
+                        .frame(maxWidth: 560)
+                        .padding(.horizontal, Self.macMargin)
+                }
+            }
+            let mixes = Recommendations.dailyMixes()
+            if !mixes.isEmpty {
+                MacShelf(title: "I tuoi mix del giorno", count: mixes.count, itemWidth: 230, margin: Self.macMargin) { position in
+                    let mix = mixes[position]
+                    Button { playMix(mix) } label: {
+                        MacPickCard(caption: String(localized: "Mix \(mix.number)"),
+                                    title: String(localized: "\(mix.artist) e simili"), busy: busyItem == mix.id) {
+                            PlaylistArtwork(playlist: Playlist(id: UUID(), name: mix.artist, tracks: mix.covers,
+                                                               createdAt: .distantPast), cornerRadius: 0)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            if !library.history.isEmpty {
+                let recent = Array(library.history.prefix(20))
+                MacShelf(title: "Ascoltati di recente", count: recent.count, itemWidth: 180, margin: Self.macMargin) { position in
+                    let track = recent[position]
+                    Button { player.playRadio(from: track) } label: {
+                        MacCoverCard(title: track.title, subtitle: track.artist) {
+                            ArtworkView(track: track, cornerRadius: 0)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .contextMenu { TrackMenu(track: track) }
+                    .playbackWarmup(track)
+                }
+            }
+            let shortcuts = self.shortcuts
+            if !shortcuts.isEmpty {
+                MacShelf(title: "Accesso rapido", count: shortcuts.count, itemWidth: 180, margin: Self.macMargin) { position in
+                    let shortcut = shortcuts[position]
+                    shortcutLink(shortcut) {
+                        MacCoverCard(title: title(of: shortcut), subtitle: subtitle(of: shortcut),
+                                     busy: busyItem == shortcut.id, plays: plays(shortcut)) { artwork(of: shortcut) }
+                    }
+                }
+            }
+            if !quickPicks.isEmpty {
+                VStack(alignment: .leading, spacing: 12) {
+                    macHeader("Scelti per te")
+                    ScrollView(.horizontal) {
+                        LazyHGrid(rows: Array(repeating: GridItem(.fixed(58), spacing: 8), count: 4), spacing: 24) {
+                            ForEach(Array(quickPicks.enumerated()), id: \.element.id) { position, track in
+                                TrackRow(track: track, swipe: .none) {
+                                    player.play(quickPicks, startAt: position, source: String(localized: "Scelti per te"))
+                                }
+                                .frame(width: 380)
+                            }
+                        }
+                        .scrollTargetLayout()
+                    }
+                    .contentMargins(.horizontal, Self.macMargin, for: .scrollContent)
+                    .scrollTargetBehavior(.viewAligned)
+                    .scrollIndicators(.hidden)
+                }
+            }
+            VStack(alignment: .leading, spacing: 12) {
+                macHeader("Mood")
+                tileGrid(orderedMoods, columns: 4) { mood in
+                    Button { playMood(mood) } label: {
+                        MacMoodCard(title: mood.title, symbol: mood.symbol, tint: mood.tint, busy: busyItem == mood.id)
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.horizontal, Self.macMargin)
+            }
+        }
+        .padding(.top, 4)
+        .padding(.bottom, 24)
+    }
+
+    private func macHeader(_ title: LocalizedStringKey) -> some View {
+        Text(title)
+            .font(.title2.bold())
+            .padding(.horizontal, Self.macMargin)
+    }
+
+    /// Whether a shortcut plays (the Last.fm mixes) rather than opening a page.
+    private func plays(_ shortcut: HomeShortcut) -> Bool {
+        switch shortcut {
+        case .tasteMix, .rediscover, .topMonth: return true
+        case .liked, .downloads, .playlist: return false
+        }
+    }
+
+    /// The line under a shortcut's cover: how many songs, where there is a count.
+    private func subtitle(of shortcut: HomeShortcut) -> String? {
+        switch shortcut {
+        case .liked: return String(localized: "\(library.liked.count) brani")
+        case .downloads: return String(localized: "\(library.downloads.count) brani")
+        case .playlist(let playlist): return String(localized: "\(playlist.tracks.count) brani")
+        case .topMonth: return String(localized: "\(topTracks.count) brani")
+        case .tasteMix, .rediscover: return "Last.fm"
         }
     }
 

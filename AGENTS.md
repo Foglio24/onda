@@ -11,7 +11,9 @@ Music (InnerTube) directly from the device. It comes in two apps:
   with XcodeGen. The sources are in `Seaglass/` (`App`, `Models`, `Player`, `Services`, `Views`,
   `Utilities`). It is distributed as an unsigned IPA for sideloading and through an AltStore source.
   The same target also builds for Macs with Apple silicon (Mac Catalyst, iPad idiom, macOS 26 or
-  later): CI signs it ad hoc, without the sandbox, and publishes `Seaglass-mac.zip` beside the IPA.
+  later): CI signs it ad hoc, without the sandbox, sets `UIApplicationSupportsMultipleScenes` in
+  its Info.plist (so it keeps playing with its window closed) and publishes `Seaglass-mac.zip`
+  beside the IPA.
   Mac-only behaviour checks `ProcessInfo.processInfo.isMacCatalystApp` (so its text is compiled,
   and checked, in the iOS build too) or `#if targetEnvironment(macCatalyst)`.
 - **Android**: Kotlin, Jetpack Compose and Media3, in `android/`, for Android 10 or later. It is

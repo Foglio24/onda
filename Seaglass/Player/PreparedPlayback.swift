@@ -138,7 +138,7 @@ final class PreparedPlayback {
 
     private var allowsPreparation: Bool {
         unmeteredWiFi && EnergyPolicy.current.allowsSpeculativeWork
-            && UIApplication.shared.applicationState != .background
+            && !PlayerController.isInBackground
     }
 
     private func scheduleSelection() {

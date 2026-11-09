@@ -744,7 +744,7 @@ final class PlayerController: ObservableObject {
     }
 
     private func startKaraoke() {
-        guard playWhenReady, UIApplication.shared.applicationState != .background,
+        guard playWhenReady, !Self.isInBackground,
               karaokeMode != .off, let track = current, let videoId = track.videoId,
               !track.isPodcastEpisode else { return }
         guard EnergyPolicy.current.allowsKaraoke || StemSeparator.cachedStems(for: videoId) != nil else {
@@ -1349,7 +1349,7 @@ final class PlayerController: ObservableObject {
         guard asset.url.scheme != OpusStream.scheme else { return }
         let quality = Preferences.streamingQuality
         let isStreaming = !asset.url.isFileURL
-        let canConvert = UIApplication.shared.applicationState != .background && EnergyPolicy.current.allowsAudioConversion
+        let canConvert = !Self.isInBackground && EnergyPolicy.current.allowsAudioConversion
         guard isStreaming || (quality.usesOpus && canConvert) else { return }
         let generation = requests.loadGeneration
         upgradeTask = Task {
@@ -1359,7 +1359,7 @@ final class PlayerController: ObservableObject {
                 self.offerLocal(copy.url, label: copy.label, track: track)
             }
             guard !Task.isCancelled, self.requests.isCurrentLoad(generation), self.playWhenReady,
-                  UIApplication.shared.applicationState != .background,
+                  !Self.isInBackground,
                   quality.usesOpus, EnergyPolicy.current.allowsAudioConversion else { return }
             // Decoded Opus plays from the next listen, or from the next seek.
             if let opus = await Self.prepareOpus(videoId: videoId, quality: quality, duration: track.duration),
@@ -1367,6 +1367,12 @@ final class PlayerController: ObservableObject {
                 self.offerLocal(opus.url, label: opus.label, track: track)
             }
         }
+    }
+
+    /// In the background as an iPhone counts it, where work beyond the music itself waits. A Mac
+    /// keeps working with its window closed or minimised, as Apple Music does: it isn't asleep.
+    static var isInBackground: Bool {
+        !ProcessInfo.processInfo.isMacCatalystApp && UIApplication.shared.applicationState == .background
     }
 
     private func stopPreparationWork() {
@@ -2113,7 +2119,7 @@ final class PlayerController: ObservableObject {
     /// Cache at most one upcoming native AAC file when iOS has spare energy.
     private func prefetchNext() {
         prefetchTask?.cancel()
-        guard playWhenReady, UIApplication.shared.applicationState != .background,
+        guard playWhenReady, !Self.isInBackground,
               EnergyPolicy.current.allowsSpeculativeWork else { return }
         prefetchLyrics()
         guard index + 1 < queue.count else { return }
@@ -2292,6 +2298,7 @@ final class PlayerController: ObservableObject {
         NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)
             .receive(on: DispatchQueue.main)
             .sink { _ in
+                guard Self.isInBackground else { return }
                 self.stopPreparationWork()
                 StemSeparator.releaseEngine()
             }

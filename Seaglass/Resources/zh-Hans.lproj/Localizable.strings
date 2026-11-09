@@ -645,3 +645,5 @@
 "Con il tempo cambiato, AutoMix e la dissolvenza si fermano: i brani si susseguono senza mix." = "速度被调整后，AutoMix 和淡入淡出会暂停：歌曲之间不再混音衔接。";
 "Gli aggiornamenti si scaricano dal browser: apri lo zip e trascina Seaglass in Applicazioni, al posto di quella che hai." = "更新通过浏览器下载：打开 zip 文件，将 Seaglass 拖到“应用程序”中，替换现有的版本。";
 "Consenti l'accesso a Seaglass nella pagina di Last.fm aperta nel browser, poi torna qui e fai clic su OK." = "请在浏览器中打开的 Last.fm 页面上允许 Seaglass 访问，然后回到这里并点按“好”。";
+"Pagina precedente" = "上一页";
+"Pagina successiva" = "下一页";

@@ -130,7 +130,7 @@ The app can check GitHub for new releases and notify you or download the IPA to 
   </tr>
 </table>
 
-The keyboard's media keys and Now Playing in Control Center control the music; ⌘→ and ⌘← skip, and the space bar plays or pauses in the player. **Settings → Updates** finds new versions and opens their zip in the browser: replace the app in Applications with the new one, and your library stays.
+Closing the window keeps the music playing, as with Apple Music: the Dock icon opens it again and ⌘Q quits. The keyboard's media keys and Now Playing in Control Center control the music; ⌘→ and ⌘← skip, and the space bar plays or pauses in the player. **Settings → Updates** finds new versions and opens their zip in the browser: replace the app in Applications with the new one, and your library stays.
 
 ## Android
 

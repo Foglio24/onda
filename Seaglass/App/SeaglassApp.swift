@@ -39,6 +39,9 @@ struct SeaglassApp: App {
                 }
                 #endif
         }
+        // One window: on a Mac, where the app keeps playing with its window closed (see build.yml),
+        // File › New Window would open a second one.
+        .commands { CommandGroup(replacing: .newItem) {} }
     }
 }
 

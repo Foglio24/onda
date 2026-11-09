@@ -85,5 +85,7 @@ shot mac-2-player 16 "player:K0HSD_i2DvA"
 shot mac-3-player-queue 16 "player:K0HSD_i2DvA" -SeaglassPanel queue
 shot mac-4-search 12 "search:daft punk"
 shot mac-5-settings 6 settings
+# The Home again, now with a song played (its recent covers and mixes).
+shot mac-6-home-played 16 home
 pkill -x Seaglass 2>/dev/null
 exit 0

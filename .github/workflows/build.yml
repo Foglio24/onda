@@ -226,10 +226,14 @@ jobs:
       - name: Karaoke model
         uses: ./.github/actions/karaoke-model
 
+      # On a Mac an app with one window quits when it's closed, and the music with it. With multiple
+      # scenes it keeps playing, as Apple Music does, and the Dock icon opens the window again.
+      # Only for the Mac: an iPad keeps a single window (SeaglassApp removes File › New Window).
       - name: Generate Xcode project
         run: |
           mkdir -p Support
           xcodegen generate
+          /usr/libexec/PlistBuddy -c "Set :UIApplicationSceneManifest:UIApplicationSupportsMultipleScenes true" Support/Info.plist
 
       - name: Build for Mac (unsigned)
         run: |
@@ -263,6 +267,7 @@ jobs:
           codesign --display --entitlements - "$app"
           lipo -archs "$app/Contents/MacOS/Seaglass"
           /usr/libexec/PlistBuddy -c "Print :LSMinimumSystemVersion" "$app/Contents/Info.plist" || true
+          test "$(/usr/libexec/PlistBuddy -c "Print :UIApplicationSceneManifest:UIApplicationSupportsMultipleScenes" "$app/Contents/Info.plist")" = true
           ls "$app/Contents/Resources" | grep -i -e karaoke -e VocFT -e icns || true
           ditto -c -k --sequesterRsrc --keepParent "$app" Seaglass-mac.zip
           ls -lh Seaglass-mac.zip
