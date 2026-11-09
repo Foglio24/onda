@@ -2,6 +2,9 @@ import AVFoundation
 import Combine
 import MediaToolbox
 import os
+#if canImport(CoreAudio)
+import CoreAudio // UnsafeMutableAudioBufferListPointer: AVFoundation brings it on iOS, not on a Mac
+#endif
 
 /// The equalizer's settings (Settings → Audio → Equalizzatore, or the player's ··· menu), saved
 /// between launches. Songs that are playing follow changes to the curve right away.

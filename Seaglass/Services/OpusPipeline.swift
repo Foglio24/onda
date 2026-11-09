@@ -241,7 +241,10 @@ actor OpusPipeline {
     // MARK: Cache
 
     private static let cacheDirectory: URL = {
-        let url = URL.cachesDirectory.appending(path: "OpusStreams", directoryHint: .isDirectory)
+        // On a Mac (not sandboxed, see Storage) in the app's own caches folder.
+        let caches = ProcessInfo.processInfo.isMacCatalystApp
+            ? URL.cachesDirectory.appending(path: "com.onda.player", directoryHint: .isDirectory) : URL.cachesDirectory
+        let url = caches.appending(path: "OpusStreams", directoryHint: .isDirectory)
         try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         return url
     }()

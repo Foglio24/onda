@@ -39,7 +39,8 @@ Out of scope:
     short links), when the user imports a playlist from a link;
   - the GitHub API, to check for updates.
 - **Last.fm credentials.** On iOS the Last.fm API secret and session key are kept in the
-  Keychain.
+  Keychain; on a Mac, in the Mac's login keychain (the app is signed ad hoc, without the
+  entitlements the iOS keychain needs there).
 - **Lyrics translation.** It runs on the device: Apple's Translation framework on iOS, ML Kit on
   Android.
 
@@ -54,8 +55,8 @@ Treat a change that breaks any of these as **P0** (secrets, updates) or **P1** (
 - The only key material in the repository is the public certificate
   `android/signing/seaglass-cert.pem`. The Android signing key lives in the
   `ANDROID_SIGNING_KEY` secret.
-- Credentials the user enters (Last.fm) go in the Keychain on iOS, never in `UserDefaults`,
-  files in Documents, logs or diagnostics. The same applies on Android when Last.fm arrives:
+- Credentials the user enters (Last.fm) go in the Keychain on iOS (the login keychain on a Mac),
+  never in `UserDefaults`, files in Documents, logs or diagnostics. The same applies on Android when Last.fm arrives:
   encrypted storage, never plain preferences or logs.
 
 ### Updates

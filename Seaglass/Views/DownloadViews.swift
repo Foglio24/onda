@@ -433,7 +433,7 @@ struct DeviceSpace {
 
     static var current: DeviceSpace? {
         let keys: Set<URLResourceKey> = [.volumeTotalCapacityKey, .volumeAvailableCapacityForImportantUsageKey]
-        guard let values = try? URL.documentsDirectory.resourceValues(forKeys: keys),
+        guard let values = try? Storage.support.resourceValues(forKeys: keys),
               let total = values.volumeTotalCapacity, total > 0,
               let available = values.volumeAvailableCapacityForImportantUsage else { return nil }
         return DeviceSpace(total: Int64(total), available: available)

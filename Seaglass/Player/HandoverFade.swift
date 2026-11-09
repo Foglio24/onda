@@ -1,5 +1,8 @@
 import AVFoundation
 import os
+#if canImport(CoreAudio)
+import CoreAudio // UnsafeMutableAudioBufferListPointer: AVFoundation brings it on iOS, not on a Mac
+#endif
 
 /// Fades a song out at an exact moment of its own time, inside the player's audio processing (a
 /// tap, see `EqualizerTap`), for AutoMix's handover: the song goes down sample by sample while the

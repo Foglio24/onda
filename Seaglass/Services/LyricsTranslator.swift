@@ -37,7 +37,10 @@ final class LyricsTranslator: ObservableObject {
     private var sessions: [String: TranslationSession] = [:]
 
     private static let directory: URL = {
-        let url = URL.cachesDirectory.appending(path: "LyricTranslations", directoryHint: .isDirectory)
+        // On a Mac (not sandboxed, see Storage) in the app's own caches folder.
+        let caches = ProcessInfo.processInfo.isMacCatalystApp
+            ? URL.cachesDirectory.appending(path: "com.onda.player", directoryHint: .isDirectory) : URL.cachesDirectory
+        let url = caches.appending(path: "LyricTranslations", directoryHint: .isDirectory)
         try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         return url
     }()

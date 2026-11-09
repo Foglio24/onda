@@ -5,25 +5,26 @@
 <h1 align="center">Seaglass <sub>formerly Onda</sub></h1>
 
 <p align="center"><strong>Your music, your rhythm.</strong><br>
-An independent music player for iPhone, iPad and <strong>now Android</strong>, with AutoMix, playlists and synced lyrics.</p>
+An independent music player for iPhone, iPad, <strong>Mac</strong> and Android, with AutoMix, playlists and synced lyrics.</p>
 
 <p align="center">
   <a href="https://github.com/Foglio24/onda/releases/latest/download/Seaglass.ipa"><img src="https://img.shields.io/badge/DOWNLOAD-Seaglass.ipa-EC3F8E?style=for-the-badge&amp;logo=apple&amp;logoColor=white" alt="Download Seaglass.ipa"></a>
+  <a href="https://github.com/Foglio24/onda/releases/latest/download/Seaglass-mac.zip"><img src="https://img.shields.io/badge/DOWNLOAD-Mac_(Apple_silicon)-1F1F1F?style=for-the-badge&amp;logo=apple&amp;logoColor=white" alt="Download Seaglass for Mac"></a>
   <a href="https://github.com/Foglio24/onda/releases?q=android-v&amp;expanded=true"><img src="https://img.shields.io/badge/DOWNLOAD-Android_APK-34A853?style=for-the-badge&amp;logo=android&amp;logoColor=white" alt="Download Seaglass for Android"></a>
   <a href="https://altdirect.app/?url=https%3A%2F%2Fraw.githubusercontent.com%2FFoglio24%2Fonda%2Fmain%2Faltstore-source.json&amp;r=altstore"><img src="https://img.shields.io/badge/ADD_TO-ALTSTORE_CLASSIC-7E4BD6?style=for-the-badge&amp;logo=apple&amp;logoColor=white" alt="Add Seaglass to AltStore Classic"></a>
   <a href="https://github.com/Foglio24/onda/releases/latest"><img src="https://img.shields.io/github/v/release/Foglio24/onda?style=for-the-badge&amp;label=RELEASE" alt="Latest release"></a>
-  <a href="https://github.com/Foglio24/onda/releases"><img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FFoglio24%2Fonda%2Fdownload-stats%2Fdownload-count.json&amp;label=total%20downloads&amp;style=for-the-badge" alt="Total downloads (iPhone, iPad and Android)"></a>
+  <a href="https://github.com/Foglio24/onda/releases"><img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FFoglio24%2Fonda%2Fdownload-stats%2Fdownload-count.json&amp;label=total%20downloads&amp;style=for-the-badge" alt="Total downloads (iPhone, iPad, Mac and Android)"></a>
 </p>
 
 <p align="center">
   <a href="#discover-seaglass">Features</a> · <a href="#screenshots">Screenshots</a> ·
-  <a href="#installation">Installation</a> · <a href="#android">Android</a> · <a href="#frequently-asked-questions">FAQ</a> ·
+  <a href="#installation">Installation</a> · <a href="#mac">Mac</a> · <a href="#android">Android</a> · <a href="#frequently-asked-questions">FAQ</a> ·
   <a href="CHANGELOG.md">Changelog</a> · <a href="android/CHANGELOG.md">Android changelog</a>
 </p>
 
 ## Discover Seaglass
 
-**Seaglass**, formerly known as Onda, is a music app for iPhone, iPad and Android that uses the YouTube Music catalogue. It brings together background playback, a personal library and tools for transitioning between songs: an independent alternative for listeners who want a customisable experience.
+**Seaglass**, formerly known as Onda, is a music app for iPhone, iPad, Mac and Android that uses the YouTube Music catalogue. It brings together background playback, a personal library and tools for transitioning between songs: an independent alternative for listeners who want a customisable experience.
 
 ### Your music, in motion
 
@@ -31,7 +32,7 @@ An independent music player for iPhone, iPad and <strong>now Android</strong>, w
 - **Playlist Mix** automatically transitions through a playlist. For downloaded songs, you can also customise transitions using waveforms, volume, EQ and effects.
 - **Adjustable audio quality** for Wi-Fi, mobile data and downloads. Maximum quality can use Opus; Dolby Digital Plus or AAC may be used when available. The actual format depends on the song and device conditions.
 - **Equaliser and volume normalisation** let you tailor your listening experience.
-- **Tempo fader** (iPhone and iPad), as in a DJ app: songs up to 15% faster or slower (or 8, 25 or 50%), with their BPM, and a key lock to keep voices at their pitch or let it move with the tempo as on a turntable.
+- **Tempo fader** (iPhone, iPad and Mac), as in a DJ app: songs up to 15% faster or slower (or 8, 25 or 50%), with their BPM, and a key lock to keep voices at their pitch or let it move with the tempo as on a turntable.
 
 ### A library of your own
 
@@ -114,9 +115,19 @@ Open Seaglass in the source to install it or check for updates. AltStore signs t
 
 The app can check GitHub for new releases and notify you or download the IPA to the Files app. Installing an update remains a manual step using your sideloading tool. See the [changelog](CHANGELOG.md) for the complete release history.
 
+## Mac
+
+**Seaglass for Mac** is the same app as on the iPad, with the same Liquid Glass design and every feature (AutoMix, the tempo fader, the AI karaoke, the equaliser, lyrics and translation, downloads, podcasts, Last.fm), in a window of its own. It needs a Mac with **Apple silicon** (M1 or later) running **macOS 26 Tahoe** or later.
+
+1. [Download Seaglass-mac.zip](https://github.com/Foglio24/onda/releases/latest/download/Seaglass-mac.zip) and open it: the zip becomes `Seaglass.app`.
+2. Drag Seaglass to **Applications**.
+3. Open it. The first time, macOS says it can't verify the developer, because the app is signed on its own rather than with an Apple developer account: click **Done**, then go to **System Settings → Privacy & Security**, scroll down to Seaglass and click **Open Anyway**. (Or, in Terminal, `xattr -dr com.apple.quarantine /Applications/Seaglass.app`.)
+
+The keyboard's media keys and Now Playing in Control Center control the music; ⌘→ and ⌘← skip, and the space bar plays or pauses in the player. **Settings → Updates** finds new versions and opens their zip in the browser: replace the app in Applications with the new one, and your library stays.
+
 ## Android
 
-**Seaglass is now on Android too** (Android 10 or later), from the same YouTube Music catalogue, with liquid glass on Android 13 and later. It is a younger app (versions 0.x) that grows release by release:
+**Seaglass is on Android too** (Android 10 or later), from the same YouTube Music catalogue, with liquid glass on Android 13 and later. It is a younger app (versions 0.x) that grows release by release:
 
 - Search, artist, album and playlist pages; radios and automatic radio; background playback with the media notification, lock-screen and Bluetooth controls.
 - **Downloads** of songs, albums and playlists for offline listening.
@@ -147,16 +158,16 @@ No. It tries to favour transitions in time when they suit the songs, but can cho
 Some recordings may not be found or matched with sufficient confidence. Open the import report to see missing songs and choose available alternatives. For long Spotify playlists, use the file import described above.
 
 **What does the download counter measure?**  
-It adds every download of the app from published GitHub releases, on every platform: the iPhone and iPad IPA (`Onda.ipa`, `Seaglass.ipa`) and the Android APKs. It refreshes periodically and does not represent the number of users or installations.
+It adds every download of the app from published GitHub releases, on every platform: the iPhone and iPad IPA (`Onda.ipa`, `Seaglass.ipa`), the Mac app (`Seaglass-mac.zip`) and the Android APKs. It refreshes periodically and does not represent the number of users or installations.
 
 **How can I report a problem?**  
-Open a [GitHub issue](https://github.com/Foglio24/onda/issues), including your app version, iPhone or iPad model and steps to reproduce the problem. When helpful, you can share a report from **Settings → Diagnostics**.
+Open a [GitHub issue](https://github.com/Foglio24/onda/issues), including your app version, iPhone, iPad or Mac model and steps to reproduce the problem. When helpful, you can share a report from **Settings → Diagnostics**.
 
 ## Project details
 
 Seaglass is written in Swift and SwiftUI; the Android app, in `android/`, in Kotlin with Jetpack Compose and Media3. It uses YouTube Music for search and catalogue, YouTubeKit for audio links, LRCLIB for lyrics and Last.fm for scrobbling. Dependencies and acknowledgements are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
-GitHub Actions builds an unsigned IPA: the **Build IPA** workflow produces a downloadable artifact. Published releases and their notes are available on the [Releases page](https://github.com/Foglio24/onda/releases).
+GitHub Actions builds an unsigned IPA and the Mac app (Mac Catalyst, signed ad hoc): the **Build IPA** workflow produces both as downloadable artifacts. Published releases and their notes are available on the [Releases page](https://github.com/Foglio24/onda/releases).
 
 ## Licence and notices
 

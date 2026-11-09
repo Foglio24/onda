@@ -1,6 +1,9 @@
 import Accelerate
 import AVFoundation
 import Foundation
+#if canImport(CoreAudio)
+import CoreAudio // UnsafeMutableAudioBufferListPointer: AVFoundation brings it on iOS, not on a Mac
+#endif
 
 /// Renders an AutoMix mix ahead of time into an audio file, offline and faster than real time:
 /// each song through its own time stretch (`AVAudioUnitTimePitch`, pitch kept), bass cut and

@@ -249,14 +249,16 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             build
 
-      # Signed ad hoc (there is no Developer ID), with the sandbox and network entitlements: macOS
-      # asks once, in Privacy & Security, before opening it. Zipped with ditto to keep the signature.
+      # Signed ad hoc (there is no Developer ID): macOS asks once, in Privacy & Security, before
+      # opening it. No sandbox: each version's ad hoc signature differs, and macOS would ask at every
+      # update whether the new one may open the old one's container (see Seaglass/Models/Storage.swift).
+      # Zipped with ditto to keep the signature.
       - name: Sign and package the Mac app
         run: |
           app=build-mac/Build/Products/Release-maccatalyst/Seaglass.app
           find "$app/Contents" -depth \( -name "*.framework" -o -name "*.dylib" -o -name "*.appex" -o -name "*.xpc" \) \
             -exec codesign --force --sign - --timestamp=none {} \;
-          codesign --force --sign - --timestamp=none --entitlements Mac/Seaglass.entitlements "$app"
+          codesign --force --sign - --timestamp=none "$app"
           codesign --verify --deep --strict --verbose=2 "$app"
           codesign --display --entitlements - "$app"
           lipo -archs "$app/Contents/MacOS/Seaglass"
