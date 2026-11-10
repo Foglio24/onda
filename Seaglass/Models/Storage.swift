@@ -2,9 +2,8 @@ import Foundation
 
 /// File locations used by the app.
 ///
-/// On a Mac the app isn't sandboxed: signed ad hoc (as it was, and still is without CI's signing key),
-/// each version has a signature of its own, and macOS would ask at every update whether the new one
-/// may open the old one's container. So it has no
+/// On a Mac the app isn't sandboxed: signed ad hoc, each version has a signature of its own, and macOS
+/// would ask at every update whether the new one may open the old one's container. So it has no
 /// container, and its folders are its own ones in the user's Library (Application Support/Seaglass,
 /// Caches/com.onda.player), never the user's Documents.
 enum Storage {

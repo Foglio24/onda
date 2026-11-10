@@ -176,7 +176,8 @@ extension RootView {
 /// window, the window's buttons at its top, the library's parts and the playlists (with their
 /// covers) in sections that fold, and Settings at its foot.
 private struct MacSidebar: View {
-    static let width: CGFloat = 250
+    /// Wider than the system's, for bigger names, symbols and covers, easier to see.
+    static let width: CGFloat = 290
     static let inset: CGFloat = 10
 
     @Binding var selection: MacSection
@@ -190,7 +191,7 @@ private struct MacSidebar: View {
     var body: some View {
         VStack(spacing: 0) {
             ScrollView {
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 4) {
                     item("Cerca", symbol: "magnifyingglass", section: .search)
                     item("Home", symbol: "house", section: .home)
                     header("Libreria", open: $libraryOpen)
@@ -208,7 +209,7 @@ private struct MacSidebar: View {
                                 MacSidebarRow(selected: selection == .playlist(playlist.id), accent: accent.color) {
                                     selection = .playlist(playlist.id)
                                 } icon: {
-                                    PlaylistArtwork(playlist: playlist, size: 30, cornerRadius: 6)
+                                    PlaylistArtwork(playlist: playlist, size: 44, cornerRadius: 8)
                                         .accessibilityHidden(true)
                                 } title: {
                                     Text(verbatim: playlist.name)
@@ -239,7 +240,7 @@ private struct MacSidebar: View {
             selection = section
         } icon: {
             Image(systemName: symbol)
-                .font(.title3)
+                .font(.title2)
                 .foregroundStyle(accent.color)
         } title: {
             Text(title)
@@ -258,10 +259,10 @@ private struct MacSidebar: View {
                     .rotationEffect(.degrees(open.wrappedValue ? 0 : -90))
                     .font(.caption.weight(.semibold))
             }
-            .font(.subheadline.weight(.semibold))
+            .font(.headline)
             .foregroundStyle(.secondary)
             .padding(.horizontal, 10)
-            .padding(.top, 16)
+            .padding(.top, 18)
             .padding(.bottom, 4)
             .contentShape(.rect)
         }
@@ -281,18 +282,20 @@ private struct MacSidebarRow<Icon: View, Title: View>: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 10) {
-                icon.frame(width: 30, height: 30)
+            HStack(spacing: 12) {
+                icon.frame(width: 44, height: 44)
                 title
+                    .font(.title3)
                     .lineLimit(1)
                     .foregroundStyle(selected ? accent : Color.primary)
                     .fontWeight(selected ? .semibold : .regular)
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 10)
-            .frame(height: 40)
+            .padding(.vertical, 4)
+            .frame(minHeight: 52)
             .background {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .fill(Color.primary.opacity(selected ? 0.1 : hovering ? 0.05 : 0))
             }
             .contentShape(.rect)

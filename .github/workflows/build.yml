@@ -326,67 +326,21 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             build
 
-      # Signed with Seaglass's own certificate (Mac/signing/seaglass-mac-cert.pem, its key in the
-      # MAC_SIGNING_KEY secret). It is self-signed (there is no Developer ID), so macOS asks once, in
-      # Privacy & Security, before opening the app the first time; but every version has the same
-      # signer, so what macOS lets the app use (the account's session in the keychain, the
-      # microphone) carries over to updates. Signed ad hoc instead, each version had a signer of its
-      # own, and macOS asked for the keychain after every update. Without the secret a release is
-      # signed ad hoc as before, and a test build with a temporary certificate, to check the way.
-      # No sandbox (see Seaglass/Models/Storage.swift). Zipped with ditto to keep the signature.
+      # Signed ad hoc (there is no Developer ID): macOS asks once, in Privacy & Security, before
+      # opening it. No sandbox: each version's ad hoc signature differs, and macOS would ask at every
+      # update whether the new one may open the old one's container (see Seaglass/Models/Storage.swift).
+      # Zipped with ditto to keep the signature.
       - name: Sign and package the Mac app
-        env:
-          MAC_SIGNING_KEY: ${{ secrets.MAC_SIGNING_KEY }}
-          RELEASE: ${{ inputs.release }}
         run: |
           app=build-mac/Build/Products/Release-maccatalyst/Seaglass.app
-          identity=-
-          keychain=
-          work="$RUNNER_TEMP/signing"
-          mkdir -p "$work"
-          chmod 700 "$work"
-          if [ -n "$MAC_SIGNING_KEY" ]; then
-            (umask 077; printf '%s\n' "$MAC_SIGNING_KEY" > "$work/key.pem")
-            cp Mac/signing/seaglass-mac-cert.pem "$work/cert.pem"
-          elif [ "$RELEASE" != "true" ]; then
-            echo "::warning::No MAC_SIGNING_KEY secret: this test build is signed with a temporary certificate."
-            printf '%s\n' '[req]' 'distinguished_name = dn' 'x509_extensions = ext' 'prompt = no' '[dn]' \
-              'CN = Seaglass (temporary)' '[ext]' 'basicConstraints = critical, CA:false' \
-              'keyUsage = critical, digitalSignature' 'extendedKeyUsage = critical, codeSigning' > "$work/cert.cnf"
-            (umask 077; /usr/bin/openssl req -x509 -newkey rsa:2048 -nodes -keyout "$work/key.pem" \
-              -out "$work/cert.pem" -days 2 -config "$work/cert.cnf" 2>/dev/null)
-          else
-            echo "::warning::No MAC_SIGNING_KEY secret: signed ad hoc, so macOS asks again for the keychain after this update."
-          fi
-          if [ -f "$work/key.pem" ]; then
-            password=$(openssl rand -hex 16)
-            echo "::add-mask::$password"
-            # LibreSSL's PKCS#12 (macOS's own openssl), which the keychain imports.
-            /usr/bin/openssl pkcs12 -export -inkey "$work/key.pem" -in "$work/cert.pem" -name Seaglass \
-              -out "$work/seaglass.p12" -passout "pass:$password"
-            rm "$work/key.pem"
-            keychain="$work/seaglass.keychain-db"
-            security create-keychain -p "$password" "$keychain"
-            security set-keychain-settings -lut 3600 "$keychain"
-            security unlock-keychain -p "$password" "$keychain"
-            security import "$work/seaglass.p12" -k "$keychain" -P "$password" -T /usr/bin/codesign
-            rm "$work/seaglass.p12"
-            security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$password" "$keychain" > /dev/null
-            security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
-            identity=$(openssl x509 -in "$work/cert.pem" -noout -fingerprint -sha1 | sed 's/.*=//; s/://g')
-          fi
-          sign() { codesign --force --sign "$identity" ${keychain:+--keychain "$keychain"} --timestamp=none "$@"; }
           find "$app/Contents" -depth \( -name "*.framework" -o -name "*.dylib" -o -name "*.appex" -o -name "*.xpc" \) \
-            -print0 | while IFS= read -r -d '' item; do sign "$item"; done
+            -exec codesign --force --sign - --timestamp=none {} \;
           # The AppKit plug-in (menu bar, updates): there, and signed with the app.
           test -x "$app/Contents/PlugIns/SeaglassMac.bundle/Contents/MacOS/SeaglassMac"
-          sign "$app/Contents/PlugIns/SeaglassMac.bundle"
-          sign "$app"
+          codesign --force --sign - --timestamp=none "$app/Contents/PlugIns/SeaglassMac.bundle"
+          codesign --force --sign - --timestamp=none "$app"
           codesign --verify --deep --strict --verbose=2 "$app"
           codesign --display --entitlements - "$app"
-          # Who signed it, and what macOS checks an update against (the designated requirement).
-          codesign --display --verbose=2 "$app" 2>&1 | grep -e "^Authority" -e "^Signature" -e "^Identifier" || true
-          codesign --display --requirements - "$app" 2>&1 | tail -1
           lipo -archs "$app/Contents/MacOS/Seaglass"
           /usr/libexec/PlistBuddy -c "Print :LSMinimumSystemVersion" "$app/Contents/Info.plist" || true
           test "$(/usr/libexec/PlistBuddy -c "Print :UIApplicationSceneManifest:UIApplicationSupportsMultipleScenes" "$app/Contents/Info.plist")" = true

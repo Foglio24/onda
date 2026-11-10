@@ -196,7 +196,7 @@ If Seaglass makes your listening better, you can support continued development t
 
 Seaglass is written in Swift and SwiftUI; the Android app, in `android/`, in Kotlin with Jetpack Compose and Media3. It uses YouTube Music for search and catalogue, YouTubeKit for audio links, LRCLIB for lyrics and Last.fm for scrobbling. Dependencies and acknowledgements are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
-GitHub Actions builds an unsigned IPA and the Mac app (Mac Catalyst, self-signed): the **Build IPA** workflow produces both as downloadable artifacts. Published releases and their notes are available on the [Releases page](https://github.com/Foglio24/onda/releases).
+GitHub Actions builds an unsigned IPA and the Mac app (Mac Catalyst, signed ad hoc): the **Build IPA** workflow produces both as downloadable artifacts. Published releases and their notes are available on the [Releases page](https://github.com/Foglio24/onda/releases).
 
 ## Licence and notices
 

@@ -12,8 +12,7 @@ iPad and Mac app keep the library in sync. It comes in two apps:
   with XcodeGen. The sources are in `Seaglass/` (`App`, `Models`, `Player`, `Services`, `Views`,
   `Utilities`). It is distributed as an unsigned IPA for sideloading and through an AltStore source.
   The same target also builds for Macs with Apple silicon (Mac Catalyst, iPad idiom, macOS 26 or
-  later): CI signs it with Seaglass's self-signed certificate (`Mac/signing`, its key in the
-  `MAC_SIGNING_KEY` secret; ad hoc without it), without the sandbox, sets `UIApplicationSupportsMultipleScenes` in
+  later): CI signs it ad hoc, without the sandbox, sets `UIApplicationSupportsMultipleScenes` in
   its Info.plist (so it keeps playing with its window closed) and publishes `Seaglass-mac.zip`
   beside the IPA. Its AppKit plug-in (`Mac/Bridge`, target `SeaglassMac`, embedded in the Mac
   build only) puts it in the menu bar and installs updates; the app talks to it through
