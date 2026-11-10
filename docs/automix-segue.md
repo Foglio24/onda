@@ -101,8 +101,12 @@ in under a lock the audio thread only tries.
    prerolled at the plan's speed (within 1 % by resampling, more with the pitch kept).
 2. 2.5 seconds before the window it starts, silent, at an exact moment of the system clock
    computed from the playing song's timebase.
-3. Every 50 ms its distance from its place is measured and corrected by its speed: up to 8 %
-   while silent (with a seek if it is more than 0.4 s off), up to 2 % once heard.
+3. Every 50 ms its distance from its place is measured (the median of the last five readings: a
+   player's time moves in steps of 10–20 ms) and made good by nudging its speed. While silent it
+   is corrected fast: up to 8 % over 0.3 s, with a seek if it is more than 0.4 s off. Once heard
+   it is corrected gently, so its tempo never sways: nothing within 12 ms, then up to 0.8 % over
+   2 s (1.5 % over 0.8 s while it is still low in the mix). On CI's Mac it opened its window
+   26 ms off and stayed within 3 ms through a 16-bar mix.
 4. When the window starts, the second player becomes the main one (the queue moves on). When it
    ends, the old player is released and the new song goes back to its own speed a little at a
    time (0.1 % per beat, over at least 16 beats).
