@@ -15,6 +15,7 @@ A hands-on music player for iPhone, iPad, <strong>Mac</strong> and Android, buil
   <a href="https://github.com/Foglio24/onda/releases/latest"><img src="https://img.shields.io/github/v/release/Foglio24/onda?style=for-the-badge&amp;label=RELEASE" alt="Latest release"></a>
   <a href="https://github.com/Foglio24/onda/releases"><img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FFoglio24%2Fonda%2Fdownload-stats%2Fdownload-count.json&amp;label=total%20downloads&amp;style=for-the-badge" alt="Total downloads (iPhone, iPad, Mac and Android)"></a>
   <a href="https://github.com/sponsors/Foglio24"><img src="https://img.shields.io/badge/SPONSOR-Seaglass-DB61A2?style=for-the-badge&amp;logo=githubsponsors&amp;logoColor=white" alt="Sponsor Seaglass on GitHub"></a>
+  <a href="https://buymeacoffee.com/foglio"><img src="https://img.shields.io/badge/BUY_ME_A_COFFEE-Support_Seaglass-FFDD00?style=for-the-badge&amp;logo=buymeacoffee&amp;logoColor=black" alt="Support Seaglass on Buy Me a Coffee"></a>
 </p>
 
 <p align="center">
@@ -187,7 +188,7 @@ Open a [GitHub issue](https://github.com/Foglio24/onda/issues), including your a
 
 ## Support Seaglass
 
-If Seaglass makes your listening better, you can support continued development through [GitHub Sponsors](https://github.com/sponsors/Foglio24). Your support helps fund new features, compatibility work and maintenance across iPhone, iPad and Mac.
+If Seaglass makes your listening better, you can support continued development through [GitHub Sponsors](https://github.com/sponsors/Foglio24) or [Buy Me a Coffee](https://buymeacoffee.com/foglio). Your support helps fund new features, compatibility work and maintenance across iPhone, iPad and Mac.
 
 ## Project details
 
