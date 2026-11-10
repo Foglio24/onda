@@ -236,6 +236,85 @@ final class SeaglassMacBridge: NSObject, NSMenuDelegate {
         return NSNumber(value: movable)
     }
 
+    // MARK: Zoom
+
+    /// The scale macOS draws the app at (an iPad app on a Mac: 77 %) times the zoom. Read by the
+    /// scene views' scale methods, replaced by `scaleScenes`, on the main thread.
+    nonisolated(unsafe) private static var sceneScale: CGFloat = 0.77
+    private static var baseScale: CGFloat?
+    private static var zoom: CGFloat = 1
+
+    /// `value`: the zoom, 0.5…2 (1, the app's own size). Everything in the windows grows or shrinks
+    /// together, as with Spotify's zoom: macOS has no setting for an iPad app's 77 % scale, so the
+    /// methods UIKit's Mac windows read it from (`UINSSceneView`'s) return it times the zoom, and
+    /// the windows are laid out again. Returns what was done, for CI's log.
+    @objc func setZoom(_ value: NSNumber) -> NSString {
+        let zoom = min(2, max(0.5, CGFloat(value.doubleValue)))
+        var report: [String] = []
+        if Self.baseScale == nil {
+            let base = Self.currentSceneScale() ?? 0.77
+            Self.baseScale = base
+            Self.sceneScale = base
+            report.append("base \(base), scaled " + Self.scaleScenes().joined(separator: ", "))
+        }
+        guard zoom != Self.zoom, let base = Self.baseScale else { return report.joined(separator: "; ") as NSString }
+        Self.zoom = zoom
+        Self.sceneScale = base * zoom
+        // A resize makes each window's scene take the new scale (its size in the app's points).
+        for window in NSApp.windows where window.isVisible && window.contentView.map(Self.hasSceneView) == true {
+            let frame = window.frame
+            window.setFrame(NSRect(x: frame.minX, y: frame.minY, width: frame.width + 1, height: frame.height), display: false)
+            window.setFrame(frame, display: true)
+        }
+        report.append("zoom \(zoom), scene scale \(Self.sceneScale)")
+        return report.joined(separator: "; ") as NSString
+    }
+
+    private static let sceneScaleMethods = [
+        ("UINSSceneView", "sceneToSceneViewScaleFactor"),
+        ("UINSSceneView", "fixedSceneToSceneViewScaleFactor"),
+        ("UINSSceneContainerView", "sceneToSceneViewScaleForLayout"),
+    ]
+
+    /// The scale the app is drawn at now, read from a window's scene view before any change.
+    private static func currentSceneScale() -> CGFloat? {
+        for window in NSApp.windows {
+            guard let view = window.contentView.flatMap({ sceneView(in: $0) }) else { continue }
+            let selector = NSSelectorFromString("sceneToSceneViewScaleFactor")
+            guard view.responds(to: selector), let method = class_getInstanceMethod(type(of: view), selector) else { continue }
+            typealias Getter = @convention(c) (AnyObject, Selector) -> CGFloat
+            let scale = unsafeBitCast(method_getImplementation(method), to: Getter.self)(view, selector)
+            if scale > 0.3, scale < 3 { return scale }
+        }
+        return nil
+    }
+
+    private static func sceneView(in view: NSView) -> NSView? {
+        if NSStringFromClass(type(of: view)).contains("UINSSceneView") { return view }
+        for subview in view.subviews {
+            if let found = sceneView(in: subview) { return found }
+        }
+        return nil
+    }
+
+    private static func hasSceneView(_ view: NSView) -> Bool { sceneView(in: view) != nil }
+
+    /// Each scene scale method (those that exist and return a CGFloat) returns `sceneScale` instead:
+    /// the same value from each, so none multiplies what another already did.
+    private static func scaleScenes() -> [String] {
+        var replaced: [String] = []
+        for (className, name) in sceneScaleMethods {
+            guard let type = NSClassFromString(className) else { continue }
+            let selector = NSSelectorFromString(name)
+            guard let method = class_getInstanceMethod(type, selector), let encoding = method_getTypeEncoding(method),
+                  String(cString: encoding).hasPrefix("d") else { continue }
+            let replacement: @convention(block) (AnyObject) -> CGFloat = { _ in SeaglassMacBridge.sceneScale }
+            method_setImplementation(method, imp_implementationWithBlock(replacement))
+            replaced.append("\(className).\(name)")
+        }
+        return replaced
+    }
+
     // MARK: AirPlay
 
     /// The AirPlay button about to open its list of devices: its frame and its window's size, in

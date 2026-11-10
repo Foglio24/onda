@@ -26,7 +26,7 @@ struct RootView: View {
     @AppStorage(Preferences.accent) private var accent: AccentChoice = .pink
     @State private var selection: AppTab = .home
     @State private var macSelection: MacSection = .home
-    @StateObject private var sidebarCovers = SidebarCovers()
+    @State private var visitedSections: Set<MacSection> = []
 
     private static let isMac = ProcessInfo.processInfo.isMacCatalystApp
 
@@ -100,136 +100,202 @@ extension RootView {
         }
     }
 
-    /// On a Mac, Apple Music's sidebar (search first, the Home, the library, the playlists), the
-    /// system's own in Liquid Glass, and its player bar floating in glass along the bottom of every
-    /// page, the page scrolling under it.
+    /// On a Mac, Apple Music's layout on macOS 26: a sidebar floating in Liquid Glass along the
+    /// window's left (search, the Home, the library, the playlists, Settings), with the window's
+    /// buttons on it, and the player bar floating in glass along the bottom. The pages run under
+    /// both, so their backgrounds and what scrolls show through the glass. The sidebar is the app's
+    /// own: the system's (TabView, NavigationSplitView) is opaque in an iPad app on a Mac.
     private var macTabs: some View {
-        TabView(selection: $macSelection) {
-            Tab(value: MacSection.search, role: .search) {
-                macPage { SearchView() }
-            }
-            Tab("Home", systemImage: "house", value: MacSection.home) {
-                macPage { HomeView() }
-            }
-            TabSection("Libreria") {
-                Tab("Libreria", systemImage: "square.stack", value: MacSection.library) {
-                    macPage { LibraryView() }
-                }
-                Tab("Preferiti", systemImage: "heart", value: MacSection.liked) {
-                    macPage { NavigationStack { TrackCollectionView(collection: .liked) } }
-                }
-                Tab("Cronologia", systemImage: "clock", value: MacSection.history) {
-                    macPage { NavigationStack { TrackCollectionView(collection: .history) } }
-                }
-                Tab("Download", systemImage: "arrow.down.circle", value: MacSection.downloads) {
-                    macPage { NavigationStack { DownloadsView() } }
-                }
-                Tab("Podcast", systemImage: "mic", value: MacSection.podcasts) {
-                    macPage { NavigationStack { PodcastsView() } }
-                }
-            }
-            TabSection("Playlist") {
-                ForEach(library.playlists) { playlist in
-                    Tab(value: MacSection.playlist(playlist.id)) {
-                        macPage { NavigationStack { PlaylistDetailView(playlistID: playlist.id) } }
-                    } label: {
-                        Label {
-                            Text(playlist.name)
-                        } icon: {
-                            if let cover = sidebarCovers.covers[playlist.id] {
-                                Image(uiImage: cover).renderingMode(.original)
-                            } else {
-                                Image(systemName: "music.note.list")
-                            }
-                        }
-                    }
-                }
-            }
-            Tab("Impostazioni", systemImage: "gearshape", value: MacSection.settings) {
-                macPage { SettingsView() }
-            }
-        }
-        .tabViewStyle(.sidebarAdaptable)
-        .task(id: library.playlists.map(\.sidebarCoverKey)) { await sidebarCovers.update(library.playlists) }
-        // A deleted playlist's page goes with it.
-        .onChange(of: library.playlists.map(\.id)) { _, ids in
-            if case .playlist(let id) = macSelection, !ids.contains(id) { macSelection = .home }
-        }
-    }
-
-    /// A page of the Mac's window, with the player bar over its bottom. An overlay, so it stays on
-    /// top of the pages pushed inside it too (a playlist opened from the library); the safe area
-    /// makes room for it at the end of the page.
-    private func macPage<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
-        content()
+        macPages
+            // The page's content starts beside the sidebar and ends above the player bar.
+            .safeAreaPadding(.leading, MacSidebar.width + 2 * MacSidebar.inset)
             .safeAreaPadding(.bottom, MacPlayerBar.height + 24)
             .overlay(alignment: .bottom) {
                 MacPlayerBar()
                     .glassEffect(.regular, in: .capsule)
-                    .padding(.horizontal, 18)
+                    .padding(.leading, MacSidebar.width + 2 * MacSidebar.inset + 8)
+                    .padding(.trailing, 18)
                     .padding(.bottom, 14)
                     .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
                         router.miniPlayerFrame = frame
                     }
             }
-    }
-}
-
-/// The playlists' covers as small pictures for the Mac's sidebar, whose items take an image (the
-/// system's sidebar draws them, not SwiftUI): the custom cover, or the first four songs' artwork.
-@MainActor
-final class SidebarCovers: ObservableObject {
-    @Published private(set) var covers: [UUID: UIImage] = [:]
-    private static let side: CGFloat = 22
-
-    func update(_ playlists: [Playlist]) async {
-        var updated: [UUID: UIImage] = [:]
-        for playlist in playlists {
-            if Task.isCancelled { return }
-            if let cover = await Self.cover(of: playlist) { updated[playlist.id] = cover }
-        }
-        covers = updated
+            .overlay(alignment: .topLeading) {
+                GeometryReader { proxy in
+                    MacSidebar(selection: $macSelection, top: proxy.safeAreaInsets.top)
+                        .padding(MacSidebar.inset)
+                }
+                .ignoresSafeArea()
+            }
+            // A deleted playlist's page goes with it.
+            .onChange(of: library.playlists.map(\.id)) { _, ids in
+                if case .playlist(let id) = macSelection, !ids.contains(id) { macSelection = .home }
+            }
     }
 
-    private static func cover(of playlist: Playlist) async -> UIImage? {
-        let pixels = Int(side * 3)
-        if let custom = playlist.customCoverURL {
-            return await ImageCache.shared.image(for: custom, pixels: pixels).map(rounded)
-        }
-        var images: [UIImage] = []
-        for track in playlist.tracks.prefix(4) {
-            guard let url = track.mediumArtworkURL, let image = await ImageCache.shared.image(for: url, pixels: pixels) else { continue }
-            images.append(image)
-        }
-        guard let first = images.first else { return nil }
-        guard images.count == 4 else { return rounded(first) }
-        let format = UIGraphicsImageRendererFormat()
-        format.scale = 3
-        let size = CGSize(width: side, height: side)
-        let grid = UIGraphicsImageRenderer(size: size, format: format).image { _ in
-            for (index, image) in images.enumerated() {
-                let half = side / 2
-                image.draw(in: CGRect(x: CGFloat(index % 2) * half, y: CGFloat(index / 2) * half, width: half, height: half))
+    /// The sidebar's sections kept as they were left (their scroll, the pages opened in them) once
+    /// visited, as tabs are; a playlist's page is made again each time.
+    private static let keptSections: [MacSection] = [.search, .home, .library, .liked, .history, .downloads, .podcasts, .settings]
+
+    private var macPages: some View {
+        ZStack {
+            ForEach(Self.keptSections.filter { visitedSections.contains($0) || $0 == macSelection }, id: \.self) { section in
+                let shown = section == macSelection
+                macPage(section)
+                    .opacity(shown ? 1 : 0)
+                    .allowsHitTesting(shown)
+                    .accessibilityHidden(!shown)
+            }
+            if case .playlist(let id) = macSelection {
+                NavigationStack { PlaylistDetailView(playlistID: id) }
+                    .id(id)
             }
         }
-        return rounded(grid)
+        .onChange(of: macSelection, initial: true) { _, section in
+            if Self.keptSections.contains(section) { visitedSections.insert(section) }
+        }
     }
 
-    private static func rounded(_ image: UIImage) -> UIImage {
-        let format = UIGraphicsImageRendererFormat()
-        format.scale = 3
-        let rect = CGRect(x: 0, y: 0, width: side, height: side)
-        return UIGraphicsImageRenderer(size: rect.size, format: format).image { _ in
-            UIBezierPath(roundedRect: rect, cornerRadius: 5).addClip()
-            image.draw(in: rect)
-        }.withRenderingMode(.alwaysOriginal)
+    @ViewBuilder private func macPage(_ section: MacSection) -> some View {
+        switch section {
+        case .search: SearchView()
+        case .home: HomeView()
+        case .library: LibraryView()
+        case .liked: NavigationStack { TrackCollectionView(collection: .liked) }
+        case .history: NavigationStack { TrackCollectionView(collection: .history) }
+        case .downloads: NavigationStack { DownloadsView() }
+        case .podcasts: NavigationStack { PodcastsView() }
+        case .settings: SettingsView()
+        case .playlist(let id): NavigationStack { PlaylistDetailView(playlistID: id) }
+        }
     }
 }
 
-private extension Playlist {
-    /// Changes when the sidebar's cover of the playlist would.
-    var sidebarCoverKey: String {
-        ([id.uuidString, coverFile ?? ""] + tracks.prefix(4).map(\.id)).joined(separator: "|")
+/// The Mac's sidebar, as Apple Music's on macOS 26: a panel of Liquid Glass floating inside the
+/// window, the window's buttons at its top, the library's parts and the playlists (with their
+/// covers) in sections that fold, and Settings at its foot.
+private struct MacSidebar: View {
+    static let width: CGFloat = 250
+    static let inset: CGFloat = 10
+
+    @Binding var selection: MacSection
+    /// The window's title bar (its buttons), which the panel runs under.
+    let top: CGFloat
+    @EnvironmentObject private var library: Library
+    @AppStorage(Preferences.accent) private var accent: AccentChoice = .pink
+    @AppStorage("mac.sidebar.libraryOpen") private var libraryOpen = true
+    @AppStorage("mac.sidebar.playlistsOpen") private var playlistsOpen = true
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 2) {
+                    item("Cerca", symbol: "magnifyingglass", section: .search)
+                    item("Home", symbol: "house", section: .home)
+                    header("Libreria", open: $libraryOpen)
+                    if libraryOpen {
+                        item("Libreria", symbol: "square.stack", section: .library)
+                        item("Preferiti", symbol: "heart", section: .liked)
+                        item("Cronologia", symbol: "clock", section: .history)
+                        item("Download", symbol: "arrow.down.circle", section: .downloads)
+                        item("Podcast", symbol: "mic", section: .podcasts)
+                    }
+                    if !library.playlists.isEmpty {
+                        header("Playlist", open: $playlistsOpen)
+                        if playlistsOpen {
+                            ForEach(library.playlists) { playlist in
+                                MacSidebarRow(selected: selection == .playlist(playlist.id), accent: accent.color) {
+                                    selection = .playlist(playlist.id)
+                                } icon: {
+                                    PlaylistArtwork(playlist: playlist, size: 24, cornerRadius: 5)
+                                        .accessibilityHidden(true)
+                                } title: {
+                                    Text(verbatim: playlist.name)
+                                }
+                            }
+                        }
+                    }
+                }
+                .padding(.horizontal, 10)
+                .padding(.top, max(top, 28) + 8)
+                .padding(.bottom, 8)
+            }
+            .scrollIndicators(.never)
+            Divider().opacity(0.5).padding(.horizontal, 16)
+            item("Impostazioni", symbol: "gearshape", section: .settings)
+                .padding(10)
+        }
+        .frame(width: Self.width)
+        .frame(maxHeight: .infinity)
+        .glassEffect(.regular, in: .rect(cornerRadius: 24))
+    }
+
+    private func item(_ title: LocalizedStringKey, symbol: String, section: MacSection) -> some View {
+        MacSidebarRow(selected: selection == section, accent: accent.color) {
+            selection = section
+        } icon: {
+            Image(systemName: symbol)
+                .font(.title3)
+                .foregroundStyle(accent.color)
+        } title: {
+            Text(title)
+        }
+    }
+
+    /// A section's name, which folds it or opens it, as the system's sidebar does.
+    private func header(_ title: LocalizedStringKey, open: Binding<Bool>) -> some View {
+        Button {
+            withAnimation(.snappy(duration: 0.25)) { open.wrappedValue.toggle() }
+        } label: {
+            HStack {
+                Text(title)
+                Spacer()
+                Image(systemName: "chevron.down")
+                    .rotationEffect(.degrees(open.wrappedValue ? 0 : -90))
+                    .font(.caption.weight(.semibold))
+            }
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 10)
+            .padding(.top, 16)
+            .padding(.bottom, 4)
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(.isHeader)
+    }
+}
+
+/// A line of the Mac's sidebar: lit while its page is open, a lighter fill under the pointer.
+private struct MacSidebarRow<Icon: View, Title: View>: View {
+    let selected: Bool
+    let accent: Color
+    let action: () -> Void
+    @ViewBuilder let icon: Icon
+    @ViewBuilder let title: Title
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                icon.frame(width: 26, height: 26)
+                title
+                    .lineLimit(1)
+                    .foregroundStyle(selected ? accent : Color.primary)
+                    .fontWeight(selected ? .semibold : .regular)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 10)
+            .frame(height: 38)
+            .background {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color.primary.opacity(selected ? 0.1 : hovering ? 0.05 : 0))
+            }
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }
 

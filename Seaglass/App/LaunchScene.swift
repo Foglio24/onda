@@ -177,6 +177,19 @@ enum LaunchScene {
                 }
                 print("tempo-bpm: FAIL")
             }
+        case "zoom-change" where ProcessInfo.processInfo.isMacCatalystApp:
+            // Settings, then the zoom changed to 150 % while the window is open (as ⌘+ does).
+            select(.settings)
+            Task {
+                try? await Task.sleep(for: .seconds(3))
+                func size() -> CGSize {
+                    UIApplication.shared.connectedScenes.compactMap { ($0 as? UIWindowScene)?.windows.first?.bounds.size }.first ?? .zero
+                }
+                let before = size()
+                let report = MacBridge.shared.setZoom(percent: 150) ?? "no plug-in"
+                try? await Task.sleep(for: .seconds(1))
+                print("zoom: \(report); window \(before) → \(size())")
+            }
         case "tempo-live":
             // A real song played from its stream (`value`, a video id): the tempo panel's BPM, as
             // people get it (the log says each step). Live: YouTube may refuse CI's machines.

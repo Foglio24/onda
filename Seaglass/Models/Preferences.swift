@@ -315,18 +315,10 @@ final class NetworkMonitor: @unchecked Sendable {
 enum MacZoom {
     static let levels = [75, 85, 100, 115, 130, 150]
 
-    static var current: Int { UserDefaults.standard.object(forKey: Preferences.macZoom) as? Int ?? 100 }
-
-    /// The text size each level stands for.
-    static func textSize(for percent: Int) -> DynamicTypeSize {
-        switch percent {
-        case ..<80: return .xSmall
-        case ..<95: return .small
-        case ..<110: return .large
-        case ..<125: return .xLarge
-        case ..<140: return .xxLarge
-        default: return .xxxLarge
-        }
+    /// The zoom in percent (also as a launch argument, which comes as text).
+    static var current: Int {
+        let value = UserDefaults.standard.integer(forKey: Preferences.macZoom)
+        return value == 0 ? 100 : min(200, max(50, value))
     }
 
     /// One level up or down, or back to 100 % with zero.
@@ -337,16 +329,17 @@ enum MacZoom {
     }
 }
 
-/// Applies the Mac's zoom to a window's or a sheet's views; on iPhone and iPad the system's text
-/// size applies instead.
+/// Applies the Mac's zoom to its windows (the AppKit plug-in scales them whole: Dynamic Type, the
+/// text size, does nothing in an iPad app on a Mac); on iPhone and iPad the system's text size
+/// applies instead. Given to the root and to sheets; the plug-in acts only when the zoom changes.
 struct MacZoomModifier: ViewModifier {
     @AppStorage(Preferences.macZoom) private var zoom = 100
 
     func body(content: Content) -> some View {
-        if ProcessInfo.processInfo.isMacCatalystApp {
-            content.dynamicTypeSize(MacZoom.textSize(for: zoom))
-        } else {
-            content
+        content.onChange(of: zoom, initial: true) {
+            guard ProcessInfo.processInfo.isMacCatalystApp else { return }
+            let report = MacBridge.shared.setZoom(percent: MacZoom.current)
+            if LaunchScene.isActive, let report, !report.isEmpty { print("zoom: \(report)") }
         }
     }
 }

@@ -106,8 +106,11 @@ grep "tempo-bpm" "$logs/mac-17-tempo.log" || echo "::warning::The tempo panel sa
 shot mac-17b-tempo-live 60 "tempo-live:K0HSD_i2DvA" -SeaglassPanel tempo
 grep -e "tempo-bpm" -e "tempo-live" "$logs/mac-17b-tempo-live.log" || true
 grep -q "tempo-live: PASS" "$logs/mac-17b-tempo-live.log" || echo "::warning::A streamed song's BPM didn't show (live)"
-# The zoom at 130 %.
+# The zoom at 130 % from the start, and changed to 150 % with the window open: everything bigger.
 shot mac-18-zoom 6 settings -mac.zoom 130
+grep "zoom:" "$logs/mac-18-zoom.log" || echo "::warning::The zoom said nothing"
+shot mac-18b-zoom-change 8 zoom-change
+grep "zoom:" "$logs/mac-18b-zoom-change.log" || echo "::warning::The zoom change said nothing"
 # The AirPlay menu opened from the player bar: the whole screen, as the menu is a window of its own.
 pkill -x Seaglass 2>/dev/null
 NSUnbufferedIO=YES "$binary" -AppleLanguages "(en)" -AppleInterfaceStyle Dark -SeaglassScene airplay >"$logs/airplay.log" 2>&1 &

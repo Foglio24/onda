@@ -141,6 +141,16 @@ final class MacBridge {
         (plugIn?.perform(NSSelectorFromString("keepWindowsInPlace"))?.takeUnretainedValue() as? NSNumber)?.boolValue ?? false
     }
 
+    // MARK: Zoom
+
+    /// The whole window's size, as Spotify's zoom: 100 is the app's own size (see the plug-in's
+    /// `setZoom`). Returns what the plug-in did, for CI's log.
+    @discardableResult
+    func setZoom(percent: Int) -> String? {
+        plugIn?.perform(NSSelectorFromString("setZoom:"), with: NSNumber(value: Double(percent) / 100))?
+            .takeUnretainedValue() as? String
+    }
+
     // MARK: AirPlay
 
     /// An AirPlay button about to open its list of devices: the plug-in puts the list by it, where
