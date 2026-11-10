@@ -65,6 +65,13 @@ def validate_ipa(release):
     }, permissions
 
 
+FIRST_KEPT = (1, 30, 0)
+
+
+def version_key(version):
+    return tuple(int(part) for part in version.split("."))
+
+
 def main():
     source_path = Path("altstore-source.json")
     source = json.loads(source_path.read_text())
@@ -73,17 +80,14 @@ def main():
         raise ValueError("Unexpected source bundle identifier")
     latest = gh(f"repos/{REPO}/releases/latest")
     entry, privacy = validate_ipa(latest)
-    # Bootstrap a known, functioning prior Seaglass release, validated from its IPA.
-    candidates = [entry]
-    if not any(v["version"] == "1.20.0" for v in app["versions"]) and entry["version"] != "1.20.0":
-        prior = gh(f"repos/{REPO}/releases/tags/v1.20.0")
-        historical, _ = validate_ipa(prior)
-        candidates.append(historical)
-    existing = {v["version"]: v for v in app["versions"] if v["version"] not in {"1.18.1", "1.19.0"}}
-    for version in candidates:
-        existing[version["version"]] = version
+    # Only the versions still released: those before 1.30.0, the first with Seaglass Premium, were
+    # deleted (they unlocked Premium's features for free), and their downloads with them.
+    existing = {v["version"]: v for v in app["versions"] if version_key(v["version"]) >= FIRST_KEPT}
+    existing[entry["version"]] = entry
+    source["news"] = [item for item in source["news"] if not item["identifier"].startswith("release-")
+                      or version_key(item["identifier"].removeprefix("release-")) >= FIRST_KEPT]
     # AltStore uses the first compatible entry; do not trust publication dates for ordering.
-    app["versions"] = sorted(existing.values(), key=lambda v: tuple(int(x) for x in v["version"].split(".")), reverse=True)
+    app["versions"] = sorted(existing.values(), key=lambda v: version_key(v["version"]), reverse=True)
     if app["versions"][0]["version"] != entry["version"]:
         raise ValueError("Latest release would not be first; refusing to update source")
     app["appPermissions"]["privacy"] = privacy
