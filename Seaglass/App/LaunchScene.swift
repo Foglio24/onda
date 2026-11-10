@@ -33,6 +33,10 @@ enum LaunchScene {
     /// Settings → Equalizzatore is opened at launch.
     static var opensEqualizer: Bool { scene == "equalizer" }
 
+    /// Settings → Account is opened at launch, signed in with `-SeaglassAccountToken` (a session CI
+    /// makes on the account service for Tools/MacAccountCheck).
+    static var opensAccount: Bool { scene == "account" }
+
     /// `-SeaglassCardProgress 0.55`: the player card stops part of the way, to see it over the app.
     static var playerCardProgress: CGFloat? {
         guard scene != nil, let value = UserDefaults.standard.object(forKey: "SeaglassCardProgress") as? Double
@@ -100,6 +104,11 @@ enum LaunchScene {
             }
         case "settings", "equalizer":
             select(.settings)
+        case "account":
+            select(.settings)
+            if let token = UserDefaults.standard.string(forKey: "SeaglassAccountToken") {
+                Task { await AccountService.shared.checkSignIn(token: token) }
+            }
         case "info":
             Task {
                 guard let album = try? await InnerTube.shared.album(value), let first = album.tracks.first else { return }

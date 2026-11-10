@@ -357,6 +357,15 @@ jobs:
         timeout-minutes: 2
         run: bash Tools/MacPlayerCheck/run.sh build-mac/Build/Products/Release-maccatalyst/Seaglass.app
 
+      # Signed in to a throwaway account on the live account service, as the sign-in sheet leaves it:
+      # the session stays in the Mac's keychain and Settings › Account shows the account. It talks
+      # to the live service, so it doesn't block the build.
+      - name: Check the account on the Mac (live)
+        if: ${{ !inputs.release }}
+        continue-on-error: true
+        timeout-minutes: 3
+        run: bash Tools/MacAccountCheck/run.sh build-mac/Build/Products/Release-maccatalyst/Seaglass.app screenshots-mac
+
       - name: Upload the Mac app
         uses: actions/upload-artifact@v4
         with:

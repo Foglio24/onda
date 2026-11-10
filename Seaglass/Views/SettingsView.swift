@@ -14,6 +14,7 @@ struct SettingsView: View {
     @AppStorage(Preferences.lyricsTranslate) private var translateLyrics = false
 
     @State private var showEqualizer = false
+    @State private var showAccount = false
 
     var body: some View {
         NavigationStack {
@@ -78,7 +79,11 @@ struct SettingsView: View {
             .navigationTitle("Impostazioni")
             // Opened directly only by the CI screenshots (see `LaunchScene`).
             .navigationDestination(isPresented: $showEqualizer) { EqualizerView() }
-            .task { if LaunchScene.opensEqualizer { showEqualizer = true } }
+            .navigationDestination(isPresented: $showAccount) { AccountSettingsView() }
+            .task {
+                if LaunchScene.opensEqualizer { showEqualizer = true }
+                if LaunchScene.opensAccount { showAccount = true }
+            }
         }
     }
 

@@ -24,9 +24,9 @@ struct MacPlayerBar: View {
                     .padding(.leading, 6)
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .frame(minHeight: 72)
+        .padding(.horizontal, 18)
+        .padding(.vertical, 7)
+        .frame(minHeight: 58)
         .buttonStyle(.plain)
     }
 
@@ -60,7 +60,7 @@ struct MacPlayerBar: View {
             if player.current != nil { router.openPlayer() }
         } label: {
             HStack(spacing: 10) {
-                ArtworkView(track: player.current, size: 44, cornerRadius: 6)
+                ArtworkView(track: player.current, size: 40, cornerRadius: 6)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(player.current?.title ?? String(localized: "Niente in riproduzione"))
                         .font(.subheadline.weight(.semibold))

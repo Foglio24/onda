@@ -100,7 +100,7 @@ extension RootView {
     }
 
     /// On a Mac, Apple Music's sidebar (search first, the Home, the library, the playlists) and its
-    /// player bar along the bottom.
+    /// player bar: Liquid Glass floating along the bottom of the page, the page scrolling under it.
     private var macTabs: some View {
         NavigationSplitView {
             List(selection: Binding<MacSection?>(
@@ -135,15 +135,18 @@ extension RootView {
         } detail: {
             macDetail
                 .id(macSelection)
-        }
-        .navigationSplitViewStyle(.balanced)
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            MacPlayerBar()
-                .background(.bar)
-                .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
-                    router.miniPlayerFrame = frame
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    MacPlayerBar()
+                        .glassEffect(.regular, in: .capsule)
+                        .padding(.horizontal, 18)
+                        .padding(.top, 6)
+                        .padding(.bottom, 14)
+                        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
+                            router.miniPlayerFrame = frame
+                        }
                 }
         }
+        .navigationSplitViewStyle(.balanced)
         // A deleted playlist's page goes with it.
         .onChange(of: library.playlists.map(\.id)) { _, ids in
             if case .playlist(let id) = macSelection, !ids.contains(id) { macSelection = .home }

@@ -196,6 +196,26 @@ final class AccountService: ObservableObject {
         }
     }
 
+    /// CI's account check (LaunchScene "account"): signs in with a session made outside the app, as
+    /// the sign-in sheet would, and says whether the Keychain kept it, the account loaded and the
+    /// library synced.
+    func checkSignIn(token: String) async {
+        Keychain.set(token, for: Keys.token)
+        print("account-keychain: \(Keychain.get(Keys.token) == token ? "PASS" : "FAIL")")
+        isSignedIn = true
+        await refresh(force: true)
+        guard let details else {
+            print("account-details: FAIL")
+            return
+        }
+        state.accountID = details.id
+        state.save()
+        print("account-details: PASS \(details.name), \(details.isPremium ? "premium" : "free")")
+        await refreshStatus()
+        await sync()
+        print("account-sync: \(syncState == .idle ? "PASS" : "FAIL")")
+    }
+
     /// Signs this device out. The library stays on it, no longer synced.
     func signOut() async {
         if let token {

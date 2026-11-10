@@ -292,13 +292,29 @@ final class AppUpdater: ObservableObject {
         macDownload?.cancel()
     }
 
-    /// Called only by the restart prompt's affirmative button.
+    /// Called only by the restart prompt's affirmative button. Every sheet and alert closes first:
+    /// macOS ignores a request to quit while one is still open, and the app would stay as it was.
     func restartToInstallMac() {
         guard case .ready(let app) = macInstall else { return }
         showsRestartPrompt = false
+        showsNotice = false
         // Clear the ready state before terminating, so willTerminate cannot install it a second time.
         macInstall = .none
-        failIfNeeded(MacBridge.shared.install(app: app, relaunch: true))
+        for case let scene as UIWindowScene in UIApplication.shared.connectedScenes {
+            for window in scene.windows { window.rootViewController?.dismiss(animated: false) }
+        }
+        Task {
+            // The dismissals reach AppKit's windows on the next turns of the run loop.
+            try? await Task.sleep(for: .milliseconds(400))
+            if let error = MacBridge.shared.install(app: app, relaunch: true) {
+                failIfNeeded(error)
+                return
+            }
+            // The new app is in place and waits for this one to end: if quitting was still refused,
+            // end it anyway (playback was already stopped and saved by prepareToQuit).
+            try? await Task.sleep(for: .seconds(3))
+            exit(0)
+        }
     }
 
     /// An update that's ready goes in as Seaglass quits, and is there the next time it opens.
