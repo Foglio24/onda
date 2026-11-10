@@ -96,8 +96,10 @@ function emailAddress(value) {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || /[\r\n]/.test(email)) throw new HttpError(400, "invalid_email");
   return { email, normalized: email.toLowerCase() };
 }
+/** At least 8 characters, one of them special (neither a letter, a digit nor a space). */
 function validPassword(value) {
-  return typeof value === "string" && value.length >= 12 && value.length <= 128 && !/[\u0000-\u001f\u007f]/.test(value);
+  return typeof value === "string" && value.length >= 8 && value.length <= 128 && !/[\u0000-\u001f\u007f]/.test(value) &&
+    /[^\p{L}\p{N}\s]/u.test(value);
 }
 function escapeHtml(value) {
   return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");

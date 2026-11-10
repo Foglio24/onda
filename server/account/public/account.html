@@ -38,9 +38,9 @@
       <h1 data-t="registerTitle">Crea il tuo account</h1>
       <form id="register-form" novalidate>
         <label><span data-t="email">Email</span><input name="email" type="email" autocomplete="username" required maxlength="254"></label>
-        <label><span data-t="password">Password</span><input name="password" type="password" autocomplete="new-password" required minlength="12" maxlength="128"></label>
-        <label><span data-t="passwordConfirm">Ripeti la password</span><input name="confirm" type="password" autocomplete="new-password" required minlength="12" maxlength="128"></label>
-        <p class="hint" data-t="passwordRule">Almeno 12 caratteri.</p>
+        <label><span data-t="password">Password</span><input name="password" type="password" autocomplete="new-password" required minlength="8" maxlength="128"></label>
+        <label><span data-t="passwordConfirm">Ripeti la password</span><input name="confirm" type="password" autocomplete="new-password" required minlength="8" maxlength="128"></label>
+        <p class="hint" data-t="passwordRule"></p>
         <p class="error" role="alert" hidden></p>
         <button class="primary" type="submit" data-t="registerButton">Registrati</button>
       </form>
@@ -66,9 +66,9 @@
       <form id="reset-form" novalidate>
         <label><span data-t="email">Email</span><input name="email" type="email" autocomplete="username" required maxlength="254"></label>
         <label><span data-t="code"></span><input name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required class="code"></label>
-        <label><span data-t="newPassword">Nuova password</span><input name="password" type="password" autocomplete="new-password" required minlength="12" maxlength="128"></label>
-        <label><span data-t="passwordConfirm">Ripeti la password</span><input name="confirm" type="password" autocomplete="new-password" required minlength="12" maxlength="128"></label>
-        <p class="hint" data-t="passwordRule">Almeno 12 caratteri.</p>
+        <label><span data-t="newPassword">Nuova password</span><input name="password" type="password" autocomplete="new-password" required minlength="8" maxlength="128"></label>
+        <label><span data-t="passwordConfirm">Ripeti la password</span><input name="confirm" type="password" autocomplete="new-password" required minlength="8" maxlength="128"></label>
+        <p class="hint" data-t="passwordRule"></p>
         <p class="error" role="alert" hidden></p>
         <button class="primary" type="submit" data-t="save">Salva</button>
       </form>
@@ -149,9 +149,9 @@
       <form id="password-form" novalidate>
         <input name="username" type="email" autocomplete="username" hidden>
         <label><span data-t="currentPassword">Password attuale</span><input name="current" type="password" autocomplete="current-password" required maxlength="128"></label>
-        <label><span data-t="newPassword">Nuova password</span><input name="password" type="password" autocomplete="new-password" required minlength="12" maxlength="128"></label>
-        <label><span data-t="passwordConfirm">Ripeti la password</span><input name="confirm" type="password" autocomplete="new-password" required minlength="12" maxlength="128"></label>
-        <p class="hint" data-t="passwordChangeHint">Almeno 12 caratteri. Gli altri dispositivi dovranno accedere di nuovo.</p>
+        <label><span data-t="newPassword">Nuova password</span><input name="password" type="password" autocomplete="new-password" required minlength="8" maxlength="128"></label>
+        <label><span data-t="passwordConfirm">Ripeti la password</span><input name="confirm" type="password" autocomplete="new-password" required minlength="8" maxlength="128"></label>
+        <p class="hint" data-t="passwordChangeHint"></p>
         <p class="error" role="alert" hidden></p>
         <button class="primary" type="submit" data-t="setPassword">Imposta nuova password</button>
       </form>

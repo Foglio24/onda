@@ -8,7 +8,7 @@ const strings = {
     signOut: "Esci", loginTitle: "Accedi a Seaglass", email: "Email", password: "Password", loginButton: "Accedi",
     loginAppHint: "Accedi per sincronizzare libreria, playlist e preferenze con l'app.",
     forgot: "Password dimenticata?", noAccount: "Non hai un account?", registerLink: "Registrati a Seaglass",
-    registerTitle: "Crea il tuo account", passwordConfirm: "Ripeti la password", passwordRule: "Almeno 12 caratteri.",
+    registerTitle: "Crea il tuo account", passwordConfirm: "Ripeti la password", passwordRule: "Almeno 8 caratteri, con almeno un carattere speciale (come ! ? @ #).",
     registerButton: "Registrati", haveAccount: "Hai già un account?", loginLink: "Accedi",
     forgotTitle: "Reimposta la password",
     forgotLead: "Inserisci l'email del tuo account: ti mandiamo un codice di 6 cifre per scegliere una nuova password.",
@@ -25,7 +25,7 @@ const strings = {
     signOutEverywhereHint: "«Esci ovunque» chiude la sessione nell'app su tutti i dispositivi e in tutti i browser.",
     firstName: "Nome", lastName: "Cognome", displayName: "Nome visualizzato", saveProfile: "Salva profilo",
     currentPassword: "Password attuale",
-    passwordChangeHint: "Almeno 12 caratteri. Gli altri dispositivi dovranno accedere di nuovo.",
+    passwordChangeHint: "Almeno 8 caratteri, con un carattere speciale. Gli altri dispositivi dovranno accedere di nuovo.",
     setPassword: "Imposta nuova password",
     membershipLead: "Premium sblocca AutoMix, l'import delle playlist da link, il riconoscimento dei brani, la traduzione dei testi, il karaoke AI e il Tempo. Si attiva con l'abbonamento a Seaglass su Patreon, collegato a questo account.",
     deleteLead: "Eliminiamo subito l'account e tutto ciò che è sincronizzato: playlist, brani che ti piacciono, cronologia, preferenze e il collegamento a Patreon. Sui dispositivi la libreria resta, ma non si sincronizza più. Non si può annullare.",
@@ -55,7 +55,10 @@ const strings = {
     errPasswordsDiffer: "Le password non coincidono.", errInvalidCredentials: "Email o password non corretti.",
     errNotVerified: "Conferma prima la tua email.", errExpired: "La pagina è scaduta: riprova.",
     errExpiredApp: "L'accesso è scaduto: torna all'app e premi di nuovo Accedi.",
-    errRateLimited: "Troppi tentativi: riprova tra qualche minuto.", errWeakPassword: "La password deve avere almeno 12 caratteri.",
+    errRateLimited: "Troppi tentativi: riprova tra qualche minuto.", errWeakPassword: "La password deve avere almeno 8 caratteri e un carattere speciale.",
+    strength: "Sicurezza", strengthWeak: "debole", strengthFair: "media", strengthStrong: "forte",
+    missing: "manca", needLength: "almeno 8 caratteri", needSpecial: "un carattere speciale",
+    tipStronger: "più lunga o con maiuscole e numeri è più sicura", passwordsMatch: "Le password coincidono.",
     errInvalidEmail: "Inserisci un indirizzo email valido.", errInvalidReset: "Il codice non è valido o è scaduto.", errTooManyAttempts: "Troppi tentativi: chiedi un nuovo codice.",
     errEmailUnavailable: "L'invio delle email non è ancora disponibile.", errConflict: "Il profilo è cambiato altrove: è stato ricaricato, riprova.",
     errConfirmEmail: "L'email non corrisponde a quella dell'account.", errNetwork: "Connessione non riuscita. Riprova.",
@@ -73,7 +76,7 @@ const strings = {
     signOut: "Log out", loginTitle: "Log in to Seaglass", email: "Email", password: "Password", loginButton: "Log in",
     loginAppHint: "Log in to sync your library, playlists and preferences with the app.",
     forgot: "Forgot your password?", noAccount: "Don't have an account?", registerLink: "Sign up for Seaglass",
-    registerTitle: "Create your account", passwordConfirm: "Repeat the password", passwordRule: "At least 12 characters.",
+    registerTitle: "Create your account", passwordConfirm: "Repeat the password", passwordRule: "At least 8 characters, with at least one special character (like ! ? @ #).",
     registerButton: "Sign up", haveAccount: "Already have an account?", loginLink: "Log in",
     forgotTitle: "Reset your password",
     forgotLead: "Enter your account's email: we'll send you a 6-digit code to choose a new password.",
@@ -90,7 +93,7 @@ const strings = {
     signOutEverywhereHint: "“Sign out everywhere” logs you out of the app on every device and of every browser.",
     firstName: "First name", lastName: "Last name", displayName: "Display name", saveProfile: "Save profile",
     currentPassword: "Current password",
-    passwordChangeHint: "At least 12 characters. Your other devices will need to log in again.",
+    passwordChangeHint: "At least 8 characters, with a special character. Your other devices will need to log in again.",
     setPassword: "Set new password",
     membershipLead: "Premium unlocks AutoMix, importing playlists from links, song recognition, lyrics translation, AI karaoke and Tempo. It comes with a Seaglass membership on Patreon, linked to this account.",
     deleteLead: "We delete your account and everything synced right away: playlists, liked songs, history, preferences and the Patreon link. Your devices keep their library, but it no longer syncs. This can't be undone.",
@@ -120,7 +123,10 @@ const strings = {
     errPasswordsDiffer: "The passwords don't match.", errInvalidCredentials: "Incorrect email or password.",
     errNotVerified: "Confirm your email first.", errExpired: "This page has expired: try again.",
     errExpiredApp: "The login has expired: go back to the app and tap Log in again.",
-    errRateLimited: "Too many attempts: try again in a few minutes.", errWeakPassword: "The password needs at least 12 characters.",
+    errRateLimited: "Too many attempts: try again in a few minutes.", errWeakPassword: "The password needs at least 8 characters and a special character.",
+    strength: "Strength", strengthWeak: "weak", strengthFair: "fair", strengthStrong: "strong",
+    missing: "missing", needLength: "at least 8 characters", needSpecial: "a special character",
+    tipStronger: "longer, or with capitals and digits, is safer", passwordsMatch: "The passwords match.",
     errInvalidEmail: "Enter a valid email address.", errInvalidReset: "The code is invalid or has expired.", errTooManyAttempts: "Too many attempts: ask for a new code.",
     errEmailUnavailable: "Sending emails isn't available yet.", errConflict: "Your profile changed elsewhere: it has been reloaded, try again.",
     errConfirmEmail: "The email doesn't match the account's.", errNetwork: "Couldn't connect. Try again.",
@@ -241,8 +247,64 @@ function handle(form, action) {
 
 function samePasswords(data) {
   if (data.get("password") !== data.get("confirm")) throw new Error(t("errPasswordsDiffer"));
-  if (String(data.get("password")).length < 12) throw new Error(t("errWeakPassword"));
+  if (!passwordCheck(String(data.get("password"))).valid) throw new Error(t("errWeakPassword"));
 }
+
+// MARK: Choosing a password
+
+/** The service's rule (8 characters, one special) and how strong the password is beyond it. */
+function passwordCheck(value) {
+  const missing = [];
+  if (value.length < 8) missing.push(t("needLength"));
+  if (!/[^\p{L}\p{N}\s]/u.test(value)) missing.push(t("needSpecial"));
+  const extras = [value.length >= 12, /\p{Lu}/u.test(value) && /\p{Ll}/u.test(value), /\p{N}/u.test(value), value.length >= 16]
+    .filter(Boolean).length;
+  const level = missing.length ? 0 : extras >= 2 ? 2 : 1;
+  return { valid: missing.length === 0, missing, level };
+}
+
+/**
+ * Under each new password: how strong it is while it's typed, and what it still needs; under
+ * its repetition, whether the two match.
+ */
+function watchPassword(form) {
+  const input = form.querySelector('input[name="password"]');
+  const confirm = form.querySelector('input[name="confirm"]');
+  const meter = document.createElement("div");
+  meter.className = "meter";
+  meter.hidden = true;
+  meter.setAttribute("aria-live", "polite");
+  const bar = document.createElement("div");
+  bar.className = "bar";
+  for (let index = 0; index < 3; index += 1) bar.append(document.createElement("span"));
+  const label = document.createElement("p");
+  meter.append(bar, label);
+  input.closest("label").after(meter);
+  const match = document.createElement("p");
+  match.className = "match";
+  match.hidden = true;
+  match.setAttribute("aria-live", "polite");
+  confirm.closest("label").after(match);
+
+  const update = () => {
+    const value = input.value;
+    meter.hidden = value.length === 0;
+    const check = passwordCheck(value);
+    meter.dataset.level = String(check.level);
+    const name = [t("strengthWeak"), t("strengthFair"), t("strengthStrong")][check.level];
+    label.textContent = `${t("strength")}: ${name}` +
+      (check.missing.length ? ` · ${t("missing")} ${check.missing.join(", ")}` : check.level === 1 ? ` · ${t("tipStronger")}` : "");
+    match.hidden = confirm.value.length === 0;
+    const same = confirm.value === value;
+    match.textContent = same ? t("passwordsMatch") : t("errPasswordsDiffer");
+    match.classList.toggle("bad", !same);
+    confirm.setCustomValidity(same ? "" : t("errPasswordsDiffer"));
+  };
+  input.addEventListener("input", update);
+  confirm.addEventListener("input", update);
+  form.addEventListener("reset", () => setTimeout(update));
+}
+for (const id of ["#register-form", "#reset-form", "#password-form"]) watchPassword($(id));
 
 function formatDate(seconds) {
   return new Intl.DateTimeFormat(language, { day: "numeric", month: "long", year: "numeric" }).format(new Date(seconds * 1000));

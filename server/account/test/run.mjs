@@ -110,7 +110,7 @@ try {
 
   // Signing up on the page, confirming the address from the email, then signing in.
   const email = `test-${randomUUID().slice(0, 8)}@example.com`;
-  const password = "correct horse battery";
+  const password = "correct-horse";
   const browser = new Map();
   response = await call("GET", "/v1/auth/start?client=web", { cookies: browser });
   check(response.status === 303 && response.headers.get("Location") === "/account?login=web", "web login start", [response.headers.get("Location"), [...response.headers]]);
@@ -123,8 +123,10 @@ try {
   check(verifyLink.pathname === "/v1/auth/verify", "confirmation link", verifyLink.href);
   response = await call("GET", verifyLink.pathname + verifyLink.search);
   check(response.status === 303 && response.headers.get("Location") === "/account?verify=success", "address confirmed", response.status);
-  response = await call("POST", "/v1/auth/register", { body: { email, password: "short" }, cookies: browser });
-  check(response.status === 400 && response.data.error === "weak_password", "weak password refused", response.data);
+  for (const weak of ["sh0rt!", "longenough1", "only letters and spaces"]) {
+    response = await call("POST", "/v1/auth/register", { body: { email: `weak-${randomUUID().slice(0, 8)}@example.com`, password: weak }, cookies: browser });
+    check(response.status === 400 && response.data.error === "weak_password", `weak password refused (${weak})`, response.data);
+  }
   response = await call("POST", "/v1/auth/login", { body: { email, password: "wrong password!!" }, cookies: browser });
   check(response.status === 401, "wrong password refused", response.status);
   response = await call("POST", "/v1/auth/login", { body: { email, password }, cookies: browser, origin: "https://evil.test" });
@@ -243,9 +245,9 @@ try {
   check(response.status === 204, "patreon unlinked", response.status);
 
   // A new password ends the other sessions (the app's), not this one.
-  response = await call("POST", "/v1/account/password", { cookies: browser, body: { current: "wrong password!!", password: "another long password" } });
+  response = await call("POST", "/v1/account/password", { cookies: browser, body: { current: "wrong password!!", password: "another pass!" } });
   check(response.status === 401, "password change needs the current one", response.status);
-  response = await call("POST", "/v1/account/password", { cookies: browser, body: { current: password, password: "another long password" } });
+  response = await call("POST", "/v1/account/password", { cookies: browser, body: { current: password, password: "another pass!" } });
   check(response.status === 200, "password changed", response.data);
   response = await call("GET", "/v1/account", { bearer: token });
   check(response.status === 401, "the app was signed out", response.status);
@@ -264,36 +266,36 @@ try {
   response = await call("POST", "/v1/auth/reset/request", { body: { email }, headers: fromElsewhere });
   check(response.status === 200 && emails.length === sent + 1, "one code a minute", emails.length);
   const wrongCode = resetCode === "000000" ? "111111" : "000000";
-  response = await call("POST", "/v1/auth/reset", { body: { email, code: wrongCode, password: "reset long password" }, headers: fromElsewhere });
+  response = await call("POST", "/v1/auth/reset", { body: { email, code: wrongCode, password: "reset pass#1" }, headers: fromElsewhere });
   check(response.status === 400 && response.data.error === "invalid_reset", "wrong code refused", response.data);
-  response = await call("POST", "/v1/auth/reset", { body: { email, code: resetCode, password: "reset long password" }, headers: fromElsewhere });
+  response = await call("POST", "/v1/auth/reset", { body: { email, code: resetCode, password: "reset pass#1" }, headers: fromElsewhere });
   check(response.status === 200, "password reset", response.data);
   response = await call("GET", "/v1/account", { cookies: browser });
   check(response.status === 401, "a reset signs out everywhere", response.status);
-  response = await call("POST", "/v1/auth/reset", { body: { email, code: resetCode, password: "reset long password" }, headers: fromElsewhere });
+  response = await call("POST", "/v1/auth/reset", { body: { email, code: resetCode, password: "reset pass#1" }, headers: fromElsewhere });
   check(response.status === 400, "a code works once", response.status);
   sql(`UPDATE email_tokens SET created_at = created_at - 120`);
   response = await call("POST", "/v1/auth/reset/request", { body: { email }, headers: fromElsewhere });
   const secondCode = lastEmail()?.text?.match(/\b\d{6}\b/)?.[0];
   const otherCode = secondCode === "000000" ? "111111" : "000000";
   for (let attempt = 1; attempt <= 4; attempt += 1) {
-    response = await call("POST", "/v1/auth/reset", { body: { email, code: otherCode, password: "yet another password" }, headers: fromElsewhere });
+    response = await call("POST", "/v1/auth/reset", { body: { email, code: otherCode, password: "yet another?" }, headers: fromElsewhere });
   }
   check(response.status === 400 && response.data.error === "invalid_reset", "four wrong codes", response.data);
-  response = await call("POST", "/v1/auth/reset", { body: { email, code: otherCode, password: "yet another password" }, headers: fromElsewhere });
+  response = await call("POST", "/v1/auth/reset", { body: { email, code: otherCode, password: "yet another?" }, headers: fromElsewhere });
   check(response.status === 400 && response.data.error === "too_many_attempts", "the fifth ends the code", response.data);
-  response = await call("POST", "/v1/auth/reset", { body: { email, code: secondCode, password: "yet another password" }, headers: fromElsewhere });
+  response = await call("POST", "/v1/auth/reset", { body: { email, code: secondCode, password: "yet another?" }, headers: fromElsewhere });
   check(response.status === 400, "an ended code doesn't work", response.data);
 
   // Signing in with the reset password, signing out everywhere, deleting the account (with
   // everything that went with it).
   response = await call("GET", "/v1/auth/start?client=web", { cookies: browser });
-  response = await call("POST", "/v1/auth/login", { body: { email, password: "reset long password" }, cookies: browser });
+  response = await call("POST", "/v1/auth/login", { body: { email, password: "reset pass#1" }, cookies: browser });
   check(response.status === 200, "login with the reset password", response.data);
   response = await call("DELETE", "/v1/sessions", { cookies: browser });
   check(response.status === 204 && !browser.has("__Host-seaglass-session"), "signed out everywhere", response.status);
   response = await call("GET", "/v1/auth/start?client=web", { cookies: browser });
-  response = await call("POST", "/v1/auth/login", { body: { email, password: "reset long password" }, cookies: browser });
+  response = await call("POST", "/v1/auth/login", { body: { email, password: "reset pass#1" }, cookies: browser });
   check(response.status === 200, "login again", response.data);
   response = await call("DELETE", "/v1/account", { cookies: browser, body: { confirm: "yes" } });
   check(response.status === 400, "deletion needs the confirmation", response.status);

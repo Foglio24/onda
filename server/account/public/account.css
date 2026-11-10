@@ -187,3 +187,14 @@ form .primary, form .secondary, form .destructive { width: 100%; margin-top: 6px
 .panel .small { margin-top: 12px; }
 input.code { font-size: 24px; letter-spacing: 0.4em; font-variant-numeric: tabular-nums; }
 .foot a { color: inherit; }
+
+.meter { margin: -6px 0 0; }
+.meter .bar { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+.meter .bar span { height: 4px; border-radius: 2px; background: var(--surface-2); transition: background 0.2s; }
+.meter[data-level="0"] .bar span:nth-child(-n+1) { background: var(--danger); }
+.meter[data-level="1"] .bar span:nth-child(-n+2) { background: #f5a623; }
+.meter[data-level="2"] .bar span { background: var(--ok); }
+.meter p { margin: 6px 0 0; font-size: 13px; color: var(--muted); }
+.meter[data-level="0"] p { color: var(--danger); }
+.match { margin: -6px 0 0; font-size: 13px; color: var(--ok); }
+.match.bad { color: var(--danger); }
