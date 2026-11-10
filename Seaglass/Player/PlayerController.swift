@@ -445,6 +445,9 @@ final class PlayerController: ObservableObject {
             if let file, !Task.isCancelled {
                 analysis = await AutoMixLibrary.shared.analysis(of: file, priority: .userInitiated)
             }
+            if LaunchScene.isActive {
+                print("tempo-bpm: file \(file?.lastPathComponent ?? "none"), tempo \(analysis?.tempo ?? 0), grid \(analysis?.isGridLocked ?? false)")
+            }
             if self.measuringBPM == track.id { self.measuringBPM = nil }
             guard let analysis, analysis.isGridLocked, self.current?.id == track.id else { return }
             self.songBPM = (track.id, analysis.tempo)

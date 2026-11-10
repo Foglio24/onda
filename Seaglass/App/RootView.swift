@@ -26,6 +26,7 @@ struct RootView: View {
     @AppStorage(Preferences.accent) private var accent: AccentChoice = .pink
     @State private var selection: AppTab = .home
     @State private var macSelection: MacSection = .home
+    @StateObject private var sidebarCovers = SidebarCovers()
 
     private static let isMac = ProcessInfo.processInfo.isMacCatalystApp
 
@@ -99,78 +100,137 @@ extension RootView {
         }
     }
 
-    /// On a Mac, Apple Music's sidebar (search first, the Home, the library, the playlists) and its
-    /// player bar: Liquid Glass floating along the bottom of the page, the page scrolling under it.
+    /// On a Mac, Apple Music's sidebar (search first, the Home, the library, the playlists), the
+    /// system's own in Liquid Glass, and its player bar floating in glass along the bottom of every
+    /// page, the page scrolling under it.
     private var macTabs: some View {
-        NavigationSplitView {
-            List(selection: Binding<MacSection?>(
-                get: { macSelection },
-                set: { if let selection = $0 { macSelection = selection } }
-            )) {
-                macSidebarItem("Cerca", symbol: "magnifyingglass", section: .search)
-                macSidebarItem("Home", symbol: "house", section: .home)
-                Section("Libreria") {
-                    macSidebarItem("Libreria", symbol: "square.stack", section: .library)
-                    macSidebarItem("Preferiti", symbol: "heart", section: .liked)
-                    macSidebarItem("Cronologia", symbol: "clock", section: .history)
-                    macSidebarItem("Download", symbol: "arrow.down.circle", section: .downloads)
-                    macSidebarItem("Podcast", symbol: "mic", section: .podcasts)
+        TabView(selection: $macSelection) {
+            Tab(value: MacSection.search, role: .search) {
+                macPage { SearchView() }
+            }
+            Tab("Home", systemImage: "house", value: MacSection.home) {
+                macPage { HomeView() }
+            }
+            TabSection("Libreria") {
+                Tab("Libreria", systemImage: "square.stack", value: MacSection.library) {
+                    macPage { LibraryView() }
                 }
-                Section("Playlist") {
-                    ForEach(library.playlists) { playlist in
-                        NavigationLink(value: MacSection.playlist(playlist.id)) {
-                            HStack(spacing: 10) {
-                                PlaylistArtwork(playlist: playlist, size: 28, cornerRadius: 5)
-                                    .accessibilityHidden(true)
-                                Text(playlist.name).lineLimit(1)
+                Tab("Preferiti", systemImage: "heart", value: MacSection.liked) {
+                    macPage { NavigationStack { TrackCollectionView(collection: .liked) } }
+                }
+                Tab("Cronologia", systemImage: "clock", value: MacSection.history) {
+                    macPage { NavigationStack { TrackCollectionView(collection: .history) } }
+                }
+                Tab("Download", systemImage: "arrow.down.circle", value: MacSection.downloads) {
+                    macPage { NavigationStack { DownloadsView() } }
+                }
+                Tab("Podcast", systemImage: "mic", value: MacSection.podcasts) {
+                    macPage { NavigationStack { PodcastsView() } }
+                }
+            }
+            TabSection("Playlist") {
+                ForEach(library.playlists) { playlist in
+                    Tab(value: MacSection.playlist(playlist.id)) {
+                        macPage { NavigationStack { PlaylistDetailView(playlistID: playlist.id) } }
+                    } label: {
+                        Label {
+                            Text(playlist.name)
+                        } icon: {
+                            if let cover = sidebarCovers.covers[playlist.id] {
+                                Image(uiImage: cover).renderingMode(.original)
+                            } else {
+                                Image(systemName: "music.note.list")
                             }
-                            .padding(.vertical, 2)
                         }
                     }
                 }
-                macSidebarItem("Impostazioni", symbol: "gearshape", section: .settings)
             }
-            .listStyle(.sidebar)
-            .navigationSplitViewColumnWidth(min: 200, ideal: 240, max: 320)
-        } detail: {
-            macDetail
-                .id(macSelection)
-                .safeAreaInset(edge: .bottom, spacing: 0) {
-                    MacPlayerBar()
-                        .glassEffect(.regular, in: .capsule)
-                        .padding(.horizontal, 18)
-                        .padding(.top, 6)
-                        .padding(.bottom, 14)
-                        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
-                            router.miniPlayerFrame = frame
-                        }
-                }
+            Tab("Impostazioni", systemImage: "gearshape", value: MacSection.settings) {
+                macPage { SettingsView() }
+            }
         }
-        .navigationSplitViewStyle(.balanced)
+        .tabViewStyle(.sidebarAdaptable)
+        .task(id: library.playlists.map(\.sidebarCoverKey)) { await sidebarCovers.update(library.playlists) }
         // A deleted playlist's page goes with it.
         .onChange(of: library.playlists.map(\.id)) { _, ids in
             if case .playlist(let id) = macSelection, !ids.contains(id) { macSelection = .home }
         }
     }
 
-    private func macSidebarItem(_ title: LocalizedStringKey, symbol: String, section: MacSection) -> some View {
-        NavigationLink(value: section) { Label(title, systemImage: symbol) }
+    /// A page of the Mac's window, with the player bar over its bottom. An overlay, so it stays on
+    /// top of the pages pushed inside it too (a playlist opened from the library); the safe area
+    /// makes room for it at the end of the page.
+    private func macPage<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        content()
+            .safeAreaPadding(.bottom, MacPlayerBar.height + 24)
+            .overlay(alignment: .bottom) {
+                MacPlayerBar()
+                    .glassEffect(.regular, in: .capsule)
+                    .padding(.horizontal, 18)
+                    .padding(.bottom, 14)
+                    .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
+                        router.miniPlayerFrame = frame
+                    }
+            }
     }
+}
 
-    @ViewBuilder private var macDetail: some View {
-        switch macSelection {
-        case .search: SearchView()
-        case .home: HomeView()
-        case .library: LibraryView()
-        case .liked: NavigationStack { TrackCollectionView(collection: .liked) }
-        case .history: NavigationStack { TrackCollectionView(collection: .history) }
-        case .downloads: NavigationStack { DownloadsView() }
-        case .podcasts: NavigationStack { PodcastsView() }
-        case .playlist(let id): NavigationStack { PlaylistDetailView(playlistID: id) }
-        case .settings: SettingsView()
+/// The playlists' covers as small pictures for the Mac's sidebar, whose items take an image (the
+/// system's sidebar draws them, not SwiftUI): the custom cover, or the first four songs' artwork.
+@MainActor
+final class SidebarCovers: ObservableObject {
+    @Published private(set) var covers: [UUID: UIImage] = [:]
+    private static let side: CGFloat = 22
+
+    func update(_ playlists: [Playlist]) async {
+        var updated: [UUID: UIImage] = [:]
+        for playlist in playlists {
+            if Task.isCancelled { return }
+            if let cover = await Self.cover(of: playlist) { updated[playlist.id] = cover }
         }
+        covers = updated
     }
 
+    private static func cover(of playlist: Playlist) async -> UIImage? {
+        let pixels = Int(side * 3)
+        if let custom = playlist.customCoverURL {
+            return await ImageCache.shared.image(for: custom, pixels: pixels).map(rounded)
+        }
+        var images: [UIImage] = []
+        for track in playlist.tracks.prefix(4) {
+            guard let url = track.mediumArtworkURL, let image = await ImageCache.shared.image(for: url, pixels: pixels) else { continue }
+            images.append(image)
+        }
+        guard let first = images.first else { return nil }
+        guard images.count == 4 else { return rounded(first) }
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 3
+        let size = CGSize(width: side, height: side)
+        let grid = UIGraphicsImageRenderer(size: size, format: format).image { _ in
+            for (index, image) in images.enumerated() {
+                let half = side / 2
+                image.draw(in: CGRect(x: CGFloat(index % 2) * half, y: CGFloat(index / 2) * half, width: half, height: half))
+            }
+        }
+        return rounded(grid)
+    }
+
+    private static func rounded(_ image: UIImage) -> UIImage {
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 3
+        let rect = CGRect(x: 0, y: 0, width: side, height: side)
+        return UIGraphicsImageRenderer(size: rect.size, format: format).image { _ in
+            UIBezierPath(roundedRect: rect, cornerRadius: 5).addClip()
+            image.draw(in: rect)
+        }.withRenderingMode(.alwaysOriginal)
+    }
+}
+
+private extension Playlist {
+    /// Changes when the sidebar's cover of the playlist would.
+    var sidebarCoverKey: String {
+        ([id.uuidString, coverFile ?? ""] + tracks.prefix(4).map(\.id)).joined(separator: "|")
+    }
 }
 
 /// Attach to each top-level presenter so failures are visible with the player open too.

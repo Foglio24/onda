@@ -58,46 +58,34 @@ struct MacVolumeControl: View {
     }
 }
 
-/// The volume's bar, drawn here rather than a `Slider`: in the player and the player bar the
-/// system's slider lost its drags to the glass around it, as the scrubber did (see `PlayerScrubber`).
-/// A click sets the volume where it lands, and a drag follows the pointer.
-private struct MacVolumeSlider: View {
+/// The Mac's own slider (a `UISlider` that behaves as macOS's): it takes the pointer as a control,
+/// where a bar drawn in SwiftUI lost its drags to the glass around it, and at times to the window,
+/// which moved instead.
+private struct MacVolumeSlider: UIViewRepresentable {
     var tint: Color = .white
     @ObservedObject private var volume = PlaybackVolume.shared
 
-    var body: some View {
-        GeometryReader { geometry in
-            let knob: CGFloat = 12
-            let travel = max(geometry.size.width - knob, 1)
-            let x = travel * CGFloat(volume.value)
-            ZStack(alignment: .leading) {
-                Capsule().fill(tint.opacity(0.25)).frame(height: 4)
-                Capsule().fill(tint).frame(width: x + knob / 2, height: 4)
-                Circle()
-                    .fill(tint)
-                    .frame(width: knob, height: knob)
-                    .shadow(color: .black.opacity(0.25), radius: 2, y: 1)
-                    .offset(x: x)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .contentShape(.rect)
-            .highPriorityGesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { value in
-                        volume.set(Double((value.location.x - knob / 2) / travel))
-                    }
-            )
-        }
-        .frame(height: 20)
-        .accessibilityElement()
-        .accessibilityLabel(Text("Volume"))
-        .accessibilityValue(Text(volume.value.formatted(.percent.precision(.fractionLength(0)))))
-        .accessibilityAdjustableAction { direction in
-            switch direction {
-            case .increment: volume.set(min(1, volume.value + 0.0625))
-            case .decrement: volume.set(max(0, volume.value - 0.0625))
-            @unknown default: break
-            }
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    func makeUIView(context: Context) -> UISlider {
+        let slider = UISlider()
+        slider.preferredBehavioralStyle = .mac
+        slider.minimumValue = 0
+        slider.maximumValue = 1
+        slider.addTarget(context.coordinator, action: #selector(Coordinator.changed(_:)), for: .valueChanged)
+        slider.accessibilityLabel = String(localized: "Volume")
+        return slider
+    }
+
+    func updateUIView(_ slider: UISlider, context: Context) {
+        if !slider.isTracking { slider.value = Float(volume.value) }
+        slider.minimumTrackTintColor = UIColor(tint)
+    }
+
+    @MainActor
+    final class Coordinator: NSObject {
+        @objc func changed(_ slider: UISlider) {
+            PlaybackVolume.shared.set(Double(slider.value))
         }
     }
 }

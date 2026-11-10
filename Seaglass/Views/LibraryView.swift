@@ -7,6 +7,8 @@ struct LibraryView: View {
     @ObservedObject private var importer = PlaylistImporter.shared
     @ObservedObject private var podcasts = PodcastLibrary.shared
     @State private var showDownloads = false
+    /// Opened directly only by CI (see `LaunchScene.opensPlaylistInLibrary`).
+    @State private var openedPlaylist: UUID?
     @State private var showNewPlaylist = false
     @State private var showImport = false
     @State private var newName = ""
@@ -109,7 +111,11 @@ struct LibraryView: View {
             .navigationTitle("Libreria")
             // Opened directly only by the CI screenshots (see `LaunchScene`).
             .navigationDestination(isPresented: $showDownloads) { DownloadsView() }
-            .task { if LaunchScene.opensDownloads { showDownloads = true } }
+            .task {
+                if LaunchScene.opensDownloads { showDownloads = true }
+                if LaunchScene.opensPlaylistInLibrary { openedPlaylist = library.playlists.first?.id }
+            }
+            .navigationDestination(item: $openedPlaylist) { PlaylistDetailView(playlistID: $0) }
             .alert("Nuova playlist", isPresented: $showNewPlaylist) {
                 TextField("Nome", text: $newName)
                 Button("Crea") { library.createPlaylist(named: newName) }

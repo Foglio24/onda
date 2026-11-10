@@ -216,6 +216,26 @@ final class SeaglassMacBridge: NSObject, NSMenuDelegate {
 
     private var spaceMonitor: Any?
 
+    /// The windows move only by their title bar, as Apple Music's: a click on a page (the volume, a
+    /// slider) never drags the whole window. Returns whether one could be moved by its background.
+    private var windowObserver: NSObjectProtocol?
+
+    @objc func keepWindowsInPlace() -> NSNumber {
+        var movable = false
+        for window in NSApp.windows where window.isMovableByWindowBackground {
+            movable = true
+            window.isMovableByWindowBackground = false
+        }
+        if windowObserver == nil {
+            windowObserver = NotificationCenter.default.addObserver(forName: NSWindow.didBecomeMainNotification,
+                                                                    object: nil, queue: .main) { note in
+                let window = note.object as? NSWindow
+                MainActor.assumeIsolated { window?.isMovableByWindowBackground = false }
+            }
+        }
+        return NSNumber(value: movable)
+    }
+
     /// The space bar plays or pauses wherever Seaglass is, as in Apple Music: `block` (returning
     /// whether it took the key, which it doesn't while text is being typed) is called for each press.
     @objc func handleSpaceBar(_ block: Any) {

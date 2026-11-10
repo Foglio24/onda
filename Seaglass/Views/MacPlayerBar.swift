@@ -8,6 +8,9 @@ struct MacPlayerBar: View {
     @EnvironmentObject private var router: AppRouter
     @AppStorage(Preferences.accent) private var accent: AccentChoice = .pink
 
+    /// As tall as Apple Music's: the cover, the song in two lines and its progress.
+    static let height: CGFloat = 76
+
     var body: some View {
         HStack(spacing: 16) {
             transport
@@ -18,15 +21,14 @@ struct MacPlayerBar: View {
                 button("list.bullet") { router.openPlayer(on: .queue) }
                     .disabled(player.current == nil)
                 AirPlayButton(activeTint: accent.color, tint: .label)
-                    .frame(width: 32, height: 32)
+                    .frame(width: 38, height: 38)
                 MacVolumeControl(tint: .primary)
-                    .frame(width: 120)
+                    .frame(width: 150)
                     .padding(.leading, 6)
             }
         }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 7)
-        .frame(minHeight: 58)
+        .padding(.horizontal, 22)
+        .frame(height: Self.height)
         .buttonStyle(.plain)
     }
 
@@ -44,8 +46,8 @@ struct MacPlayerBar: View {
                             .contentTransition(.symbolEffect(.replace))
                     }
                 }
-                .font(.title2)
-                .frame(width: 36, height: 36)
+                .font(.title)
+                .frame(width: 44, height: 44)
                 .contentShape(.rect)
             }
             button("forward.fill") { player.next() }
@@ -60,14 +62,14 @@ struct MacPlayerBar: View {
             if player.current != nil { router.openPlayer() }
         } label: {
             HStack(spacing: 10) {
-                ArtworkView(track: player.current, size: 40, cornerRadius: 6)
+                ArtworkView(track: player.current, size: 54, cornerRadius: 8)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(player.current?.title ?? String(localized: "Niente in riproduzione"))
-                        .font(.subheadline.weight(.semibold))
+                        .font(.body.weight(.semibold))
                         .lineLimit(1)
                     if let subtitle {
                         Text(subtitle)
-                            .font(.caption)
+                            .font(.subheadline)
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                     }
@@ -94,9 +96,9 @@ struct MacPlayerBar: View {
     private func button(_ symbol: String, on: Bool = false, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: symbol)
-                .font(.body.weight(.medium))
+                .font(.title3.weight(.medium))
                 .foregroundStyle(on ? AnyShapeStyle(.tint) : AnyShapeStyle(.primary))
-                .frame(width: 32, height: 32)
+                .frame(width: 38, height: 38)
                 .background(Color.primary.opacity(on ? 0.12 : 0), in: .circle)
                 .contentShape(.rect)
         }

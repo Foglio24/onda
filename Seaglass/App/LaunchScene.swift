@@ -1,4 +1,5 @@
 import AVFoundation
+import AVKit
 import SwiftUI
 import UIKit
 
@@ -32,6 +33,10 @@ enum LaunchScene {
 
     /// Settings → Equalizzatore is opened at launch.
     static var opensEqualizer: Bool { scene == "equalizer" }
+
+    /// Library → the first playlist is opened at launch, pushed inside the library (CI's Mac check
+    /// that the player bar stays over pages pushed there).
+    static var opensPlaylistInLibrary: Bool { scene == "library-playlist" }
 
     /// Settings → Account is opened at launch, signed in with `-SeaglassAccountToken` (a session CI
     /// makes on the account service for Tools/MacAccountCheck).
@@ -148,6 +153,56 @@ enum LaunchScene {
             PlayerController.shared.cue(previewTracks, source: "Seaglass Demo")
             PlayerController.shared.progress.currentTime = 66
             router.openPlayer()
+        case "library-playlist":
+            PlayerController.shared.cue(previewTracks, source: "Seaglass Demo")
+            let playlist = Library.shared.createPlaylist(named: "Coastal Nights · Demo", tracks: previewTracks)
+            if let cover = previewCover(index: 4) { Library.shared.setCover(cover, for: playlist.id) }
+            select(.library)
+        case "tempo-demo":
+            // A song made here at 124 BPM, played from its file: the tempo panel must show its BPM.
+            Task {
+                let track = Track(videoId: "SeaglassTempoDemo", title: "Tempo demo", artists: ["Seaglass Demo"], duration: 72)
+                await Task.detached(priority: .userInitiated) {
+                    try? Self.writeDemoSong(to: Storage.audioFile(for: "SeaglassTempoDemo"), bpm: 124, root: 57, introBars: 0)
+                }.value
+                PlayerController.shared.play([track], source: "Tempo demo")
+                router.openPlayer()
+                for _ in 0..<60 {
+                    try? await Task.sleep(for: .milliseconds(500))
+                    if let measured = PlayerController.shared.songBPM, measured.trackID == track.id {
+                        print("tempo-bpm: PASS \(measured.bpm)")
+                        return
+                    }
+                }
+                print("tempo-bpm: FAIL")
+            }
+        case "airplay" where ProcessInfo.processInfo.isMacCatalystApp:
+            // The AirPlay button of the player bar, clicked: its menu must open by it.
+            select(.home)
+            PlayerController.shared.cue(previewTracks, source: "Seaglass Demo")
+            Task {
+                try? await Task.sleep(for: .seconds(3))
+                func picker(in view: UIView) -> AVRoutePickerView? {
+                    if let picker = view as? AVRoutePickerView { return picker }
+                    return view.subviews.lazy.compactMap { picker(in: $0) }.first
+                }
+                func button(in view: UIView) -> UIButton? {
+                    if let button = view as? UIButton { return button }
+                    return view.subviews.lazy.compactMap { button(in: $0) }.first
+                }
+                let windows = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.flatMap(\.windows)
+                guard let found = windows.lazy.compactMap({ picker(in: $0) }).first, let window = found.window else {
+                    print("airplay: no picker")
+                    return
+                }
+                print("airplay: picker at \(found.convert(found.bounds, to: window)) in a window of \(window.bounds.size)")
+                if let control = button(in: found) {
+                    control.sendActions(for: .touchUpInside)
+                    print("airplay: opened")
+                } else {
+                    print("airplay: no button")
+                }
+            }
         case "sidebar-demo":
             select(.home)
             let playlist = Library.shared.createPlaylist(named: "Coastal Nights · Demo", tracks: previewTracks)

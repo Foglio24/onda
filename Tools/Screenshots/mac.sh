@@ -97,6 +97,20 @@ shot mac-12-queue-large 6 player-demo -SeaglassPanel queue -SeaglassWindowSize 1
 shot mac-13-sidebar 6 sidebar-demo
 shot mac-14-recognition-listening 4 recognition:listening
 shot mac-15-recognition-result 4 recognition:result
+# A playlist opened inside the library, a song cued: the player bar must stay over the page.
+shot mac-16-library-playlist 8 library-playlist
+# The tempo panel on a song made at 124 BPM: its BPM must show (the log says how it was measured).
+shot mac-17-tempo 30 tempo-demo -SeaglassPanel tempo
+grep "tempo-bpm" "$logs/mac-17-tempo.log" || echo "::warning::The tempo panel said nothing about the BPM"
+# The zoom at 130 %.
+shot mac-18-zoom 6 settings -mac.zoom 130
+# The AirPlay menu opened from the player bar: the whole screen, as the menu is a window of its own.
+pkill -x Seaglass 2>/dev/null
+NSUnbufferedIO=YES "$binary" -AppleLanguages "(en)" -AppleInterfaceStyle Dark -SeaglassScene airplay >"$logs/airplay.log" 2>&1 &
+sleep 8
+screencapture -x "$out/mac-19-airplay.png" && echo "Saved mac-19-airplay"
+grep -e "airplay:" -e "window:" "$logs/airplay.log"
+pkill -x Seaglass 2>/dev/null
 shot mac-4-search 12 "search:daft punk"
 shot mac-5-settings 6 settings
 # The Home with songs listened to (a song's radio, see LaunchScene): recent covers and mixes.

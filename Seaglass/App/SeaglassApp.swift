@@ -43,6 +43,11 @@ struct SeaglassApp: App {
                     MacBridge.shared.startMenuBar()
                     // The space bar plays or pauses anywhere, as in Apple Music.
                     MacBridge.shared.handleSpaceBar()
+                    // Only the title bar moves the window: a drag on the volume moves the volume.
+                    Task {
+                        try? await Task.sleep(for: .seconds(1))
+                        print("window: movable by background \(MacBridge.shared.keepWindowsInPlace())")
+                    }
                     for case let scene as UIWindowScene in UIApplication.shared.connectedScenes {
                         // On a Mac, a window no smaller than an iPad in landscape: the player's two columns fit.
                         scene.sizeRestrictions?.minimumSize = LaunchScene.macWindowSize ?? CGSize(width: 960, height: 640)
@@ -58,7 +63,20 @@ struct SeaglassApp: App {
         }
         // One window: on a Mac, where the app keeps playing with its window closed (see build.yml),
         // File › New Window would open a second one.
-        .commands { CommandGroup(replacing: .newItem) {} }
+        .commands {
+            CommandGroup(replacing: .newItem) {}
+            // The Mac's zoom, as Spotify's (see `MacZoom`).
+            CommandGroup(after: .toolbar) {
+                if ProcessInfo.processInfo.isMacCatalystApp {
+                    Button("Ingrandisci") { MacZoom.step(1) }
+                        .keyboardShortcut("+", modifiers: .command)
+                    Button("Riduci") { MacZoom.step(-1) }
+                        .keyboardShortcut("-", modifiers: .command)
+                    Button("Dimensioni reali") { MacZoom.step(0) }
+                        .keyboardShortcut("0", modifiers: .command)
+                }
+            }
+        }
     }
 }
 
@@ -78,5 +96,6 @@ extension View {
             .environmentObject(LyricsTranslator.shared)
             .environmentObject(AppUpdater.shared)
             .environmentObject(AccountService.shared)
+            .modifier(MacZoomModifier())
     }
 }

@@ -132,6 +132,7 @@ struct NowPlayingView: View {
             if panel != .artwork {
                 panelContent
                     .frame(maxHeight: .infinity)
+                    .overlay(alignment: .bottomTrailing) { singControl }
             }
             errorLabel
             PlayerScrubber()
@@ -166,6 +167,16 @@ struct NowPlayingView: View {
             panelContent
                 .padding(.top, 60)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .overlay(alignment: .bottomTrailing) { singControl }
+        }
+    }
+
+    /// The karaoke beside the lyrics, as Apple Music's Sing (iPhone and iPad; a Mac keeps its menu).
+    @ViewBuilder private var singControl: some View {
+        if panel == .lyrics, !isEpisode {
+            SingControl(paywall: $paywall)
+                .padding(.trailing, 2)
+                .padding(.bottom, 12)
         }
     }
 
@@ -542,8 +553,11 @@ struct NowPlayingView: View {
         HStack {
             panelButton(.lyrics, symbol: isEpisode ? "list.bullet.rectangle" : "quote.bubble")
             Spacer()
-            if isEpisode { speedMenu } else { karaokeMenu }
-            Spacer()
+            // A song's karaoke is beside its lyrics (see `singControl`), as Apple Music's Sing.
+            if isEpisode {
+                speedMenu
+                Spacer()
+            }
             if !isEpisode {
                 tempoButton
                 Spacer()

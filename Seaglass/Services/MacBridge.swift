@@ -132,6 +132,15 @@ final class MacBridge {
         _ = plugIn?.perform(NSSelectorFromString("observeVolume:"), with: unsafeBitCast(block, to: AnyObject.self))
     }
 
+    // MARK: Window
+
+    /// The windows move only by their title bar (see the plug-in): whether one could be moved by
+    /// its background before, for CI's log.
+    @discardableResult
+    func keepWindowsInPlace() -> Bool {
+        (plugIn?.perform(NSSelectorFromString("keepWindowsInPlace"))?.takeUnretainedValue() as? NSNumber)?.boolValue ?? false
+    }
+
     // MARK: Keychain
 
     /// Writes (or with nil removes) a password in the Mac's login keychain through macOS's

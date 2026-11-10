@@ -153,6 +153,8 @@ enum Preferences {
     /// The last time Opus couldn't play from the start and AAC played instead, and why.
     static let lastOpusFallback = "diagnostics.lastOpusFallback"
     static let accent = "theme.accent"
+    /// The Mac's zoom in percent (see `MacZoom`).
+    static let macZoom = "mac.zoom"
     /// -1 unknown, 0 refused by iOS, 1 accepted.
     static let nowPlayingAccepted = "diagnostics.nowPlayingAccepted"
     static let nowPlayingBackend = "diagnostics.nowPlayingBackend"
@@ -305,5 +307,46 @@ final class NetworkMonitor: @unchecked Sendable {
         lock.lock()
         expensive = metered
         lock.unlock()
+    }
+}
+
+/// The Mac's zoom, as Spotify's (Settings › Appearance, and ⌘+, ⌘− and ⌘0 in the View menu): the
+/// app's text, and the buttons and rows that follow it, bigger or smaller.
+enum MacZoom {
+    static let levels = [75, 85, 100, 115, 130, 150]
+
+    static var current: Int { UserDefaults.standard.object(forKey: Preferences.macZoom) as? Int ?? 100 }
+
+    /// The text size each level stands for.
+    static func textSize(for percent: Int) -> DynamicTypeSize {
+        switch percent {
+        case ..<80: return .xSmall
+        case ..<95: return .small
+        case ..<110: return .large
+        case ..<125: return .xLarge
+        case ..<140: return .xxLarge
+        default: return .xxxLarge
+        }
+    }
+
+    /// One level up or down, or back to 100 % with zero.
+    static func step(_ direction: Int) {
+        let index = levels.firstIndex(of: current) ?? levels.firstIndex(of: 100) ?? 0
+        let next = direction == 0 ? 100 : levels[min(levels.count - 1, max(0, index + direction))]
+        UserDefaults.standard.set(next, forKey: Preferences.macZoom)
+    }
+}
+
+/// Applies the Mac's zoom to a window's or a sheet's views; on iPhone and iPad the system's text
+/// size applies instead.
+struct MacZoomModifier: ViewModifier {
+    @AppStorage(Preferences.macZoom) private var zoom = 100
+
+    func body(content: Content) -> some View {
+        if ProcessInfo.processInfo.isMacCatalystApp {
+            content.dynamicTypeSize(MacZoom.textSize(for: zoom))
+        } else {
+            content
+        }
     }
 }

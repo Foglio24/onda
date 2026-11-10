@@ -361,9 +361,23 @@ private struct AppearanceSettingsView: View {
     @AppStorage(Preferences.accent) private var accent: AccentChoice = .pink
     @AppStorage(Preferences.interactiveArtwork) private var interactiveArtwork = true
     @AppStorage(Preferences.dynamicColors) private var dynamicColors = true
+    @AppStorage(Preferences.macZoom) private var zoom = 100
 
     var body: some View {
         Form {
+            if ProcessInfo.processInfo.isMacCatalystApp {
+                Section {
+                    Picker(selection: $zoom) {
+                        ForEach(MacZoom.levels, id: \.self) { level in
+                            Text(verbatim: "\(level) %").tag(level)
+                        }
+                    } label: {
+                        Label("Zoom", systemImage: "plus.magnifyingglass")
+                    }
+                } footer: {
+                    Text("Ingrandisce o riduce testi e pulsanti, come su Spotify. Anche con ⌘+, ⌘− e ⌘0.")
+                }
+            }
             Section {
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 6), spacing: 12) {
                     ForEach(AccentChoice.allCases) { choice in
