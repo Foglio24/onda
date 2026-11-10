@@ -1,4 +1,5 @@
 import AppKit
+import Security
 import AudioToolbox
 import CoreAudio
 
@@ -231,6 +232,37 @@ final class SeaglassMacBridge: NSObject, NSMenuDelegate {
 
     /// Whether the app can replace itself where it is: not run from a read-only place (macOS runs
     /// an app opened from Downloads from a copy elsewhere until it's moved) and in a folder it can write.
+    // MARK: Keychain
+
+    /// A password in the login keychain, with macOS's file-based keychain API: an ad hoc signed Mac
+    /// Catalyst app's own keychain calls can fail where this works. Nil value removes it.
+    @objc func keychainSet(_ request: NSDictionary) -> NSNumber {
+        guard let service = request["service"] as? String, let account = request["account"] as? String else {
+            return NSNumber(value: errSecParam)
+        }
+        var item: SecKeychainItem?
+        if SecKeychainFindGenericPassword(nil, UInt32(service.utf8.count), service, UInt32(account.utf8.count), account,
+                                          nil, nil, &item) == errSecSuccess, let item {
+            SecKeychainItemDelete(item)
+        }
+        guard let value = request["value"] as? String else { return NSNumber(value: errSecSuccess) }
+        let bytes = Array(value.utf8)
+        let status = SecKeychainAddGenericPassword(nil, UInt32(service.utf8.count), service,
+                                                   UInt32(account.utf8.count), account,
+                                                   UInt32(bytes.count), bytes, nil)
+        return NSNumber(value: status)
+    }
+
+    @objc func keychainGet(_ request: NSDictionary) -> NSString? {
+        guard let service = request["service"] as? String, let account = request["account"] as? String else { return nil }
+        var length: UInt32 = 0
+        var data: UnsafeMutableRawPointer?
+        guard SecKeychainFindGenericPassword(nil, UInt32(service.utf8.count), service, UInt32(account.utf8.count), account,
+                                             &length, &data, nil) == errSecSuccess, let data else { return nil }
+        defer { SecKeychainItemFreeContent(nil, data) }
+        return String(data: Data(bytes: data, count: Int(length)), encoding: .utf8) as NSString?
+    }
+
     @objc func canUpdateInPlace() -> NSNumber {
         let app = Bundle.main.bundleURL
         let translocated = app.path.contains("/AppTranslocation/")

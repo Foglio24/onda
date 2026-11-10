@@ -132,6 +132,25 @@ final class MacBridge {
         _ = plugIn?.perform(NSSelectorFromString("observeVolume:"), with: unsafeBitCast(block, to: AnyObject.self))
     }
 
+    // MARK: Keychain
+
+    /// Writes (or with nil removes) a password in the Mac's login keychain through macOS's
+    /// file-based keychain API, which the app's own keychain calls can't always reach (see
+    /// Keychain). The OSStatus, or nil without the plug-in.
+    func keychainSet(_ value: String?, service: String, account: String) -> OSStatus? {
+        guard let plugIn else { return nil }
+        var request: [String: Any] = ["service": service, "account": account]
+        if let value { request["value"] = value }
+        let result = plugIn.perform(NSSelectorFromString("keychainSet:"), with: request as NSDictionary)
+        return (result?.takeUnretainedValue() as? NSNumber).map { OSStatus($0.int32Value) }
+    }
+
+    func keychainGet(service: String, account: String) -> String? {
+        let request: [String: Any] = ["service": service, "account": account]
+        return plugIn?.perform(NSSelectorFromString("keychainGet:"), with: request as NSDictionary)?
+            .takeUnretainedValue() as? String
+    }
+
     // MARK: Updates
 
     /// Whether the app can replace itself where it is (not run from Downloads before being moved,

@@ -201,7 +201,7 @@ final class AccountService: ObservableObject {
     /// library synced.
     func checkSignIn(token: String) async {
         Keychain.set(token, for: Keys.token)
-        print("account-keychain: \(Keychain.get(Keys.token) == token ? "PASS" : "FAIL")")
+        print("account-keychain: \(Keychain.get(Keys.token) == token ? "PASS" : "FAIL") (\(Keychain.macStatus))")
         isSignedIn = true
         await refresh(force: true)
         guard let details else {
