@@ -92,8 +92,9 @@ targets:
         ITSAppUsesNonExemptEncryption: false
         # Where a Mac files it (Finder, Launchpad).
         LSApplicationCategoryType: public.app-category.music
-        # The account service's address (server/account), set by CI (build.yml): empty, no accounts.
-        SeaglassAccountOrigin: ""
+        # The account service's address (server/account, on the Cloudflare account's workers.dev).
+        # build.yml replaces it when it finds another (a custom domain, or SEAGLASS_ACCOUNT_ORIGIN).
+        SeaglassAccountOrigin: "https://seaglass-account.lukylaki04.workers.dev"
     settings:
       base:
         PRODUCT_NAME: Seaglass

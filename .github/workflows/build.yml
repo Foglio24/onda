@@ -99,8 +99,8 @@ jobs:
           ./build-karaoke-check Generated/Karaoke/VocFT.mlmodelc Generated/karaoke-fixture.bin
           rm build-karaoke-check
 
-      # Where the account service is (server/account, deployed by account.yml): without it the app
-      # is built without accounts. SEAGLASS_ACCOUNT_ORIGIN, when set, wins over asking Cloudflare.
+      # Where the account service is (server/account, deployed by account.yml), when it isn't
+      # project.yml's: SEAGLASS_ACCOUNT_ORIGIN, or what Cloudflare says (a custom domain).
       - name: Find the account service
         id: account
         continue-on-error: true
@@ -115,7 +115,7 @@ jobs:
           elif [ -n "$CLOUDFLARE_API_TOKEN" ]; then
             node server/account/scripts/cloudflare.mjs origin
           else
-            echo "::notice::No account service configured: the app is built without accounts."
+            echo "::notice::The app keeps the account service's address in project.yml."
           fi
 
       - name: Generate Xcode project
@@ -278,8 +278,8 @@ jobs:
       # On a Mac an app with one window quits when it's closed, and the music with it. With multiple
       # scenes it keeps playing, as Apple Music does, and the Dock icon opens the window again.
       # Only for the Mac: an iPad keeps a single window (SeaglassApp removes File › New Window).
-      # Where the account service is (server/account, deployed by account.yml): without it the app
-      # is built without accounts. SEAGLASS_ACCOUNT_ORIGIN, when set, wins over asking Cloudflare.
+      # Where the account service is (server/account, deployed by account.yml), when it isn't
+      # project.yml's: SEAGLASS_ACCOUNT_ORIGIN, or what Cloudflare says (a custom domain).
       - name: Find the account service
         id: account
         continue-on-error: true
@@ -294,7 +294,7 @@ jobs:
           elif [ -n "$CLOUDFLARE_API_TOKEN" ]; then
             node server/account/scripts/cloudflare.mjs origin
           else
-            echo "::notice::No account service configured: the app is built without accounts."
+            echo "::notice::The app keeps the account service's address in project.yml."
           fi
 
       - name: Generate Xcode project
