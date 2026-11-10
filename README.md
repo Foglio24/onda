@@ -56,7 +56,7 @@ Your choice is about the listening experience: more control over transitions, te
 - Discover radio stations and personalised mixes; connect Last.fm for scrobbling and more features based on your listening.
 - **Podcasts** from YouTube Music: follow shows, pick up each episode where you left it, change the speed, skip 15/30 seconds and jump between chapters.
 - **A Seaglass account** (optional, iPhone, iPad and Mac) keeps favourites, playlists, history and listening preferences the same on every device. As on Spotify, the account itself (name, password, subscription, deleting it) is managed on its web page; the app shows it and signs in or out.
-- **Seaglass Premium**, a subscription on Patreon linked to the account, unlocks importing playlists from links, song recognition, lyrics translation, AI karaoke and Tempo on iPhone, iPad and Mac.
+- **Seaglass Premium**, a subscription on Patreon linked to the account, unlocks AutoMix and playlist Mixes, importing playlists from links, song recognition, lyrics translation, AI karaoke and Tempo on iPhone, iPad and Mac.
 
 ### Follow along and sing
 

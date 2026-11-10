@@ -1725,22 +1725,30 @@ final class PlayerController: ObservableObject {
 
     /// The Mix of the playlist playing, when it is on: its transitions play, whatever the setting.
     private var playlistMix: PlaylistMix? {
-        guard let id = playlistContext, let mix = Library.shared.playlist(id)?.mix, mix.enabled else { return nil }
+        guard let id = playlistContext, let mix = Library.shared.playlist(id)?.mix, mix.enabled,
+              AccountService.shared.unlocks(.autoMix) else { return nil }
         return mix
+    }
+
+    /// The transitions that play: the setting, with a crossfade instead of AutoMix where AutoMix
+    /// needs Premium and there is none.
+    private var transitionSetting: SongTransition {
+        let setting = Preferences.songTransitionSetting
+        return setting == .autoMix && !AccountService.shared.unlocks(.autoMix) ? .crossfade : setting
     }
 
     /// AutoMix (the setting) or a playlist's Mix makes the transitions.
     /// With the tempo fader away from 0, the songs follow each other without AutoMix or crossfade:
     /// the tempo is the listener's, as in a DJ app when the fader is ridden by hand.
     private var mixesTransitions: Bool {
-        (Preferences.songTransitionSetting == .autoMix || playlistMix != nil) && songTempo == 0
+        (transitionSetting == .autoMix || playlistMix != nil) && songTempo == 0
     }
 
     /// Seconds of plain crossfade at the end of a song: the setting's with "Dissolvenza incrociata";
     /// with AutoMix, a short one while no plan is ready.
     private var plainCrossfadeSeconds: Double {
         if playlistMix != nil { return 5 }
-        switch Preferences.songTransitionSetting {
+        switch transitionSetting {
         case .off:
             return 0
         case .crossfade:

@@ -29,7 +29,8 @@ struct SettingsView: View {
                         SettingsRow("Audio", symbol: "waveform", tint: .pink, value: wifiQuality.title)
                     }
                     NavigationLink { PlaybackSettingsView() } label: {
-                        SettingsRow("Riproduzione", symbol: "play.fill", tint: .orange, value: transition.title)
+                        SettingsRow("Riproduzione", symbol: "play.fill", tint: .orange,
+                                    value: (transition == .autoMix && !account.unlocks(.autoMix) ? .crossfade : transition).title)
                     }
                     NavigationLink { LyricsSettingsView() } label: {
                         SettingsRow("Testi", symbol: "quote.bubble.fill", tint: .purple,
@@ -218,12 +219,29 @@ private struct PlaybackSettingsView: View {
     @AppStorage(Preferences.songTransition) private var transition: SongTransition = Preferences.songTransitionSetting
     @AppStorage(Preferences.crossfade) private var crossfade = Preferences.defaultCrossfade
     @AppStorage(Preferences.skipLongMixes) private var skipLongMixes = true
+    @ObservedObject private var account = AccountService.shared
+    @State private var paywall: PremiumFeature?
+
+    /// The transitions that play: without Premium (where AutoMix needs it) AutoMix is a crossfade,
+    /// and choosing it explains Premium.
+    private var shownTransition: Binding<SongTransition> {
+        Binding(get: { transition == .autoMix && !account.unlocks(.autoMix) ? .crossfade : transition },
+                set: { value in
+                    if value == .autoMix, !account.unlocks(.autoMix) { paywall = .autoMix } else { transition = value }
+                })
+    }
 
     var body: some View {
         Form {
             Section {
-                Picker(selection: $transition) {
-                    ForEach(SongTransition.allCases) { Text($0.title).tag($0) }
+                Picker(selection: shownTransition) {
+                    ForEach(SongTransition.allCases) { option in
+                        if option == .autoMix, !account.unlocks(.autoMix) {
+                            Text(verbatim: "\(option.title) · Premium").tag(option)
+                        } else {
+                            Text(option.title).tag(option)
+                        }
+                    }
                 } label: {
                     Label("Transizioni", systemImage: "waveform.path")
                 }
@@ -231,7 +249,7 @@ private struct PlaybackSettingsView: View {
                     if value == .crossfade, crossfade < 1 { crossfade = Preferences.defaultCrossfade }
                     player.applyTransitionPreference()
                 }
-                if transition == .crossfade {
+                if shownTransition.wrappedValue == .crossfade {
                     VStack(alignment: .leading, spacing: 6) {
                         HStack {
                             Label("Durata della dissolvenza", systemImage: "timer")
@@ -244,8 +262,10 @@ private struct PlaybackSettingsView: View {
                     }
                 }
             } footer: {
-                if transition == .autoMix {
+                if shownTransition.wrappedValue == .autoMix {
                     Text("AutoMix sceglie come passare da un brano all'altro, a tempo come un DJ quando il ritmo lo permette.")
+                } else if !account.unlocks(.autoMix) {
+                    Text(String(localized: "\(PremiumFeature.autoMix.title) fa parte di Premium."))
                 }
             }
 
@@ -266,6 +286,7 @@ private struct PlaybackSettingsView: View {
             }
         }
         .settingsPage("Riproduzione")
+        .premiumPaywall($paywall)
     }
 }
 

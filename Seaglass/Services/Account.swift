@@ -108,6 +108,8 @@ final class AccountService: ObservableObject {
     private var lastPreferences: [String: SyncValue] = [:]
     private var lastRefresh: Date?
     private var lastStatus: Date?
+    /// Whether AutoMix was there when the transitions were last set up.
+    private var autoMixUnlocked = true
 
     private init() {
         let origin = Self.configuredOrigin()
@@ -233,11 +235,17 @@ final class AccountService: ObservableObject {
         lastRefresh = nil
     }
 
-    /// Without Premium, its features that keep running (karaoke, a changed tempo) stop.
+    /// Without Premium, its features that keep running (karaoke, a changed tempo) stop, and the
+    /// transitions follow whether AutoMix is there.
     private func enforcePremium() {
         let player = PlayerController.shared
         if !unlocks(.karaoke), player.karaokeMode != .off { player.setKaraoke(.off) }
         if !unlocks(.tempo), player.songTempo != 0 { player.setSongTempo(0) }
+        let autoMix = unlocks(.autoMix)
+        if autoMix != autoMixUnlocked {
+            autoMixUnlocked = autoMix
+            player.applyTransitionPreference()
+        }
     }
 
     /// The app came to the foreground: the account and what changed on the other devices.
@@ -550,6 +558,8 @@ enum SyncedPreferences {
 
 /// What Seaglass Premium unlocks, where Premium can be bought (see `AccountService.unlocks`).
 enum PremiumFeature: String, Identifiable, CaseIterable {
+    /// AutoMix, and the playlists' Mix it plays.
+    case autoMix
     case playlistLinks
     case recognition
     case lyricsTranslation
@@ -560,6 +570,7 @@ enum PremiumFeature: String, Identifiable, CaseIterable {
 
     var title: String {
         switch self {
+        case .autoMix: return String(localized: "AutoMix")
         case .playlistLinks: return String(localized: "Importa playlist da link")
         case .recognition: return String(localized: "Riconosci un brano")
         case .lyricsTranslation: return String(localized: "Traduci i testi")
@@ -570,6 +581,7 @@ enum PremiumFeature: String, Identifiable, CaseIterable {
 
     var symbol: String {
         switch self {
+        case .autoMix: return "waveform.path"
         case .playlistLinks: return "link"
         case .recognition: return "waveform.badge.magnifyingglass"
         case .lyricsTranslation: return "translate"

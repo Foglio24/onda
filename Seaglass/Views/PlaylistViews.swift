@@ -33,6 +33,14 @@ struct PlaylistDetailView: View {
     @State private var showPhotoPicker = false
     @State private var photoItem: PhotosPickerItem?
     @State private var showMix = false
+    @ObservedObject private var account = AccountService.shared
+    /// The Mix plays AutoMix: where AutoMix needs Premium and there is none, it explains Premium.
+    @State private var paywall: PremiumFeature?
+
+    private func openMix() {
+        if account.unlocks(.autoMix) { showMix = true } else { paywall = .autoMix }
+    }
+
     /// Reordering: the songs show handles to drag them by (and the delete button), and are not
     /// played, swiped or long-pressed meanwhile.
     @State private var editMode: EditMode = .inactive
@@ -99,7 +107,7 @@ struct PlaylistDetailView: View {
                         }
                     } else if playlist.tracks.count >= 2 {
                         ToolbarItem(placement: .topBarTrailing) {
-                            Button { showMix = true } label: {
+                            Button { openMix() } label: {
                                 Label("Mix", systemImage: "slider.horizontal.3")
                             }
                         }
@@ -117,6 +125,7 @@ struct PlaylistDetailView: View {
         .onAppear { PlaylistUsage.noteOpened(playlistID) }
         .photosPicker(isPresented: $showPhotoPicker, selection: $photoItem, matching: .images)
         .sheet(isPresented: $showMix) { PlaylistMixView(playlistID: playlistID).appEnvironment() }
+        .premiumPaywall($paywall)
         .onChange(of: photoItem) { _, item in
             guard let item else { return }
             Task {
@@ -216,11 +225,15 @@ struct PlaylistDetailView: View {
     /// transition of the playlist is mixed when it plays: the ones designed in the sheet, AutoMix's
     /// choice for the others, whatever "Transizioni tra brani" says.
     private func mixRow(_ playlist: Playlist) -> some View {
-        let isOn = playlist.mix?.enabled ?? false
+        let isOn = (playlist.mix?.enabled ?? false) && account.unlocks(.autoMix)
         let glass: Glass = isOn ? .regular.tint(accent.color.opacity(0.55)).interactive() : .regular.interactive()
         return VStack(spacing: 6) {
             HStack(spacing: 12) {
                 Button {
+                    guard account.unlocks(.autoMix) else {
+                        paywall = .autoMix
+                        return
+                    }
                     library.setMixEnabled(!isOn, for: playlistID)
                     player.applyTransitionPreference()
                 } label: {
@@ -235,7 +248,7 @@ struct PlaylistDetailView: View {
                 .glassEffect(glass, in: .capsule)
                 .accessibilityAddTraits(isOn ? .isSelected : [])
 
-                Button { showMix = true } label: {
+                Button { openMix() } label: {
                     Label("Transizioni", systemImage: "arrow.left.arrow.right")
                         .font(.subheadline.weight(.semibold))
                         .frame(maxWidth: .infinity)

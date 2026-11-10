@@ -143,7 +143,7 @@ struct AccountSettingsView: View {
                         .fontWeight(.semibold)
                 }
             } footer: {
-                Text("Premium sblocca l'import delle playlist da link, il riconoscimento dei brani, la traduzione dei testi, il karaoke AI e il Tempo.")
+                Text("Premium sblocca AutoMix, l'import delle playlist da link, il riconoscimento dei brani, la traduzione dei testi, il karaoke AI e il Tempo.")
             }
         }
         Section {

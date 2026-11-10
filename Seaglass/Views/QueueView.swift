@@ -4,6 +4,8 @@ struct QueueView: View {
     @EnvironmentObject private var player: PlayerController
     @Environment(\.playerTextScale) private var playerTextScale
     @AppStorage(Preferences.songTransition) private var transition: SongTransition = Preferences.songTransitionSetting
+    @ObservedObject private var account = AccountService.shared
+    @State private var paywall: PremiumFeature?
 
     var body: some View {
         List {
@@ -14,10 +16,13 @@ struct QueueView: View {
                 }
                 Divider().opacity(0.4)
                 Toggle(isOn: autoMix) {
-                    Label("AutoMix", systemImage: "waveform.path")
-                        .font(controlFont)
+                    HStack(spacing: 8) {
+                        Label("AutoMix", systemImage: "waveform.path")
+                            .font(controlFont)
+                        if !account.unlocks(.autoMix) { PremiumLock() }
+                    }
                 }
-                if transition == .autoMix, let note = player.autoMixNote {
+                if autoMix.wrappedValue, let note = player.autoMixNote {
                     Text(note)
                         .font(textScale == 1 ? .caption : .system(size: 12 * textScale))
                         .foregroundStyle(.secondary)
@@ -84,6 +89,7 @@ struct QueueView: View {
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
         .scrollIndicators(.hidden)
+        .premiumPaywall($paywall)
     }
 
     private var textScale: CGFloat { min(playerTextScale, 1.4) }
@@ -92,11 +98,16 @@ struct QueueView: View {
         textScale == 1 ? .subheadline.weight(.semibold) : .system(size: 15 * textScale, weight: .semibold)
     }
 
-    /// AutoMix on or off, as in Apple Music's queue (off means no transitions).
+    /// AutoMix on or off, as in Apple Music's queue (off means no transitions). Where it needs
+    /// Premium and there is none, it shows off and turning it on explains Premium.
     private var autoMix: Binding<Bool> {
         Binding {
-            transition == .autoMix
+            transition == .autoMix && account.unlocks(.autoMix)
         } set: { isOn in
+            if isOn, !account.unlocks(.autoMix) {
+                paywall = .autoMix
+                return
+            }
             transition = isOn ? .autoMix : .off
             player.applyTransitionPreference()
         }

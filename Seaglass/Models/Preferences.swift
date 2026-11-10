@@ -255,6 +255,8 @@ enum Preferences {
     }
 
     /// AutoMix unless chosen otherwise; up to 1.11 a crossfade of 0 seconds meant no transitions.
+    /// The transitions as chosen in Settings (see `PlayerController.transitionSetting` for the ones
+    /// that play: AutoMix needs Premium where Premium can be bought).
     static var songTransitionSetting: SongTransition {
         if let stored = UserDefaults.standard.string(forKey: songTransition),
            let transition = SongTransition(rawValue: stored) {
