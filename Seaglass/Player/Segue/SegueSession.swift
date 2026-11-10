@@ -35,6 +35,9 @@ final class SegueSession {
     private(set) var lastError = 0.0
     private(set) var worstError = 0.0
     private var task: Task<Void, Never>?
+    /// When it starts on the system clock (seconds): before then (and just after) its time says
+    /// where it will start, not where it is, so it isn't measured.
+    private var startsAt = 0.0
 
     init(plan: SeguePlan, outgoingTrackID: String, next: Track, file: URL, label: String, incomingGain: Float,
          outgoingStage: SegueStage) {
@@ -96,6 +99,7 @@ final class SegueSession {
         let delay = (meet - now) / max(0.01, outgoingRate)
         guard outgoingRate > 0, now.isFinite, delay > 0.05 else { return false }
         let host = CMTimeAdd(CMClockGetTime(CMClockGetHostTimeClock()), CMTime(seconds: delay, preferredTimescale: 1_000_000_000))
+        startsAt = host.seconds
         player.setRate(rate, time: CMTime(seconds: incomingStartTime, preferredTimescale: 48_000), atHostTime: host)
         phase = .running
         return true
@@ -130,6 +134,7 @@ final class SegueSession {
                     readings.removeAll()
                     continue
                 }
+                if CMClockGetTime(CMClockGetHostTimeClock()).seconds < startsAt + 0.15 { continue }
                 readings.append(player.currentTime().seconds - plan.incomingTime(atOutgoing: outgoingTime))
                 if readings.count > 5 { readings.removeFirst() }
                 let error = readings.sorted()[readings.count / 2]
