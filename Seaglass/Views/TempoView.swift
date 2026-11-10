@@ -70,7 +70,9 @@ struct TempoView: View {
         }
         .navigationTitle("Tempo")
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear { player.measureSongBPM() }
+        // Measured for each song while the panel is open, and again once a song's stream is in (a
+        // song just started has no audio to measure yet).
+        .task(id: "\(player.current?.id ?? "")|\(player.streamInfo ?? "")") { player.measureSongBPM() }
     }
 
     /// "113.7" over "−0.9 % ⌄" (the fader's range in the menu); without a BPM, the percent alone.
