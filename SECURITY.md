@@ -149,6 +149,8 @@ folder. For example, a YouTube video ID matches `[A-Za-z0-9_-]{11}`.
   `com.onda.player.auth:/callback` and nothing else.
 - The page keeps its Content-Security-Policy (only its own scripts and styles, no framing) and
   builds every user-supplied text with `textContent`, never `innerHTML`.
+- "Manage account" opens the page signed in through a link the app's session asks for: it works
+  once, within a minute, and only an app session (a Bearer token) can make one.
 - A password-reset code is six digits: it expires in 15 minutes, stops after five wrong tries,
   and an account gets at most one a minute. Asking for one answers the same whether the address
   has an account or not.

@@ -1,5 +1,5 @@
 import {
-  authenticate, changePassword, clearSessionCookie, emailReady, exchangeLogin, loginAccount, registerAccount,
+  authenticate, changePassword, clearSessionCookie, createWebLink, emailReady, exchangeLogin, loginAccount, openWebLink, registerAccount,
   requestPasswordReset, requestVerification, resetPassword, startLogin, verifyEmail,
 } from "./auth.mjs";
 import { HttpError, json, readJson, respond, unix } from "./http.mjs";
@@ -13,6 +13,7 @@ import { pullLibrary, pullSync, writeSync } from "./sync.mjs";
 const recordPath = /^\/v1\/sync\/(profile|playlist|history|favorites|preferences|library)\/([a-z0-9-]+)$/;
 const authenticated = new Set([
   "GET /v1/account", "DELETE /v1/account", "POST /v1/account/password", "DELETE /v1/session", "DELETE /v1/sessions",
+  "POST /v1/auth/web-link",
   "GET /v1/sync", "GET /v1/sync/library", "GET /v1/premium", "POST /v1/patreon/connect", "POST /v1/patreon/disconnect",
 ]);
 const deletionPhrase = "ELIMINA IL MIO ACCOUNT";
@@ -98,6 +99,7 @@ async function route(request, env) {
     case "POST /v1/auth/reset": return resetPassword(request, env);
     case "POST /v1/auth/verify/resend": return requestVerification(request, env);
     case "POST /v1/auth/exchange": return exchangeLogin(request, env);
+    case "GET /v1/auth/web": return openWebLink(url, env);
     case "GET /v1/patreon/callback": {
       const session = await authenticate(request, env.DB).catch(() => null);
       return finishPatreon(url, env, session?.accountId ?? null);
@@ -114,6 +116,7 @@ async function route(request, env) {
     case "GET /v1/account": return accountOverview(env, session);
     case "GET /v1/premium": return json(await membership(env, session.accountId));
     case "POST /v1/account/password": return changePassword(request, env, session);
+    case "POST /v1/auth/web-link": return createWebLink(request, env, session);
     case "POST /v1/patreon/connect": return startPatreon(env, session.accountId);
     case "POST /v1/patreon/disconnect": return disconnectPatreon(env, session.accountId);
     case "DELETE /v1/account": {

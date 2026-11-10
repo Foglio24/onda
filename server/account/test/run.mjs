@@ -208,6 +208,23 @@ try {
   check(response.data.records?.playlist === 1 && response.data.records?.favorites === 1 && response.data.syncedAt > 0 &&
     response.data.profile?.lastName === "Lovelace", "account counts", response.data);
 
+  // The app opens the page signed in: a link that works once.
+  response = await call("POST", "/v1/auth/web-link", { bearer: token, origin: null, body: { view: "premium" } });
+  const webLink = new URL(response.data?.url ?? "invalid:");
+  check(response.status === 200 && webLink.pathname === "/v1/auth/web" && webLink.searchParams.get("view") === "premium",
+    "web link made", response.data);
+  const linkedBrowser = new Map();
+  response = await call("GET", webLink.pathname + webLink.search, { cookies: linkedBrowser });
+  check(response.status === 303 && response.headers.get("Location") === "/account?view=premium" &&
+    linkedBrowser.has("__Host-seaglass-session"), "web link signs the browser in", response.status);
+  response = await call("GET", "/v1/account", { cookies: linkedBrowser });
+  check(response.status === 200 && response.data.id === accountId, "the browser is in the account", response.data);
+  const replay = new Map();
+  response = await call("GET", webLink.pathname + webLink.search, { cookies: replay });
+  check(response.status === 303 && !replay.has("__Host-seaglass-session"), "a web link works once", response.status);
+  response = await call("POST", "/v1/auth/web-link", { cookies: browser, body: {} });
+  check(response.status === 403, "only the app makes web links", response.status);
+
   // Patreon: the page's link starts at Patreon, and comes back only to the browser that started it.
   response = await call("POST", "/v1/patreon/connect", { cookies: browser, body: {} });
   const authorize = new URL(response.data?.redirect ?? "invalid:");

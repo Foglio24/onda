@@ -75,6 +75,19 @@ final class AccountService: ObservableObject {
     var isAvailable: Bool { origin != nil }
     /// The account page, where everything about the account is changed.
     var manageURL: URL? { origin?.appending(path: "account") }
+    /// The account page in the browser, already signed in: a link the service makes for this
+    /// app's session, which works once within a minute. The plain page when it can't be had.
+    func signedInPage(premium: Bool) async -> URL? {
+        let page = premium ? premiumURL : manageURL
+        guard isSignedIn, let token, let origin else { return page }
+        struct Link: Decodable { var url: URL }
+        guard let body = try? JSONSerialization.data(withJSONObject: ["view": premium ? "premium" : "account"]),
+              let data = try? await send("v1/auth/web-link", method: "POST", body: body, token: token),
+              let link = try? JSONDecoder().decode(Link.self, from: data),
+              link.url.scheme == "https", link.url.host() == origin.host() else { return page }
+        return link.url
+    }
+
     /// A new email to the support address.
     var supportURL: URL? {
         guard let supportEmail, supportEmail.range(of: #"^[^\s@<>"?&]+@[^\s@<>"?&]+\.[^\s@<>"?&]+$"#, options: .regularExpression) != nil

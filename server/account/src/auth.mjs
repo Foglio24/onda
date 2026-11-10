@@ -392,3 +392,37 @@ export async function changePassword(request, env, session) {
   ]);
   return json({ accepted: true });
 }
+
+// The app opens the account page signed in: its session asks for a link that works once, within
+// a minute, and gives the browser a session of its own. The codes sit with the app's sign-in
+// codes, marked "web-link" (never a hash, so they can't be exchanged as one).
+const webLinkLifetime = 60;
+const webLinkMark = "web-link";
+
+export async function createWebLink(request, env, session) {
+  if (!request.headers.has("Authorization")) throw new HttpError(403, "app_only");
+  await limited(request, env);
+  const body = await readJson(request);
+  const code = secret();
+  await env.DB.prepare("INSERT INTO login_codes (code_hash, account_id, app_challenge, expires_at) VALUES (?, ?, ?, ?)")
+    .bind(await hash(code), session.accountId, webLinkMark, unix() + webLinkLifetime).run();
+  const url = new URL("/v1/auth/web", origin(env));
+  url.searchParams.set("code", code);
+  if (body.view === "premium") url.searchParams.set("view", "premium");
+  return json({ url: url.href, expiresIn: webLinkLifetime });
+}
+
+export async function openWebLink(url, env) {
+  const code = url.searchParams.get("code") ?? "";
+  const target = url.searchParams.get("view") === "premium" ? "/account?view=premium" : "/account";
+  if (!secretPattern.test(code)) return redirect(target);
+  const now = unix();
+  const row = await env.DB.prepare(`DELETE FROM login_codes WHERE code_hash = ? AND app_challenge = ? AND expires_at > ?
+    RETURNING account_id`).bind(await hash(code), webLinkMark, now).first();
+  // Used or expired: the page, to sign in by hand.
+  if (!row) return redirect(target);
+  const token = secret();
+  await env.DB.prepare("INSERT INTO sessions (token_hash, account_id, expires_at) VALUES (?, ?, ?)")
+    .bind(await hash(token), row.account_id, now + sessionLifetime).run();
+  return redirect(target, sessionCookie(token, sessionLifetime));
+}

@@ -156,11 +156,11 @@ struct AccountSettingsView: View {
             }
         }
         // As in Spotify's app: Premium is bought on the website, the app only leads there.
-        if account.premiumEnabled, !account.hasPremium, let premiumURL = account.premiumURL {
+        if account.premiumEnabled, !account.hasPremium, account.premiumURL != nil {
             Section {
                 Button {
                     account.expectPremium()
-                    openURL(premiumURL)
+                    openPage(premium: true)
                 } label: {
                     Label("Passa a Premium", systemImage: "crown.fill")
                         .fontWeight(.semibold)
@@ -195,9 +195,9 @@ struct AccountSettingsView: View {
             }
         }
         Section {
-            if let manageURL = account.manageURL {
+            if account.manageURL != nil {
                 Button {
-                    openURL(manageURL)
+                    openPage(premium: false)
                 } label: {
                     HStack {
                         Text("Gestisci account")
@@ -217,6 +217,13 @@ struct AccountSettingsView: View {
                 } message: {
                     Text("La libreria resta su questo dispositivo, ma non si sincronizza più.")
                 }
+        }
+    }
+
+    /// The account page in the browser, signed in as in the app.
+    private func openPage(premium: Bool) {
+        Task {
+            if let url = await account.signedInPage(premium: premium) { openURL(url) }
         }
     }
 
@@ -327,10 +334,12 @@ struct PremiumView: View {
     @ViewBuilder private var actions: some View {
         VStack(spacing: 12) {
             if account.isSignedIn {
-                if let premiumURL = account.premiumURL {
+                if account.premiumURL != nil {
                     Button {
                         account.expectPremium()
-                        openURL(premiumURL)
+                        Task {
+                            if let url = await account.signedInPage(premium: true) { openURL(url) }
+                        }
                     } label: {
                         Text("Passa a Premium")
                             .fontWeight(.semibold)
