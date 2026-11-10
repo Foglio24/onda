@@ -17,6 +17,14 @@ struct SeaglassApp: App {
         URLCache.shared = URLCache(memoryCapacity: 64 << 20, diskCapacity: 512 << 20, directory: nil)
         _ = NetworkMonitor.shared
         Diagnostics.shared.start()
+        #if targetEnvironment(macCatalyst)
+        // A Mac's pages start beside the glass sidebar, where their navigation bars have no margin:
+        // the large titles take the margin the lists have, rather than touching the page's edge.
+        let margin = NSMutableParagraphStyle()
+        margin.firstLineHeadIndent = 20
+        margin.headIndent = 20
+        UINavigationBar.appearance().largeTitleTextAttributes = [.paragraphStyle: margin]
+        #endif
     }
 
     var body: some Scene {

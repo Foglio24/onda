@@ -110,13 +110,7 @@ extension RootView {
         macPages
             .safeAreaPadding(.bottom, MacPlayerBar.height + 24)
             .padding(.leading, MacSidebar.width + 2 * MacSidebar.inset)
-            // What the glass shows: the window's background, faintly in the theme's colour.
-            .background {
-                LinearGradient(colors: [accent.color.opacity(0.22), accent.color.opacity(0.04)],
-                               startPoint: .topLeading, endPoint: .bottomTrailing)
-                    .background(Color(.systemBackground))
-                    .ignoresSafeArea()
-            }
+            .background { Color(.systemBackground).ignoresSafeArea() }
             .overlay(alignment: .bottom) {
                 MacPlayerBar()
                     .glassEffect(.regular, in: .capsule)
@@ -234,7 +228,8 @@ private struct MacSidebar: View {
         }
         .frame(width: Self.width)
         .frame(maxHeight: .infinity)
-        .glassEffect(.regular, in: .rect(cornerRadius: 24))
+        // Faintly in the theme's colour, so the glass reads as glass over the window's plain background.
+        .glassEffect(.regular.tint(accent.color.opacity(0.12)), in: .rect(cornerRadius: 24))
     }
 
     private func item(_ title: LocalizedStringKey, symbol: String, section: MacSection) -> some View {
