@@ -768,3 +768,9 @@
 "Collegato: %@" = "متصل: %@";
 "Massima · Opus in ALAC, senza altre perdite (~5 MB/min)" = "الأعلى · Opus محفوظ بتنسيق ALAC، دون فقد إضافي (~5 ميغابايت/دقيقة)";
 "Uscita audio" = "مخرج الصوت";
+"Senza mix: un brano dopo l'altro" = "بلا مزج: أغنية تلو الأخرى";
+"Mix a tempo: %lld battute, %lld → %lld BPM, a %lld s" = "مزج متزامن الإيقاع: %lld مازورة، %lld → %lld BPM، عند %lld ث";
+"Stacco sul battere, a %lld s" = "قطع على الضربة القوية، عند %lld ث";
+"mix dal vivo" = "مزج مباشر";
+"Mix dal vivo" = "مزج مباشر";
+"AutoMix suona il brano successivo su un secondo lettore, a tempo con quello in corso, con livelli, bassi e filtri automatici. Spento, usa i mix preparati in un file." = "يشغّل AutoMix الأغنية التالية على مشغّل ثانٍ متزامنًا مع الأغنية الحالية، مع ضبط تلقائي للمستويات والجهير والمرشحات. عند إيقافه، يستخدم مزجات مُعدّة في ملف.";

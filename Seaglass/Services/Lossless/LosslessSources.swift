@@ -122,17 +122,33 @@ final class LosslessSources {
         return task
     }
 
+    /// A task's value if it comes within `seconds`, else nil at once: the task itself goes on (its
+    /// answer is kept for the next time), and nothing here waits for it.
     private nonisolated static func within<T: Sendable>(_ seconds: TimeInterval,
                                                         _ work: @escaping @Sendable () async -> T) async -> T? {
-        await withTaskGroup(of: T?.self) { group in
-            group.addTask { await work() }
-            group.addTask {
-                try? await Task.sleep(for: .seconds(seconds))
-                return nil
+        let once = Once()
+        return await withCheckedContinuation { (continuation: CheckedContinuation<T?, Never>) in
+            Task {
+                let value = await work()
+                if once.claim() { continuation.resume(returning: value) }
             }
-            let first = await group.next() ?? nil
-            group.cancelAll()
-            return first
+            Task {
+                try? await Task.sleep(for: .seconds(seconds))
+                if once.claim() { continuation.resume(returning: nil) }
+            }
+        }
+    }
+
+    /// True for the first caller only.
+    private final class Once: @unchecked Sendable {
+        private let lock = NSLock()
+        private var claimed = false
+        func claim() -> Bool {
+            lock.lock()
+            defer { lock.unlock() }
+            guard !claimed else { return false }
+            claimed = true
+            return true
         }
     }
 

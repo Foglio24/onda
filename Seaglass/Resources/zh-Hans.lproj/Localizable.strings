@@ -768,3 +768,9 @@
 "Collegato: %@" = "已连接：%@";
 "Massima · Opus in ALAC, senza altre perdite (~5 MB/min)" = "最高 · Opus 以 ALAC 保存，不再额外损失（约 5 MB/分钟）";
 "Uscita audio" = "音频输出";
+"Senza mix: un brano dopo l'altro" = "不混音：一首接一首";
+"Mix a tempo: %lld battute, %lld → %lld BPM, a %lld s" = "节拍对齐混音：%lld 小节，%lld → %lld BPM，在 %lld 秒处";
+"Stacco sul battere, a %lld s" = "在强拍处切换，在 %lld 秒处";
+"mix dal vivo" = "实时混音";
+"Mix dal vivo" = "实时混音";
+"AutoMix suona il brano successivo su un secondo lettore, a tempo con quello in corso, con livelli, bassi e filtri automatici. Spento, usa i mix preparati in un file." = "AutoMix 会在第二个播放器上播放下一首歌，与当前歌曲节拍同步，并自动调节音量、低音和滤波。关闭时，使用预先生成在文件中的混音。";

@@ -152,6 +152,9 @@ enum Preferences {
     static let losslessSearch = "lossless.search"
     /// Lossless streams on mobile data too (several times the data of the usual streams).
     static let losslessCellular = "lossless.cellular"
+    /// AutoMix's live transitions (two players in step, see `SegueSession`); off, the rendered mixes.
+    static let liveMix = "automix.liveMix"
+    static var liveMixEnabled: Bool { UserDefaults.standard.object(forKey: liveMix) as? Bool ?? true }
     static let skipLongMixes = "radio.skipLongMixes"
     static let crossfade = "playback.crossfade"
     static let songTransition = "playback.transition"

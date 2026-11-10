@@ -226,6 +226,7 @@ private struct PlaybackSettingsView: View {
     @AppStorage(Preferences.songTransition) private var transition: SongTransition = Preferences.songTransitionSetting
     @AppStorage(Preferences.crossfade) private var crossfade = Preferences.defaultCrossfade
     @AppStorage(Preferences.skipLongMixes) private var skipLongMixes = true
+    @AppStorage(Preferences.liveMix) private var liveMix = true
     @ObservedObject private var account = AccountService.shared
     @State private var paywall: PremiumFeature?
 
@@ -273,6 +274,16 @@ private struct PlaybackSettingsView: View {
                     Text("AutoMix sceglie come passare da un brano all'altro, a tempo come un DJ quando il ritmo lo permette.")
                 } else if !account.unlocks(.autoMix) {
                     Text(String(localized: "\(PremiumFeature.autoMix.title) fa parte di Premium."))
+                }
+            }
+
+            if shownTransition.wrappedValue == .autoMix {
+                Section {
+                    Toggle(isOn: $liveMix) {
+                        Label("Mix dal vivo", systemImage: "dial.medium")
+                    }
+                } footer: {
+                    Text("AutoMix suona il brano successivo su un secondo lettore, a tempo con quello in corso, con livelli, bassi e filtri automatici. Spento, usa i mix preparati in un file.")
                 }
             }
 

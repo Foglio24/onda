@@ -768,3 +768,9 @@
 "Collegato: %@" = "Подключено: %@";
 "Massima · Opus in ALAC, senza altre perdite (~5 MB/min)" = "Максимальное · Opus в ALAC, без дальнейших потерь (~5 МБ/мин)";
 "Uscita audio" = "Аудиовыход";
+"Senza mix: un brano dopo l'altro" = "Без микса: одна песня за другой";
+"Mix a tempo: %lld battute, %lld → %lld BPM, a %lld s" = "Микс в такт: %lld тактов, %lld → %lld BPM, с %lld с";
+"Stacco sul battere, a %lld s" = "Склейка на сильную долю, с %lld с";
+"mix dal vivo" = "живой микс";
+"Mix dal vivo" = "Живой микс";
+"AutoMix suona il brano successivo su un secondo lettore, a tempo con quello in corso, con livelli, bassi e filtri automatici. Spento, usa i mix preparati in un file." = "AutoMix играет следующую песню на втором плеере в такт с текущей, автоматически управляя громкостью, басами и фильтрами. Если выключено, используются миксы, подготовленные в файле.";

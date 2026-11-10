@@ -1,0 +1,729 @@
+import Foundation
+
+/// Every number the policy uses, in one place. They are starting values from DJ practice, to be
+/// confirmed by listening (none is measured on a corpus yet).
+struct SegueTuning: Sendable {
+    // Guards: crossing one rejects a candidate, whatever its score.
+    /// Largest speed change of the incoming song in a locked mix (it keeps its pitch).
+    var maxRateChange = 0.08
+    /// Expected beat misalignment in a locked mix: median and 95th percentile, seconds.
+    var phaseMedianMax = 0.020
+    var phaseP95Max = 0.040
+    /// Drift over the window, in beats.
+    var driftMaxBeats = 0.1
+    /// A stretch of bars: share of its beats clearly marked, worst bar's slide off its line (s).
+    var stretchMinBeatShare = 0.85
+    var stretchMaxBarDrift = 0.030
+    /// Two voices at once, at comparable levels: tolerated seconds in total.
+    var voiceOverlapMax = 1.0
+    /// Music left out of the outgoing song: share of it, and seconds.
+    var contentCutMaxShare = 0.20
+    var contentCutMax = 60.0
+    /// The least the outgoing song plays before it may leave.
+    var minPlayed = 60.0
+    /// Loudness jump allowed at a cut, dB.
+    var loudnessJumpMax = 3.0
+    /// Silence on both sides of an album's junction under which the songs run into each other.
+    var gaplessMaxSilence = 0.3
+
+    // Score: notes (weighted by how reliable their measure is) and penalties.
+    var weightRhythm = 1.0, weightPhrase = 1.0, weightEnergy = 0.5, weightExit = 0.5, weightEntry = 0.5, weightKey = 0.2
+    var penaltySpeed = 0.5, penaltyVoice = 1.0, penaltyVoiceCut = 0.5, penaltyBass = 0.5, penaltyLost = 0.35, penaltySobriety = 0.2
+    /// Rhythm note full under this misalignment, nothing at the guard.
+    var rhythmFull = 0.010
+    /// Speed change that costs nothing.
+    var rateFree = 0.02
+    /// Width of the energy continuity's bell, dB.
+    var energySigma = 3.0
+    /// Entry notes: the first attack 1, a later section start, anywhere else.
+    var entrySection = 0.6, entryOther = 0.3
+    /// Seconds of music left out (both songs) at which the "lost" defect is full.
+    var lostFull = 20.0
+    /// Choosing within a level: the cost of the music nobody hears, locked and faded.
+    var lostPickLocked = 0.4, lostPickFade = 1.0
+    /// A cut leaving out more than this (both songs) is left to the short fade.
+    var hardLostMax = 12.0
+
+    // Thresholds a family's best candidate must reach.
+    var thresholdLocked = 0.5, thresholdFiltered = 0.25, thresholdHard = 0.25
+
+    // Placement.
+    var lockedLongBars = 16, lockedMiddleBars = 8, lockedShortBars = 4, lockedTinyBars = 2
+    /// Reliability from which the long, then the middle length is allowed.
+    var reliabilityForLong = 0.8, reliabilityForMiddle = 0.6
+    var filteredLengths: [Double] = [8, 6, 4]
+    var simpleFade = 6.0
+    /// The last resort over a voice: a fade this short at the very end.
+    var simpleVoiceFade = 2.5
+    /// Exits lie in this last share of the outgoing song's music; entries within this much of the
+    /// incoming song's first attack.
+    var exitZoneShare = 1.0 / 3.0
+    var entryZone = 40.0
+    var candidatesPerSide = 8
+    var lateCandidates = 4
+    /// The anti-click ramp of a cut.
+    var microFade = 0.03
+
+    // Lanes.
+    var bassKillDB = -30.0
+    var outgoingTopFrom = 0.7, outgoingTopDB = -15.0, incomingTopDB = -6.0
+    var incomingBed = 0.8
+    var filteredSwap = 0.6, filteredBed = 0.6
+    var sweepClosedHz = 400.0, riseClosedHz = 1_200.0
+    var coreOutDB = -24.0, coreInDB = -12.0, topInDB = -12.0
+    /// The two faders' largest sum: under it two peaks meeting on a beat stay in range.
+    var overlapMaxSum = 1.1
+    var curveKnots = 16
+    /// Loudness gap left alone, and the largest corrected, dB.
+    var matchFromDB = 1.5, matchToDB = 6.0
+    /// Tempo back to the song's own after the window: share of the speed per beat, least beats.
+    var restorePerBeat = 0.001, restoreMinBeats = 16.0
+}
+
+/// What the policy reads of one song: its analysis, its sections and its measured voices, by bar.
+struct SegueSong {
+    let analysis: TrackAnalysis
+    let shape: SongShape
+    let voices: VocalActivity?
+    /// Each bar's start (seconds) from the song's first whole bar.
+    let barStarts: [Double]
+    /// Each bar's loudness and its bass's (dB).
+    let barLevel: [Double]
+    let barBass: [Double]
+
+    init(_ analysis: TrackAnalysis, voices: VocalActivity?) {
+        self.analysis = analysis
+        self.voices = voices
+        shape = SongShape(analysis)
+        let first = analysis.firstBarBeat
+        let count = max(0, (analysis.beatCount - first) / 4)
+        barStarts = (0..<count).map { analysis.beatTime(first + 4 * $0) }
+        barLevel = (0..<count).map { Double(analysis.meanLoudness(first + 4 * $0, 4) ?? -100) }
+        barBass = (0..<count).map { bar in
+            let beats = (first + 4 * bar)..<(first + 4 * bar + 4)
+            let share = max(0.001, analysis.bassShare(beats))
+            return Double(analysis.meanLoudness(beats.lowerBound, 4) ?? -100) + 10 * log10(share)
+        }
+    }
+
+    var bars: Int { barStarts.count }
+    var barLength: Double { 4 * analysis.beatLength }
+
+    func bar(at time: Double) -> Int {
+        guard let first = barStarts.first, barLength > 0 else { return -1 }
+        return Int(((time - first) / barLength).rounded(.down))
+    }
+
+    /// A phrase or a section starts on this bar.
+    func boundary(_ bar: Int) -> Bool {
+        guard bar >= 0, bar < bars else { return false }
+        let beat = analysis.firstBarBeat + 4 * bar
+        return shape.phrase(atBeat: beat) >= 0.75 || shape.sectionStarts.contains(bar)
+    }
+
+    /// How strongly a section starts there, 0…1 (0 for a plain phrase boundary).
+    func sectionStrength(_ bar: Int) -> Double {
+        guard shape.sectionStarts.contains(bar), shape.novelty.indices.contains(bar) else { return 0 }
+        return min(1, shape.novelty[bar])
+    }
+
+    /// The chance a voice sings at a time, and whether it was measured.
+    func voice(at time: Double) -> (chance: Double, known: Bool) {
+        if let chance = voices?.presence(at: time) { return (chance, true) }
+        return (0.5, false)
+    }
+
+    /// Share of the measured time with a voice between two times (nil: not measured).
+    func voiceShare(from start: Double, to end: Double) -> Double? {
+        guard end > start, let voices, voices.covers(from: start, to: end) else { return nil }
+        var sung = 0.0, count = 0.0
+        var time = start
+        while time < end {
+            if (voices.presence(at: time) ?? 0) >= 0.5 { sung += 1 }
+            count += 1
+            time += VocalActivity.step
+        }
+        return count > 0 ? sung / count : nil
+    }
+
+    func level(from start: Double, to end: Double) -> Double {
+        let power = analysis.power(from: start, to: end)
+        return power > 0 ? 10 * log10(power) : -100
+    }
+}
+
+/// A run of whole bars judged on its own beats (a song whose ending holds no single grid can still
+/// have one stretch that does, and a mix needs no more): a straight line through its marked beats
+/// gives its own tempo and start.
+struct SegueStretch: Equatable {
+    var bar: Int
+    var bars: Int
+    var start: Double
+    var period: Double
+    /// The marked beats inside, seconds.
+    var beats: [Double]
+    /// 0…1: the worst of its beats' share and how clear its downbeats are.
+    var reliability: Double
+    /// The worst slide of a bar off the line, seconds.
+    var drift: Double
+
+    var length: Double { period * 4 * Double(bars) }
+    var end: Double { start + length }
+
+    static func measure(_ song: SegueSong, bar: Int, bars: Int, tuning: SegueTuning) -> SegueStretch? {
+        let a = song.analysis
+        guard bar >= 0, bar + bars <= song.bars, a.beatLength > 0 else { return nil }
+        let firstBeat = a.firstBarBeat + 4 * bar
+        let count = 4 * bars
+        var indices: [Double] = [], times: [Double] = []
+        for k in 0..<count {
+            let beat = firstBeat + k
+            guard beat < a.beatPulse.count, beat < a.beatOffset.count, a.beatPulse[beat] >= 0.5,
+                  abs(Int(a.beatOffset[beat])) < 100 else { continue }
+            indices.append(Double(k))
+            times.append(a.beatTime(beat) + Double(a.beatOffset[beat]) / 1000)
+        }
+        let n = Double(indices.count)
+        guard n >= tuning.stretchMinBeatShare * Double(count), n >= 2 else { return nil }
+        let sk = indices.reduce(0, +), st = times.reduce(0, +)
+        let skk = indices.reduce(0) { $0 + $1 * $1 }
+        let skt = zip(indices, times).reduce(0) { $0 + $1.0 * $1.1 }
+        let denominator = n * skk - sk * sk
+        guard denominator > 0 else { return nil }
+        let period = (n * skt - sk * st) / denominator
+        let start = (st - period * sk) / n
+        guard period > 0, abs(period / a.beatLength - 1) <= 0.05 else { return nil }
+        let residuals = zip(indices, times).map { $0.1 - (start + period * $0.0) }
+        let sorted = residuals.map(abs).sorted()
+        guard sorted[Int(Double(sorted.count - 1) * 0.95)] <= tuning.phaseP95Max else { return nil }
+        // The worst bar's average off the line.
+        var drift = 0.0
+        for barIndex in 0..<bars {
+            let inBar = zip(indices, residuals).filter { Int($0.0) / 4 == barIndex }.map(\.1)
+            guard !inBar.isEmpty else { continue }
+            drift = max(drift, abs(inBar.reduce(0, +) / Double(inBar.count)))
+        }
+        guard drift <= tuning.stretchMaxBarDrift else { return nil }
+        // How clear the downbeats are: their pulse against the other beats' (a song made to a
+        // four-on-the-floor kick has little to tell them apart, and isn't penalised below half).
+        var down = 0.0, other = 0.0, downCount = 0.0, otherCount = 0.0
+        for k in 0..<count where firstBeat + k < a.beatPulse.count {
+            if k % 4 == 0 { down += Double(a.beatPulse[firstBeat + k]); downCount += 1 } else { other += Double(a.beatPulse[firstBeat + k]); otherCount += 1 }
+        }
+        let ratio = downCount > 0 && otherCount > 0 && other > 0 ? (down / downCount) / (other / otherCount) : 1
+        let downbeats = 0.5 + 0.5 * max(0, min(1, (ratio - 1) / 0.3))
+        let share = min(1, n / Double(count))
+        return SegueStretch(bar: bar, bars: bars, start: start, period: period, beats: times,
+                            reliability: min(share, downbeats) * min(1, a.gridFit + 0.35), drift: drift)
+    }
+
+    /// How far the two stretches' beats fall apart once the incoming one plays at `rate` from its start
+    /// on the outgoing one's: the sparser beats against the nearest of the denser. Median and 95th
+    /// percentile, seconds; nil with too few to tell.
+    static func phase(_ outgoing: SegueStretch, _ incoming: SegueStretch, rate: Double) -> (median: Double, p95: Double)? {
+        let xa = outgoing.beats.map { $0 - outgoing.start }
+        let xb = incoming.beats.map { ($0 - incoming.start) / rate }
+        let (sparse, dense) = xa.count <= xb.count ? (xa, xb) : (xb, xa)
+        guard sparse.count >= 2, !dense.isEmpty else { return nil }
+        let gaps = sparse.map { value -> Double in
+            var best = Double.greatestFiniteMagnitude
+            for other in dense { best = min(best, abs(other - value)) }
+            return best
+        }.sorted()
+        return (gaps[gaps.count / 2], gaps[Int(Double(gaps.count - 1) * 0.95)])
+    }
+}
+
+/// The policy's answer: the level, the plan (none for plain playback), and why the levels above weren't used.
+struct SegueDecision: Sendable {
+    var level: SegueLevel
+    var plan: SeguePlan?
+    var attempts: [SegueAttempt]
+    var why: String { attempts.map(\.description).joined(separator: "; ") }
+}
+
+struct SegueRequest {
+    var outgoing: SegueSong
+    var incoming: SegueSong
+    /// Nothing may start before this time of the outgoing song (its preparation is counted in).
+    var earliestExit: Double = 0
+    /// The two songs follow each other on their album, played in order.
+    var sameAlbum = false
+    var harmonic = true
+    var tuning = SegueTuning()
+}
+
+/// Writes the transition between two songs: candidates are generated, rejected by the guards (a
+/// crossed guard is never bought back by a good score), scored, and the best kept if it clears its
+/// family's threshold; otherwise the next level is tried. The same request always gives the same plan.
+enum SeguePolicy {
+    static func decide(_ request: SegueRequest) -> SegueDecision {
+        var run = Run(request)
+        return run.decide()
+    }
+
+    private struct Point {
+        var time: Double
+        var bar: Int
+        var rank: Double
+        var boundary: Bool
+    }
+
+    private struct Found {
+        var plan: SeguePlan
+        var score: Double
+        var pick: Double
+    }
+
+    /// What the guards read of a candidate, apart from any score.
+    private struct Measures {
+        var rateChange = 0.0
+        var phaseMedian: Double? = 0
+        var phaseP95: Double? = 0
+        var driftBeats = 0.0
+        var voiceOverlap = 0.0
+        var contentCut = 0.0
+        var contentCutShare = 0.0
+        var played = Double.infinity
+        var loudnessJump = 0.0
+    }
+
+    private struct Run {
+        let r: SegueRequest
+        let a: SegueSong
+        let b: SegueSong
+        let t: SegueTuning
+        var attempts: [SegueAttempt] = []
+        let zoneStart: Double
+
+        init(_ request: SegueRequest) {
+            r = request
+            a = request.outgoing
+            b = request.incoming
+            t = request.tuning
+            let music = a.analysis.soundEnd - a.analysis.soundStart
+            zoneStart = max(a.analysis.soundStart + music * (1 - t.exitZoneShare), request.earliestExit)
+        }
+
+        mutating func decide() -> SegueDecision {
+            if albumContinuity {
+                return SegueDecision(level: .normal, plan: nil,
+                                     attempts: SegueLevel.allCases.filter { $0 != .normal }.map { SegueAttempt(level: $0, cause: .albumContinuity) })
+            }
+            for level in SegueLevel.allCases where level != .normal {
+                guard let found = attempt(level) else { continue }
+                var plan = found.plan
+                let problems = SegueValidator.problems(plan, outgoingDuration: a.analysis.duration, incomingDuration: b.analysis.duration)
+                guard problems.isEmpty else {
+                    attempts.append(SegueAttempt(level: level, cause: .invalidPlan, detail: problems.joined(separator: ", ")))
+                    continue
+                }
+                plan.score = found.score
+                plan.attempts = attempts
+                return SegueDecision(level: level, plan: plan, attempts: attempts)
+            }
+            return SegueDecision(level: .normal, plan: nil, attempts: attempts)
+        }
+
+        var albumContinuity: Bool {
+            r.sameAlbum && a.analysis.duration - a.analysis.soundEnd <= t.gaplessMaxSilence
+                && b.analysis.soundStart <= t.gaplessMaxSilence
+        }
+
+        mutating func fail(_ level: SegueLevel, _ cause: SegueCause, _ detail: String = "") -> Found? {
+            attempts.append(SegueAttempt(level: level, cause: cause, detail: detail))
+            return nil
+        }
+
+        mutating func attempt(_ level: SegueLevel) -> Found? {
+            switch level {
+            case .lockedLong: return locked(level, lengths: [t.lockedLongBars], phrases: true)
+            case .lockedShort: return locked(level, lengths: [t.lockedMiddleBars, t.lockedShortBars], phrases: true)
+            case .lockedBeat: return locked(level, lengths: [t.lockedShortBars, t.lockedTinyBars], phrases: false)
+            case .filtered: return filtered(level)
+            case .hard: return hard(level)
+            case .simpleFade: return simple(level)
+            case .normal: return nil
+            }
+        }
+
+        // MARK: Reliability
+
+        var vocalReliability: Double {
+            let aKnown = a.voices.map { !$0.regions.isEmpty } ?? false
+            let bKnown = b.voices.map { !$0.regions.isEmpty } ?? false
+            return aKnown && bKnown ? 1 : (aKnown || bKnown ? 0.5 : 0.2)
+        }
+
+        var keyReliability: Double { min(a.analysis.keyClarity, b.analysis.keyClarity) }
+
+        // MARK: Candidates
+
+        /// The outgoing song's bars from the exit zone, instrumental endings first, the latest kept too.
+        func exits(phrases: Bool, fitting length: Double) -> [Point] {
+            let limit = a.analysis.soundEnd
+            var points: [Point] = []
+            for (bar, start) in a.barStarts.enumerated() where start >= zoneStart - 0.05 && start + length <= limit {
+                let on = a.boundary(bar)
+                if phrases && !on { continue }
+                points.append(Point(time: start, bar: bar, rank: instrumental(after: start) + start / max(1, limit) * 1e-3, boundary: on))
+            }
+            return best(points)
+        }
+
+        func best(_ points: [Point]) -> [Point] {
+            let ranked = points.sorted { $0.rank > $1.rank }.prefix(t.candidatesPerSide)
+            let late = points.sorted { $0.time > $1.time }.prefix(t.lateCandidates)
+            var seen = Set<Int>(), out: [Point] = []
+            for point in ranked + late where seen.insert(Int(point.time * 1000)).inserted { out.append(point) }
+            return out
+        }
+
+        /// The share of the outgoing song from `time` to its end without a voice (0.5 unmeasured).
+        func instrumental(after time: Double) -> Double {
+            guard let share = a.voiceShare(from: time, to: a.analysis.soundEnd) else { return 0.5 }
+            return 1 - share
+        }
+
+        /// The incoming song's first downbeat at its attack, then later section and phrase starts.
+        func entries(phrases: Bool, span: Double) -> [Point] {
+            let first = b.barStarts.firstIndex { $0 >= b.analysis.soundStart - 0.08 }
+            var points: [Point] = []
+            if let first {
+                points.append(Point(time: b.barStarts[first], bar: first, rank: 1, boundary: true))
+                let zone = min(b.analysis.soundStart + t.entryZone, b.analysis.soundEnd / 3)
+                var bar = first + 4
+                while bar < b.bars, b.barStarts[bar] < zone {
+                    let on = b.boundary(bar)
+                    if on || !phrases {
+                        let base = b.sectionStrength(bar) > 0 ? t.entrySection : t.entryOther
+                        let skipped = b.barStarts[bar] - b.analysis.soundStart
+                        points.append(Point(time: b.barStarts[bar], bar: bar, rank: base * (1 - skipped / t.entryZone), boundary: on))
+                    }
+                    bar += 4
+                }
+            } else {
+                points.append(Point(time: b.analysis.soundStart, bar: -1, rank: 1, boundary: true))
+            }
+            return points.filter { $0.time + span <= b.analysis.soundEnd }.sorted { $0.rank > $1.rank }.prefix(t.candidatesPerSide).map { $0 }
+        }
+
+        // MARK: Measures
+
+        /// Guards' measures for a window from `exit` (outgoing) and `entry` (incoming), `length` long
+        /// in the outgoing song's time and `span` in the incoming one's, with `lanes` as heard.
+        func measures(exit: Double, entry: Double, length: Double, span: Double, lanes: [SegueLane]) -> Measures {
+            var m = Measures()
+            m.contentCut = max(0, a.analysis.soundEnd - (exit + length))
+            let music = max(1, a.analysis.soundEnd - a.analysis.soundStart)
+            m.contentCutShare = m.contentCut / music
+            m.played = exit - a.analysis.soundStart
+            m.voiceOverlap = overlap(exit: exit, entry: entry, length: length, span: span, lanes: lanes)
+            return m
+        }
+
+        /// Seconds where both songs sing and both are clearly heard (each within 10 dB of full).
+        func overlap(exit: Double, entry: Double, length: Double, span: Double, lanes: [SegueLane]) -> Double {
+            guard let levelA = lanes.first(where: { $0.side == .outgoing && $0.target == .level }),
+                  let levelB = lanes.first(where: { $0.side == .incoming && $0.target == .level }) else { return 0 }
+            let steps = max(1, Int(length / 0.25))
+            var both = 0.0
+            for step in 0..<steps {
+                let x = (Double(step) + 0.5) / Double(steps)
+                guard levelA.value(at: x) > -10, levelB.value(at: x) > -10 else { continue }
+                let va = a.voice(at: exit + x * length), vb = b.voice(at: entry + x * span)
+                guard va.known, vb.known else { continue }
+                if va.chance >= 0.5, vb.chance >= 0.5 { both += length / Double(steps) }
+            }
+            return both
+        }
+
+        func crossed(_ family: SegueFamily, _ m: Measures) -> [String] {
+            var out: [String] = []
+            if m.contentCut > t.contentCutMax || m.contentCutShare > t.contentCutMaxShare { out.append("content cut") }
+            if m.played < t.minPlayed { out.append("min played") }
+            if family != .hard, m.voiceOverlap > t.voiceOverlapMax { out.append("voice") }
+            if family == .locked {
+                if m.rateChange > t.maxRateChange { out.append("rate") }
+                if m.phaseMedian == nil || (m.phaseMedian ?? 1) > t.phaseMedianMax { out.append("phase median") }
+                if m.phaseP95 == nil || (m.phaseP95 ?? 1) > t.phaseP95Max { out.append("phase p95") }
+                if m.driftBeats > t.driftMaxBeats { out.append("drift") }
+            }
+            if family == .hard, m.loudnessJump > t.loudnessJumpMax { out.append("loudness jump") }
+            return out
+        }
+
+        // MARK: Score
+
+        /// Σ weight × reliability × note − Σ penalty × defect: an uncertain measure weighs less.
+        func score(exit: Point, entry: Point, length: Double, span: Double, lanes: [SegueLane], phaseMedian: Double?,
+                   rateChange: Double, pulse: Double, effects: Int) -> Double {
+            var total = 0.0
+            if let phaseMedian {
+                let note = Self.falling(phaseMedian, full: t.rhythmFull, zero: t.phaseMedianMax)
+                total += t.weightRhythm * pulse * note
+            }
+            let phrase = (exit.boundary ? 0.5 : 0) + (entry.boundary ? 0.5 : 0)
+            let phraseReliability = max(0.3, max(a.sectionStrength(exit.bar), b.sectionStrength(entry.bar)))
+            total += t.weightPhrase * phraseReliability * phrase
+            let levelA = a.level(from: exit.time, to: exit.time + min(4, length))
+            let levelB = b.level(from: entry.time + max(0, span - 4), to: entry.time + span)
+            total += t.weightEnergy * Self.bell(levelA - levelB, sigma: t.energySigma)
+            let exitNote = 1 - (a.voiceShare(from: exit.time + length / 2, to: exit.time + length) ?? 0.5)
+            total += t.weightExit * vocalReliability * exitNote
+            total += t.weightEntry * entry.rank
+            if r.harmonic {
+                let keys = TransitionJudge.compatibility(
+                    (a.analysis.key, a.analysis.minor, a.analysis.keyClarity), (b.analysis.key, b.analysis.minor, b.analysis.keyClarity),
+                    a.analysis.chroma(from: exit.time, to: exit.time + length), b.analysis.chroma(from: entry.time, to: entry.time + span))
+                total += t.weightKey * max(0.2, keyReliability) * keys
+            }
+            total -= t.penaltySpeed * Self.rising(rateChange, free: t.rateFree, full: t.maxRateChange)
+            let overlap = self.overlap(exit: exit.time, entry: entry.time, length: length, span: span, lanes: lanes)
+            total -= t.penaltyVoice * min(1, overlap / max(0.1, t.voiceOverlapMax))
+            let voiceAfter = a.voiceShare(from: exit.time + length, to: a.analysis.soundEnd) ?? 0
+            let voiceBefore = b.voiceShare(from: b.analysis.soundStart, to: entry.time) ?? 0
+            total -= t.penaltyVoiceCut * max(voiceAfter, voiceBefore)
+            total -= t.penaltyBass * bassClash(exit: exit.time, entry: entry.time, length: length, span: span, lanes: lanes)
+            let lost = max(0, a.analysis.soundEnd - (exit.time + length)) + max(0, entry.time - b.analysis.soundStart)
+            total -= t.penaltyLost * min(1, lost / t.lostFull)
+            total -= t.penaltySobriety * min(1, Double(effects) / 3)
+            return total
+        }
+
+        /// The bass the two songs play at once, against the bass they play in all, through the lanes.
+        func bassClash(exit: Double, entry: Double, length: Double, span: Double, lanes: [SegueLane]) -> Double {
+            func lane(_ side: SegueLane.Side, _ target: SegueLane.Target) -> SegueLane? {
+                lanes.first { $0.side == side && $0.target == target }
+            }
+            let levelA = lane(.outgoing, .level), levelB = lane(.incoming, .level)
+            let bassA = lane(.outgoing, .lowShelf), bassB = lane(.incoming, .lowShelf)
+            var common = 0.0, total = 0.0
+            for step in 0..<32 {
+                let x = (Double(step) + 0.5) / 32
+                let ga = pow(10, ((levelA?.value(at: x) ?? 0) + (bassA?.value(at: x) ?? 0)) / 20)
+                let gb = pow(10, ((levelB?.value(at: x) ?? 0) + (bassB?.value(at: x) ?? 0)) / 20)
+                let ea = pow(10, Self.quiet(a.barBass, a.bar(at: exit + x * length)) / 20) * ga
+                let eb = pow(10, Self.quiet(b.barBass, b.bar(at: entry + x * span)) / 20) * gb
+                common += min(ea, eb)
+                total += max(ea, eb)
+            }
+            return total > 0 ? common / total : 0
+        }
+
+        /// A bar's value, or very quiet past either end.
+        static func quiet(_ values: [Double], _ index: Int) -> Double { values.indices.contains(index) ? values[index] : -100 }
+
+        static func falling(_ value: Double, full: Double, zero: Double) -> Double {
+            value <= full ? 1 : (value >= zero || zero <= full ? 0 : (zero - value) / (zero - full))
+        }
+
+        static func rising(_ value: Double, free: Double, full: Double) -> Double { 1 - falling(value, full: free, zero: full) }
+
+        static func bell(_ distance: Double, sigma: Double) -> Double { exp(-distance * distance / (2 * sigma * sigma)) }
+
+        /// How much louder the incoming song is than the outgoing one around the window (positive:
+        /// louder), corrected only past `matchFromDB`, at most `matchToDB`.
+        func loudnessMatch(exit: Double, entry: Double, length: Double, span: Double) -> (a: Double, b: Double) {
+            let levelA = a.level(from: exit, to: exit + length), levelB = b.level(from: entry, to: entry + span)
+            let gap = levelB - levelA
+            guard abs(gap) > t.matchFromDB else { return (1, 1) }
+            let corrected = min(t.matchToDB, abs(gap))
+            let factor = pow(10, -corrected / 20)
+            return gap > 0 ? (1, factor) : (factor, 1)
+        }
+
+        // MARK: Levels
+
+        mutating func locked(_ level: SegueLevel, lengths: [Int], phrases: Bool) -> Found? {
+            guard a.analysis.beatLength > 0, b.analysis.beatLength > 0, a.bars > 0, b.bars > 0 else {
+                return fail(level, .noGrid)
+            }
+            var best: Found?
+            var seen = 0, stretches = false, tooLong = false
+            var closest = Double.infinity
+            var refused: [String: Int] = [:]
+            let compiler = SegueCompiler(tuning: t)
+            for bars in lengths {
+                let outs = exits(phrases: phrases, fitting: 0).compactMap { point -> (Point, SegueStretch)? in
+                    guard let stretch = SegueStretch.measure(a, bar: point.bar, bars: bars, tuning: t),
+                          stretch.start >= zoneStart - 0.05, stretch.end <= a.analysis.soundEnd else { return nil }
+                    return (point, stretch)
+                }
+                stretches = stretches || !outs.isEmpty
+                // The incoming bars over the same time: as many, or half or twice as many (half or double tempo).
+                for (barsB, factor) in [(bars, 1.0), (bars / 2, 2.0), (bars * 2, 0.5)] {
+                    if factor != 1, bars > t.lockedMiddleBars || barsB < t.lockedTinyBars { continue }
+                    let ins = entries(phrases: phrases, span: 0).compactMap { point -> (Point, SegueStretch)? in
+                        guard point.bar >= 0, let stretch = SegueStretch.measure(b, bar: point.bar, bars: barsB, tuning: t) else { return nil }
+                        return (point, stretch)
+                    }
+                    for (exit, sa) in outs {
+                        for (entry, sb) in ins {
+                            let rate = sb.length / sa.length
+                            let change = abs(rate - 1)
+                            closest = min(closest, change)
+                            if change > t.maxRateChange { continue }
+                            let pulse = min(sa.reliability, sb.reliability)
+                            let cap = pulse >= t.reliabilityForLong ? t.lockedLongBars : (pulse >= t.reliabilityForMiddle ? t.lockedMiddleBars : t.lockedShortBars)
+                            if bars > cap { tooLong = true; continue }
+                            seen += 1
+                            let phase = SegueStretch.phase(sa, sb, rate: rate)
+                            let shape = Self.lockedShape(exitTime: sa.start, entryTime: sb.start, bars: bars, overlapRisk: voiceRisk(sa, sb))
+                            let swap = swapShare(exit: sa, entry: sb, bars: bars, rate: rate)
+                            let match = loudnessMatch(exit: sa.start, entry: sb.start, length: sa.length, span: sb.length)
+                            let lanes = compiler.locked(shape, swap: swap, beatShare: 1 / Double(bars * 4), matchA: match.a, matchB: match.b)
+                            var m = measures(exit: sa.start, entry: sb.start, length: sa.length, span: sb.length, lanes: lanes)
+                            m.rateChange = change
+                            m.phaseMedian = phase?.median
+                            m.phaseP95 = phase?.p95
+                            m.driftBeats = (sa.drift * sa.drift + sb.drift * sb.drift).squareRoot() / sa.period
+                            let crossed = crossed(.locked, m)
+                            if !crossed.isEmpty { for guardName in crossed { refused[guardName, default: 0] += 1 }; continue }
+                            let effects = Set(lanes.map(\.target)).count - 1
+                            let score = score(exit: exit, entry: entry, length: sa.length, span: sb.length, lanes: lanes,
+                                              phaseMedian: phase?.median, rateChange: change, pulse: pulse, effects: effects)
+                            let lost = max(0, a.analysis.soundEnd - sa.end) + max(0, sb.start - b.analysis.soundStart)
+                            let pick = score - t.lostPickLocked * min(1, lost / t.lostFull)
+                            guard best.map({ pick > $0.pick }) ?? true else { continue }
+                            let restore = max(t.restoreMinBeats, change / t.restorePerBeat) * sb.period / rate
+                            let plan = SeguePlan(level: level, shape: shape, outgoingStart: sa.start, incomingStart: sb.start, rate: rate,
+                                                 length: sa.length, bars: bars, tempo: 60 / sa.period, phaseMedian: phase?.median,
+                                                 phaseP95: phase?.p95, lanes: lanes, swap: swap, restoreSeconds: restore)
+                            best = Found(plan: plan, score: score, pick: pick)
+                        }
+                    }
+                }
+                // The longest length that works: shorter only when it has to be.
+                if let best, best.score >= t.thresholdLocked { break }
+            }
+            if seen == 0 {
+                if !stretches { return fail(level, .noGrid) }
+                if tooLong { return fail(level, .lengthNotAllowed, "reliability") }
+                if closest == .infinity { return fail(level, .noCandidate) }
+                return fail(level, .tempoOutOfReach, String(format: "%.1f %%", closest * 100))
+            }
+            return settle(level, best, threshold: t.thresholdLocked, refused: refused)
+        }
+
+        mutating func settle(_ level: SegueLevel, _ best: Found?, threshold: Double, refused: [String: Int]) -> Found? {
+            guard let best else {
+                return fail(level, .guards, refused.sorted { $0.key < $1.key }.map { "\($0.key) \($0.value)" }.joined(separator: ", "))
+            }
+            guard best.score >= threshold else { return fail(level, .belowThreshold, String(format: "%.2f", best.score)) }
+            return best
+        }
+
+        /// Whether two voices are likely to meet: measured on both sides over the window.
+        func voiceRisk(_ sa: SegueStretch, _ sb: SegueStretch) -> Bool {
+            let va = a.voiceShare(from: sa.start, to: sa.end) ?? 0
+            let vb = b.voiceShare(from: sb.start, to: sb.end) ?? 0
+            return va > 0.3 && vb > 0.3
+        }
+
+        /// Where the bass changes hands: a section start in the incoming song's stretch if there is one
+        /// between a quarter and three quarters of it, else the middle; on a bar line.
+        func swapShare(exit: SegueStretch, entry: SegueStretch, bars: Int, rate: Double) -> Double {
+            guard bars >= 2 else { return 0.5 }
+            let candidates = (1..<bars).filter { Double($0) / Double(bars) >= 0.25 && Double($0) / Double(bars) <= 0.75 }
+            let section = candidates.first { b.sectionStrength(entry.bar + $0 * entry.bars / max(1, bars)) > 0 }
+            return Double(section ?? bars / 2) / Double(bars)
+        }
+
+        /// The locked shape: a cut when voices would meet in a short window, otherwise one of the
+        /// shapes chosen from the pair itself, so a pair always sounds the same and a playlist varies.
+        static func lockedShape(exitTime: Double, entryTime: Double, bars: Int, overlapRisk: Bool) -> SegueShape {
+            if overlapRisk && bars <= 4 { return .cutOnBeat }
+            let hash = Int((exitTime * 1000).rounded()) &* 31 &+ Int((entryTime * 1000).rounded())
+            let shapes: [SegueShape] = bars >= 8 ? [.bassSwap, .threeBand, .filterOpen, .riseOut] : [.bassSwap, .filterOpen]
+            return shapes[abs(hash) % shapes.count]
+        }
+
+        mutating func filtered(_ level: SegueLevel) -> Found? {
+            var best: Found?
+            var refused: [String: Int] = [:]
+            let compiler = SegueCompiler(tuning: t)
+            for length in t.filteredLengths {
+                let outs = a.bars > 0 ? exits(phrases: false, fitting: length)
+                    : [Point(time: max(zoneStart, a.analysis.soundEnd - length), bar: -1, rank: 0.5, boundary: false)]
+                for exit in outs {
+                    for entry in entries(phrases: false, span: length) {
+                        let voiceOut = a.voiceShare(from: exit.time, to: exit.time + length) ?? 0
+                        let voiceIn = b.voiceShare(from: entry.time, to: entry.time + length) ?? 0
+                        let shape: SegueShape = voiceOut > 0.3 ? .quickOut : (voiceIn > 0.3 ? .lateOut
+                            : ((Int(exit.time * 10) + Int(entry.time * 10)) % 2 == 0 ? .sweepOut : .evenFade))
+                        let match = loudnessMatch(exit: exit.time, entry: entry.time, length: length, span: length)
+                        let lanes = compiler.filtered(shape, matchA: match.a, matchB: match.b)
+                        let m = measures(exit: exit.time, entry: entry.time, length: length, span: length, lanes: lanes)
+                        let crossed = crossed(.filtered, m)
+                        if !crossed.isEmpty { for name in crossed { refused[name, default: 0] += 1 }; continue }
+                        let score = score(exit: exit, entry: entry, length: length, span: length, lanes: lanes, phaseMedian: nil,
+                                          rateChange: 0, pulse: 0, effects: Set(lanes.map(\.target)).count - 1)
+                        let lost = max(0, a.analysis.soundEnd - (exit.time + length)) + max(0, entry.time - b.analysis.soundStart)
+                        let pick = score - t.lostPickFade * min(1, lost / t.lostFull)
+                        guard best.map({ pick > $0.pick }) ?? true else { continue }
+                        let plan = SeguePlan(level: level, shape: shape, outgoingStart: exit.time, incomingStart: entry.time, rate: 1,
+                                             length: length, bars: nil, tempo: nil, phaseMedian: nil, phaseP95: nil, lanes: lanes,
+                                             swap: t.filteredSwap, restoreSeconds: 0)
+                        best = Found(plan: plan, score: score, pick: pick)
+                    }
+                }
+                if let best, best.score >= t.thresholdFiltered { break }
+            }
+            return settle(level, best, threshold: t.thresholdFiltered, refused: refused)
+        }
+
+        mutating func hard(_ level: SegueLevel) -> Found? {
+            guard a.bars > 0, a.analysis.isGridLocked else { return fail(level, .noGrid) }
+            var best: Found?
+            var refused: [String: Int] = [:]
+            let compiler = SegueCompiler(tuning: t)
+            let beat = a.analysis.beatLength
+            for exit in exits(phrases: true, fitting: beat) {
+                for entry in entries(phrases: true, span: beat) {
+                    let length = 2 * beat
+                    let lanes = compiler.cut(at: 0.5, ramp: t.microFade / length)
+                    var m = measures(exit: exit.time - beat, entry: entry.time - beat, length: length, span: length, lanes: lanes)
+                    // Left out is what follows the cut in A and what precedes the entry in B.
+                    let lost = max(0, a.analysis.soundEnd - exit.time) + max(0, entry.time - b.analysis.soundStart)
+                    if lost > t.hardLostMax { refused["lost", default: 0] += 1; continue }
+                    m.loudnessJump = abs(a.level(from: exit.time - 2, to: exit.time) - b.level(from: entry.time, to: entry.time + 2))
+                    let crossed = crossed(.hard, m)
+                    if !crossed.isEmpty { for name in crossed { refused[name, default: 0] += 1 }; continue }
+                    let score = score(exit: exit, entry: entry, length: length, span: length, lanes: lanes, phaseMedian: nil,
+                                      rateChange: 0, pulse: 0, effects: 0)
+                    guard best.map({ score > $0.pick }) ?? true else { continue }
+                    // The window: a beat before the cut in each song, so the cut lands on both downbeats.
+                    let start = max(0, exit.time - beat), entryStart = max(0, entry.time - beat)
+                    let plan = SeguePlan(level: level, shape: .cut, outgoingStart: start, incomingStart: entryStart, rate: 1,
+                                         length: length, bars: nil, tempo: nil, phaseMedian: nil, phaseP95: nil, lanes: lanes,
+                                         swap: 0.5, restoreSeconds: 0)
+                    best = Found(plan: plan, score: score, pick: score)
+                }
+            }
+            return settle(level, best, threshold: t.thresholdHard, refused: refused)
+        }
+
+        mutating func simple(_ level: SegueLevel) -> Found? {
+            let compiler = SegueCompiler(tuning: t)
+            let entry = b.barStarts.first { $0 >= b.analysis.soundStart - 0.08 } ?? b.analysis.soundStart
+            // A fade that ends with the outgoing song's music.
+            var length = min(t.simpleFade, max(1, a.analysis.soundEnd - zoneStart))
+            var start = max(zoneStart, a.analysis.soundEnd - length)
+            var lanes = compiler.fade()
+            let overlapping = overlap(exit: start, entry: entry, length: length, span: length, lanes: lanes) > t.voiceOverlapMax
+            if overlapping {
+                // Over a voice: short, at the very end, without the voice guard.
+                length = t.simpleVoiceFade
+                start = max(zoneStart, a.analysis.soundEnd - length)
+                lanes = compiler.fade()
+            }
+            guard start + length <= a.analysis.duration, entry + length <= b.analysis.duration else {
+                return fail(level, .noCandidate)
+            }
+            let plan = SeguePlan(level: level, shape: .fade, outgoingStart: start, incomingStart: entry, rate: 1, length: length,
+                                 bars: nil, tempo: nil, phaseMedian: nil, phaseP95: nil, lanes: lanes, swap: 0.5, restoreSeconds: 0)
+            return Found(plan: plan, score: 0, pick: 0)
+        }
+    }
+}

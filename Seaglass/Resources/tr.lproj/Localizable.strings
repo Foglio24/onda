@@ -768,3 +768,9 @@
 "Collegato: %@" = "Bağlandı: %@";
 "Massima · Opus in ALAC, senza altre perdite (~5 MB/min)" = "En yüksek · Opus ALAC olarak, ek kayıp yok (~5 MB/dk)";
 "Uscita audio" = "Ses çıkışı";
+"Senza mix: un brano dopo l'altro" = "Miks yok: şarkılar art arda";
+"Mix a tempo: %lld battute, %lld → %lld BPM, a %lld s" = "Tempoya uygun miks: %lld ölçü, %lld → %lld BPM, %lld. saniyede";
+"Stacco sul battere, a %lld s" = "Vuruşta geçiş, %lld. saniyede";
+"mix dal vivo" = "canlı miks";
+"Mix dal vivo" = "Canlı miks";
+"AutoMix suona il brano successivo su un secondo lettore, a tempo con quello in corso, con livelli, bassi e filtri automatici. Spento, usa i mix preparati in un file." = "AutoMix sonraki şarkıyı ikinci bir oynatıcıda, çalanla aynı tempoda, otomatik seviye, bas ve filtrelerle çalar. Kapalıyken bir dosyada hazırlanmış miksleri kullanır.";

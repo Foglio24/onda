@@ -1,0 +1,204 @@
+import AVFoundation
+
+/// A live AutoMix transition (see `SeguePolicy`): the next song on a second player, prepared ahead,
+/// started a little before the window in step with the playing song (silent: its lanes hold it so
+/// until the window), and kept there by small changes of its speed while the two are heard together.
+/// After the window it goes back to its own speed little by little. The lanes themselves play inside
+/// each player's audio processing (`SegueStage`), by each song's own time.
+@MainActor
+final class SegueSession {
+    enum Phase: String { case preparing, ready, running, mixing, restoring, finished, abandoned }
+
+    /// How long before the window the next song starts (silent), so it is in step when it is heard.
+    static let runUp: TimeInterval = 2.5
+    /// How long before the window it is loaded.
+    static let prepareLead: TimeInterval = 15
+    /// A distance from its place past which it is put back by a seek (silent) or the mix is left (heard).
+    static let lostDistance: TimeInterval = 0.4
+
+    let plan: SeguePlan
+    let outgoingTrackID: String
+    let next: Track
+    let file: URL
+    let label: String
+    let incomingGain: Float
+    /// The playing song's stage (in its item's audio processing), and the next song's.
+    let outgoingStage: SegueStage
+    let incomingStage = SegueStage()
+    let player = AVPlayer()
+    private(set) var item: AVPlayerItem?
+    private(set) var phase: Phase = .preparing
+    /// The next song's speed now: the plan's, corrected, then back to its own.
+    private(set) var rate: Float
+    /// Its distance from its place (seconds of its own time; positive: ahead): the last, and the
+    /// largest while it was heard.
+    private(set) var lastError = 0.0
+    private(set) var worstError = 0.0
+    private var task: Task<Void, Never>?
+
+    init(plan: SeguePlan, outgoingTrackID: String, next: Track, file: URL, label: String, incomingGain: Float,
+         outgoingStage: SegueStage) {
+        self.plan = plan
+        self.outgoingTrackID = outgoingTrackID
+        self.next = next
+        self.file = file
+        self.label = label
+        self.incomingGain = incomingGain
+        self.outgoingStage = outgoingStage
+        rate = Float(plan.rate)
+        PlaybackVolume.shared.register(player)
+        // It starts at an exact moment (`setRate(_:time:atHostTime:)`) only without its own waiting.
+        player.automaticallyWaitsToMinimizeStalling = false
+    }
+
+    /// Where the next song starts: its run-up before the window (never before its start).
+    private var incomingStartTime: Double { max(0, plan.incomingStart - Self.runUp * plan.rate) }
+
+    /// Loads the next song where its run-up starts, its lanes and effects on, prerolled at its speed.
+    /// False when it can't be (no audio processing for the lanes, not ready in time).
+    func prepare(spatial: AVAudioSpatializationFormats) async -> Bool {
+        let item = AVPlayerItem(url: file)
+        item.allowedAudioSpatializationFormats = spatial
+        // Within 1 % by resampling alone (the pitch moves by under 17 cents until it comes back);
+        // more keeps the pitch.
+        item.audioTimePitchAlgorithm = abs(plan.rate - 1) <= 0.01 ? .varispeed : .timeDomain
+        let effects = await AudioEffects.mix(for: item, gain: incomingGain, segue: incomingStage)
+        guard effects.segue != nil, phase == .preparing else { return false }
+        item.audioMix = effects.mix
+        incomingStage.arm(plan, side: .incoming)
+        outgoingStage.arm(plan, side: .outgoing)
+        self.item = item
+        player.replaceCurrentItem(with: item)
+        player.defaultRate = rate
+        _ = await player.seek(to: CMTime(seconds: incomingStartTime, preferredTimescale: 48_000),
+                              toleranceBefore: .zero, toleranceAfter: .zero)
+        var waited = 0
+        while item.status == .unknown, waited < 50, phase == .preparing {
+            try? await Task.sleep(for: .milliseconds(100))
+            waited += 1
+        }
+        guard item.status == .readyToPlay, phase == .preparing else { return false }
+        var ready = await player.preroll(atRate: rate)
+        if !ready, phase == .preparing { ready = await player.preroll(atRate: rate) }
+        guard ready, phase == .preparing else { return false }
+        phase = .ready
+        return true
+    }
+
+    /// Starts the next song on the system clock, so that its run-up meets the playing song's time.
+    /// False when that moment has passed.
+    func start(outgoing: AVPlayer, offset: Double) -> Bool {
+        guard phase == .ready, let item = outgoing.currentItem, let timebase = item.timebase else { return false }
+        let outgoingRate = CMTimebaseGetRate(timebase)
+        let now = CMTimebaseGetTime(timebase).seconds - offset
+        // The playing song's time at which the next one is at its run-up's start.
+        let meet = plan.outgoingStart - (plan.incomingStart - incomingStartTime) / plan.rate
+        let delay = (meet - now) / max(0.01, outgoingRate)
+        guard outgoingRate > 0, now.isFinite, delay > 0.05 else { return false }
+        let host = CMTimeAdd(CMClockGetTime(CMClockGetHostTimeClock()), CMTime(seconds: delay, preferredTimescale: 1_000_000_000))
+        player.setRate(rate, time: CMTime(seconds: incomingStartTime, preferredTimescale: 48_000), atHostTime: host)
+        phase = .running
+        return true
+    }
+
+    /// Keeps the next song on its place against the playing one (`outgoingTime`, nil while it isn't
+    /// playing) every 50 ms: while silent up to 8 % faster or slower (put back by a seek if far off),
+    /// once heard up to 2 % (the mix is left if it goes far off: `lost`). `window` when the window
+    /// starts, `ended` when it ends; then the speed goes back to its own.
+    func follow(outgoingTime: @escaping () -> Double?, window: @escaping () -> Void, ended: @escaping () -> Void,
+                lost: @escaping (String) -> Void) {
+        task?.cancel()
+        task = Task {
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(50))
+                guard !Task.isCancelled, phase == .running || phase == .mixing else { return }
+                guard let outgoingTime = outgoingTime() else { continue }
+                if phase == .running, outgoingTime >= plan.outgoingStart {
+                    phase = .mixing
+                    window()
+                }
+                if outgoingTime >= plan.outgoingEnd { break }
+                // Not playing yet (its start is ahead) is fine; stopped while it should play is a stall.
+                if player.timeControlStatus != .playing {
+                    if phase == .mixing { return lost("incoming stalled") }
+                    continue
+                }
+                let error = player.currentTime().seconds - plan.incomingTime(atOutgoing: outgoingTime)
+                lastError = error
+                if abs(error) > Self.lostDistance {
+                    if phase == .mixing { return lost(String(format: "incoming %.0f ms off", error * 1000)) }
+                    _ = await player.seek(to: CMTime(seconds: plan.incomingTime(atOutgoing: outgoingTime) + 0.05 * plan.rate,
+                                                     preferredTimescale: 48_000), toleranceBefore: .zero, toleranceAfter: .zero)
+                    continue
+                }
+                if phase == .mixing { worstError = max(worstError, abs(error)) }
+                // The error made good over about a second, within the phase's bound.
+                let bound = phase == .mixing ? 0.02 : 0.08
+                let correction = max(-bound, min(bound, -error))
+                let target = Float(plan.rate * (1 + correction))
+                if abs(target - player.rate) > 0.0003 {
+                    player.rate = target
+                    rate = target
+                }
+            }
+            guard !Task.isCancelled else { return }
+            ended()
+            await restore()
+        }
+    }
+
+    /// Back to its own speed: a little at a time, so it is never heard as a jump.
+    private func restore() async {
+        phase = .restoring
+        let from = Double(player.rate)
+        guard abs(from - 1) > 0.0005 else {
+            setRate(1)
+            phase = .finished
+            return
+        }
+        let steps = max(1, Int(plan.restoreSeconds / 0.25))
+        for step in 1...steps {
+            try? await Task.sleep(for: .milliseconds(250))
+            guard !Task.isCancelled, phase == .restoring else { return }
+            setRate(Float(from + (1 - from) * Double(step) / Double(steps)))
+        }
+        phase = .finished
+    }
+
+    private func setRate(_ value: Float) {
+        rate = value
+        player.defaultRate = value
+        if player.timeControlStatus != .paused { player.rate = value }
+    }
+
+    /// The next song goes back to its plain sound (the mix was left while it is heard): its lanes
+    /// ramp out and its speed returns to its own.
+    func releaseIncoming() {
+        task?.cancel()
+        incomingStage.release(over: 0.4)
+        if phase != .finished, phase != .abandoned {
+            phase = .restoring
+            Task { await restore() }
+        }
+    }
+
+    /// The playing song goes back to its plain sound (the next one stalled while heard).
+    func releaseOutgoing() { outgoingStage.release(over: 0.4) }
+
+    /// Dropped before it was heard: the next song's player stops, the playing song plays on plainly.
+    func abandon() {
+        task?.cancel()
+        phase = .abandoned
+        player.pause()
+        player.replaceCurrentItem(with: nil)
+        outgoingStage.disarm()
+        incomingStage.disarm()
+    }
+
+    /// For Settings and CI's log.
+    var summary: String {
+        String(format: "%@ %@, %.1f s from %.1f s, rate %.4f, phase %.0f/%.0f ms, worst %.0f ms",
+               plan.level.rawValue, plan.shape.rawValue, plan.length, plan.outgoingStart, plan.rate,
+               (plan.phaseMedian ?? 0) * 1000, (plan.phaseP95 ?? 0) * 1000, worstError * 1000)
+    }
+}

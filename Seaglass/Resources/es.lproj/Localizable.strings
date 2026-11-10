@@ -768,3 +768,9 @@
 "Collegato: %@" = "Conectado: %@";
 "Massima · Opus in ALAC, senza altre perdite (~5 MB/min)" = "Máxima · Opus guardado en ALAC, sin más pérdidas (~5 MB/min)";
 "Uscita audio" = "Salida de audio";
+"Senza mix: un brano dopo l'altro" = "Sin mezcla: una canción tras otra";
+"Mix a tempo: %lld battute, %lld → %lld BPM, a %lld s" = "Mezcla a tempo: %lld compases, %lld → %lld BPM, a los %lld s";
+"Stacco sul battere, a %lld s" = "Corte en el tiempo fuerte, a los %lld s";
+"mix dal vivo" = "mezcla en vivo";
+"Mix dal vivo" = "Mezcla en vivo";
+"AutoMix suona il brano successivo su un secondo lettore, a tempo con quello in corso, con livelli, bassi e filtri automatici. Spento, usa i mix preparati in un file." = "AutoMix reproduce la siguiente canción en un segundo reproductor, a tempo con la actual, con niveles, graves y filtros automáticos. Desactivado, usa mezclas preparadas en un archivo.";

@@ -768,3 +768,9 @@
 "Collegato: %@" = "接続済み：%@";
 "Massima · Opus in ALAC, senza altre perdite (~5 MB/min)" = "最高 · Opus を ALAC で保存、追加の劣化なし（約5 MB/分）";
 "Uscita audio" = "オーディオ出力";
+"Senza mix: un brano dopo l'altro" = "ミックスなし：1曲ずつ続けて再生";
+"Mix a tempo: %lld battute, %lld → %lld BPM, a %lld s" = "テンポを合わせたミックス：%lld 小節、%lld → %lld BPM、%lld 秒から";
+"Stacco sul battere, a %lld s" = "強拍で切り替え、%lld 秒から";
+"mix dal vivo" = "ライブミックス";
+"Mix dal vivo" = "ライブミックス";
+"AutoMix suona il brano successivo su un secondo lettore, a tempo con quello in corso, con livelli, bassi e filtri automatici. Spento, usa i mix preparati in un file." = "AutoMix は次の曲を2台目のプレーヤーで再生中の曲とテンポを合わせて再生し、音量、低音、フィルタを自動で調整します。オフにすると、ファイルに用意したミックスを使います。";
