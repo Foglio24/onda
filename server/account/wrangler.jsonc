@@ -1,0 +1,40 @@
+// Seaglass's account service. This file is for running it locally (npm run dev, npm test):
+// the deploy workflow (.github/workflows/account.yml) writes wrangler.deploy.jsonc from it with
+// the real database, the custom domain and the email sender (scripts/deploy-config.mjs).
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "seaglass-account",
+  "main": "src/index.mjs",
+  "compatibility_date": "2026-10-01",
+  // node:crypto, for the HMAC-MD5 Patreon signs its webhooks with (Web Crypto has no MD5).
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "observability": { "enabled": true },
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    // Every request goes through the Worker, which adds the page's security headers.
+    "run_worker_first": true,
+    "html_handling": "none",
+    "not_found_handling": "none"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "seaglass-account",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ],
+  // Sign-in, sign-up and password requests, per IP address.
+  "ratelimits": [
+    { "name": "AUTH_RATE_LIMITER", "namespace_id": "2401", "simple": { "limit": 20, "period": 60 } }
+  ],
+  // Expired sign-ins, codes, sessions and links are cleared once a day.
+  "triggers": { "crons": ["17 3 * * *"] },
+  "vars": {
+    "PUBLIC_ORIGIN": "https://account.seaglass.test",
+    "AUTH_EMAIL_READY": "false",
+    "PATREON_URL": ""
+  }
+}

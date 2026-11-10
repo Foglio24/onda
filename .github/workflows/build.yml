@@ -98,10 +98,34 @@ jobs:
           ./build-karaoke-check Generated/Karaoke/VocFT.mlmodelc Generated/karaoke-fixture.bin
           rm build-karaoke-check
 
+      # Where the account service is (server/account, deployed by account.yml): without it the app
+      # is built without accounts. SEAGLASS_ACCOUNT_ORIGIN, when set, wins over asking Cloudflare.
+      - name: Find the account service
+        id: account
+        continue-on-error: true
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          SEAGLASS_ACCOUNT_DOMAIN: ${{ vars.SEAGLASS_ACCOUNT_DOMAIN }}
+          ORIGIN: ${{ vars.SEAGLASS_ACCOUNT_ORIGIN }}
+        run: |
+          if [ -n "$ORIGIN" ]; then
+            echo "origin=$ORIGIN" >> "$GITHUB_OUTPUT"
+          elif [ -n "$CLOUDFLARE_API_TOKEN" ]; then
+            node server/account/scripts/cloudflare.mjs origin
+          else
+            echo "::notice::No account service configured: the app is built without accounts."
+          fi
+
       - name: Generate Xcode project
+        env:
+          ACCOUNT_ORIGIN: ${{ steps.account.outputs.origin }}
         run: |
           mkdir -p Support
           xcodegen generate
+          if [ -n "$ACCOUNT_ORIGIN" ]; then
+            /usr/libexec/PlistBuddy -c "Set :SeaglassAccountOrigin $ACCOUNT_ORIGIN" Support/Info.plist
+          fi
 
       - name: Build (unsigned)
         run: |
@@ -253,11 +277,35 @@ jobs:
       # On a Mac an app with one window quits when it's closed, and the music with it. With multiple
       # scenes it keeps playing, as Apple Music does, and the Dock icon opens the window again.
       # Only for the Mac: an iPad keeps a single window (SeaglassApp removes File › New Window).
+      # Where the account service is (server/account, deployed by account.yml): without it the app
+      # is built without accounts. SEAGLASS_ACCOUNT_ORIGIN, when set, wins over asking Cloudflare.
+      - name: Find the account service
+        id: account
+        continue-on-error: true
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          SEAGLASS_ACCOUNT_DOMAIN: ${{ vars.SEAGLASS_ACCOUNT_DOMAIN }}
+          ORIGIN: ${{ vars.SEAGLASS_ACCOUNT_ORIGIN }}
+        run: |
+          if [ -n "$ORIGIN" ]; then
+            echo "origin=$ORIGIN" >> "$GITHUB_OUTPUT"
+          elif [ -n "$CLOUDFLARE_API_TOKEN" ]; then
+            node server/account/scripts/cloudflare.mjs origin
+          else
+            echo "::notice::No account service configured: the app is built without accounts."
+          fi
+
       - name: Generate Xcode project
+        env:
+          ACCOUNT_ORIGIN: ${{ steps.account.outputs.origin }}
         run: |
           mkdir -p Support
           xcodegen generate
           /usr/libexec/PlistBuddy -c "Set :UIApplicationSceneManifest:UIApplicationSupportsMultipleScenes true" Support/Info.plist
+          if [ -n "$ACCOUNT_ORIGIN" ]; then
+            /usr/libexec/PlistBuddy -c "Set :SeaglassAccountOrigin $ACCOUNT_ORIGIN" Support/Info.plist
+          fi
 
       - name: Build for Mac (unsigned)
         run: |

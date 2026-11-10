@@ -1,0 +1,17 @@
+{
+  "name": "seaglass-account",
+  "private": true,
+  "type": "module",
+  "description": "Seaglass's account service: a Cloudflare Worker with D1.",
+  "scripts": {
+    "dev": "wrangler dev",
+    "migrate:local": "wrangler d1 migrations apply DB --local",
+    "test": "node test/run.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "4.151.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

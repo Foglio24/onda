@@ -92,6 +92,8 @@ targets:
         ITSAppUsesNonExemptEncryption: false
         # Where a Mac files it (Finder, Launchpad).
         LSApplicationCategoryType: public.app-category.music
+        # The account service's address (server/account), set by CI (build.yml): empty, no accounts.
+        SeaglassAccountOrigin: ""
     settings:
       base:
         PRODUCT_NAME: Seaglass

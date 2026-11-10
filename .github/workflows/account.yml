@@ -1,0 +1,137 @@
+# Seaglass's account service (server/account): tested on every change, and deployed to Cloudflare
+# from main. The deploy finds the domain on the Cloudflare account (account.<domain>), creates the
+# D1 database the first time, applies its migrations, publishes the Worker and sets its secrets.
+#
+# Repository secrets: CLOUDFLARE_API_TOKEN (required to deploy), PATREON_CLIENT_ID,
+# PATREON_CLIENT_SECRET, PATREON_WEBHOOK_SECRET. Repository variables (optional):
+# CLOUDFLARE_ACCOUNT_ID, SEAGLASS_ACCOUNT_DOMAIN, SEAGLASS_EMAIL_FROM, PATREON_URL,
+# PATREON_CAMPAIGN_ID. See server/account/README.md.
+name: Account service
+
+on:
+  push:
+    branches: [main, "claude/**"]
+    paths: ["server/account/**", ".github/workflows/account.yml"]
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: "Deploy to Cloudflare (from main only)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+# One deploy at a time: migrations and the Worker go out in order.
+concurrency:
+  group: account-service-${{ github.ref }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    working-directory: server/account
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/account/package-lock.json
+      - run: npm ci
+      - name: Check the scripts
+        run: |
+          for file in src/*.mjs scripts/*.mjs test/*.mjs public/*.js; do node --check "$file"; done
+      - name: Sign-up, sign-in, sync, Patreon and deletion, on a local copy of the service
+        run: npm test
+
+  deploy:
+    needs: test
+    if: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.deploy) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+      SEAGLASS_ACCOUNT_DOMAIN: ${{ vars.SEAGLASS_ACCOUNT_DOMAIN }}
+      SEAGLASS_EMAIL_FROM: ${{ vars.SEAGLASS_EMAIL_FROM }}
+      PATREON_URL: ${{ vars.PATREON_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cloudflare token
+        id: token
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "::warning::CLOUDFLARE_API_TOKEN isn't set: the account service isn't deployed (see server/account/README.md)."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/setup-node@v4
+        if: steps.token.outputs.ready == 'true'
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/account/package-lock.json
+      - run: npm ci
+        if: steps.token.outputs.ready == 'true'
+
+      - name: Find the domain and the database
+        id: cloudflare
+        if: steps.token.outputs.ready == 'true'
+        run: node scripts/cloudflare.mjs prepare
+
+      - name: Apply the database migrations
+        if: steps.token.outputs.ready == 'true'
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ steps.cloudflare.outputs.account_id }}
+        run: npx wrangler d1 migrations apply DB --remote -c wrangler.deploy.jsonc
+
+      - name: Deploy the Worker
+        if: steps.token.outputs.ready == 'true'
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ steps.cloudflare.outputs.account_id }}
+        run: npx wrangler deploy -c wrangler.deploy.jsonc
+
+      # Only the secrets that are set; Patreon stays off (the page says so) until they are.
+      - name: Set the Patreon secrets
+        if: steps.token.outputs.ready == 'true'
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ steps.cloudflare.outputs.account_id }}
+          PATREON_CLIENT_ID: ${{ secrets.PATREON_CLIENT_ID }}
+          PATREON_CLIENT_SECRET: ${{ secrets.PATREON_CLIENT_SECRET }}
+          PATREON_WEBHOOK_SECRET: ${{ secrets.PATREON_WEBHOOK_SECRET }}
+          PATREON_CAMPAIGN_ID: ${{ vars.PATREON_CAMPAIGN_ID }}
+        run: |
+          umask 077
+          file="$RUNNER_TEMP/patreon-secrets.json"
+          node -e '
+            const names = ["PATREON_CLIENT_ID", "PATREON_CLIENT_SECRET", "PATREON_WEBHOOK_SECRET", "PATREON_CAMPAIGN_ID"];
+            const values = Object.fromEntries(names.filter((name) => process.env[name]).map((name) => [name, process.env[name]]));
+            require("node:fs").writeFileSync(process.argv[1], JSON.stringify(values));
+            console.log("Patreon secrets set:", Object.keys(values).join(", ") || "none");
+          ' "$file"
+          if [ "$(cat "$file")" != "{}" ]; then npx wrangler secret bulk "$file" -c wrangler.deploy.jsonc; fi
+          rm -f "$file"
+
+      # A new custom domain gets its certificate within minutes: the first deploy may need them.
+      - name: Check the service answers
+        if: steps.token.outputs.ready == 'true'
+        env:
+          ORIGIN: ${{ steps.cloudflare.outputs.origin }}
+        run: |
+          for attempt in $(seq 1 20); do
+            if curl -fsS --max-time 10 "$ORIGIN/health" | grep -q '"ok"'; then
+              echo "$ORIGIN is up."
+              curl -fsS --max-time 10 "$ORIGIN/v1/status"; echo
+              echo "### Account service: $ORIGIN/account" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            sleep 30
+          done
+          echo "::error::$ORIGIN/health didn't answer within 10 minutes (a new domain's certificate can take longer: run the workflow again)."
+          exit 1

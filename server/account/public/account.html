@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="dark light">
+  <meta name="robots" content="noindex">
+  <title>Account Seaglass</title>
+  <link rel="icon" href="/favicon.png" type="image/png">
+  <link rel="stylesheet" href="/account.css">
+  <script src="/account.js" defer></script>
+</head>
+<body>
+  <header class="bar">
+    <a class="brand" href="/account"><img src="/logo.png" alt="" width="32" height="32"><span>Seaglass</span></a>
+    <button class="link" id="sign-out" type="button" hidden data-t="signOut">Esci</button>
+  </header>
+
+  <main id="main" aria-live="polite">
+    <p class="notice" id="notice" role="status" hidden></p>
+
+    <!-- Signed out -->
+    <section class="auth" id="view-login" hidden>
+      <h1 data-t="loginTitle">Accedi a Seaglass</h1>
+      <p class="lead" id="login-app-hint" hidden data-t="loginAppHint">Accedi per sincronizzare libreria, playlist e preferenze con l'app.</p>
+      <form id="login-form" novalidate>
+        <label><span data-t="email">Email</span><input name="email" type="email" autocomplete="username" required maxlength="254"></label>
+        <label><span data-t="password">Password</span><input name="password" type="password" autocomplete="current-password" required maxlength="128"></label>
+        <p class="error" role="alert" hidden></p>
+        <button class="primary" type="submit" data-t="loginButton">Accedi</button>
+      </form>
+      <p class="links"><button class="link" type="button" data-go="forgot" data-t="forgot">Password dimenticata?</button></p>
+      <hr>
+      <p class="links"><span data-t="noAccount">Non hai un account?</span> <button class="link strong" type="button" data-go="register" data-t="registerLink">Registrati a Seaglass</button></p>
+    </section>
+
+    <section class="auth" id="view-register" hidden>
+      <h1 data-t="registerTitle">Crea il tuo account</h1>
+      <form id="register-form" novalidate>
+        <label><span data-t="email">Email</span><input name="email" type="email" autocomplete="username" required maxlength="254"></label>
+        <label><span data-t="password">Password</span><input name="password" type="password" autocomplete="new-password" required minlength="12" maxlength="128"></label>
+        <label><span data-t="passwordConfirm">Ripeti la password</span><input name="confirm" type="password" autocomplete="new-password" required minlength="12" maxlength="128"></label>
+        <p class="hint" data-t="passwordRule">Almeno 12 caratteri.</p>
+        <p class="error" role="alert" hidden></p>
+        <button class="primary" type="submit" data-t="registerButton">Registrati</button>
+      </form>
+      <hr>
+      <p class="links"><span data-t="haveAccount">Hai già un account?</span> <button class="link strong" type="button" data-go="login" data-t="loginLink">Accedi</button></p>
+    </section>
+
+    <section class="auth" id="view-forgot" hidden>
+      <h1 data-t="forgotTitle">Reimposta la password</h1>
+      <p class="lead" data-t="forgotLead">Inserisci l'email del tuo account: ti mandiamo un link per scegliere una nuova password.</p>
+      <form id="forgot-form" novalidate>
+        <label><span data-t="email">Email</span><input name="email" type="email" autocomplete="username" required maxlength="254"></label>
+        <p class="error" role="alert" hidden></p>
+        <button class="primary" type="submit" data-t="send">Invia</button>
+      </form>
+      <p class="links"><button class="link" type="button" data-go="login" data-t="back">Indietro</button></p>
+    </section>
+
+    <section class="auth" id="view-reset" hidden>
+      <h1 data-t="resetTitle">Scegli una nuova password</h1>
+      <form id="reset-form" novalidate>
+        <label><span data-t="newPassword">Nuova password</span><input name="password" type="password" autocomplete="new-password" required minlength="12" maxlength="128"></label>
+        <label><span data-t="passwordConfirm">Ripeti la password</span><input name="confirm" type="password" autocomplete="new-password" required minlength="12" maxlength="128"></label>
+        <p class="hint" data-t="passwordRule">Almeno 12 caratteri.</p>
+        <p class="error" role="alert" hidden></p>
+        <button class="primary" type="submit" data-t="save">Salva</button>
+      </form>
+    </section>
+
+    <section class="auth" id="view-verify" hidden>
+      <h1 data-t="verifyTitle">Conferma la tua email</h1>
+      <p class="lead" data-t="verifyLead">Ti abbiamo mandato un link: aprilo per attivare l'account, poi accedi.</p>
+      <form id="verify-form" novalidate>
+        <input name="email" type="hidden">
+        <p class="error" role="alert" hidden></p>
+        <button class="secondary" type="submit" data-t="verifyResend">Invia di nuovo</button>
+      </form>
+      <p class="links"><button class="link" type="button" data-go="login" data-t="loginLink">Accedi</button></p>
+    </section>
+
+    <!-- Signed in -->
+    <section id="view-overview" hidden>
+      <div class="hero">
+        <div class="plan" id="plan">
+          <p class="eyebrow" data-t="yourPlan">Il tuo piano</p>
+          <h2 id="plan-name"></h2>
+          <p id="plan-detail"></p>
+          <div class="actions" id="plan-actions"></div>
+        </div>
+        <div class="who">
+          <div class="avatar" id="avatar" aria-hidden="true"></div>
+          <div>
+            <h1 id="who-name"></h1>
+            <p id="who-email"></p>
+            <p class="muted" id="who-since"></p>
+          </div>
+        </div>
+      </div>
+
+      <h3 data-t="sectionAccount">Account</h3>
+      <div class="list">
+        <button class="row" type="button" data-go="profile"><span class="icon">👤</span><span data-t="editProfile">Modifica profilo</span><span class="chevron">›</span></button>
+        <button class="row" type="button" data-go="password"><span class="icon">🔑</span><span data-t="changePassword">Cambia password</span><span class="chevron">›</span></button>
+        <button class="row" type="button" data-go="membership"><span class="icon">💗</span><span data-t="membership">Sostieni Seaglass</span><span class="chevron">›</span></button>
+      </div>
+
+      <h3 data-t="sectionLibrary">La tua libreria</h3>
+      <div class="stats">
+        <div><strong id="count-playlists">0</strong><span data-t="playlists">Playlist</span></div>
+        <div><strong id="count-liked">0</strong><span data-t="liked">Brani che ti piacciono</span></div>
+        <div><strong id="count-history">0</strong><span data-t="history">Ascoltati di recente</span></div>
+      </div>
+      <p class="muted" id="synced-at"></p>
+      <div class="list">
+        <button class="row" type="button" id="download-data"><span class="icon">⬇︎</span><span data-t="downloadData">Scarica i tuoi dati</span><span class="chevron">›</span></button>
+      </div>
+
+      <h3 data-t="sectionSecurity">Sicurezza e privacy</h3>
+      <div class="list">
+        <button class="row" type="button" id="sign-out-everywhere"><span class="icon">⎋</span><span data-t="signOutEverywhere">Esci ovunque</span><span class="chevron">›</span></button>
+        <button class="row danger" type="button" data-go="delete"><span class="icon">✕</span><span data-t="deleteAccount">Elimina account</span><span class="chevron">›</span></button>
+      </div>
+      <p class="muted small" data-t="signOutEverywhereHint">«Esci ovunque» chiude la sessione nell'app su tutti i dispositivi e in tutti i browser.</p>
+    </section>
+
+    <section class="panel" id="view-profile" hidden>
+      <button class="link back" type="button" data-go="overview" data-t="back">Indietro</button>
+      <h1 data-t="editProfile">Modifica profilo</h1>
+      <form id="profile-form" novalidate>
+        <label><span data-t="firstName">Nome</span><input name="firstName" autocomplete="given-name" maxlength="80"></label>
+        <label><span data-t="lastName">Cognome</span><input name="lastName" autocomplete="family-name" maxlength="80"></label>
+        <label><span data-t="displayName">Nome visualizzato</span><input name="displayName" autocomplete="nickname" maxlength="80"></label>
+        <label><span data-t="email">Email</span><input name="email" type="email" disabled></label>
+        <p class="error" role="alert" hidden></p>
+        <button class="primary" type="submit" data-t="saveProfile">Salva profilo</button>
+      </form>
+    </section>
+
+    <section class="panel" id="view-password" hidden>
+      <button class="link back" type="button" data-go="overview" data-t="back">Indietro</button>
+      <h1 data-t="changePassword">Cambia password</h1>
+      <form id="password-form" novalidate>
+        <input name="username" type="email" autocomplete="username" hidden>
+        <label><span data-t="currentPassword">Password attuale</span><input name="current" type="password" autocomplete="current-password" required maxlength="128"></label>
+        <label><span data-t="newPassword">Nuova password</span><input name="password" type="password" autocomplete="new-password" required minlength="12" maxlength="128"></label>
+        <label><span data-t="passwordConfirm">Ripeti la password</span><input name="confirm" type="password" autocomplete="new-password" required minlength="12" maxlength="128"></label>
+        <p class="hint" data-t="passwordChangeHint">Almeno 12 caratteri. Gli altri dispositivi dovranno accedere di nuovo.</p>
+        <p class="error" role="alert" hidden></p>
+        <button class="primary" type="submit" data-t="setPassword">Imposta nuova password</button>
+      </form>
+    </section>
+
+    <section class="panel" id="view-membership" hidden>
+      <button class="link back" type="button" data-go="overview" data-t="back">Indietro</button>
+      <h1 data-t="membership">Sostieni Seaglass</h1>
+      <p class="lead" data-t="membershipLead">Seaglass è gratuito e lo resta: il sostegno su Patreon aiuta a svilupparlo. In cambio hai il badge di sostenitore nell'app.</p>
+      <div class="card">
+        <p class="eyebrow">Patreon</p>
+        <h2 id="membership-state"></h2>
+        <p id="membership-detail"></p>
+        <p class="error" role="alert" hidden id="membership-error"></p>
+        <div class="actions" id="membership-actions"></div>
+      </div>
+    </section>
+
+    <section class="panel" id="view-delete" hidden>
+      <button class="link back" type="button" data-go="overview" data-t="back">Indietro</button>
+      <h1 data-t="deleteAccount">Elimina account</h1>
+      <p class="lead" data-t="deleteLead">Eliminiamo subito l'account e tutto ciò che è sincronizzato: playlist, brani che ti piacciono, cronologia, preferenze e il collegamento a Patreon. Sui dispositivi la libreria resta, ma non si sincronizza più. Non si può annullare.</p>
+      <p class="muted" data-t="deletePatreon">L'eventuale abbonamento su Patreon si annulla su Patreon.</p>
+      <form id="delete-form" novalidate>
+        <label><span data-t="deleteConfirm">Per confermare scrivi la tua email</span><input name="email" type="email" autocomplete="off" required maxlength="254"></label>
+        <p class="error" role="alert" hidden></p>
+        <button class="destructive" type="submit" data-t="deleteButton">Elimina definitivamente</button>
+      </form>
+    </section>
+
+    <section class="auth" id="view-done" hidden>
+      <h1 id="done-title"></h1>
+      <p class="lead" id="done-text"></p>
+      <p class="links"><button class="link strong" type="button" data-go="login" data-t="loginLink">Accedi</button></p>
+    </section>
+
+    <p class="loading" id="loading" data-t="loading">Caricamento…</p>
+  </main>
+
+  <footer class="foot">
+    <p data-t="footer">Seaglass non è affiliato a YouTube né a Patreon.</p>
+  </footer>
+</body>
+</html>
