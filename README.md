@@ -2,10 +2,10 @@
   <img src="docs/images/seaglass-banner.jpg" alt="Seaglass — your music, in motion" width="100%">
 </p>
 
-<h1 align="center">Seaglass <sub>formerly Onda</sub></h1>
+<h1 align="center">Seaglass — Make every playlist flow</h1>
 
-<p align="center"><strong>Your music, your rhythm.</strong><br>
-An independent music player for iPhone, iPad, <strong>Mac</strong> and Android, with AutoMix, playlists and synced lyrics.</p>
+<p align="center"><strong>More than press play.</strong><br>
+A hands-on music player for iPhone, iPad, <strong>Mac</strong> and Android, built for beat-aware transitions, tempo control, lyrics and a library you can shape.</p>
 
 <p align="center">
   <a href="https://github.com/Foglio24/onda/releases/latest/download/Seaglass.ipa"><img src="https://img.shields.io/badge/DOWNLOAD-Seaglass.ipa-EC3F8E?style=for-the-badge&amp;logo=apple&amp;logoColor=white" alt="Download Seaglass.ipa"></a>
@@ -21,6 +21,17 @@ An independent music player for iPhone, iPad, <strong>Mac</strong> and Android, 
   <a href="#installation">Installation</a> · <a href="#mac">Mac</a> · <a href="#android">Android</a> · <a href="#frequently-asked-questions">FAQ</a> ·
   <a href="CHANGELOG.md">Changelog</a> · <a href="android/CHANGELOG.md">Android changelog</a>
 </p>
+
+## Why choose Seaglass?
+
+If cost is not the deciding factor, choose Seaglass for the way it lets you shape listening. Apple Music and Spotify offer broad catalogues; Seaglass brings a more hands-on player to your iPhone, iPad and Mac, using the YouTube Music catalogue.
+
+- **Make playlists flow:** AutoMix chooses transitions and beat-matches when the songs suit it.
+- **Take the controls:** adjust tempo with key lock, or build transitions for downloaded tracks with waveforms, EQ and effects.
+- **Make listening interactive:** follow synced lyrics, translate where supported, and try on-device AI karaoke.
+- **Bring playlists along:** import playlists from Spotify, Apple Music and YouTube links or files.
+
+Your choice is about the listening experience: more control over transitions, tempo and how you follow along.
 
 ## Discover Seaglass
 
