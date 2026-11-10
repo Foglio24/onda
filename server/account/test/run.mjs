@@ -117,6 +117,9 @@ try {
   response = await call("POST", "/v1/auth/register", { body: { email, password, language: "it" }, cookies: browser });
   check(response.status === 200 && response.data.verify === true, "register", response.data);
   check(lastEmail()?.to?.[0] === email && lastEmail().subject.startsWith("Conferma"), "confirmation email", lastEmail());
+  const stored = sql(`SELECT password_hash FROM accounts WHERE email_normalized = '${email}'`)[0]?.password_hash ?? "";
+  // Cloudflare's Web Crypto refuses more than 100,000 PBKDF2 iterations (a local copy doesn't).
+  check(/^pbkdf2-sha256\$100000\$[A-Za-z0-9_-]{43}$/.test(stored), "password stored with its iterations", stored.slice(0, 22));
   response = await call("POST", "/v1/auth/login", { body: { email, password }, cookies: browser });
   check(response.status === 403 && response.data.error === "email_not_verified", "unconfirmed address refused", response.data);
   const verifyLink = new URL(lastEmail()?.text?.match(/https:\/\/\S+/)?.[0] ?? "invalid:");

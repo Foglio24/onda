@@ -84,11 +84,24 @@ export async function startLogin(request, url, env) {
   return redirect(`/account?login=${client === "native" ? "app" : "web"}`, attemptCookie(state, proof, attemptLifetime));
 }
 
-async function passwordHash(password, salt) {
+// PBKDF2-SHA256 with 100,000 iterations: the most Cloudflare's Web Crypto allows (it refuses
+// more, though a local copy doesn't). Stored with its count, so it can change later.
+const passwordIterations = 100_000;
+
+async function derivePassword(password, salt, iterations) {
   const key = await crypto.subtle.importKey("raw", encoder.encode(password), "PBKDF2", false, ["deriveBits"]);
   const saltBytes = Uint8Array.from(atob(salt.replaceAll("-", "+").replaceAll("_", "/") + "=".repeat((4 - salt.length % 4) % 4)), (c) => c.charCodeAt(0));
-  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: saltBytes, iterations: 310_000 }, key, 256);
+  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: saltBytes, iterations }, key, 256);
   return base64url(new Uint8Array(bits));
+}
+async function passwordHash(password, salt) {
+  return `pbkdf2-sha256$${passwordIterations}$${await derivePassword(password, salt, passwordIterations)}`;
+}
+async function passwordMatches(password, salt, stored) {
+  const parts = /^pbkdf2-sha256\$(\d{1,7})\$([A-Za-z0-9_-]{43})$/.exec(stored ?? "");
+  const iterations = Number(parts?.[1]);
+  if (!parts || !salt || iterations < 1 || iterations > passwordIterations) return false;
+  return await derivePassword(password, salt, iterations) === parts[2];
 }
 function emailAddress(value) {
   if (typeof value !== "string" || value.length > 254) throw new HttpError(400, "invalid_email");
@@ -239,7 +252,7 @@ export async function loginAccount(request, env) {
   const row = await env.DB.prepare(`SELECT id, password_salt, password_hash, email_verified_at FROM accounts
     WHERE email_normalized = ?`).bind(normalized).first();
   if (!row || !row.password_salt || !row.password_hash ||
-      await passwordHash(body.password, row.password_salt) !== row.password_hash) throw new HttpError(401, "invalid_credentials");
+      !(await passwordMatches(body.password, row.password_salt, row.password_hash))) throw new HttpError(401, "invalid_credentials");
   if (!row.email_verified_at) throw new HttpError(403, "email_not_verified");
   const loginAttempt = await env.DB.prepare("DELETE FROM login_attempts WHERE state_hash = ? AND expires_at > ? RETURNING *")
     .bind(await hash(attempt.state + attempt.proof), unix()).first();
@@ -382,7 +395,7 @@ export async function changePassword(request, env, session) {
   if (!validPassword(password)) throw new HttpError(400, "weak_password");
   const row = await env.DB.prepare("SELECT password_salt, password_hash FROM accounts WHERE id = ?").bind(session.accountId).first();
   if (typeof current !== "string" || current.length > 128 || !row?.password_salt ||
-      await passwordHash(current, row.password_salt) !== row.password_hash) throw new HttpError(401, "invalid_credentials");
+      !(await passwordMatches(current, row.password_salt, row.password_hash))) throw new HttpError(401, "invalid_credentials");
   const salt = secret();
   const derived = await passwordHash(password, salt);
   await env.DB.batch([

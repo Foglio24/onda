@@ -98,7 +98,7 @@ sends to any address only on the Workers Paid plan.
 
 ## Security
 
-Passwords are hashed with PBKDF2-SHA256 (310,000 iterations) and a salt per account. Sessions,
+Passwords are hashed with PBKDF2-SHA256 (100,000 iterations, the most Cloudflare allows) and a salt per account. Sessions,
 sign-in codes, Patreon states and email links are stored as SHA-256 hashes only. The page's
 session cookie is `__Host-`, `HttpOnly`, `Secure` and `SameSite=Lax`, and every write made with
 it must come from the page's own origin. The app's sign-in ends with a one-time code that only
