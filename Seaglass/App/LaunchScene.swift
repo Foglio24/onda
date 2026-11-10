@@ -94,6 +94,54 @@ enum LaunchScene {
         return CGSize(width: width, height: height)
     }
 
+    /// What happens with lossless sources, for CI's log: a server's FLAC found and played, a server
+    /// that doesn't answer (the song plays on without waiting), a stream cut off while playing (the
+    /// usual source carries on from there), imported files read, and a file that doesn't decode.
+    private static func losslessScene(_ mode: String) async {
+        let defaults = UserDefaults.standard
+        if let text = defaults.string(forKey: "SeaglassSubsonicServer"), let server = OpenSubsonicSettings.serverURL(from: text),
+           let user = defaults.string(forKey: "SeaglassSubsonicUser"), let password = defaults.string(forKey: "SeaglassSubsonicPassword") {
+            OpenSubsonicSettings.save(server: server, username: user, password: password)
+        }
+        let player = PlayerController.shared
+        // A live recording on the Navidrome demo, stored there as FLAC; its video (another song) is
+        // only what the fallback plays, to see it carry on from where the stream was cut.
+        let demo = Track(videoId: "K0HSD_i2DvA", title: "Blue Monday", artists: ["The New Deal"],
+                         album: "Live at The Casbah - 2005-04-29", duration: 166)
+        func report(_ text: String) { print("lossless-scene: \(mode.split(separator: ":").first ?? "") \(text)") }
+        switch mode {
+        case "server", "timeout":
+            player.play([demo], source: "Lossless")
+            try? await Task.sleep(for: .seconds(10))
+            report("playing \(player.streamInfo ?? "none") at \(Int(player.progress.currentTime)) s")
+        case "dropout":
+            player.play([demo], source: "Lossless")
+            try? await Task.sleep(for: .seconds(9))
+            let position = player.progress.currentTime
+            player.simulateLosslessFailure()
+            try? await Task.sleep(for: .seconds(4))
+            report("cut at \(Int(position)) s; then \(player.streamInfo ?? "none"), at \(Int(player.progress.currentTime)) s, error \(player.errorMessage ?? "none")")
+        default:
+            let parts = mode.split(separator: ":", maxSplits: 1).map(String.init)
+            guard parts.count == 2 else { return report("unknown") }
+            let folder = URL(fileURLWithPath: parts[1])
+            let files = ((try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)) ?? [])
+                .sorted { $0.lastPathComponent < $1.lastPathComponent }
+            let library = LocalLosslessLibrary.shared
+            let result = await library.importFiles(files)
+            report("imported \(result.imported), refused \(result.rejected.map { "\($0.name): \($0.reason)" })")
+            for entry in library.entries { report("file \(entry.title) · \(entry.artists.joined(separator: ", ")) · \(entry.format.label)") }
+            guard let first = library.entries.last else { return }
+            if parts[0] == "broken" {
+                // Its audio replaced by noise: it no longer decodes.
+                try? Data(repeating: 0x5A, count: 64 * 1024).write(to: library.fileURL(for: first))
+            }
+            player.play([library.track(for: first)], source: "Lossless")
+            try? await Task.sleep(for: .seconds(5))
+            report("playing \(player.streamInfo ?? "none"), error \(player.errorMessage ?? "none")")
+        }
+    }
+
     static func apply(select: (AppTab) -> Void) {
         guard let scene = Self.scene else { return }
         let parts = scene.split(separator: ":", maxSplits: 1).map(String.init)
@@ -190,6 +238,10 @@ enum LaunchScene {
                 try? await Task.sleep(for: .seconds(1))
                 print("zoom: \(report); window \(before) → \(size())")
             }
+        case "lossless":
+            // CI: lossless sources (`value`: server, timeout, dropout, files:<folder>, broken:<folder>),
+            // with the OpenSubsonic server given as launch arguments, if any (the public Navidrome demo).
+            Task { await Self.losslessScene(value) }
         case "tempo-live":
             // A real song played from its stream (`value`, a video id): the tempo panel's BPM, as
             // people get it (the log says each step). Live: YouTube may refuse CI's machines.

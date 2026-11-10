@@ -49,12 +49,25 @@ enum Storage {
     static func audioFile(for videoId: String) -> URL { downloads.appending(path: "\(videoId).m4a") }
     static func artworkFile(for videoId: String) -> URL { downloads.appending(path: "\(videoId).jpg") }
 
+    /// A download kept in its source's lossless format (FLAC, WAV, AIFF), beside the usual ".m4a"
+    /// (AAC, Dolby, Opus kept in ALAC, or a source's ALAC).
+    static let losslessDownloadSuffixes = ["flac", "wav", "aif", "aiff", "caf"]
+    static func audioFile(for videoId: String, suffix: String) -> URL {
+        downloads.appending(path: "\(videoId).\(suffix)")
+    }
+
+    /// Every file a download of the song may have, whether there or not.
+    static func audioFiles(for videoId: String) -> [URL] {
+        [audioFile(for: videoId)] + losslessDownloadSuffixes.map { audioFile(for: videoId, suffix: $0) }
+    }
+
     static func audioFileExists(videoId: String) -> Bool {
-        FileManager.default.fileExists(atPath: audioFile(for: videoId).path)
+        audioFiles(for: videoId).contains { FileManager.default.fileExists(atPath: $0.path) }
     }
 
     static func localAudio(for track: Track) -> URL? {
-        existing(track.videoId.map { audioFile(for: $0) })
+        guard let videoId = track.videoId else { return nil }
+        return audioFiles(for: videoId).lazy.compactMap { existing($0) }.first
     }
 
     static func localArtwork(for track: Track) -> URL? {
