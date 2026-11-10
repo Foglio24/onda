@@ -25,6 +25,15 @@
       ],
       "versions": [
         {
+          "version": "1.30.1",
+          "buildVersion": "59",
+          "date": "2026-11-10T12:27:16Z",
+          "localizedDescription": "Fixed\n- Mac: the account stays signed in. After signing in, the Mac's keychain refused to keep the session, so Settings › Account showed no name, email or plan and nothing synced. The session is now kept in the Mac's login keychain, and the account shows and syncs as on iPhone. Last.fm's sign-in on Mac had the same problem and is fixed too.\n- Mac: the player bar is Liquid Glass again, floating at the bottom of the page as in Apple Music, with the page scrolling under it. The sidebar keeps the playlists' covers.\n- Mac: Install and restart closes everything. Every open sheet and alert closes before Seaglass quits to install the update; with one still open, the app used to stay as it was instead of restarting.",
+          "downloadURL": "https://github.com/Foglio24/onda/releases/download/v1.30.1/Seaglass.ipa",
+          "size": 36768386,
+          "minOSVersion": "26.0"
+        },
+        {
           "version": "1.30.0",
           "buildVersion": "58",
           "date": "2026-11-10T10:19:00Z",
@@ -44,6 +53,17 @@
     }
   ],
   "news": [
+    {
+      "title": "Seaglass 1.30.1",
+      "identifier": "release-1.30.1",
+      "caption": "A new Seaglass update is available. Tap to see what's new.",
+      "date": "2026-11-10T12:27:16Z",
+      "tintColor": "#EC3F8E",
+      "imageURL": "https://raw.githubusercontent.com/Foglio24/onda/main/docs/images/seaglass-banner.jpg",
+      "notify": false,
+      "url": "https://github.com/Foglio24/onda/releases/tag/v1.30.1",
+      "appID": "com.onda.player"
+    },
     {
       "title": "Seaglass 1.30.0",
       "identifier": "release-1.30.0",
