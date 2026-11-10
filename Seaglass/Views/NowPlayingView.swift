@@ -26,6 +26,9 @@ struct NowPlayingView: View {
     @State private var draggingDown = false
     @State private var showEqualizer = false
     @State private var showTempo = false
+    @ObservedObject private var account = AccountService.shared
+    /// A Premium feature tapped without Premium (where Premium can be bought).
+    @State private var paywall: PremiumFeature?
 
     private static let isMac = ProcessInfo.processInfo.isMacCatalystApp
 
@@ -73,6 +76,7 @@ struct NowPlayingView: View {
             .appEnvironment()
             .presentationDetents([.medium, .large])
         }
+        .premiumPaywall($paywall)
         .downloadErrorAlert(isActive: router.showPlayer)
         .appUpdatePresentation(isActive: true)
         .trackToasts(.player)
@@ -579,7 +583,9 @@ struct NowPlayingView: View {
 
     /// The songs' tempo, as a DJ app's fader: the change on the button while there is one.
     private var tempoButton: some View {
-        Button { showTempo = true } label: {
+        Button {
+            if account.unlocks(.tempo) { showTempo = true } else { paywall = .tempo }
+        } label: {
             Group {
                 if player.songTempo == 0 {
                     Image(systemName: "metronome").font(.title3)
@@ -592,13 +598,32 @@ struct NowPlayingView: View {
             }
             .frame(width: 44, height: 44)
             .background(Color.white.opacity(player.songTempo == 0 ? 0 : 0.2), in: .circle)
+            .overlay(alignment: .topTrailing) {
+                if !account.unlocks(.tempo) { PremiumLock().offset(x: -2, y: 4) }
+            }
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text("Tempo"))
     }
 
-    /// Karaoke: remove the voice or keep only the voice, at three strengths.
-    private var karaokeMenu: some View {
+    /// Karaoke: remove the voice or keep only the voice, at three strengths. Without Premium
+    /// (where it can be bought) the button explains Premium instead.
+    @ViewBuilder private var karaokeMenu: some View {
+        if account.unlocks(.karaoke) {
+            karaokeChoices
+        } else {
+            Button { paywall = .karaoke } label: {
+                Image(systemName: "music.mic")
+                    .font(.title3)
+                    .frame(width: 44, height: 44)
+                    .overlay(alignment: .topTrailing) { PremiumLock().offset(x: -2, y: 4) }
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(Text("Karaoke"))
+        }
+    }
+
+    private var karaokeChoices: some View {
         Menu {
             if case .failed(let message) = player.karaokeStatus {
                 Section { Text(message) }

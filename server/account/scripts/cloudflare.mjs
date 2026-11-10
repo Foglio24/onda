@@ -8,8 +8,9 @@
 // Reads CLOUDFLARE_API_TOKEN, and optionally CLOUDFLARE_ACCOUNT_ID (when the token opens more
 // than one account), SEAGLASS_ACCOUNT_DOMAIN (the host name to use, e.g. account.example.com;
 // otherwise account.<the account's first active domain>, or workers.dev when it has none),
-// SEAGLASS_EMAIL_FROM (the sender, on a domain onboarded to Cloudflare Email Service) and
-// PATREON_URL (Seaglass's page on Patreon). With GITHUB_OUTPUT set, the results are written there.
+// SEAGLASS_EMAIL_FROM (the sender, on a domain onboarded to Cloudflare Email Service),
+// PATREON_URL (Seaglass's page on Patreon) and PREMIUM_MIN_CENTS (the least a Patreon membership
+// pays a month to be Premium). With GITHUB_OUTPUT set, the results are written there.
 
 import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -128,6 +129,7 @@ async function main() {
     AUTH_EMAIL_READY: sender ? "true" : "false",
     AUTH_EMAIL_FROM: sender,
     PATREON_URL: (process.env.PATREON_URL ?? "").trim(),
+    ...(process.env.PREMIUM_MIN_CENTS ? { PREMIUM_MIN_CENTS: process.env.PREMIUM_MIN_CENTS.trim() } : {}),
   };
   writeFileSync(`${root}/wrangler.deploy.jsonc`, JSON.stringify(config, null, 2) + "\n");
   console.log(`${workerName} → ${origin} (database ${databaseName}, email ${sender ? "on" : "off"})`);

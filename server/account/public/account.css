@@ -137,7 +137,7 @@ form .primary, form .secondary, form .destructive { width: 100%; margin-top: 6px
   padding: 24px;
 }
 .plan { background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 38%, var(--surface)), var(--surface) 70%); }
-.plan.supporter { background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 70%, var(--surface)), color-mix(in srgb, #7b5cff 45%, var(--surface))); }
+.plan.premium { background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 70%, var(--surface)), color-mix(in srgb, #7b5cff 45%, var(--surface))); }
 .who { display: flex; align-items: center; gap: 18px; }
 .who h1 { font-size: 26px; margin: 0 0 2px; overflow-wrap: anywhere; }
 .who p { margin: 0; overflow-wrap: anywhere; }
@@ -182,3 +182,6 @@ form .primary, form .secondary, form .destructive { width: 100%; margin-top: 6px
 .stats span { color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
 @media (max-width: 420px) { .stats strong { font-size: 22px; } }
 .list + .small { margin-top: 8px; }
+.benefits { list-style: none; padding: 0; margin: 4px 0 20px; display: grid; gap: 10px; }
+.benefits li { display: flex; gap: 12px; align-items: center; background: var(--surface); border-radius: 10px; padding: 12px 14px; }
+.panel .small { margin-top: 12px; }

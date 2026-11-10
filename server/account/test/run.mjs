@@ -77,8 +77,8 @@ try {
   let response = await call("GET", "/health");
   check(response.status === 200 && response.data.status === "ok", "health");
   response = await call("GET", "/v1/status");
-  check(response.data.accountLoginEnabled === true && response.data.emailEnabled === false && response.data.patreonEnabled === true,
-    "status", response.data);
+  check(response.data.accountLoginEnabled === true && response.data.emailEnabled === false && response.data.patreonEnabled === true &&
+    response.data.premiumEnabled === true, "status", response.data);
   response = await call("GET", "/account");
   check(response.status === 200 && String(response.data).includes("account.js"), "page served", response.status);
   check((response.headers.get("Content-Security-Policy") ?? "").includes("frame-ancestors 'none'"), "page CSP");
@@ -205,12 +205,12 @@ try {
   });
   check(response.status === 200 && response.data.accepted, "webhook accepted", response.data);
   response = await call("GET", "/v1/premium", { bearer: token });
-  check(response.data.supporter === true && response.data.entitledCents === 500, "supporter", response.data);
+  check(response.data.premium === true && response.data.entitledCents === 500, "premium", response.data);
   response = await call("POST", "/v1/patreon/webhook", {
     raw: true, body: event, origin: null, headers: { "X-Patreon-Event": "members:delete", "X-Patreon-Signature": signature },
   });
   response = await call("GET", "/v1/premium", { bearer: token });
-  check(response.data.supporter === false && response.data.status === "former_patron", "membership ended", response.data);
+  check(response.data.premium === false && response.data.status === "former_patron", "membership ended", response.data);
   response = await call("POST", "/v1/patreon/disconnect", { cookies: browser, body: {} });
   check(response.status === 204, "patreon unlinked", response.status);
 

@@ -3,10 +3,10 @@
 ## 1.30.0 (2026-11-10)
 
 ### Added
-- **Seaglass account** (iPhone, iPad and Mac). **Settings › Account** signs in to a Seaglass account, or creates one, through its web page. Favourites, playlists (their names and songs), the listening history and listening preferences (audio quality, transitions, lyrics, appearance) are then the same on every device signed in: what one device adds or removes, the others do too, and when two devices change the same playlist both changes are kept. Downloads, playlist covers and Mixes stay on each device; signing out keeps the library on the device. As on Spotify, the app only shows the account (name, email, plan, last sync): the name, the password, the Patreon membership and deleting the account are on the account page, opened by **Manage account**.
-- **Supporting Seaglass on Patreon**, linked on the account page. Supporters get a badge beside their name in the app; every feature stays free.
+- **Seaglass account** (iPhone, iPad and Mac). **Settings › Account** signs in to a Seaglass account, or creates one, through its web page. Favourites, playlists (their names and songs), the listening history and listening preferences (audio quality, transitions, lyrics, appearance) are then the same on every device signed in: what one device adds or removes, the others do too, and when two devices change the same playlist both changes are kept. Downloads, playlist covers and Mixes stay on each device; signing out keeps the library on the device. As on Spotify, the app only shows the account (name, email, plan, last sync): the name, the password, the subscription and deleting the account are on the account page, opened by **Manage account**.
+- **Seaglass Premium**, a subscription on Patreon linked on the account page. Premium unlocks importing playlists from links (Spotify, Apple Music, YouTube), song recognition, lyrics translation, AI karaoke and Tempo; without it they show what Premium is and lead to the account page, as Spotify's app does. Listening, the library, AutoMix, downloads and importing playlists from files stay free. Premium is checked when the app opens and keeps working offline for 30 days.
 
-The account is available in builds that know the account service (see `server/account/README.md`).
+The account and Premium are available in builds that know the account service (see `server/account/README.md`); where Premium can't be bought there (no Patreon set up), its features stay unlocked. The Android app has no accounts yet, and its features are unchanged.
 
 ## 1.29.1 (2026-11-09)
 

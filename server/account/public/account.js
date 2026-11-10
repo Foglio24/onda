@@ -15,7 +15,7 @@ const strings = {
     send: "Invia", back: "Indietro", resetTitle: "Scegli una nuova password", newPassword: "Nuova password", save: "Salva",
     verifyTitle: "Conferma la tua email", verifyLead: "Ti abbiamo mandato un link: aprilo per attivare l'account, poi accedi.",
     verifyResend: "Invia di nuovo", yourPlan: "Il tuo piano", sectionAccount: "Account", editProfile: "Modifica profilo",
-    changePassword: "Cambia password", membership: "Sostieni Seaglass", sectionLibrary: "La tua libreria",
+    changePassword: "Cambia password", membership: "Seaglass Premium", sectionLibrary: "La tua libreria",
     playlists: "Playlist", liked: "Brani che ti piacciono", history: "Ascoltati di recente",
     downloadData: "Scarica i tuoi dati", sectionSecurity: "Sicurezza e privacy", signOutEverywhere: "Esci ovunque",
     deleteAccount: "Elimina account",
@@ -24,20 +24,20 @@ const strings = {
     currentPassword: "Password attuale",
     passwordChangeHint: "Almeno 12 caratteri. Gli altri dispositivi dovranno accedere di nuovo.",
     setPassword: "Imposta nuova password",
-    membershipLead: "Seaglass è gratuito e lo resta: il sostegno su Patreon aiuta a svilupparlo. In cambio hai il badge di sostenitore nell'app.",
+    membershipLead: "Premium sblocca l'import delle playlist da link, il riconoscimento dei brani, la traduzione dei testi, il karaoke AI e il Tempo. Si attiva con l'abbonamento a Seaglass su Patreon, collegato a questo account.",
     deleteLead: "Eliminiamo subito l'account e tutto ciò che è sincronizzato: playlist, brani che ti piacciono, cronologia, preferenze e il collegamento a Patreon. Sui dispositivi la libreria resta, ma non si sincronizza più. Non si può annullare.",
     deletePatreon: "L'eventuale abbonamento su Patreon si annulla su Patreon.",
     deleteConfirm: "Per confermare scrivi la tua email", deleteButton: "Elimina definitivamente",
     loading: "Caricamento…", footer: "Seaglass non è affiliato a YouTube né a Patreon.",
-    planFree: "Seaglass", planFreeDetail: "Tutte le funzioni, gratis.", planSupporter: "Sostenitore",
-    planSupporterDetail: "Grazie: sostieni Seaglass su Patreon.", planDeclined: "Pagamento non riuscito su Patreon",
-    planDeclinedDetail: "Aggiorna il metodo di pagamento su Patreon per restare sostenitore.",
-    becomeSupporter: "Diventa sostenitore", managePatreon: "Gestisci su Patreon", linkPatreon: "Collega Patreon",
-    unlinkPatreon: "Scollega Patreon", patreonSoon: "Il sostegno su Patreon arriverà presto.",
-    patreonNotLinked: "Non collegato", patreonNotLinkedDetail: "Collega il tuo account Patreon: se sostieni Seaglass, il tuo piano si aggiorna da solo.",
-    patreonActive: "Sostenitore attivo", patreonLinkedNone: "Collegato, nessun abbonamento",
-    patreonLinkedNoneDetail: "Il tuo account Patreon è collegato ma non sostiene Seaglass. Se ti iscrivi, il piano si aggiorna da solo.",
-    patreonFormer: "Ex sostenitore", patreonDeclined: "Pagamento non riuscito",
+    planFree: "Seaglass Free", planFreeDetail: "Ascolto, libreria, AutoMix e download.", planSupporter: "Seaglass Premium",
+    planSupporterDetail: "Import da link, riconoscimento dei brani, traduzioni, karaoke e Tempo.", planDeclined: "Pagamento non riuscito su Patreon",
+    planDeclinedDetail: "Aggiorna il metodo di pagamento su Patreon per mantenere Premium.",
+    becomeSupporter: "Passa a Premium", managePatreon: "Gestisci abbonamento", linkPatreon: "Collega Patreon",
+    unlinkPatreon: "Scollega Patreon", patreonSoon: "Premium arriverà presto.",
+    patreonNotLinked: "Patreon non collegato", patreonNotLinkedDetail: "Abbonati a Seaglass su Patreon, poi collega qui il tuo account Patreon: Premium si attiva da solo.",
+    patreonActive: "Premium attivo", patreonLinkedNone: "Collegato, senza abbonamento",
+    patreonLinkedNoneDetail: "Il tuo account Patreon è collegato ma non ha un abbonamento attivo a Seaglass. Quando ti abboni, Premium si attiva da solo.",
+    patreonFormer: "Abbonamento terminato", patreonDeclined: "Pagamento non riuscito",
     patreonUpdated: "Aggiornato il %s.",
     memberSince: "Su Seaglass dal %s", syncedAt: "Ultima sincronizzazione: %s", neverSynced: "La libreria non è ancora stata sincronizzata: accedi dall'app.",
     emailUnverified: "Email non confermata",
@@ -58,6 +58,12 @@ const strings = {
     errConfirmEmail: "L'email non corrisponde a quella dell'account.", errNetwork: "Connessione non riuscita. Riprova.",
     errGeneric: "Qualcosa è andato storto. Riprova.", errPatreonUnavailable: "Patreon non è ancora configurato.",
     forgotUnavailable: "Il recupero della password via email non è ancora disponibile.",
+    benefitLinks: "Importa playlist da Spotify, Apple Music e YouTube con un link",
+    benefitRecognition: "Riconosci il brano che stai ascoltando",
+    benefitTranslation: "Traduci i testi mentre ascolti",
+    benefitKaraoke: "Karaoke AI: togli la voce o ascolta solo quella",
+    benefitTempo: "Tempo: brani più veloci o più lenti, con il key lock",
+    premiumHow: "Abbonati su Patreon e collega qui il tuo account Patreon: Premium si attiva nell'app su iPhone, iPad e Mac.",
   },
   en: {
     signOut: "Log out", loginTitle: "Log in to Seaglass", email: "Email", password: "Password", loginButton: "Log in",
@@ -70,7 +76,7 @@ const strings = {
     send: "Send", back: "Back", resetTitle: "Choose a new password", newPassword: "New password", save: "Save",
     verifyTitle: "Confirm your email", verifyLead: "We sent you a link: open it to activate your account, then log in.",
     verifyResend: "Send again", yourPlan: "Your plan", sectionAccount: "Account", editProfile: "Edit profile",
-    changePassword: "Change password", membership: "Support Seaglass", sectionLibrary: "Your library",
+    changePassword: "Change password", membership: "Seaglass Premium", sectionLibrary: "Your library",
     playlists: "Playlists", liked: "Liked songs", history: "Recently played",
     downloadData: "Download your data", sectionSecurity: "Security and privacy", signOutEverywhere: "Sign out everywhere",
     deleteAccount: "Delete account",
@@ -79,20 +85,20 @@ const strings = {
     currentPassword: "Current password",
     passwordChangeHint: "At least 12 characters. Your other devices will need to log in again.",
     setPassword: "Set new password",
-    membershipLead: "Seaglass is free and stays free: support on Patreon helps develop it. In return you get the supporter badge in the app.",
+    membershipLead: "Premium unlocks importing playlists from links, song recognition, lyrics translation, AI karaoke and Tempo. It comes with a Seaglass membership on Patreon, linked to this account.",
     deleteLead: "We delete your account and everything synced right away: playlists, liked songs, history, preferences and the Patreon link. Your devices keep their library, but it no longer syncs. This can't be undone.",
     deletePatreon: "A Patreon membership is cancelled on Patreon.",
     deleteConfirm: "To confirm, type your email", deleteButton: "Delete permanently",
     loading: "Loading…", footer: "Seaglass isn't affiliated with YouTube or Patreon.",
-    planFree: "Seaglass", planFreeDetail: "Every feature, free.", planSupporter: "Supporter",
-    planSupporterDetail: "Thank you for supporting Seaglass on Patreon.", planDeclined: "Payment declined on Patreon",
-    planDeclinedDetail: "Update your payment method on Patreon to stay a supporter.",
-    becomeSupporter: "Become a supporter", managePatreon: "Manage on Patreon", linkPatreon: "Link Patreon",
-    unlinkPatreon: "Unlink Patreon", patreonSoon: "Support on Patreon is coming soon.",
-    patreonNotLinked: "Not linked", patreonNotLinkedDetail: "Link your Patreon account: if you support Seaglass, your plan updates by itself.",
-    patreonActive: "Active supporter", patreonLinkedNone: "Linked, no membership",
-    patreonLinkedNoneDetail: "Your Patreon account is linked but doesn't support Seaglass. If you join, your plan updates by itself.",
-    patreonFormer: "Former supporter", patreonDeclined: "Payment declined",
+    planFree: "Seaglass Free", planFreeDetail: "Listening, your library, AutoMix and downloads.", planSupporter: "Seaglass Premium",
+    planSupporterDetail: "Link imports, song recognition, translations, karaoke and Tempo.", planDeclined: "Payment declined on Patreon",
+    planDeclinedDetail: "Update your payment method on Patreon to keep Premium.",
+    becomeSupporter: "Get Premium", managePatreon: "Manage membership", linkPatreon: "Link Patreon",
+    unlinkPatreon: "Unlink Patreon", patreonSoon: "Premium is coming soon.",
+    patreonNotLinked: "Patreon not linked", patreonNotLinkedDetail: "Join Seaglass on Patreon, then link your Patreon account here: Premium turns on by itself.",
+    patreonActive: "Premium active", patreonLinkedNone: "Linked, no membership",
+    patreonLinkedNoneDetail: "Your Patreon account is linked but has no active Seaglass membership. When you join, Premium turns on by itself.",
+    patreonFormer: "Membership ended", patreonDeclined: "Payment declined",
     patreonUpdated: "Updated on %s.",
     memberSince: "On Seaglass since %s", syncedAt: "Last synced: %s", neverSynced: "Your library hasn't synced yet: log in from the app.",
     emailUnverified: "Email not confirmed",
@@ -113,6 +119,12 @@ const strings = {
     errConfirmEmail: "The email doesn't match the account's.", errNetwork: "Couldn't connect. Try again.",
     errGeneric: "Something went wrong. Try again.", errPatreonUnavailable: "Patreon isn't set up yet.",
     forgotUnavailable: "Password recovery by email isn't available yet.",
+    benefitLinks: "Import playlists from Spotify, Apple Music and YouTube with a link",
+    benefitRecognition: "Recognize the song you're hearing",
+    benefitTranslation: "Translate lyrics as you listen",
+    benefitKaraoke: "AI karaoke: remove the vocals or hear only them",
+    benefitTempo: "Tempo: songs faster or slower, with key lock",
+    premiumHow: "Join on Patreon and link your Patreon account here: Premium turns on in the app on iPhone, iPad and Mac.",
   },
 };
 const language = (navigator.languages ?? [navigator.language]).map((tag) => String(tag).slice(0, 2).toLowerCase())
@@ -131,6 +143,8 @@ const params = new URLSearchParams(location.search);
 // Where the sign-in was started: "app" ends back in the app, anything else stays on the page.
 const loginMode = params.get("login");
 const resetToken = params.get("reset");
+// The app's "Get Premium" opens the page here: the Premium section once signed in.
+let pendingView = params.get("view") === "premium" ? "membership" : null;
 const deletionPhrase = "ELIMINA IL MIO ACCOUNT";
 let status = { emailEnabled: false, patreonEnabled: false };
 let account = null;
@@ -311,7 +325,8 @@ async function loadAccount() {
     return;
   }
   renderOverview();
-  show("overview");
+  show(pendingView ?? "overview");
+  pendingView = null;
 }
 
 function displayName() {
@@ -331,8 +346,8 @@ function renderOverview() {
   const plan = $("#plan");
   const actions = $("#plan-actions");
   actions.replaceChildren();
-  plan.classList.toggle("supporter", Boolean(membership.supporter));
-  if (membership.supporter) {
+  plan.classList.toggle("premium", Boolean(membership.premium));
+  if (membership.premium) {
     $("#plan-name").textContent = t("planSupporter");
     $("#plan-detail").textContent = t("planSupporterDetail");
     actions.append(button(t("managePatreon"), () => show("membership"), "secondary"));
@@ -425,8 +440,8 @@ function renderMembership() {
   if (!membership.linked) {
     $("#membership-state").textContent = t("patreonNotLinked");
     $("#membership-detail").textContent = t("patreonNotLinkedDetail");
-    actions.append(button(t("linkPatreon"), connectPatreon, "primary"));
-    if (membership.joinURL) actions.append(link(t("becomeSupporter"), membership.joinURL));
+    if (membership.joinURL) actions.append(link(t("becomeSupporter"), membership.joinURL, "primary"));
+    actions.append(button(t("linkPatreon"), connectPatreon, membership.joinURL ? "secondary" : "primary"));
     return;
   }
   const states = {
@@ -437,9 +452,11 @@ function renderMembership() {
   const [state, detail] = states[membership.status] ?? ["patreonLinkedNone", "patreonLinkedNoneDetail"];
   $("#membership-state").textContent = t(state);
   $("#membership-detail").textContent = t(detail) + updated;
-  if (membership.joinURL) {
-    actions.append(link(t(membership.supporter ? "managePatreon" : "becomeSupporter"), membership.joinURL,
-      membership.supporter ? "secondary" : "primary"));
+  if (membership.premium || membership.status === "declined_patron") {
+    // Patreon's own page of the memberships: cancelling, changing tier, the payment method.
+    actions.append(link(t("managePatreon"), "https://www.patreon.com/settings/memberships", "secondary"));
+  } else if (membership.joinURL) {
+    actions.append(link(t("becomeSupporter"), membership.joinURL, "primary"));
   }
   actions.append(button(t("unlinkPatreon"), disconnectPatreon, "secondary"));
 }
@@ -552,7 +569,7 @@ for (const element of document.querySelectorAll("[data-go]")) {
     show("login");
     return;
   }
-  if (params.has("patreon") || params.has("verify") || loginMode) history.replaceState(null, "", "/account");
+  if (params.has("patreon") || params.has("verify") || params.has("view") || loginMode) history.replaceState(null, "", "/account");
   await loadAccount();
   if (outcome) {
     if (account) show("membership");

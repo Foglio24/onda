@@ -19,6 +19,9 @@ import UIKit
 enum LaunchScene {
     private static var scene: String? { UserDefaults.standard.string(forKey: "SeaglassScene") }
 
+    /// A screenshot scene is open: every screen is shown as it is, Premium's included.
+    static var isActive: Bool { scene != nil }
+
     /// Library → Download is opened at launch.
     static var opensDownloads: Bool {
         scene?.hasPrefix("downloads") == true || opensStorage

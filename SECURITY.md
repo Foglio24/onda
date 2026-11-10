@@ -32,8 +32,8 @@ Out of scope:
   `server/account`, on Cloudflare): liked songs, playlists (name and songs), the listening
   history and some listening preferences are then kept on it and synced between devices.
   Downloads, playlist covers and Mixes stay on each device. The account is managed on its web
-  page (name, password, Patreon, deleting it, downloading its data); deleting it deletes
-  everything synced at once.
+  page (name, password, the Premium subscription on Patreon, deleting it, downloading its data);
+  deleting it deletes everything synced at once.
 - **Network.** The apps talk only to:
   - YouTube Music (`music.youtube.com`, and `www.youtube.com` and Google's media hosts for
     streams);

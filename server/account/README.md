@@ -3,13 +3,16 @@
 A Cloudflare Worker with a D1 database. It gives Seaglass accounts, as Spotify does:
 
 - **The account page** (`/account`): sign up, log in, reset the password, edit the first name,
-  last name and display name, change the password, link Patreon, download the data, sign out
-  everywhere and delete the account. Everything about the account is managed here.
+  last name and display name, change the password, get Premium (Patreon), download the data,
+  sign out everywhere and delete the account. Everything about the account is managed here.
 - **The app** (iPhone, iPad and Mac) signs in through the page, then only shows the account
   (name, email, plan, last sync) and signs out. It syncs the library (liked songs, playlists,
   history) and some preferences.
-- **Patreon** instead of a subscription of our own: supporting Seaglass is a Patreon membership,
-  linked on the page. Every feature stays free; supporters get a badge in the app.
+- **Seaglass Premium** is a Patreon membership of Seaglass's campaign, linked on the page: an
+  active paid membership (at least `PREMIUM_MIN_CENTS` a month, any paid tier by default) is
+  Premium. In the app it unlocks importing playlists from links, song recognition, lyrics
+  translation, AI karaoke and Tempo. The app locks them only when the service says Premium can be
+  bought (`premiumEnabled` in `/v1/status`: Patreon set up, with `PATREON_URL`).
 
 ## Layout
 
@@ -56,7 +59,7 @@ more than one account, also add the variable `CLOUDFLARE_ACCOUNT_ID`. With more 
 the first one alphabetically is used: set the variable `SEAGLASS_ACCOUNT_DOMAIN` (for example
 `account.example.com`) to choose.
 
-### 2. Patreon (optional: the page says "coming soon" without it)
+### 2. Patreon, for Premium (optional: without it Premium "is coming soon" and the app keeps every feature unlocked)
 
 1. On <https://www.patreon.com/portal/registration/register-clients>, create a client with the
    redirect URI `https://account.<domain>/v1/patreon/callback`.
@@ -66,7 +69,8 @@ the first one alphabetically is used: set the variable `SEAGLASS_ACCOUNT_DOMAIN`
    `members:pledge:delete` triggers.
 3. In GitHub add the secrets `PATREON_CLIENT_ID`, `PATREON_CLIENT_SECRET` and
    `PATREON_WEBHOOK_SECRET` (the webhook's secret), and the variables `PATREON_URL` (the
-   campaign's page, `https://www.patreon.com/<name>`) and `PATREON_CAMPAIGN_ID`.
+   campaign's page, `https://www.patreon.com/<name>`), `PATREON_CAMPAIGN_ID` and, optionally,
+   `PREMIUM_MIN_CENTS` (the least a tier pays a month to be Premium, in cents).
 4. Run the "Account service" workflow again.
 
 ### 3. Email (optional: password reset and email confirmation)

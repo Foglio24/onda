@@ -73,8 +73,13 @@ private struct SyncedLyrics: View, Equatable {
     @EnvironmentObject private var translator: LyricsTranslator
     @AppStorage(Preferences.lyricsStyle) private var style: LyricsStyle = .focus
     @AppStorage(Preferences.lyricsSize) private var size: LyricsSize = .medium
-    @AppStorage(Preferences.lyricsTranslate) private var translateEnabled = false
+    @AppStorage(Preferences.lyricsTranslate) private var translateSetting = false
     @AppStorage(Preferences.lyricsTranslationTarget) private var targetIdentifier = Preferences.defaultTranslationTarget
+    @ObservedObject private var account = AccountService.shared
+    @State private var paywall: PremiumFeature?
+
+    /// Translation is a Premium feature where Premium can be bought.
+    private var translateEnabled: Bool { translateSetting && account.unlocks(.lyricsTranslation) }
 
     /// Used only to download a missing language, which shows the system sheet.
     @State private var configuration: TranslationSession.Configuration?
@@ -180,8 +185,12 @@ private struct SyncedLyrics: View, Equatable {
     private var translationControls: some View {
         VStack(alignment: .trailing, spacing: 6) {
             Button {
-                translateEnabled.toggle()
-                userAskedToTranslate = translateEnabled
+                guard account.unlocks(.lyricsTranslation) else {
+                    paywall = .lyricsTranslation
+                    return
+                }
+                translateSetting.toggle()
+                userAskedToTranslate = translateSetting
             } label: {
                 Image(systemName: "translate")
                     .font(.footnote.weight(.semibold))
@@ -213,6 +222,7 @@ private struct SyncedLyrics: View, Equatable {
         }
         .foregroundStyle(.white)
         .padding(.top, 4)
+        .premiumPaywall($paywall)
     }
 
     /// The system shows its download sheet for the language, then the lines are translated.

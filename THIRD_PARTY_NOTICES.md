@@ -70,4 +70,4 @@ to their respective rights holders.
   (MIT); the app uses Apple's local ShazamKit signature generator and does not bundle ShazamIO.
 - **GitHub**: release information and downloads for the update check.
 - **Cloudflare**: hosts Seaglass's own account service (Workers and D1), when the user signs in.
-- **Patreon**: supporting Seaglass, linked on the account page.
+- **Patreon**: the Seaglass Premium subscription, linked on the account page.

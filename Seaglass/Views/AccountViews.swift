@@ -14,7 +14,7 @@ struct AccountSettingsRow: View {
                         Text(account.details?.name ?? String(localized: "Account Seaglass"))
                             .font(.title3.weight(.semibold))
                             .lineLimit(1)
-                        if account.details?.isSupporter == true { SupporterBadge() }
+                        if account.hasPremium { PremiumBadge() }
                     }
                     Text(account.details?.email ?? "")
                         .font(.subheadline)
@@ -66,7 +66,7 @@ struct AccountSettingsView: View {
                 AccountAvatar(name: nil, size: 72)
                 Text("Account Seaglass")
                     .font(.title2.weight(.bold))
-                Text("Accedi per salvare playlist, preferiti, cronologia e preferenze, e ritrovarli su iPhone, iPad e Mac.")
+                Text("Accedi per salvare playlist, preferiti, cronologia e preferenze, ritrovarli su iPhone, iPad e Mac e usare Premium.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -102,7 +102,7 @@ struct AccountSettingsView: View {
                 HStack(spacing: 8) {
                     Text(details?.name ?? String(localized: "Account Seaglass"))
                         .font(.title2.weight(.bold))
-                    if details?.isSupporter == true { SupporterBadge() }
+                    if account.hasPremium { PremiumBadge() }
                 }
                 if let email = details?.email {
                     Text(email)
@@ -127,9 +127,23 @@ struct AccountSettingsView: View {
                         }
                     }
                 }
-                LabeledContent("Piano", value: details.isSupporter
-                               ? String(localized: "Sostenitore su Patreon") : String(localized: "Gratuito"))
+                LabeledContent("Piano", value: account.hasPremium
+                               ? String(localized: "Seaglass Premium") : String(localized: "Seaglass Free"))
                 LabeledContent("Su Seaglass dal", value: details.memberSince.formatted(date: .long, time: .omitted))
+            }
+        }
+        // As in Spotify's app: Premium is bought on the website, the app only leads there.
+        if account.premiumEnabled, !account.hasPremium, let premiumURL = account.premiumURL {
+            Section {
+                Button {
+                    account.expectPremium()
+                    openURL(premiumURL)
+                } label: {
+                    Label("Passa a Premium", systemImage: "crown.fill")
+                        .fontWeight(.semibold)
+                }
+            } footer: {
+                Text("Premium sblocca l'import delle playlist da link, il riconoscimento dei brani, la traduzione dei testi, il karaoke AI e il Tempo.")
             }
         }
         Section {
@@ -171,7 +185,7 @@ struct AccountSettingsView: View {
                 }
             }
         } footer: {
-            Text("Nome, password, abbonamento ed eliminazione dell'account si gestiscono sul sito di Seaglass.")
+            Text("Nome, password, abbonamento Premium ed eliminazione dell'account si gestiscono sul sito di Seaglass.")
         }
         Section {
             Button("Esci", role: .destructive) { confirmSignOut = true }
@@ -214,15 +228,141 @@ private struct AccountAvatar: View {
     }
 }
 
-/// Shown beside the name of who supports Seaglass on Patreon.
-struct SupporterBadge: View {
+/// Shown beside the name of a Premium account.
+struct PremiumBadge: View {
     var body: some View {
-        Label("Sostenitore", systemImage: "heart.fill")
+        Label("Premium", systemImage: "crown.fill")
             .labelStyle(.titleAndIcon)
             .font(.caption.weight(.semibold))
             .foregroundStyle(.white)
             .padding(.horizontal, 8)
             .padding(.vertical, 3)
             .background(Capsule().fill(LinearGradient(colors: [.pink, .purple], startPoint: .leading, endPoint: .trailing)))
+    }
+}
+
+// MARK: Premium
+
+/// What a Premium feature shows without Premium: what Premium unlocks and where to get it. As in
+/// Spotify's app, it is bought on the website (the account page, with Patreon), not in the app.
+struct PremiumView: View {
+    let feature: PremiumFeature
+    @ObservedObject private var account = AccountService.shared
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
+    @Environment(\.webAuthenticationSession) private var webAuthenticationSession
+    @AppStorage(Preferences.accent) private var accent: AccentChoice = .pink
+    @State private var checking = false
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 22) {
+                    Image(systemName: "crown.fill")
+                        .font(.system(size: 46, weight: .semibold))
+                        .foregroundStyle(LinearGradient(colors: [accent.color, .purple], startPoint: .topLeading, endPoint: .bottomTrailing))
+                        .padding(.top, 12)
+                    VStack(spacing: 8) {
+                        Text("Seaglass Premium")
+                            .font(.largeTitle.weight(.bold))
+                        Text(String(localized: "\(feature.title) fa parte di Premium."))
+                            .font(.headline)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    VStack(alignment: .leading, spacing: 14) {
+                        ForEach(PremiumFeature.allCases) { item in
+                            Label(item.title, systemImage: item.symbol)
+                                .fontWeight(item == feature ? .semibold : .regular)
+                                .foregroundStyle(item == feature ? accent.color : .primary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                    .padding(18)
+                    .background(.thinMaterial, in: .rect(cornerRadius: 18))
+                    actions
+                    Text("Premium è l'abbonamento a Seaglass su Patreon: si attiva e si gestisce sul sito di Seaglass e vale su iPhone, iPad e Mac.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .padding(24)
+                .frame(maxWidth: 520)
+                .frame(maxWidth: .infinity)
+            }
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Fine") { dismiss() }
+                }
+            }
+        }
+        .onChange(of: account.hasPremium) { _, premium in
+            if premium { dismiss() }
+        }
+    }
+
+    @ViewBuilder private var actions: some View {
+        VStack(spacing: 12) {
+            if account.isSignedIn {
+                if let premiumURL = account.premiumURL {
+                    Button {
+                        account.expectPremium()
+                        openURL(premiumURL)
+                    } label: {
+                        Text("Passa a Premium")
+                            .fontWeight(.semibold)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 6)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(accent.color)
+                }
+                Button {
+                    Task {
+                        checking = true
+                        await account.refresh(force: true)
+                        checking = false
+                    }
+                } label: {
+                    if checking { ProgressView() } else { Text("Ho già Premium") }
+                }
+                .disabled(checking)
+            } else {
+                Button {
+                    Task { await account.signIn(using: webAuthenticationSession) }
+                } label: {
+                    Group {
+                        if account.isSigningIn { ProgressView() } else { Text("Accedi per usare Premium").fontWeight(.semibold) }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 6)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(accent.color)
+                .disabled(account.isSigningIn)
+                if let error = account.signInError {
+                    Text(error).font(.footnote).foregroundStyle(.red)
+                }
+            }
+        }
+    }
+}
+
+extension View {
+    /// Shows `PremiumView` for the feature set in `feature`.
+    func premiumPaywall(_ feature: Binding<PremiumFeature?>) -> some View {
+        sheet(item: feature) { PremiumView(feature: $0).appEnvironment() }
+    }
+}
+
+/// A small crown on a control whose feature needs Premium.
+struct PremiumLock: View {
+    var body: some View {
+        Image(systemName: "crown.fill")
+            .font(.system(size: 9, weight: .bold))
+            .foregroundStyle(.white)
+            .padding(3)
+            .background(Circle().fill(LinearGradient(colors: [.pink, .purple], startPoint: .topLeading, endPoint: .bottomTrailing)))
+            .accessibilityLabel(Text("Premium"))
     }
 }

@@ -15,6 +15,8 @@ struct LibraryView: View {
     @State private var importResult: Playlist?
     @State private var importSuccess: String?
     @State private var showImportFile = false
+    @ObservedObject private var account = AccountService.shared
+    @State private var paywall: PremiumFeature?
     @State private var showFilePlaylists = false
     @State private var filePlaylists: [PlaylistImportSource] = []
 
@@ -56,6 +58,11 @@ struct LibraryView: View {
                         Label("Nuova playlist", systemImage: "plus.circle.fill")
                     }
                     Button {
+                        // Importing from a link is a Premium feature where Premium can be bought.
+                        guard account.unlocks(.playlistLinks) else {
+                            paywall = .playlistLinks
+                            return
+                        }
                         importLink = ""
                         showImport = true
                     } label: {
@@ -65,7 +72,13 @@ struct LibraryView: View {
                                 Text(status).foregroundStyle(.secondary)
                             }
                         } else {
-                            Label("Importa da Spotify, Apple Music o YouTube", systemImage: "square.and.arrow.down.fill")
+                            HStack {
+                                Label("Importa da Spotify, Apple Music o YouTube", systemImage: "square.and.arrow.down.fill")
+                                if !account.unlocks(.playlistLinks) {
+                                    Spacer()
+                                    PremiumBadge()
+                                }
+                            }
                         }
                     }
                     .disabled(importer.status != nil)
@@ -102,6 +115,7 @@ struct LibraryView: View {
                 Button("Crea") { library.createPlaylist(named: newName) }
                 Button("Annulla", role: .cancel) {}
             }
+            .premiumPaywall($paywall)
             .alert("Importa playlist", isPresented: $showImport) {
                 TextField("Link della playlist", text: $importLink)
                     .textInputAutocapitalization(.never)

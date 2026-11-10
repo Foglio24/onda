@@ -3,16 +3,22 @@ import SwiftUI
 
 /// The same entry point on the Home and Search pages, on iPhone, iPad and Mac.
 struct RecognitionButton: View {
+    @ObservedObject private var account = AccountService.shared
     @State private var showsRecognition = false
     @State private var openedPreview = false
+    @State private var paywall: PremiumFeature?
 
     var body: some View {
-        Button { showsRecognition = true } label: {
+        Button {
+            // A Premium feature where Premium can be bought.
+            if account.unlocks(.recognition) { showsRecognition = true } else { paywall = .recognition }
+        } label: {
             Label("Riconosci un brano", systemImage: "waveform.badge.magnifyingglass")
         }
         .sheet(isPresented: $showsRecognition) {
             RecognitionView(previewPhase: LaunchScene.recognitionPreview).appEnvironment()
         }
+        .premiumPaywall($paywall)
         .onAppear {
             guard LaunchScene.opensRecognition, !openedPreview else { return }
             openedPreview = true

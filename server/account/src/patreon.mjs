@@ -1,10 +1,11 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { HttpError, json, readText, respond, unix } from "./http.mjs";
 
-// Supporting Seaglass goes through Patreon instead of a subscription of our own: the account page
-// links an account to its Patreon membership of Seaglass's campaign (OAuth, the "identity" scope,
-// which shows memberships of this client's own campaign), and Patreon's webhooks keep the status
-// current. Patreon's tokens are used once, to read the membership, and never kept.
+// Seaglass Premium is a Patreon membership of Seaglass's campaign: the account page links an
+// account to it (OAuth, the "identity" scope, which shows memberships of this client's own
+// campaign), and Patreon's webhooks keep its status current. An active paid membership (at least
+// PREMIUM_MIN_CENTS a month, any paid tier by default) is Premium, which unlocks features in the
+// app. Patreon's tokens are used once, to read the membership, and never kept.
 
 const authorizeURL = "https://www.patreon.com/oauth2/authorize";
 const tokenURL = "https://www.patreon.com/api/oauth2/token";
@@ -145,8 +146,8 @@ export async function patreonWebhook(request, env) {
   return json({ accepted: true });
 }
 
-/** What the app and the page show: whether the account supports Seaglass on Patreon. */
-export async function supporter(env, accountId) {
+/** What the app and the page show: the account's Patreon membership and whether it is Premium. */
+export async function membership(env, accountId) {
   const link = await env.DB.prepare("SELECT patron_status, entitled_cents, linked_at, updated_at FROM patreon_links WHERE account_id = ?")
     .bind(accountId).first();
   return {
@@ -154,12 +155,18 @@ export async function supporter(env, accountId) {
     available: patreonConfigured(env),
     joinURL: joinURL(env),
     linked: Boolean(link),
-    supporter: link?.patron_status === "active_patron",
+    premium: isPremium(env, link),
     status: link?.patron_status ?? null,
     entitledCents: link?.entitled_cents ?? 0,
     linkedAt: link?.linked_at ?? null,
     updatedAt: link?.updated_at ?? null,
   };
+}
+
+function isPremium(env, link) {
+  const minimum = Number.parseInt(env.PREMIUM_MIN_CENTS ?? "", 10);
+  return link?.patron_status === "active_patron" &&
+    link.entitled_cents >= (Number.isSafeInteger(minimum) && minimum > 0 ? minimum : 1);
 }
 
 /** Seaglass's page on Patreon, only when it is one (it's shown as a link). */

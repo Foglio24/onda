@@ -6,8 +6,9 @@ import SwiftUI
 import UIKit
 
 /// Seaglass's account (the service in server/account). As with Spotify, the account is managed on
-/// its web page (name, password, Patreon, deleting it): the app signs in through that page, shows
-/// the account, keeps the library in sync with it and signs out.
+/// its web page (name, password, the Premium subscription, deleting it): the app signs in through
+/// that page, shows the account, keeps the library in sync with it, unlocks Premium's features
+/// and signs out.
 @MainActor
 final class AccountService: ObservableObject {
     static let shared = AccountService()
@@ -19,10 +20,11 @@ final class AccountService: ObservableObject {
             var lastName: String?
             var displayName: String?
         }
+        /// Seaglass Premium: a paid Patreon membership linked on the account page.
         struct Membership: Codable, Equatable {
             var available: Bool
             var linked: Bool
-            var supporter: Bool
+            var premium: Bool?
         }
         struct Records: Codable, Equatable {
             var playlist: Int?
@@ -46,7 +48,7 @@ final class AccountService: ObservableObject {
             if let display = profile?.displayName, !display.isEmpty { return display }
             return fullName ?? String(email.prefix { $0 != "@" })
         }
-        var isSupporter: Bool { membership?.supporter == true }
+        var isPremium: Bool { membership?.premium == true }
         var memberSince: Date { Date(timeIntervalSince1970: createdAt) }
     }
 
@@ -63,12 +65,33 @@ final class AccountService: ObservableObject {
     @Published private(set) var lastSync: Date?
     /// Shown under the sign-in button when signing in didn't work.
     @Published var signInError: String?
+    /// Whether Premium can be bought (the service says so): only then are its features locked.
+    @Published private(set) var premiumEnabled: Bool
 
     /// The service's address, set by CI in the Info.plist (build.yml): nil, no accounts.
     let origin: URL?
     var isAvailable: Bool { origin != nil }
     /// The account page, where everything about the account is changed.
     var manageURL: URL? { origin?.appending(path: "account") }
+    /// The account page's Premium section (after signing in there).
+    var premiumURL: URL? {
+        guard let manageURL else { return nil }
+        var components = URLComponents(url: manageURL, resolvingAgainstBaseURL: false)
+        components?.queryItems = [URLQueryItem(name: "view", value: "premium")]
+        return components?.url
+    }
+
+    /// Premium, as last confirmed by the service within the last 30 days (it works offline).
+    var hasPremium: Bool {
+        guard isSignedIn, details?.isPremium == true, let refreshedAt = state.refreshedAt else { return false }
+        return Date.now.timeIntervalSince(refreshedAt) < 30 * 86_400
+    }
+
+    /// Whether a Premium feature can be used: always in builds or setups where Premium can't be
+    /// bought (no account service, or no Patreon there), and in CI's screenshots.
+    func unlocks(_ feature: PremiumFeature) -> Bool {
+        LaunchScene.isActive || !premiumEnabled || hasPremium
+    }
 
     private static let callbackScheme = "com.onda.player.auth"
     private enum Keys {
@@ -84,6 +107,7 @@ final class AccountService: ObservableObject {
     private var scheduledSync: Task<Void, Never>?
     private var lastPreferences: [String: SyncValue] = [:]
     private var lastRefresh: Date?
+    private var lastStatus: Date?
 
     private init() {
         let origin = Self.configuredOrigin()
@@ -91,6 +115,7 @@ final class AccountService: ObservableObject {
         self.origin = origin
         state = stored
         isSignedIn = origin != nil && Keychain.get(Keys.token) != nil
+        premiumEnabled = origin != nil && stored.premiumEnabled == true
         details = stored.details
         lastSync = stored.lastSync
         lastPreferences = SyncedPreferences.read()
@@ -161,7 +186,9 @@ final class AccountService: ObservableObject {
         syncState = .idle
         scheduledSync?.cancel()
         state.details = nil
+        state.refreshedAt = nil
         state.save()
+        enforcePremium()
     }
 
     // MARK: The account
@@ -174,9 +201,11 @@ final class AccountService: ObservableObject {
             let data = try await send("v1/account", token: token)
             let fresh = try JSONDecoder().decode(Details.self, from: data)
             lastRefresh = .now
-            details = fresh
             state.details = fresh
+            state.refreshedAt = .now
             state.save()
+            details = fresh
+            enforcePremium()
         } catch AccountError.signedOut {
             endSession()
         } catch {
@@ -184,10 +213,40 @@ final class AccountService: ObservableObject {
         }
     }
 
+    /// Whether Premium can be bought, from the service (at most hourly). Without an answer the
+    /// last one stays.
+    func refreshStatus() async {
+        guard origin != nil else { return }
+        if let lastStatus, Date.now.timeIntervalSince(lastStatus) < 3600 { return }
+        struct Status: Decodable { var premiumEnabled: Bool? }
+        guard let data = try? await send("v1/status", token: nil),
+              let status = try? JSONDecoder().decode(Status.self, from: data) else { return }
+        lastStatus = .now
+        state.premiumEnabled = status.premiumEnabled == true
+        state.save()
+        premiumEnabled = status.premiumEnabled == true
+        enforcePremium()
+    }
+
+    /// The user went to the account page to get Premium: the next return to the app checks.
+    func expectPremium() {
+        lastRefresh = nil
+    }
+
+    /// Without Premium, its features that keep running (karaoke, a changed tempo) stop.
+    private func enforcePremium() {
+        let player = PlayerController.shared
+        if !unlocks(.karaoke), player.karaokeMode != .off { player.setKaraoke(.off) }
+        if !unlocks(.tempo), player.songTempo != 0 { player.setSongTempo(0) }
+    }
+
     /// The app came to the foreground: the account and what changed on the other devices.
     func appBecameActive() {
-        guard isSignedIn else { return }
+        guard isAvailable else { return }
+        enforcePremium()
         Task {
+            await refreshStatus()
+            guard isSignedIn else { return }
             await refresh()
             await sync()
         }
@@ -412,8 +471,12 @@ private struct StoredState: Codable {
 
     var accountID: String?
     var details: AccountService.Details?
+    /// When the service last confirmed the details (and so Premium).
+    var refreshedAt: Date?
     var lastSync: Date?
     var base: Base?
+    /// Whether Premium can be bought, as the service last said.
+    var premiumEnabled: Bool?
 
     private static var url: URL { Storage.support.appending(path: "account.json") }
 
@@ -481,6 +544,37 @@ enum SyncedPreferences {
             case (.string?, .string(let text)): defaults.set(text, forKey: key)
             default: break
             }
+        }
+    }
+}
+
+/// What Seaglass Premium unlocks, where Premium can be bought (see `AccountService.unlocks`).
+enum PremiumFeature: String, Identifiable, CaseIterable {
+    case playlistLinks
+    case recognition
+    case lyricsTranslation
+    case karaoke
+    case tempo
+
+    var id: Self { self }
+
+    var title: String {
+        switch self {
+        case .playlistLinks: return String(localized: "Importa playlist da link")
+        case .recognition: return String(localized: "Riconosci un brano")
+        case .lyricsTranslation: return String(localized: "Traduci i testi")
+        case .karaoke: return String(localized: "Karaoke AI")
+        case .tempo: return String(localized: "Tempo")
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .playlistLinks: return "link"
+        case .recognition: return "waveform.badge.magnifyingglass"
+        case .lyricsTranslation: return "translate"
+        case .karaoke: return "music.mic"
+        case .tempo: return "metronome"
         }
     }
 }

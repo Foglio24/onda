@@ -35,6 +35,8 @@
   "vars": {
     "PUBLIC_ORIGIN": "https://account.seaglass.test",
     "AUTH_EMAIL_READY": "false",
-    "PATREON_URL": ""
+    "PATREON_URL": "",
+    // The least a Patreon membership pays a month, in cents, to be Premium (1: any paid tier).
+    "PREMIUM_MIN_CENTS": "1"
   }
 }

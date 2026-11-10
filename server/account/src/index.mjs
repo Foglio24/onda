@@ -3,12 +3,12 @@ import {
   requestPasswordReset, requestVerification, resetPassword, startLogin, verifyEmail,
 } from "./auth.mjs";
 import { HttpError, json, readJson, respond, unix } from "./http.mjs";
-import { disconnectPatreon, finishPatreon, patreonConfigured, patreonWebhook, startPatreon, supporter } from "./patreon.mjs";
+import { disconnectPatreon, finishPatreon, patreonConfigured, patreonWebhook, startPatreon, membership } from "./patreon.mjs";
 import { pullLibrary, pullSync, writeSync } from "./sync.mjs";
 
 // Seaglass's account service: sign-in for the app and the account page, the library and
-// preferences the app syncs, and the Patreon membership. Everything about the account is
-// managed on the page (as on Spotify): the app only signs in, shows it and signs out.
+// preferences the app syncs, and Seaglass Premium (a Patreon membership). Everything about the
+// account is managed on the page (as on Spotify): the app only signs in, shows it and signs out.
 
 const recordPath = /^\/v1\/sync\/(profile|playlist|history|favorites|preferences|library)\/([a-z0-9-]+)$/;
 const authenticated = new Set([
@@ -39,14 +39,14 @@ async function asset(env, request, path) {
 }
 
 async function accountOverview(env, session) {
-  const [{ results }, profile, library, membership] = await Promise.all([
+  const [{ results }, profile, library, plan] = await Promise.all([
     env.DB.prepare(`SELECT kind, COUNT(*) AS count FROM sync_records
       WHERE account_id = ? AND payload IS NOT NULL GROUP BY kind`).bind(session.accountId).all(),
     env.DB.prepare("SELECT revision, payload FROM sync_records WHERE account_id = ? AND kind = 'profile' AND record_id = 'profile'")
       .bind(session.accountId).first(),
     env.DB.prepare("SELECT payload, updated_at FROM sync_records WHERE account_id = ? AND kind = 'library' AND record_id = 'library'")
       .bind(session.accountId).first(),
-    supporter(env, session.accountId),
+    membership(env, session.accountId),
   ]);
   const records = Object.fromEntries(results.map((row) => [row.kind, row.count]));
   if (library?.payload) {
@@ -64,7 +64,7 @@ async function accountOverview(env, session) {
     syncedAt: library?.updated_at ?? null,
     profile: profile?.payload ? JSON.parse(profile.payload) : null,
     profileRevision: profile?.revision ?? 0,
-    membership,
+    membership: plan,
   });
 }
 
@@ -73,7 +73,9 @@ async function route(request, env) {
   const path = request.method + " " + url.pathname;
   if (path === "GET /health") return json({ status: "ok" });
   if (path === "GET /v1/status") {
-    return json({ accountLoginEnabled: true, emailEnabled: emailReady(env), patreonEnabled: patreonConfigured(env) });
+    // premiumEnabled: the app locks the Premium features only when Premium can be bought.
+    return json({ accountLoginEnabled: true, emailEnabled: emailReady(env), patreonEnabled: patreonConfigured(env),
+      premiumEnabled: patreonConfigured(env) && Boolean(env.PATREON_URL) });
   }
   if (!url.pathname.startsWith("/v1/")) {
     if (!env.ASSETS || !["GET", "HEAD"].includes(request.method)) throw new HttpError(404, "not_found");
@@ -104,7 +106,7 @@ async function route(request, env) {
     case "GET /v1/sync/library": return pullLibrary(env.DB, session.accountId);
     case "GET /v1/sync": return pullSync(url, env.DB, session.accountId);
     case "GET /v1/account": return accountOverview(env, session);
-    case "GET /v1/premium": return json(await supporter(env, session.accountId));
+    case "GET /v1/premium": return json(await membership(env, session.accountId));
     case "POST /v1/account/password": return changePassword(request, env, session);
     case "POST /v1/patreon/connect": return startPatreon(env, session.accountId);
     case "POST /v1/patreon/disconnect": return disconnectPatreon(env, session.accountId);

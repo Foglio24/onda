@@ -104,7 +104,7 @@
       <div class="list">
         <button class="row" type="button" data-go="profile"><span class="icon">👤</span><span data-t="editProfile">Modifica profilo</span><span class="chevron">›</span></button>
         <button class="row" type="button" data-go="password"><span class="icon">🔑</span><span data-t="changePassword">Cambia password</span><span class="chevron">›</span></button>
-        <button class="row" type="button" data-go="membership"><span class="icon">💗</span><span data-t="membership">Sostieni Seaglass</span><span class="chevron">›</span></button>
+        <button class="row" type="button" data-go="membership"><span class="icon">★</span><span data-t="membership">Seaglass Premium</span><span class="chevron">›</span></button>
       </div>
 
       <h3 data-t="sectionLibrary">La tua libreria</h3>
@@ -155,8 +155,15 @@
 
     <section class="panel" id="view-membership" hidden>
       <button class="link back" type="button" data-go="overview" data-t="back">Indietro</button>
-      <h1 data-t="membership">Sostieni Seaglass</h1>
-      <p class="lead" data-t="membershipLead">Seaglass è gratuito e lo resta: il sostegno su Patreon aiuta a svilupparlo. In cambio hai il badge di sostenitore nell'app.</p>
+      <h1 data-t="membership">Seaglass Premium</h1>
+      <p class="lead" data-t="membershipLead"></p>
+      <ul class="benefits">
+        <li><span aria-hidden="true">🔗</span><span data-t="benefitLinks"></span></li>
+        <li><span aria-hidden="true">🎙️</span><span data-t="benefitRecognition"></span></li>
+        <li><span aria-hidden="true">🌐</span><span data-t="benefitTranslation"></span></li>
+        <li><span aria-hidden="true">🎤</span><span data-t="benefitKaraoke"></span></li>
+        <li><span aria-hidden="true">⏱️</span><span data-t="benefitTempo"></span></li>
+      </ul>
       <div class="card">
         <p class="eyebrow">Patreon</p>
         <h2 id="membership-state"></h2>
@@ -164,6 +171,7 @@
         <p class="error" role="alert" hidden id="membership-error"></p>
         <div class="actions" id="membership-actions"></div>
       </div>
+      <p class="muted small" data-t="premiumHow"></p>
     </section>
 
     <section class="panel" id="view-delete" hidden>

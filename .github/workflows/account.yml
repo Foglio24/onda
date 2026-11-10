@@ -5,7 +5,7 @@
 # Repository secrets: CLOUDFLARE_API_TOKEN (required to deploy), PATREON_CLIENT_ID,
 # PATREON_CLIENT_SECRET, PATREON_WEBHOOK_SECRET. Repository variables (optional):
 # CLOUDFLARE_ACCOUNT_ID, SEAGLASS_ACCOUNT_DOMAIN, SEAGLASS_EMAIL_FROM, PATREON_URL,
-# PATREON_CAMPAIGN_ID. See server/account/README.md.
+# PATREON_CAMPAIGN_ID, PREMIUM_MIN_CENTS. See server/account/README.md.
 name: Account service
 
 on:
@@ -60,6 +60,7 @@ jobs:
       SEAGLASS_ACCOUNT_DOMAIN: ${{ vars.SEAGLASS_ACCOUNT_DOMAIN }}
       SEAGLASS_EMAIL_FROM: ${{ vars.SEAGLASS_EMAIL_FROM }}
       PATREON_URL: ${{ vars.PATREON_URL }}
+      PREMIUM_MIN_CENTS: ${{ vars.PREMIUM_MIN_CENTS }}
     steps:
       - uses: actions/checkout@v4
       - name: Cloudflare token

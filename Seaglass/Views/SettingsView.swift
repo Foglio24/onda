@@ -33,7 +33,8 @@ struct SettingsView: View {
                     }
                     NavigationLink { LyricsSettingsView() } label: {
                         SettingsRow("Testi", symbol: "quote.bubble.fill", tint: .purple,
-                                    value: translateLyrics ? String(localized: "Tradotti") : nil)
+                                    value: translateLyrics && account.unlocks(.lyricsTranslation)
+                                        ? String(localized: "Tradotti") : nil)
                     }
                 }
                 Section {
@@ -275,6 +276,16 @@ private struct LyricsSettingsView: View {
     @AppStorage(Preferences.lyricsStyle) private var lyricsStyle: LyricsStyle = .focus
     @AppStorage(Preferences.lyricsTranslate) private var translateLyrics = false
     @AppStorage(Preferences.lyricsTranslationTarget) private var translationTarget = Preferences.defaultTranslationTarget
+    @ObservedObject private var account = AccountService.shared
+    @State private var paywall: PremiumFeature?
+
+    /// Translation is a Premium feature where Premium can be bought: the switch explains it then.
+    private var translation: Binding<Bool> {
+        Binding(get: { translateLyrics && account.unlocks(.lyricsTranslation) },
+                set: { on in
+                    if on, !account.unlocks(.lyricsTranslation) { paywall = .lyricsTranslation } else { translateLyrics = on }
+                })
+    }
 
     var body: some View {
         Form {
@@ -292,10 +303,13 @@ private struct LyricsSettingsView: View {
             }
 
             Section {
-                Toggle(isOn: $translateLyrics) {
-                    Label("Traduci i testi", systemImage: "translate")
+                Toggle(isOn: translation) {
+                    HStack {
+                        Label("Traduci i testi", systemImage: "translate")
+                        if !account.unlocks(.lyricsTranslation) { PremiumBadge() }
+                    }
                 }
-                if translateLyrics {
+                if translation.wrappedValue {
                     Picker(selection: $translationTarget) {
                         ForEach(Preferences.translationLanguages, id: \.self) { identifier in
                             Text(Preferences.languageName(identifier)).tag(identifier)
@@ -310,6 +324,7 @@ private struct LyricsSettingsView: View {
             }
         }
         .settingsPage("Testi")
+        .premiumPaywall($paywall)
     }
 }
 

@@ -45,7 +45,10 @@ final class LyricsTranslator: ObservableObject {
         return url
     }()
 
-    private static var isEnabled: Bool { UserDefaults.standard.bool(forKey: Preferences.lyricsTranslate) }
+    /// On, and with Premium where it is needed.
+    private static var isEnabled: Bool {
+        UserDefaults.standard.bool(forKey: Preferences.lyricsTranslate) && AccountService.shared.unlocks(.lyricsTranslation)
+    }
 
     private static var target: Locale.Language {
         Locale.Language(identifier: UserDefaults.standard.string(forKey: Preferences.lyricsTranslationTarget)
