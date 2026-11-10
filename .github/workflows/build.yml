@@ -365,6 +365,12 @@ jobs:
         timeout-minutes: 3
         run: bash Tools/LosslessScenes/run.sh build-mac/Build/Products/Release-maccatalyst/Seaglass.app files
 
+      # AutoMix's live transition between two songs the app makes: planned beat-matched, the next
+      # song started on a second player in step, mixed in, and the rendered mix with it turned off.
+      - name: Check AutoMix's live mix on the Mac
+        timeout-minutes: 8
+        run: bash Tools/SegueScene/run.sh build-mac/Build/Products/Release-maccatalyst/Seaglass.app
+
       # The public Navidrome demo server: a FLAC found and streamed, a server that doesn't answer, a
       # stream cut off while playing. Live, so it doesn't block the build.
       - name: Check lossless servers on the Mac (live)

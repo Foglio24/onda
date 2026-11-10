@@ -238,6 +238,36 @@ enum LaunchScene {
                 try? await Task.sleep(for: .seconds(1))
                 print("zoom: \(report); window \(before) → \(size())")
             }
+        case "segue":
+            // CI: AutoMix's live transition (see `SegueSession`) between two songs made here, 124 and
+            // 126 BPM, two minutes each, played from their files from 40 s in; the player's log says
+            // what was planned and how the second player kept in step. "off": the live mix turned off.
+            Task {
+                let first = Track(videoId: "SeaglassSegueDemoA", title: "Segue A", artists: ["Seaglass Demo"], duration: 120)
+                let second = Track(videoId: "SeaglassSegueDemoB", title: "Segue B", artists: ["Seaglass Demo"], duration: 120)
+                await Task.detached(priority: .userInitiated) {
+                    try? Self.writeDemoSong(to: Storage.audioFile(for: "SeaglassSegueDemoA"), bpm: 124, root: 57, introBars: 0, seconds: 120)
+                    try? Self.writeDemoSong(to: Storage.audioFile(for: "SeaglassSegueDemoB"), bpm: 126, root: 60, introBars: 4, seconds: 120)
+                }.value
+                UserDefaults.standard.set(SongTransition.autoMix.rawValue, forKey: Preferences.songTransition)
+                UserDefaults.standard.set(value != "off", forKey: Preferences.liveMix)
+                let player = PlayerController.shared
+                player.play([first, second], source: "Segue demo")
+                router.openPlayer()
+                try? await Task.sleep(for: .seconds(2))
+                player.seek(to: 40)
+                var handedOver = false
+                for _ in 0..<200 {
+                    try? await Task.sleep(for: .milliseconds(500))
+                    if !handedOver, player.current?.id == second.id {
+                        handedOver = true
+                        print(String(format: "segue-scene: next song at %.1f s, %@", player.progress.currentTime, player.autoMixNote ?? "-"))
+                    } else if handedOver, player.progress.currentTime > 45 {
+                        break
+                    }
+                }
+                print(handedOver ? "segue-scene: done" : "segue-scene: the next song never came")
+            }
         case "lossless":
             // CI: lossless sources (`value`: server, timeout, dropout, files:<folder>, broken:<folder>),
             // with the OpenSubsonic server given as launch arguments, if any (the public Navidrome demo).
@@ -406,12 +436,12 @@ enum LaunchScene {
         return image.jpegData(compressionQuality: 0.9)
     }
 
-    /// A short song made to a click (kick, hi-hat, a chord per bar), quieter for its first
-    /// `introBars` bars, saved as AAC.
-    nonisolated private static func writeDemoSong(to url: URL, bpm: Double, root: Int, introBars: Int) throws {
+    /// A song made to a click (kick, hi-hat, a chord per bar), `seconds` long with a second of
+    /// silence at each end, quieter for its first `introBars` bars, saved as AAC.
+    nonisolated private static func writeDemoSong(to url: URL, bpm: Double, root: Int, introBars: Int, seconds: Double = 72) throws {
         let rate = 44_100.0
         guard let format = AVAudioFormat(standardFormatWithSampleRate: rate, channels: 2) else { return }
-        let frames = Int(72 * rate)
+        let frames = Int(seconds * rate)
         guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(frames)),
               let channels = buffer.floatChannelData else { return }
         buffer.frameLength = AVAudioFrameCount(frames)
@@ -420,7 +450,7 @@ enum LaunchScene {
         for frame in 0..<frames {
             let time = Double(frame) / rate - 1
             var value = 0.0
-            if time >= 0, time < 70 {
+            if time >= 0, time < seconds - 2 {
                 let beatIndex = Int(time / beat)
                 let sinceBeat = time - Double(beatIndex) * beat
                 let accent: Double = beatIndex % 4 == 0 ? 1.3 : 1

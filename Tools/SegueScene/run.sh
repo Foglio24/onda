@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# AutoMix's live transition in the Mac app, for real: two songs made by the app (124 and 126 BPM)
+# played from their files, the next one started on a second player in step with the first and
+# mixed in (LaunchScene "segue"). The player's log says the level chosen and why, the second
+# player's distance from its place when the window opened and the worst while both were heard.
+# With "off" the live mix is turned off and the rendered mix must play instead.
+# Usage: bash Tools/SegueScene/run.sh <Seaglass.app>
+set -uo pipefail
+app="$1"
+binary="$app/Contents/MacOS/Seaglass"
+work=$(mktemp -d)
+
+run() {
+  local name="$1" scene="$2"
+  pkill -x Seaglass 2>/dev/null
+  sleep 1
+  NSUnbufferedIO=YES "$binary" -AppleLanguages "(en)" -SeaglassScene "$scene" >"$work/$name.log" 2>&1 &
+  local pid=$!
+  for _ in $(seq 1 150); do
+    grep -q "segue-scene: \(done\|the next song never came\)" "$work/$name.log" && break
+    kill -0 "$pid" 2>/dev/null || break
+    sleep 1
+  done
+  pkill -x Seaglass 2>/dev/null
+  sleep 1
+  grep -e "segue" -e "automix" "$work/$name.log" | sed "s/^/[$name] /"
+}
+
+run live "segue"
+run off "segue:off"
+failed=0
+grep -q "segue: locked" "$work/live.log" || { echo "::error::The two songs weren't planned as a beat-matched live mix"; failed=1; }
+grep -q "segue: window" "$work/live.log" || { echo "::error::The live mix's window never opened"; failed=1; }
+grep -q "segue: mixed" "$work/live.log" || { echo "::error::The live mix didn't reach its end"; failed=1; }
+grep -q "segue-scene: next song" "$work/live.log" || { echo "::error::The next song didn't take over"; failed=1; }
+if grep -q "segue: \(lost\|dropped\)" "$work/live.log"; then echo "::warning::The live mix was left or dropped (see the log)"; fi
+grep -q "segue-scene: next song" "$work/off.log" || { echo "::error::Without the live mix the next song didn't take over"; failed=1; }
+if grep -q "segue: arming" "$work/off.log"; then echo "::error::The live mix ran while turned off"; failed=1; fi
+exit $failed
