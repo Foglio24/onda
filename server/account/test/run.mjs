@@ -263,6 +263,11 @@ try {
   check(response.data.premium === false && response.data.status === "former_patron", "membership ended", response.data);
   response = await call("POST", "/v1/patreon/disconnect", { cookies: browser, body: {} });
   check(response.status === 204, "patreon unlinked", response.status);
+  sql(`UPDATE accounts SET premium_lifetime = 1 WHERE id = '${accountId}'`);
+  response = await call("GET", "/v1/premium", { bearer: token });
+  check(response.data.premium === true && response.data.lifetime === true && response.data.linked === false,
+    "premium for life without Patreon", response.data);
+  sql(`UPDATE accounts SET premium_lifetime = 0 WHERE id = '${accountId}'`);
 
   // A new password ends the other sessions (the app's), not this one.
   response = await call("POST", "/v1/account/password", { cookies: browser, body: { current: "wrong password!!", password: "another pass!" } });

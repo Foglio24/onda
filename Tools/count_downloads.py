@@ -10,6 +10,9 @@ import json
 import sys
 
 APP_EXTENSIONS = (".ipa", ".apk", "-mac.zip")
+# App downloads of the iPhone/Mac releases v1.0.0 to v1.29.1, deleted on 2026-11-10 (they unlocked
+# Seaglass Premium's features for free), counted from the deleting workflow's log.
+ARCHIVED_DOWNLOADS = 170
 
 
 def is_app(name):
@@ -19,7 +22,7 @@ def is_app(name):
 def count_downloads(pages):
     if not isinstance(pages, list):
         raise ValueError("Expected a list of GitHub API pages")
-    total = 0
+    total = ARCHIVED_DOWNLOADS
     for page in pages:
         if not isinstance(page, list):
             raise ValueError("Each GitHub API page must contain a list of releases")

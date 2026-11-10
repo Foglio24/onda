@@ -92,6 +92,12 @@ The free way is [Resend](https://resend.com) (free plan: 100 emails a day, 3,000
 Without `RESEND_API_KEY`, `SEAGLASS_EMAIL_FROM` uses Cloudflare's Email Service instead, which
 sends to any address only on the Workers Paid plan.
 
+### Premium for life
+
+An account can have Premium without Patreon (the creator's): set `premium_lifetime` in the
+database, for example with `npx wrangler d1 execute DB --remote -c wrangler.deploy.jsonc
+--command "UPDATE accounts SET premium_lifetime = 1 WHERE email_normalized = '<email>'"`.
+
 ### 4. Support
 
 `SUPPORT_EMAIL` in `wrangler.jsonc` is the address the page and the app give for help.

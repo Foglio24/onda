@@ -40,7 +40,8 @@ const strings = {
     patreonNotLinked: "Patreon non collegato", patreonNotLinkedDetail: "Abbonati a Seaglass su Patreon, poi collega qui il tuo account Patreon: Premium si attiva da solo.",
     patreonActive: "Premium attivo", patreonLinkedNone: "Collegato, senza abbonamento",
     patreonLinkedNoneDetail: "Il tuo account Patreon è collegato ma non ha un abbonamento attivo a Seaglass. Quando ti abboni, Premium si attiva da solo.",
-    patreonFormer: "Abbonamento terminato", patreonDeclined: "Pagamento non riuscito",
+    patreonFormer: "Abbonamento terminato",
+    premiumLifetime: "Premium a vita", premiumLifetimeDetail: "Premium è incluso nel tuo account, senza abbonamento.", patreonDeclined: "Pagamento non riuscito",
     patreonUpdated: "Aggiornato il %s.",
     memberSince: "Su Seaglass dal %s", syncedAt: "Ultima sincronizzazione: %s", neverSynced: "La libreria non è ancora stata sincronizzata: accedi dall'app.",
     emailUnverified: "Email non confermata",
@@ -108,7 +109,8 @@ const strings = {
     patreonNotLinked: "Patreon not linked", patreonNotLinkedDetail: "Join Seaglass on Patreon, then link your Patreon account here: Premium turns on by itself.",
     patreonActive: "Premium active", patreonLinkedNone: "Linked, no membership",
     patreonLinkedNoneDetail: "Your Patreon account is linked but has no active Seaglass membership. When you join, Premium turns on by itself.",
-    patreonFormer: "Membership ended", patreonDeclined: "Payment declined",
+    patreonFormer: "Membership ended",
+    premiumLifetime: "Premium for life", premiumLifetimeDetail: "Premium comes with your account, without a membership.", patreonDeclined: "Payment declined",
     patreonUpdated: "Updated on %s.",
     memberSince: "On Seaglass since %s", syncedAt: "Last synced: %s", neverSynced: "Your library hasn't synced yet: log in from the app.",
     emailUnverified: "Email not confirmed",
@@ -509,6 +511,11 @@ function renderMembership() {
   actions.replaceChildren();
   $("#membership-error").hidden = true;
   const updated = membership.updatedAt ? " " + t("patreonUpdated", formatDate(membership.updatedAt)) : "";
+  if (membership.lifetime) {
+    $("#membership-state").textContent = t("premiumLifetime");
+    $("#membership-detail").textContent = t("premiumLifetimeDetail");
+    return;
+  }
   if (!membership.available) {
     $("#membership-state").textContent = t("patreonSoon");
     $("#membership-detail").textContent = "";

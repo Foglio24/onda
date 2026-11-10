@@ -40,7 +40,7 @@ export async function startPatreon(env, accountId) {
     .bind(await hash(state), accountId, unix() + stateLifetime).run();
   const url = new URL(authorizeURL);
   url.searchParams.set("response_type", "code");
-  url.searchParams.set("client_id", env.PATREON_CLIENT_ID);
+  url.searchParams.set("client_id", env.PATREON_CLIENT_ID.trim());
   url.searchParams.set("redirect_uri", callbackURL(env));
   url.searchParams.set("scope", "identity");
   url.searchParams.set("state", state);
@@ -84,8 +84,8 @@ async function readMembership(env, code) {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded", "User-Agent": "Seaglass-Account" },
     body: new URLSearchParams({
-      code, grant_type: "authorization_code", client_id: env.PATREON_CLIENT_ID,
-      client_secret: env.PATREON_CLIENT_SECRET, redirect_uri: callbackURL(env),
+      code, grant_type: "authorization_code", client_id: env.PATREON_CLIENT_ID.trim(),
+      client_secret: env.PATREON_CLIENT_SECRET.trim(), redirect_uri: callbackURL(env),
     }),
   });
   if (!token.ok) throw new Error("token");
@@ -127,7 +127,7 @@ export async function patreonWebhook(request, env) {
   if (!env.PATREON_WEBHOOK_SECRET) throw new HttpError(503, "patreon_unconfigured");
   const body = await readText(request, 262_144);
   const signature = request.headers.get("X-Patreon-Signature") ?? "";
-  const expected = createHmac("md5", env.PATREON_WEBHOOK_SECRET).update(body).digest("hex");
+  const expected = createHmac("md5", env.PATREON_WEBHOOK_SECRET.trim()).update(body).digest("hex");
   if (!/^[0-9a-f]{32}$/.test(signature) ||
       !timingSafeEqual(Buffer.from(signature, "utf8"), Buffer.from(expected, "utf8"))) {
     throw new HttpError(401, "invalid_signature");
@@ -148,14 +148,20 @@ export async function patreonWebhook(request, env) {
 
 /** What the app and the page show: the account's Patreon membership and whether it is Premium. */
 export async function membership(env, accountId) {
-  const link = await env.DB.prepare("SELECT patron_status, entitled_cents, linked_at, updated_at FROM patreon_links WHERE account_id = ?")
+  const row = await env.DB.prepare(`SELECT accounts.premium_lifetime, patreon_links.account_id AS linked_account,
+      patreon_links.patron_status, patreon_links.entitled_cents, patreon_links.linked_at, patreon_links.updated_at
+    FROM accounts LEFT JOIN patreon_links ON patreon_links.account_id = accounts.id WHERE accounts.id = ?`)
     .bind(accountId).first();
+  const link = row?.linked_account ? row : null;
+  const lifetime = row?.premium_lifetime === 1;
   return {
     provider: "patreon",
     available: patreonConfigured(env),
     joinURL: joinURL(env),
     linked: Boolean(link),
-    premium: isPremium(env, link),
+    // Premium for life (the creator's account) needs no membership.
+    lifetime,
+    premium: lifetime || isPremium(env, link),
     status: link?.patron_status ?? null,
     entitledCents: link?.entitled_cents ?? 0,
     linkedAt: link?.linked_at ?? null,
