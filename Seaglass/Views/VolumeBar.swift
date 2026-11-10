@@ -85,7 +85,7 @@ private struct MacVolumeSlider: UIViewRepresentable {
     @MainActor
     final class Coordinator: NSObject {
         @objc func changed(_ slider: UISlider) {
-            PlaybackVolume.shared.set(Double(slider.value))
+            PlaybackVolume.shared.set(Double(slider.value), dragging: true)
         }
     }
 }

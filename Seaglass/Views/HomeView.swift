@@ -65,10 +65,8 @@ struct HomeView: View {
                     phoneSections
                 }
             }
-            .background {
-                // On a Mac the window's own background, as Apple Music's Home.
-                if Self.isMac { Color(.systemBackground).ignoresSafeArea() } else { AmbientBackground() }
-            }
+            // In the colours of the song playing, as the other pages (on a Mac too).
+            .background { AmbientBackground() }
             .navigationTitle(Self.isMac ? String(localized: "Home") : greeting)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) { RecognitionButton() }

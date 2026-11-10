@@ -65,6 +65,8 @@ struct SeaglassApp: App {
                         // No title over the glass: the tabs and pages say where you are.
                         scene.titlebar?.titleVisibility = .hidden
                         scene.titlebar?.toolbar = nil
+                        // No line under the window's buttons: they sit on the sidebar's glass.
+                        scene.titlebar?.separatorStyle = .none
                     }
                 }
                 #endif

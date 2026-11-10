@@ -3,7 +3,7 @@ import Security
 
 /// Small wrapper around the keychain for the account's session and Last.fm's secrets.
 /// On iPhone and iPad it falls back to UserDefaults if the keychain is unavailable for the signing
-/// setup in use. On a Mac the app is signed ad hoc, without the entitlements the iPhone's keychain
+/// setup in use. On a Mac the app is self-signed, without the entitlements the iPhone's keychain
 /// needs there, so it uses the Mac's own (login) keychain instead, and never UserDefaults. When the
 /// app's own keychain calls can't reach it (they couldn't on CI's Macs, see Tools/MacAccountCheck),
 /// the AppKit plug-in writes it with macOS's file-based keychain API.

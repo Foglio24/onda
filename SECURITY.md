@@ -49,7 +49,7 @@ Out of scope:
     Mac. Only a locally generated audio fingerprint is sent, not the recorded audio. Artwork
     and optional catalog links in the response are accepted only over HTTPS.
 - **Last.fm credentials.** On iOS the Last.fm API secret and session key are kept in the
-  Keychain; on a Mac, in the Mac's login keychain (the app is signed ad hoc, without the
+  Keychain; on a Mac, in the Mac's login keychain (the app is self-signed, without the
   entitlements the iOS keychain needs there).
 - **Account sign-in.** The app signs in through the account page in a private sign-in sheet
   (`ASWebAuthenticationSession`, never sharing the browser's cookies). The page returns a
@@ -76,9 +76,11 @@ Treat a change that breaks any of these as **P0** (secrets, updates) or **P1** (
 
 - Never commit private keys, keystores (`.jks`, `.p12`, `.keystore`), API keys, tokens or
   passwords. Signing keys don't go in `android-builds` or any other branch either.
-- The only key material in the repository is the public certificate
-  `android/signing/seaglass-cert.pem`. The Android signing key lives in the
-  `ANDROID_SIGNING_KEY` secret.
+- The only key material in the repository is the public certificates
+  `android/signing/seaglass-cert.pem` and `Mac/signing/seaglass-mac-cert.pem`. The Android
+  signing key lives in the `ANDROID_SIGNING_KEY` secret, the Mac's in `MAC_SIGNING_KEY`
+  (the same signer for every version, so macOS keeps the app's keychain access and
+  permissions across updates). CI puts it in a keychain of its own for the signing step only.
 - Credentials the user enters (Last.fm) and the account's session token go in the Keychain on
   iOS (the login keychain on a Mac),
   never in `UserDefaults`, files in Documents, logs or diagnostics. The same applies on Android when Last.fm arrives:

@@ -208,7 +208,7 @@ private struct MacSidebar: View {
                                 MacSidebarRow(selected: selection == .playlist(playlist.id), accent: accent.color) {
                                     selection = .playlist(playlist.id)
                                 } icon: {
-                                    PlaylistArtwork(playlist: playlist, size: 24, cornerRadius: 5)
+                                    PlaylistArtwork(playlist: playlist, size: 30, cornerRadius: 6)
                                         .accessibilityHidden(true)
                                 } title: {
                                     Text(verbatim: playlist.name)
@@ -218,10 +218,12 @@ private struct MacSidebar: View {
                     }
                 }
                 .padding(.horizontal, 10)
-                .padding(.top, max(top, 28) + 8)
+                .padding(.top, 4)
                 .padding(.bottom, 8)
             }
             .scrollIndicators(.never)
+            // Below the window's buttons, which sit on the glass: the list never scrolls under them.
+            .padding(.top, max(top, 28) + 4)
             Divider().opacity(0.5).padding(.horizontal, 16)
             item("Impostazioni", symbol: "gearshape", section: .settings)
                 .padding(10)
@@ -280,7 +282,7 @@ private struct MacSidebarRow<Icon: View, Title: View>: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 10) {
-                icon.frame(width: 26, height: 26)
+                icon.frame(width: 30, height: 30)
                 title
                     .lineLimit(1)
                     .foregroundStyle(selected ? accent : Color.primary)
@@ -288,7 +290,7 @@ private struct MacSidebarRow<Icon: View, Title: View>: View {
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 10)
-            .frame(height: 38)
+            .frame(height: 40)
             .background {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(Color.primary.opacity(selected ? 0.1 : hovering ? 0.05 : 0))

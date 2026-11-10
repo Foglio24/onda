@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.31.4 (2026-11-10)
+
+### Fixed
+- **Mac: macOS no longer asks for the keychain password after every update.** Seaglass for Mac is now signed with a certificate of its own, the same for every version, so macOS recognises each update as the same app. It asks one last time after this update: choose **Always Allow**. The microphone's permission (song recognition) is kept across updates too.
+- **Mac: the sidebar's top.** No line runs under the window's buttons any more, and the list doesn't scroll under them. The playlists' covers are bigger.
+- **Mac: the Home follows the colours of the song playing**, as the other pages do.
+- **Mac: the volume slider drags smoothly.** Each step of a drag saved the volume, and every save woke what watches the preferences; it is now saved once the slider stops.
+
 ## 1.31.3 (2026-11-10)
 
 ### Fixed

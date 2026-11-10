@@ -42,6 +42,14 @@ struct PlaybackVolumeCheck {
         check(preview.volume, 0.5)
         precondition(PlaybackVolume(defaults: defaults, controlsVolume: true).value == 0.5)
 
+        // A slider's drag: the players follow at once, the value is kept once it stops.
+        volume.set(0.7, dragging: true)
+        check(armed.volume, 0.7)
+        precondition(PlaybackVolume(defaults: defaults, controlsVolume: true).value == 0.5)
+        RunLoop.main.run(until: Date().addingTimeInterval(0.8))
+        precondition(PlaybackVolume(defaults: defaults, controlsVolume: true).value == 0.7)
+        volume.set(0.5)
+
         // iOS retains system volume, with only the existing fade affecting AVPlayer.volume.
         let phone = PlaybackVolume(defaults: defaults, controlsVolume: false)
         let phonePlayer = AVPlayer()

@@ -33,14 +33,28 @@ final class PlaybackVolume: ObservableObject {
         value = Self.clamp(defaults.object(forKey: Self.key) as? Double ?? 1)
     }
 
-    func set(_ volume: Double) {
+    /// `dragging`: a slider's value while it moves, kept once it stops. A slider sends a value for
+    /// every step of a drag, and each write to UserDefaults wakes everything that watches them (the
+    /// account's preferences, the prepared song), which made the drag stutter.
+    func set(_ volume: Double, dragging: Bool = false) {
         value = Self.clamp(volume)
-        defaults.set(value, forKey: Self.key)
         outputs = outputs.filter { $0.value.isAlive }
         for output in outputs.values {
             output.apply(gain: gain)
         }
+        pendingSave?.cancel()
+        guard dragging else {
+            defaults.set(value, forKey: Self.key)
+            return
+        }
+        pendingSave = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(400))
+            guard let self, !Task.isCancelled else { return }
+            self.defaults.set(self.value, forKey: Self.key)
+        }
     }
+
+    private var pendingSave: Task<Void, Never>?
 
     /// Call before a player can produce sound, including the player armed for AutoMix.
     func register(_ player: AVPlayer) {
