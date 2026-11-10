@@ -56,6 +56,15 @@ struct TrackAnalysis: Codable, Equatable, Sendable {
     /// Made to a steady grid that beats can be matched to.
     var isGridLocked: Bool { gridFit >= 0.65 }
 
+    /// The BPM the tempo panel shows: the measured tempo whenever a beat was followed. Beat matching
+    /// needs a steady grid (`isGridLocked`), a number to read doesn't: about half of real songs
+    /// (played freely, live, swung) fall short of the grid yet have their tempo measured right.
+    /// Without a beat the analysis puts a 120 BPM grid that nothing fits (fit 0), which isn't one.
+    var shownTempo: Double? {
+        guard gridFit >= 0.05, beatLength.isFinite, beatLength > 0 else { return nil }
+        return tempo
+    }
+
     func beatTime(_ beat: Int) -> Double { gridStart + Double(beat) * beatLength }
 
     func isDownbeat(_ beat: Int) -> Bool { ((beat - downbeat) % 4 + 4) % 4 == 0 }

@@ -236,6 +236,59 @@ final class SeaglassMacBridge: NSObject, NSMenuDelegate {
         return NSNumber(value: movable)
     }
 
+    // MARK: AirPlay
+
+    /// The AirPlay button about to open its list of devices: its frame and its window's size, in
+    /// the app's (UIKit) points, and when. Read by the next popover shown (see `NSPopover` below).
+    fileprivate static var routeAnchor: (button: CGRect, window: CGSize, time: Date)?
+    private static var correctsPopovers = false
+
+    /// `request`: "x", "y", "width", "height" (the AirPlay button in its window) and "windowWidth",
+    /// "windowHeight", in the app's points. macOS 26 places the list AirPlay opens from its button
+    /// with the app's 77 % scale (the iPad's, on a Mac) applied twice, so it opens far from the
+    /// button, towards the window's top left corner; the popover is put at the button instead.
+    @objc func anchorRoutePicker(_ request: NSDictionary) {
+        func value(_ key: String) -> CGFloat { CGFloat((request[key] as? NSNumber)?.doubleValue ?? 0) }
+        Self.routeAnchor = (CGRect(x: value("x"), y: value("y"), width: value("width"), height: value("height")),
+                            CGSize(width: value("windowWidth"), height: value("windowHeight")), Date())
+        guard !Self.correctsPopovers else { return }
+        Self.correctsPopovers = true
+        let pairs = [
+            ("showRelativeToRect:ofView:preferredEdge:", #selector(NSPopover.seaglassShow(relativeTo:of:preferredEdge:))),
+            ("showRelativeToRect:ofView:preferredEdge:hasFullSizeContent:",
+             #selector(NSPopover.seaglassShow(relativeTo:of:preferredEdge:hasFullSizeContent:))),
+        ]
+        for (name, replacement) in pairs {
+            guard let original = class_getInstanceMethod(NSPopover.self, NSSelectorFromString(name)),
+                  let ours = class_getInstanceMethod(NSPopover.self, replacement) else { continue }
+            method_exchangeImplementations(original, ours)
+        }
+    }
+
+    /// Where a popover shown now should point, in `view`'s coordinates: at the AirPlay button just
+    /// clicked, if it was (within 3 seconds), worked out from its place in the window rather than
+    /// from the rect macOS passes, so it stays right if macOS's own scaling is ever fixed.
+    fileprivate static func routeRect(in view: NSView, instead rect: NSRect) -> NSRect {
+        guard let anchor = routeAnchor, Date().timeIntervalSince(anchor.time) < 3,
+              let content = view.window?.contentView, anchor.window.width > 0, anchor.window.height > 0 else { return rect }
+        routeAnchor = nil
+        let bounds = content.bounds
+        let scaleX = bounds.width / anchor.window.width, scaleY = bounds.height / anchor.window.height
+        var button = NSRect(x: anchor.button.minX * scaleX, y: 0,
+                            width: anchor.button.width * scaleX, height: anchor.button.height * scaleY)
+        button.origin.y = content.isFlipped ? anchor.button.minY * scaleY : bounds.height - anchor.button.maxY * scaleY
+        let corrected = view.convert(button, from: content)
+        print("airplay: popover at \(rect) of \(type(of: view)) moved to \(corrected) (window content \(bounds.size))")
+        return corrected
+    }
+
+    /// The app's windows, for CI's log: their kind, frame and level.
+    @objc func describeWindows() -> NSString {
+        NSApp.windows.filter(\.isVisible).map { window in
+            "\(type(of: window)) \(window.frame) level \(window.level.rawValue)"
+        }.joined(separator: "; ") as NSString
+    }
+
     /// The space bar plays or pauses wherever Seaglass is, as in Apple Music: `block` (returning
     /// whether it took the key, which it doesn't while text is being typed) is called for each press.
     @objc func handleSpaceBar(_ block: Any) {
@@ -395,4 +448,18 @@ final class SeaglassMacBridge: NSObject, NSMenuDelegate {
 
 private extension String {
     var nonEmpty: String? { isEmpty ? nil : self }
+}
+
+/// Exchanged with NSPopover's own showing methods once the app has an AirPlay button (see
+/// `anchorRoutePicker`): they call the originals, with the rect moved to the button just clicked.
+fileprivate extension NSPopover {
+    @objc dynamic func seaglassShow(relativeTo rect: NSRect, of view: NSView, preferredEdge edge: NSRectEdge) {
+        seaglassShow(relativeTo: SeaglassMacBridge.routeRect(in: view, instead: rect), of: view, preferredEdge: edge)
+    }
+
+    @objc dynamic func seaglassShow(relativeTo rect: NSRect, of view: NSView, preferredEdge edge: NSRectEdge,
+                                    hasFullSizeContent: Bool) {
+        seaglassShow(relativeTo: SeaglassMacBridge.routeRect(in: view, instead: rect), of: view, preferredEdge: edge,
+                     hasFullSizeContent: hasFullSizeContent)
+    }
 }

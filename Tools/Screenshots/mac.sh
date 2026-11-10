@@ -102,6 +102,10 @@ shot mac-16-library-playlist 8 library-playlist
 # The tempo panel on a song made at 124 BPM: its BPM must show (the log says how it was measured).
 shot mac-17-tempo 30 tempo-demo -SeaglassPanel tempo
 grep "tempo-bpm" "$logs/mac-17-tempo.log" || echo "::warning::The tempo panel said nothing about the BPM"
+# The same with a real song streamed (live: YouTube may refuse CI's machines, so a warning only).
+shot mac-17b-tempo-live 60 "tempo-live:K0HSD_i2DvA" -SeaglassPanel tempo
+grep -e "tempo-bpm" -e "tempo-live" "$logs/mac-17b-tempo-live.log" || true
+grep -q "tempo-live: PASS" "$logs/mac-17b-tempo-live.log" || echo "::warning::A streamed song's BPM didn't show (live)"
 # The zoom at 130 %.
 shot mac-18-zoom 6 settings -mac.zoom 130
 # The AirPlay menu opened from the player bar: the whole screen, as the menu is a window of its own.

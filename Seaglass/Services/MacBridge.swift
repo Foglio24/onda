@@ -141,6 +141,27 @@ final class MacBridge {
         (plugIn?.perform(NSSelectorFromString("keepWindowsInPlace"))?.takeUnretainedValue() as? NSNumber)?.boolValue ?? false
     }
 
+    // MARK: AirPlay
+
+    /// An AirPlay button about to open its list of devices: the plug-in puts the list by it, where
+    /// macOS 26 would put it too far up and left (see the plug-in's `anchorRoutePicker`).
+    func anchorRoutePicker(_ button: UIView) {
+        guard let plugIn, let window = button.window else { return }
+        let frame = button.convert(button.bounds, to: window)
+        let request: [String: NSNumber] = [
+            "x": NSNumber(value: Double(frame.minX)), "y": NSNumber(value: Double(frame.minY)),
+            "width": NSNumber(value: Double(frame.width)), "height": NSNumber(value: Double(frame.height)),
+            "windowWidth": NSNumber(value: Double(window.bounds.width)),
+            "windowHeight": NSNumber(value: Double(window.bounds.height)),
+        ]
+        _ = plugIn.perform(NSSelectorFromString("anchorRoutePicker:"), with: request as NSDictionary)
+    }
+
+    /// The app's visible windows (kind, frame, level), for CI's log.
+    func describeWindows() -> String {
+        plugIn?.perform(NSSelectorFromString("describeWindows"))?.takeUnretainedValue() as? String ?? "no plug-in"
+    }
+
     // MARK: Keychain
 
     /// Writes (or with nil removes) a password in the Mac's login keychain through macOS's

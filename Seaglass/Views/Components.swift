@@ -507,11 +507,22 @@ struct AirPlayButton: UIViewRepresentable {
         let view = AVRoutePickerView()
         view.tintColor = tint
         view.prioritizesVideoDevices = false
+        view.delegate = context.coordinator
         return view
     }
 
     func updateUIView(_ uiView: AVRoutePickerView, context: Context) {
         uiView.activeTintColor = UIColor(activeTint)
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    final class Coordinator: NSObject, AVRoutePickerViewDelegate {
+        /// On a Mac, the plug-in is told where the button is, so the list of devices opens by it
+        /// (see `MacBridge.anchorRoutePicker`).
+        func routePickerViewWillBeginPresentingRoutes(_ routePickerView: AVRoutePickerView) {
+            MainActor.assumeIsolated { MacBridge.shared.anchorRoutePicker(routePickerView) }
+        }
     }
 }
 

@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.31.2 (2026-11-10)
+
+### Added
+- **iPhone and iPad: karaoke as Apple Music's Sing.** With the lyrics open, a slider beside them sets how much of the voice is left: down takes it away, up brings it back. A tap turns the karaoke on (without the voice) or off, and holding it offers the voice alone. It replaces the karaoke button under the player for songs; podcasts keep their speed there.
+- **Mac: zoom.** **Settings › Appearance › Zoom** makes text, and the controls sized with it, smaller or larger, from 75 % to 150 %, as Spotify's zoom does. **View › Zoom In** (⌘+), **Zoom Out** (⌘−) and **Actual Size** (⌘0) change it too.
+
+### Changed
+- **Mac: the system's sidebar, in Liquid Glass**, with search at the top, Home, the library (Library, Favourites, History, Downloads, Podcasts), each playlist with its cover, and Settings.
+- **Mac: a larger player bar**, as in Apple Music, floating in glass at the bottom of every page, playlists opened from the library included, with the page scrolling under it.
+
+### Fixed
+- **Tempo shows the song's BPM again** (iPhone, iPad and Mac). It showed it only for songs on a perfectly steady beat, which left about half of real songs (played freely, live, swung) without a number though their tempo was measured right. Now any song whose beat is followed shows its BPM.
+- **Mac: the volume slider no longer drags the window.** Dragging the slider moved the whole window at times: the window now moves only by its title bar, and the slider is the Mac's own.
+- **Mac: AirPlay's list opens by its button.** It opened far up and to the left of it.
+- **Mac: the player bar inside playlists.** A playlist opened from the library hid the player bar.
+
 ## 1.30.1 (2026-11-10)
 
 ### Fixed

@@ -153,6 +153,18 @@ let still = analyze(ambient(), "ambient")
 if let still {
     expect(!still.isGridLocked, "ambient: no steady beat (fit \(format(still.gridFit, 2)))")
 }
+
+// The tempo panel's BPM: any song whose beat was followed, steady grid or not; none without a beat.
+if let steady = analyses[124] {
+    expect(steady.shownTempo.map { abs($0 - 124) < 0.15 } == true, "tempo panel: 124 BPM shown")
+    var loose = steady
+    loose.gridFit = 0.3
+    expect(!loose.isGridLocked && loose.shownTempo.map { abs($0 - 124) < 0.15 } == true,
+           "tempo panel: a song off a steady grid (fit 0.3) still shows its 124 BPM")
+    var beatless = steady
+    beatless.gridFit = 0
+    expect(beatless.shownTempo == nil, "tempo panel: no BPM without a beat followed")
+}
 expect(TrackAnalyzer.analyze([Float](repeating: 0, count: Int(5 * rate)), sampleRate: rate) == nil,
        "a 5-second file isn't analysed")
 

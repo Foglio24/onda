@@ -438,19 +438,23 @@ final class PlayerController: ObservableObject {
         bpmTask?.cancel()
         measuringBPM = track.id
         bpmTask = Task {
+            let started = Date()
             // The very file playing (the stream's own once it's all in), not a second download of the
             // song, analysed ahead of other work: someone is waiting for the number.
             let file = await self.outgoingFile(for: track, videoId: videoId, source: self.playingSource)
+            let found = Date()
             var analysis: TrackAnalysis?
             if let file, !Task.isCancelled {
                 analysis = await AutoMixLibrary.shared.analysis(of: file, priority: .userInitiated)
             }
             if LaunchScene.isActive {
-                print("tempo-bpm: file \(file?.lastPathComponent ?? "none"), tempo \(analysis?.tempo ?? 0), grid \(analysis?.isGridLocked ?? false)")
+                let times = String(format: "file in %.1f s, analysis in %.1f s", found.timeIntervalSince(started),
+                                   Date().timeIntervalSince(found))
+                print("tempo-bpm: \(file?.lastPathComponent ?? "no file") (\(times)), tempo \(analysis?.tempo ?? 0), grid fit \(analysis?.gridFit ?? 0)")
             }
             if self.measuringBPM == track.id { self.measuringBPM = nil }
-            guard let analysis, analysis.isGridLocked, self.current?.id == track.id else { return }
-            self.songBPM = (track.id, analysis.tempo)
+            guard let bpm = analysis?.shownTempo, self.current?.id == track.id else { return }
+            self.songBPM = (track.id, bpm)
         }
     }
 
@@ -1816,7 +1820,7 @@ final class PlayerController: ObservableObject {
                 return
             }
             // The song's tempo, for the tempo fader.
-            if outgoing.isGridLocked, self.current?.id == track.id { self.songBPM = (track.id, outgoing.tempo) }
+            if let bpm = outgoing.shownTempo, self.current?.id == track.id { self.songBPM = (track.id, bpm) }
             // At the gain the song plays with, so the mix takes over at its very level.
             let outgoingGain: Float
             if let gain = self.playingGain { outgoingGain = gain } else { outgoingGain = await self.volumeGain(for: track) }

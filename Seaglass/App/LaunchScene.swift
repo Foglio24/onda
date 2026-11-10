@@ -14,7 +14,8 @@ import UIKit
 /// (`mix:options` with the options sheet too, `mix:edit` drawing the volume lines by hand).
 /// `downloads` downloads the first songs of a song's radio and shows them downloading;
 /// `storage` shows the space they take; `info` plays an album and opens its first song's details;
-/// `player` shows a song's radio paused on it.
+/// `player` shows a song's radio paused on it; `tempo-live:<videoId>` plays it and says when the
+/// tempo panel has its BPM.
 /// Launch arguments are never passed in normal use, so this does nothing then.
 @MainActor
 enum LaunchScene {
@@ -176,6 +177,26 @@ enum LaunchScene {
                 }
                 print("tempo-bpm: FAIL")
             }
+        case "tempo-live":
+            // A real song played from its stream (`value`, a video id): the tempo panel's BPM, as
+            // people get it (the log says each step). Live: YouTube may refuse CI's machines.
+            Task {
+                guard let tracks = try? await InnerTube.shared.radio(for: value), let first = tracks.first else {
+                    print("tempo-live: no song")
+                    return
+                }
+                PlayerController.shared.play(tracks, source: "Radio")
+                router.openPlayer()
+                for _ in 0..<200 {
+                    try? await Task.sleep(for: .milliseconds(500))
+                    let player = PlayerController.shared
+                    if let measured = player.songBPM, measured.trackID == player.current?.id {
+                        print("tempo-live: PASS \(measured.bpm) for \(player.current?.title ?? first.title) (\(player.streamInfo ?? "?"))")
+                        return
+                    }
+                }
+                print("tempo-live: FAIL (\(PlayerController.shared.streamInfo ?? "no stream"))")
+            }
         case "airplay" where ProcessInfo.processInfo.isMacCatalystApp:
             // The AirPlay button of the player bar, clicked: its menu must open by it.
             select(.home)
@@ -199,6 +220,8 @@ enum LaunchScene {
                 if let control = button(in: found) {
                     control.sendActions(for: .touchUpInside)
                     print("airplay: opened")
+                    try? await Task.sleep(for: .seconds(2))
+                    print("airplay: windows \(MacBridge.shared.describeWindows())")
                 } else {
                     print("airplay: no button")
                 }
