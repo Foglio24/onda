@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.30.1 (2026-11-10)
+
+### Fixed
+- **Mac: the account stays signed in.** After signing in, the Mac's keychain refused to keep the session, so Settings › Account showed no name, email or plan and nothing synced. The session is now kept in the Mac's login keychain, and the account shows and syncs as on iPhone. Last.fm's sign-in on Mac had the same problem and is fixed too.
+- **Mac: the player bar is Liquid Glass again**, floating at the bottom of the page as in Apple Music, with the page scrolling under it. The sidebar keeps the playlists' covers.
+- **Mac: Install and restart closes everything.** Every open sheet and alert closes before Seaglass quits to install the update; with one still open, the app used to stay as it was instead of restarting.
+
 ## 1.30.0 (2026-11-10)
 
 ### Added
