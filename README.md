@@ -14,6 +14,7 @@ A hands-on music player for iPhone, iPad, <strong>Mac</strong> and Android, buil
   <a href="https://altdirect.app/?url=https%3A%2F%2Fraw.githubusercontent.com%2FFoglio24%2Fonda%2Fmain%2Faltstore-source.json&amp;r=altstore"><img src="https://img.shields.io/badge/ADD_TO-ALTSTORE_CLASSIC-7E4BD6?style=for-the-badge&amp;logo=apple&amp;logoColor=white" alt="Add Seaglass to AltStore Classic"></a>
   <a href="https://github.com/Foglio24/onda/releases/latest"><img src="https://img.shields.io/github/v/release/Foglio24/onda?style=for-the-badge&amp;label=RELEASE" alt="Latest release"></a>
   <a href="https://github.com/Foglio24/onda/releases"><img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FFoglio24%2Fonda%2Fdownload-stats%2Fdownload-count.json&amp;label=total%20downloads&amp;style=for-the-badge" alt="Total downloads (iPhone, iPad, Mac and Android)"></a>
+  <a href="https://github.com/sponsors/Foglio24"><img src="https://img.shields.io/badge/SPONSOR-Seaglass-DB61A2?style=for-the-badge&amp;logo=githubsponsors&amp;logoColor=white" alt="Sponsor Seaglass on GitHub"></a>
 </p>
 
 <p align="center">
@@ -183,6 +184,10 @@ It adds every download of the app from published GitHub releases, on every platf
 
 **How can I report a problem?**  
 Open a [GitHub issue](https://github.com/Foglio24/onda/issues), including your app version, iPhone, iPad or Mac model and steps to reproduce the problem. When helpful, you can share a report from **Settings → Diagnostics**.
+
+## Support Seaglass
+
+If Seaglass makes your listening better, you can support continued development through [GitHub Sponsors](https://github.com/sponsors/Foglio24). Your support helps fund new features, compatibility work and maintenance across iPhone, iPad and Mac.
 
 ## Project details
 
