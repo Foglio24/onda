@@ -3,7 +3,7 @@
 ## 1.31.3 (2026-11-10)
 
 ### Fixed
-- **Mac: the sidebar is Liquid Glass**, as Apple Music's on macOS 26: a glass panel floating inside the window, with the window's buttons on it, the library and the playlists in sections that fold, and Settings at its foot. The pages run under it, so their colours and what scrolls show through the glass. The system's sidebar was opaque in Seaglass.
+- **Mac: the sidebar is Liquid Glass**, as Apple Music's on macOS 26: a glass panel floating inside the window, tinted by the theme's colour, with the window's buttons on it, the library and the playlists in sections that fold, and Settings at its foot. The system's sidebar was opaque in Seaglass.
 - **Mac: the zoom works.** It now makes the whole window bigger or smaller, text, buttons, covers and spacing together, as Spotify's zoom does; before, it changed nothing. It applies at once, from **Settings › Appearance › Zoom** or with ⌘+, ⌘− and ⌘0.
 
 ## 1.31.2 (2026-11-10)

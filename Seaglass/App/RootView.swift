@@ -102,14 +102,21 @@ extension RootView {
 
     /// On a Mac, Apple Music's layout on macOS 26: a sidebar floating in Liquid Glass along the
     /// window's left (search, the Home, the library, the playlists, Settings), with the window's
-    /// buttons on it, and the player bar floating in glass along the bottom. The pages run under
-    /// both, so their backgrounds and what scrolls show through the glass. The sidebar is the app's
-    /// own: the system's (TabView, NavigationSplitView) is opaque in an iPad app on a Mac.
+    /// buttons on it, and the player bar floating in glass along the bottom, the page scrolling
+    /// under it. The sidebar is the app's own: the system's (TabView, NavigationSplitView) is opaque
+    /// in an iPad app on a Mac. The pages start beside it: their lists and navigation bars don't
+    /// take a sideways safe area on a Mac, so they would run under it.
     private var macTabs: some View {
         macPages
-            // The page's content starts beside the sidebar and ends above the player bar.
-            .safeAreaPadding(.leading, MacSidebar.width + 2 * MacSidebar.inset)
             .safeAreaPadding(.bottom, MacPlayerBar.height + 24)
+            .padding(.leading, MacSidebar.width + 2 * MacSidebar.inset)
+            // What the glass shows: the window's background, faintly in the theme's colour.
+            .background {
+                LinearGradient(colors: [accent.color.opacity(0.22), accent.color.opacity(0.04)],
+                               startPoint: .topLeading, endPoint: .bottomTrailing)
+                    .background(Color(.systemBackground))
+                    .ignoresSafeArea()
+            }
             .overlay(alignment: .bottom) {
                 MacPlayerBar()
                     .glassEffect(.regular, in: .capsule)
