@@ -142,7 +142,8 @@ print("124 → 126: \(close.level.rawValue) \(close.plan.map { "\($0.shape.rawVa
 expect(close.level.isLocked, "close tempos and steady grids: beat-matched")
 if let plan = close.plan {
     checkPlan(plan, a, b, "124 → 126")
-    expect(abs(plan.rate - 126.0 / 124.0) < 0.01, "the incoming song plays at the outgoing one's tempo (rate \(format(plan.rate, 4)))")
+    // Its bars as long as the outgoing song's: a 126 BPM song slowed to 124 BPM.
+    expect(abs(plan.rate - 124.0 / 126.0) < 0.005, "the incoming song plays at the outgoing one's tempo (rate \(format(plan.rate, 4)))")
     expect((plan.phaseMedian ?? 1) <= 0.02, "beats within 20 ms (median \(format((plan.phaseMedian ?? 1) * 1000, 1)) ms)")
     expect(plan.restoreSeconds > 0, "the incoming song goes back to its own speed afterwards (\(format(plan.restoreSeconds, 1)) s)")
 }
