@@ -11,7 +11,10 @@ const strings = {
     registerTitle: "Crea il tuo account", passwordConfirm: "Ripeti la password", passwordRule: "Almeno 12 caratteri.",
     registerButton: "Registrati", haveAccount: "Hai già un account?", loginLink: "Accedi",
     forgotTitle: "Reimposta la password",
-    forgotLead: "Inserisci l'email del tuo account: ti mandiamo un link per scegliere una nuova password.",
+    forgotLead: "Inserisci l'email del tuo account: ti mandiamo un codice di 6 cifre per scegliere una nuova password.",
+    sendCode: "Invia il codice", haveCode: "Hai già un codice?", code: "Codice di 6 cifre",
+    resetLead: "Inserisci il codice che ti abbiamo mandato per email e scegli una nuova password.",
+    support: "Assistenza:", supportHelp: "Per qualsiasi problema scrivi all'assistenza:",
     send: "Invia", back: "Indietro", resetTitle: "Scegli una nuova password", newPassword: "Nuova password", save: "Salva",
     verifyTitle: "Conferma la tua email", verifyLead: "Ti abbiamo mandato un link: aprilo per attivare l'account, poi accedi.",
     verifyResend: "Invia di nuovo", yourPlan: "Il tuo piano", sectionAccount: "Account", editProfile: "Modifica profilo",
@@ -44,7 +47,7 @@ const strings = {
     noticeLinked: "Patreon collegato.", noticeLinkFailed: "Non è stato possibile collegare Patreon. Riprova.",
     noticeVerified: "Email confermata: ora puoi accedere.", noticeVerifyInvalid: "Il link di conferma non è valido o è scaduto.",
     noticeProfile: "Profilo salvato.", noticePassword: "Password aggiornata.", noticeSignedOutAll: "Sei uscito da tutti i dispositivi.",
-    noticeUnlinked: "Patreon scollegato.", noticeResetSent: "Se l'email corrisponde a un account, riceverai un link a breve.",
+    noticeUnlinked: "Patreon scollegato.", noticeResetSent: "Se l'email corrisponde a un account, riceverai un codice a breve. Controlla anche lo spam.",
     noticeResetDone: "Password reimpostata: ora puoi accedere.", noticeVerifySent: "Link inviato di nuovo.",
     deletedTitle: "Account eliminato", deletedText: "Il tuo account e i dati sincronizzati sono stati eliminati.",
     appReturnTitle: "Torna a Seaglass", appReturnText: "Accesso completato: puoi tornare all'app.",
@@ -53,11 +56,11 @@ const strings = {
     errNotVerified: "Conferma prima la tua email.", errExpired: "La pagina è scaduta: riprova.",
     errExpiredApp: "L'accesso è scaduto: torna all'app e premi di nuovo Accedi.",
     errRateLimited: "Troppi tentativi: riprova tra qualche minuto.", errWeakPassword: "La password deve avere almeno 12 caratteri.",
-    errInvalidEmail: "Inserisci un indirizzo email valido.", errInvalidReset: "Il link non è valido o è scaduto.",
+    errInvalidEmail: "Inserisci un indirizzo email valido.", errInvalidReset: "Il codice non è valido o è scaduto.", errTooManyAttempts: "Troppi tentativi: chiedi un nuovo codice.",
     errEmailUnavailable: "L'invio delle email non è ancora disponibile.", errConflict: "Il profilo è cambiato altrove: è stato ricaricato, riprova.",
     errConfirmEmail: "L'email non corrisponde a quella dell'account.", errNetwork: "Connessione non riuscita. Riprova.",
     errGeneric: "Qualcosa è andato storto. Riprova.", errPatreonUnavailable: "Patreon non è ancora configurato.",
-    forgotUnavailable: "Il recupero della password via email non è ancora disponibile.",
+    forgotUnavailable: "Il recupero della password via email non è ancora disponibile: scrivi all'assistenza.",
     benefitAutoMix: "AutoMix: passaggi tra i brani a tempo, come un DJ, e il Mix delle playlist",
     benefitLinks: "Importa playlist da Spotify, Apple Music e YouTube con un link",
     benefitRecognition: "Riconosci il brano che stai ascoltando",
@@ -73,7 +76,10 @@ const strings = {
     registerTitle: "Create your account", passwordConfirm: "Repeat the password", passwordRule: "At least 12 characters.",
     registerButton: "Sign up", haveAccount: "Already have an account?", loginLink: "Log in",
     forgotTitle: "Reset your password",
-    forgotLead: "Enter your account's email: we'll send you a link to choose a new password.",
+    forgotLead: "Enter your account's email: we'll send you a 6-digit code to choose a new password.",
+    sendCode: "Send the code", haveCode: "Already have a code?", code: "6-digit code",
+    resetLead: "Enter the code we emailed you and choose a new password.",
+    support: "Support:", supportHelp: "For any problem, write to support:",
     send: "Send", back: "Back", resetTitle: "Choose a new password", newPassword: "New password", save: "Save",
     verifyTitle: "Confirm your email", verifyLead: "We sent you a link: open it to activate your account, then log in.",
     verifyResend: "Send again", yourPlan: "Your plan", sectionAccount: "Account", editProfile: "Edit profile",
@@ -106,7 +112,7 @@ const strings = {
     noticeLinked: "Patreon linked.", noticeLinkFailed: "Patreon couldn't be linked. Try again.",
     noticeVerified: "Email confirmed: you can log in now.", noticeVerifyInvalid: "The confirmation link is invalid or has expired.",
     noticeProfile: "Profile saved.", noticePassword: "Password updated.", noticeSignedOutAll: "You've been signed out everywhere.",
-    noticeUnlinked: "Patreon unlinked.", noticeResetSent: "If the email matches an account, you'll get a link shortly.",
+    noticeUnlinked: "Patreon unlinked.", noticeResetSent: "If the email matches an account, you'll get a code shortly. Check your spam folder too.",
     noticeResetDone: "Password reset: you can log in now.", noticeVerifySent: "Link sent again.",
     deletedTitle: "Account deleted", deletedText: "Your account and its synced data have been deleted.",
     appReturnTitle: "Back to Seaglass", appReturnText: "You're logged in: you can go back to the app.",
@@ -115,11 +121,11 @@ const strings = {
     errNotVerified: "Confirm your email first.", errExpired: "This page has expired: try again.",
     errExpiredApp: "The login has expired: go back to the app and tap Log in again.",
     errRateLimited: "Too many attempts: try again in a few minutes.", errWeakPassword: "The password needs at least 12 characters.",
-    errInvalidEmail: "Enter a valid email address.", errInvalidReset: "The link is invalid or has expired.",
+    errInvalidEmail: "Enter a valid email address.", errInvalidReset: "The code is invalid or has expired.", errTooManyAttempts: "Too many attempts: ask for a new code.",
     errEmailUnavailable: "Sending emails isn't available yet.", errConflict: "Your profile changed elsewhere: it has been reloaded, try again.",
     errConfirmEmail: "The email doesn't match the account's.", errNetwork: "Couldn't connect. Try again.",
     errGeneric: "Something went wrong. Try again.", errPatreonUnavailable: "Patreon isn't set up yet.",
-    forgotUnavailable: "Password recovery by email isn't available yet.",
+    forgotUnavailable: "Password recovery by email isn't available yet: write to support.",
     benefitAutoMix: "AutoMix: beat-matched transitions like a DJ, and playlist Mixes",
     benefitLinks: "Import playlists from Spotify, Apple Music and YouTube with a link",
     benefitRecognition: "Recognize the song you're hearing",
@@ -136,7 +142,8 @@ const t = (key, value) => (text[key] ?? strings.it[key] ?? key).replace("%s", va
 const errorMessages = {
   invalid_credentials: "errInvalidCredentials", email_not_verified: "errNotVerified", login_expired: "errExpired",
   login_rate_limited: "errRateLimited", weak_password: "errWeakPassword", invalid_email: "errInvalidEmail",
-  invalid_reset: "errInvalidReset", email_unconfigured: "errEmailUnavailable", revision_conflict: "errConflict",
+  invalid_reset: "errInvalidReset", too_many_attempts: "errTooManyAttempts", email_failed: "errGeneric",
+  email_unconfigured: "errEmailUnavailable", revision_conflict: "errConflict",
   patreon_unconfigured: "errPatreonUnavailable", network: "errNetwork",
 };
 
@@ -144,7 +151,6 @@ const $ = (selector) => document.querySelector(selector);
 const params = new URLSearchParams(location.search);
 // Where the sign-in was started: "app" ends back in the app, anything else stays on the page.
 const loginMode = params.get("login");
-const resetToken = params.get("reset");
 // The app's "Get Premium" opens the page here: the Premium section once signed in.
 let pendingView = params.get("view") === "premium" ? "membership" : null;
 const deletionPhrase = "ELIMINA IL MIO ACCOUNT";
@@ -206,7 +212,7 @@ function show(name) {
   if (name === "membership") renderMembership();
   if (name === "password") $("#password-form").username.value = account?.email ?? "";
   if (name === "forgot" && !status.emailEnabled) {
-    formError($("#forgot-form"), t("forgotUnavailable"));
+    formError($("#forgot-form"), t("forgotUnavailable") + (status.supportEmail ? " " + status.supportEmail : ""));
   }
 }
 
@@ -285,7 +291,7 @@ handle($("#register-form"), async (data) => {
   samePasswords(data);
   const email = String(data.get("email")).trim();
   const password = String(data.get("password"));
-  const result = await api("POST", "/v1/auth/register", { email, password });
+  const result = await api("POST", "/v1/auth/register", { email, password, language });
   if (result?.verify) {
     $("#verify-form").email.value = email;
     show("verify");
@@ -295,22 +301,29 @@ handle($("#register-form"), async (data) => {
 });
 
 handle($("#forgot-form"), async (data) => {
-  if (!status.emailEnabled) throw new Error(t("forgotUnavailable"));
-  await api("POST", "/v1/auth/reset/request", { email: String(data.get("email")).trim() });
-  show("login");
+  if (!status.emailEnabled) throw new Error(t("forgotUnavailable") + (status.supportEmail ? " " + status.supportEmail : ""));
+  const email = String(data.get("email")).trim();
+  await api("POST", "/v1/auth/reset/request", { email, language });
+  // Straight to entering the code.
+  show("reset");
+  $("#reset-form").email.value = email;
+  $("#reset-form").code.focus();
   notice("noticeResetSent");
 });
 
 handle($("#reset-form"), async (data) => {
   samePasswords(data);
-  await api("POST", "/v1/auth/reset", { token: resetToken, password: String(data.get("password")) });
-  history.replaceState(null, "", "/account");
+  const email = String(data.get("email")).trim();
+  const code = String(data.get("code")).replace(/\s/g, "");
+  await api("POST", "/v1/auth/reset", { email, code, password: String(data.get("password")) });
+  $("#reset-form").reset();
   show("login");
+  $("#login-form").email.value = email;
   notice("noticeResetDone");
 });
 
 handle($("#verify-form"), async (data) => {
-  await api("POST", "/v1/auth/verify/resend", { email: String(data.get("email")) });
+  await api("POST", "/v1/auth/verify/resend", { email: String(data.get("email")), language });
   notice("noticeVerifySent");
 });
 
@@ -559,12 +572,14 @@ for (const element of document.querySelectorAll("[data-go]")) {
 
 (async () => {
   try { status = await api("GET", "/v1/status"); } catch { /* the defaults: no email, no Patreon */ }
+  if (status.supportEmail) {
+    const anchor = $("#support-link");
+    anchor.textContent = status.supportEmail;
+    anchor.href = "mailto:" + status.supportEmail;
+    $("#support").hidden = false;
+  }
   const outcome = { linked: ["noticeLinked", "ok"], failed: ["noticeLinkFailed", "bad"] }[params.get("patreon")];
   const verified = { success: ["noticeVerified", "ok"], invalid: ["noticeVerifyInvalid", "bad"] }[params.get("verify")];
-  if (resetToken && /^[A-Za-z0-9_-]{43}$/.test(resetToken)) {
-    show("reset");
-    return;
-  }
   if (loginMode === "app") {
     // The app's sign-in: always a fresh login, ending back in the app.
     $("#login-app-hint").hidden = false;

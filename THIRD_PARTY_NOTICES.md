@@ -71,3 +71,4 @@ to their respective rights holders.
 - **GitHub**: release information and downloads for the update check.
 - **Cloudflare**: hosts Seaglass's own account service (Workers and D1), when the user signs in.
 - **Patreon**: the Seaglass Premium subscription, linked on the account page.
+- **Resend**: the account service's emails (address confirmation, password-reset codes).

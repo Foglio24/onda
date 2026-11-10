@@ -57,6 +57,8 @@ Out of scope:
   (as PKCE). The resulting session token is kept like Last.fm's credentials, in the Keychain.
   The service stores passwords as PBKDF2-SHA256 hashes with a salt per account, and sessions,
   codes and email links only as SHA-256 hashes. Patreon's tokens are used once and not kept.
+  The address-confirmation links and password-reset codes are emailed through Resend (or
+  Cloudflare's Email Service); a reset code lasts 15 minutes and five tries.
 - **Lyrics translation.** It runs on the device: Apple's Translation framework on iOS, ML Kit on
   Android.
 - **Song recognition.** The microphone is requested only after a tap on the recognition control.
@@ -147,6 +149,9 @@ folder. For example, a YouTube video ID matches `[A-Za-z0-9_-]{11}`.
   `com.onda.player.auth:/callback` and nothing else.
 - The page keeps its Content-Security-Policy (only its own scripts and styles, no framing) and
   builds every user-supplied text with `textContent`, never `innerHTML`.
+- A password-reset code is six digits: it expires in 15 minutes, stops after five wrong tries,
+  and an account gets at most one a minute. Asking for one answers the same whether the address
+  has an account or not.
 - Patreon's webhook is accepted only with a valid `X-Patreon-Signature`. Linking Patreon only
   finishes in the browser, signed in to the account, that started it.
 - Deleting the account deletes everything synced with it at once. Sync never deletes anything

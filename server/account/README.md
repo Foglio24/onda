@@ -75,10 +75,25 @@ the first one alphabetically is used: set the variable `SEAGLASS_ACCOUNT_DOMAIN`
 
 ### 3. Email (optional: password reset and email confirmation)
 
-Without it, accounts work at once and passwords can't be reset by email. To turn it on, onboard
-the domain to Cloudflare Email Service (dashboard › Compute & AI › Email Service › Onboard
-Domain) and set the variable `SEAGLASS_EMAIL_FROM` (for example `no-reply@<domain>`). From then
-on new accounts confirm their address.
+Without it, accounts work at once, and a forgotten password goes through support (the page
+says to write to `SUPPORT_EMAIL`). With it, "Forgot your password?" emails a six-digit code
+(valid 15 minutes, five tries, one email a minute), and new accounts confirm their address
+with a link.
+
+The free way is [Resend](https://resend.com) (free plan: 100 emails a day, 3,000 a month):
+
+1. Create a Resend account, add the domain (Domains › Add Domain) and let Resend add its DNS
+   records to Cloudflare (or copy them into Cloudflare's DNS), then wait for "Verified".
+2. Create an API key with "Sending access" and add it to GitHub as the secret `RESEND_API_KEY`.
+3. Set the variable `SEAGLASS_EMAIL_FROM`, for example `Seaglass <no-reply@<domain>>`.
+4. Run the "Account service" workflow again.
+
+Without `RESEND_API_KEY`, `SEAGLASS_EMAIL_FROM` uses Cloudflare's Email Service instead, which
+sends to any address only on the Workers Paid plan.
+
+### 4. Support
+
+`SUPPORT_EMAIL` in `wrangler.jsonc` is the address the page and the app give for help.
 
 ## Security
 

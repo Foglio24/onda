@@ -50,18 +50,22 @@
 
     <section class="auth" id="view-forgot" hidden>
       <h1 data-t="forgotTitle">Reimposta la password</h1>
-      <p class="lead" data-t="forgotLead">Inserisci l'email del tuo account: ti mandiamo un link per scegliere una nuova password.</p>
+      <p class="lead" data-t="forgotLead"></p>
       <form id="forgot-form" novalidate>
         <label><span data-t="email">Email</span><input name="email" type="email" autocomplete="username" required maxlength="254"></label>
         <p class="error" role="alert" hidden></p>
-        <button class="primary" type="submit" data-t="send">Invia</button>
+        <button class="primary" type="submit" data-t="sendCode"></button>
       </form>
+      <p class="links"><button class="link" type="button" data-go="reset" data-t="haveCode"></button></p>
       <p class="links"><button class="link" type="button" data-go="login" data-t="back">Indietro</button></p>
     </section>
 
     <section class="auth" id="view-reset" hidden>
       <h1 data-t="resetTitle">Scegli una nuova password</h1>
+      <p class="lead" data-t="resetLead"></p>
       <form id="reset-form" novalidate>
+        <label><span data-t="email">Email</span><input name="email" type="email" autocomplete="username" required maxlength="254"></label>
+        <label><span data-t="code"></span><input name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required class="code"></label>
         <label><span data-t="newPassword">Nuova password</span><input name="password" type="password" autocomplete="new-password" required minlength="12" maxlength="128"></label>
         <label><span data-t="passwordConfirm">Ripeti la password</span><input name="confirm" type="password" autocomplete="new-password" required minlength="12" maxlength="128"></label>
         <p class="hint" data-t="passwordRule">Almeno 12 caratteri.</p>
@@ -197,6 +201,7 @@
   </main>
 
   <footer class="foot">
+    <p id="support" hidden><span data-t="support"></span> <a id="support-link"></a></p>
     <p data-t="footer">Seaglass non è affiliato a YouTube né a Patreon.</p>
   </footer>
 </body>

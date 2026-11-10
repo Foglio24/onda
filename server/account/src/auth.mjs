@@ -4,6 +4,8 @@ const attemptLifetime = 600;
 const codeLifetime = 120;
 const sessionLifetime = 30 * 86_400;
 const tokenLifetime = 30 * 60;
+const codeLifetimeReset = 15 * 60;
+const codeAttempts = 5;
 const secretPattern = /^[A-Za-z0-9_-]{43}$/;
 const verifierPattern = /^[A-Za-z0-9._~-]{43,128}$/;
 const attemptCookieName = "__Host-seaglass-login";
@@ -33,9 +35,12 @@ function redirect(location, cookies = []) {
 }
 export function clearSessionCookie() { return sessionCookie("", 0); }
 
-/** Whether emails can be sent (Cloudflare's Email Service set up for the domain, see README). */
+/**
+ * Whether emails can be sent: through Resend (its free plan, RESEND_API_KEY) or Cloudflare's
+ * Email Service (the EMAIL binding, on Workers Paid), from AUTH_EMAIL_FROM. See README.
+ */
 export function emailReady(env) {
-  return Boolean(env.EMAIL && env.AUTH_EMAIL_FROM && env.AUTH_EMAIL_READY === "true");
+  return Boolean((env.RESEND_API_KEY || env.EMAIL) && env.AUTH_EMAIL_FROM && env.AUTH_EMAIL_READY === "true");
 }
 
 function origin(env) {
@@ -97,35 +102,80 @@ function validPassword(value) {
 function escapeHtml(value) {
   return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
 }
-async function sendToken(env, email, token, purpose) {
-  if (!env.EMAIL || !env.AUTH_EMAIL_FROM) throw new HttpError(503, "email_unconfigured");
-  const action = purpose === "verify" ? "Conferma il tuo indirizzo email" : "Reimposta la password";
-  const path = purpose === "verify" ? "/v1/auth/verify" : "/account";
-  const url = new URL(path, origin(env));
-  url.searchParams.set(purpose === "verify" ? "token" : "reset", token);
+async function sendEmail(env, message) {
+  if (!emailReady(env)) throw new HttpError(503, "email_unconfigured");
+  if (env.RESEND_API_KEY) {
+    // RESEND_ENDPOINT only for the local test, which receives the emails itself.
+    const response = await fetch(env.RESEND_ENDPOINT || "https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ from: env.AUTH_EMAIL_FROM, to: [message.to], subject: message.subject, text: message.text, html: message.html }),
+    });
+    if (!response.ok) throw new HttpError(502, "email_failed");
+    return;
+  }
+  await env.EMAIL.send({ from: env.AUTH_EMAIL_FROM, ...message });
+}
+
+const emailTexts = {
+  it: {
+    verifySubject: "Conferma il tuo indirizzo email · Seaglass",
+    verify: "Conferma il tuo indirizzo email per attivare l'account Seaglass.",
+    verifyButton: "Conferma l'indirizzo",
+    verifyExpiry: "Il link scade tra 30 minuti.",
+    resetSubject: "Il tuo codice per reimpostare la password · Seaglass",
+    reset: "Ecco il codice per scegliere una nuova password del tuo account Seaglass:",
+    resetExpiry: "Inseriscilo sulla pagina dell'account. Il codice scade tra 15 minuti.",
+    ignore: "Se non l'hai chiesto tu, ignora questa email: il tuo account resta com'è.",
+  },
+  en: {
+    verifySubject: "Confirm your email address · Seaglass",
+    verify: "Confirm your email address to activate your Seaglass account.",
+    verifyButton: "Confirm the address",
+    verifyExpiry: "The link expires in 30 minutes.",
+    resetSubject: "Your code to reset your password · Seaglass",
+    reset: "Here is the code to choose a new password for your Seaglass account:",
+    resetExpiry: "Enter it on the account page. The code expires in 15 minutes.",
+    ignore: "If you didn't ask for this, ignore this email: your account stays as it is.",
+  },
+};
+function texts(language) { return emailTexts[language === "it" ? "it" : "en"]; }
+
+async function sendVerification(env, email, token, language) {
+  const t = texts(language);
+  const url = new URL("/v1/auth/verify", origin(env));
+  url.searchParams.set("token", token);
   const link = escapeHtml(url.href);
-  await env.EMAIL.send({
-    from: env.AUTH_EMAIL_FROM,
+  await sendEmail(env, {
     to: email,
-    subject: `${action} · Seaglass`,
-    text: `${action}: ${url.href}\n\nIl link scade tra 30 minuti. Se non hai richiesto questa email, ignorala.`,
-    html: `<p>${action}.</p><p><a href="${link}">${action}</a></p><p>Il link scade tra 30 minuti. Se non hai richiesto questa email, ignorala.</p>`,
+    subject: t.verifySubject,
+    text: `${t.verify}\n\n${url.href}\n\n${t.verifyExpiry} ${t.ignore}`,
+    html: `<p>${t.verify}</p><p><a href="${link}">${t.verifyButton}</a></p><p>${t.verifyExpiry} ${t.ignore}</p>`,
   });
 }
-async function issueToken(env, accountId, email, purpose) {
+
+async function issueVerification(env, accountId, email, language) {
   const token = secret();
   const now = unix();
   await env.DB.batch([
-    env.DB.prepare("DELETE FROM email_tokens WHERE account_id = ? AND purpose = ?").bind(accountId, purpose),
-    env.DB.prepare("INSERT INTO email_tokens (token_hash, account_id, purpose, expires_at, created_at) VALUES (?, ?, ?, ?, ?)")
-      .bind(await hash(token), accountId, purpose, now + tokenLifetime, now),
+    env.DB.prepare("DELETE FROM email_tokens WHERE account_id = ? AND purpose = 'verify'").bind(accountId),
+    env.DB.prepare("INSERT INTO email_tokens (token_hash, account_id, purpose, expires_at, created_at) VALUES (?, ?, 'verify', ?, ?)")
+      .bind(await hash(token), accountId, now + tokenLifetime, now),
   ]);
-  try { await sendToken(env, email, token, purpose); }
+  try { await sendVerification(env, email, token, language); }
   catch (error) {
     await env.DB.prepare("DELETE FROM email_tokens WHERE token_hash = ?").bind(await hash(token)).run();
     throw error;
   }
 }
+
+/** Six digits, each as likely as the others. */
+function resetCode() {
+  const values = new Uint32Array(1);
+  do { crypto.getRandomValues(values); } while (values[0] >= 4_294_000_000);
+  return String(values[0] % 1_000_000).padStart(6, "0");
+}
+async function codeHash(accountId, code) { return hash(`reset:${accountId}:${code}`); }
 
 export async function registerAccount(request, env) {
   requireOrigin(request, env);
@@ -143,7 +193,7 @@ export async function registerAccount(request, env) {
     (id, oidc_issuer, oidc_subject, created_at, email, email_normalized, password_salt, password_hash, email_verified_at)
     VALUES (?, 'seaglass', ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING RETURNING id`)
     .bind(id, normalized, now, email, normalized, salt, derived, sendsEmail ? null : now).first();
-  if (created && sendsEmail) await issueToken(env, id, email, "verify");
+  if (created && sendsEmail) await issueVerification(env, id, email, body.language);
   return json({ accepted: true, verify: sendsEmail });
 }
 
@@ -195,32 +245,75 @@ export async function loginAccount(request, env) {
   return createAuthenticatedResponse(request, env, loginAttempt, row.id);
 }
 
+/**
+ * "Password dimenticata?": a six-digit code by email, valid 15 minutes and for five tries. The
+ * answer is the same whether the address has an account or not.
+ */
 export async function requestPasswordReset(request, env) {
   requireOrigin(request, env);
   await limited(request, env);
   const body = await readJson(request);
   const { normalized } = emailAddress(body.email);
+  if (!emailReady(env)) throw new HttpError(503, "email_unconfigured");
   const row = await env.DB.prepare("SELECT id, email, email_verified_at FROM accounts WHERE email_normalized = ?")
     .bind(normalized).first();
-  if (row?.email_verified_at) await issueToken(env, row.id, row.email, "reset");
+  if (!row?.email_verified_at) return json({ accepted: true });
+  const now = unix();
+  // At most one email a minute for an account, whoever asks.
+  const recent = await env.DB.prepare(`SELECT 1 FROM email_tokens WHERE account_id = ? AND purpose = 'reset' AND created_at > ?`)
+    .bind(row.id, now - 60).first();
+  if (recent) return json({ accepted: true });
+  const code = resetCode();
+  const tokenHash = await codeHash(row.id, code);
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM email_tokens WHERE account_id = ? AND purpose = 'reset'").bind(row.id),
+    env.DB.prepare(`INSERT INTO email_tokens (token_hash, account_id, purpose, expires_at, created_at, attempts)
+      VALUES (?, ?, 'reset', ?, ?, 0)`).bind(tokenHash, row.id, now + codeLifetimeReset, now),
+  ]);
+  const t = texts(body.language);
+  try {
+    await sendEmail(env, {
+      to: row.email,
+      subject: t.resetSubject,
+      text: `${t.reset}\n\n${code}\n\n${t.resetExpiry} ${t.ignore}`,
+      html: `<p>${t.reset}</p><p style="font-size:28px;font-weight:700;letter-spacing:6px">${code}</p><p>${t.resetExpiry} ${t.ignore}</p>`,
+    });
+  } catch (error) {
+    await env.DB.prepare("DELETE FROM email_tokens WHERE token_hash = ?").bind(tokenHash).run();
+    throw error;
+  }
   return json({ accepted: true });
 }
 
+/** The code from the email and a new password: every session ends, the address is confirmed. */
 export async function resetPassword(request, env) {
   requireOrigin(request, env);
   await limited(request, env);
-  const { token, password } = await readJson(request);
-  if (typeof token !== "string" || !secretPattern.test(token) || !validPassword(password)) throw new HttpError(400, "invalid_reset");
+  const body = await readJson(request);
+  const { normalized } = emailAddress(body.email);
+  if (typeof body.code !== "string" || !/^\d{6}$/.test(body.code)) throw new HttpError(400, "invalid_reset");
+  if (!validPassword(body.password)) throw new HttpError(400, "weak_password");
   const now = unix();
-  const row = await env.DB.prepare(`DELETE FROM email_tokens WHERE token_hash = ? AND purpose = 'reset' AND expires_at > ?
-    RETURNING account_id`).bind(await hash(token), now).first();
-  if (!row) throw new HttpError(400, "invalid_reset");
+  const pending = await env.DB.prepare(`SELECT email_tokens.token_hash, email_tokens.attempts, accounts.id AS account_id
+    FROM accounts JOIN email_tokens ON email_tokens.account_id = accounts.id AND email_tokens.purpose = 'reset'
+    WHERE accounts.email_normalized = ? AND email_tokens.expires_at > ?`).bind(normalized, now).first();
+  if (!pending || pending.attempts >= codeAttempts) throw new HttpError(400, "invalid_reset");
+  if (await codeHash(pending.account_id, body.code) !== pending.token_hash) {
+    const tries = pending.attempts + 1;
+    if (tries >= codeAttempts) {
+      await env.DB.prepare("DELETE FROM email_tokens WHERE token_hash = ?").bind(pending.token_hash).run();
+      throw new HttpError(400, "too_many_attempts");
+    }
+    await env.DB.prepare("UPDATE email_tokens SET attempts = ? WHERE token_hash = ?").bind(tries, pending.token_hash).run();
+    throw new HttpError(400, "invalid_reset");
+  }
   const salt = secret();
-  const derived = await passwordHash(password, salt);
+  const derived = await passwordHash(body.password, salt);
   await env.DB.batch([
-    env.DB.prepare("UPDATE accounts SET password_salt = ?, password_hash = ? WHERE id = ?").bind(salt, derived, row.account_id),
-    env.DB.prepare("DELETE FROM sessions WHERE account_id = ?").bind(row.account_id),
-    env.DB.prepare("DELETE FROM email_tokens WHERE account_id = ?").bind(row.account_id),
+    env.DB.prepare(`UPDATE accounts SET password_salt = ?, password_hash = ?, email_verified_at = COALESCE(email_verified_at, ?)
+      WHERE id = ?`).bind(salt, derived, now, pending.account_id),
+    env.DB.prepare("DELETE FROM sessions WHERE account_id = ?").bind(pending.account_id),
+    env.DB.prepare("DELETE FROM email_tokens WHERE account_id = ?").bind(pending.account_id),
   ]);
   return json({ accepted: true });
 }
@@ -232,7 +325,7 @@ export async function requestVerification(request, env) {
   const { normalized } = emailAddress(body.email);
   const row = await env.DB.prepare("SELECT id, email, email_verified_at FROM accounts WHERE email_normalized = ?")
     .bind(normalized).first();
-  if (row && !row.email_verified_at) await issueToken(env, row.id, row.email, "verify");
+  if (row && !row.email_verified_at) await issueVerification(env, row.id, row.email, body.language);
   return json({ accepted: true });
 }
 

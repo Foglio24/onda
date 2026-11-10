@@ -26,6 +26,12 @@ const pageHeaders = {
   "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
 };
 
+/** Where users write for help (the page and the app show it). */
+function supportEmail(env) {
+  const value = (env.SUPPORT_EMAIL ?? "").trim();
+  return /^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/.test(value) ? value : null;
+}
+
 async function asset(env, request, path) {
   const response = await env.ASSETS.fetch(new URL(path, request.url));
   if (response.status === 404) return json({ error: "not_found" }, 404);
@@ -75,7 +81,7 @@ async function route(request, env) {
   if (path === "GET /v1/status") {
     // premiumEnabled: the app locks the Premium features only when Premium can be bought.
     return json({ accountLoginEnabled: true, emailEnabled: emailReady(env), patreonEnabled: patreonConfigured(env),
-      premiumEnabled: patreonConfigured(env) && Boolean(env.PATREON_URL) });
+      premiumEnabled: patreonConfigured(env) && Boolean(env.PATREON_URL), supportEmail: supportEmail(env) });
   }
   if (!url.pathname.startsWith("/v1/")) {
     if (!env.ASSETS || !["GET", "HEAD"].includes(request.method)) throw new HttpError(404, "not_found");

@@ -48,15 +48,38 @@ struct AccountSettingsView: View {
             } else {
                 signedOut
             }
+            support
         }
         .scrollContentBackground(.hidden)
         .background { AmbientBackground() }
         .navigationTitle("Account")
+        .task { await account.refreshStatus() }
         .navigationBarTitleDisplayMode(.inline)
         .task { await account.refresh() }
         .refreshable {
             await account.refresh(force: true)
             await account.sync()
+        }
+    }
+
+    /// Help, by email: for the account, Premium or the app.
+    @ViewBuilder private var support: some View {
+        if let supportURL = account.supportURL, let address = account.supportEmail {
+            Section {
+                Button {
+                    openURL(supportURL)
+                } label: {
+                    LabeledContent {
+                        Text(address).lineLimit(1)
+                    } label: {
+                        Label("Scrivi all'assistenza", systemImage: "envelope")
+                    }
+                }
+            } header: {
+                Text("Assistenza")
+            } footer: {
+                Text("Per l'account, Premium o un problema con l'app.")
+            }
         }
     }
 

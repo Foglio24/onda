@@ -185,3 +185,5 @@ form .primary, form .secondary, form .destructive { width: 100%; margin-top: 6px
 .benefits { list-style: none; padding: 0; margin: 4px 0 20px; display: grid; gap: 10px; }
 .benefits li { display: flex; gap: 12px; align-items: center; background: var(--surface); border-radius: 10px; padding: 12px 14px; }
 .panel .small { margin-top: 12px; }
+input.code { font-size: 24px; letter-spacing: 0.4em; font-variant-numeric: tabular-nums; }
+.foot a { color: inherit; }

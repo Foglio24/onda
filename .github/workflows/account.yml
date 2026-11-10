@@ -3,7 +3,7 @@
 # D1 database the first time, applies its migrations, publishes the Worker and sets its secrets.
 #
 # Repository secrets: CLOUDFLARE_API_TOKEN (required to deploy), PATREON_CLIENT_ID,
-# PATREON_CLIENT_SECRET, PATREON_WEBHOOK_SECRET. Repository variables (optional):
+# PATREON_CLIENT_SECRET, PATREON_WEBHOOK_SECRET, RESEND_API_KEY. Repository variables (optional):
 # CLOUDFLARE_ACCOUNT_ID, SEAGLASS_ACCOUNT_DOMAIN, SEAGLASS_EMAIL_FROM, PATREON_URL,
 # PATREON_CAMPAIGN_ID, PREMIUM_MIN_CENTS. See server/account/README.md.
 name: Account service
@@ -84,6 +84,8 @@ jobs:
       - name: Find the domain and the database
         id: cloudflare
         if: steps.token.outputs.ready == 'true'
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
         run: node scripts/cloudflare.mjs prepare
 
       - name: Apply the database migrations
@@ -98,8 +100,8 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ steps.cloudflare.outputs.account_id }}
         run: npx wrangler deploy -c wrangler.deploy.jsonc
 
-      # Only the secrets that are set; Patreon stays off (the page says so) until they are.
-      - name: Set the Patreon secrets
+      # Only the secrets that are set; Patreon and email stay off (the page says so) until they are.
+      - name: Set the Patreon and email secrets
         if: steps.token.outputs.ready == 'true'
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ steps.cloudflare.outputs.account_id }}
@@ -107,14 +109,15 @@ jobs:
           PATREON_CLIENT_SECRET: ${{ secrets.PATREON_CLIENT_SECRET }}
           PATREON_WEBHOOK_SECRET: ${{ secrets.PATREON_WEBHOOK_SECRET }}
           PATREON_CAMPAIGN_ID: ${{ vars.PATREON_CAMPAIGN_ID }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
         run: |
           umask 077
-          file="$RUNNER_TEMP/patreon-secrets.json"
+          file="$RUNNER_TEMP/worker-secrets.json"
           node -e '
-            const names = ["PATREON_CLIENT_ID", "PATREON_CLIENT_SECRET", "PATREON_WEBHOOK_SECRET", "PATREON_CAMPAIGN_ID"];
+            const names = ["PATREON_CLIENT_ID", "PATREON_CLIENT_SECRET", "PATREON_WEBHOOK_SECRET", "PATREON_CAMPAIGN_ID", "RESEND_API_KEY"];
             const values = Object.fromEntries(names.filter((name) => process.env[name]).map((name) => [name, process.env[name]]));
             require("node:fs").writeFileSync(process.argv[1], JSON.stringify(values));
-            console.log("Patreon secrets set:", Object.keys(values).join(", ") || "none");
+            console.log("Secrets set:", Object.keys(values).join(", ") || "none");
           ' "$file"
           if [ "$(cat "$file")" != "{}" ]; then npx wrangler secret bulk "$file" -c wrangler.deploy.jsonc; fi
           rm -f "$file"

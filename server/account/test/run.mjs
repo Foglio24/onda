@@ -1,11 +1,13 @@
 // The account service end to end, on a local copy of the Worker and its database (Miniflare,
-// through Wrangler): signing up and in from the page and from the app, syncing, the profile,
-// Patreon's webhook, changing the password, signing out and deleting the account.
-// Run with `npm test` from server/account. Nothing here reaches Cloudflare or Patreon.
+// through Wrangler): signing up (confirming the address) and in from the page and from the app,
+// syncing, the profile, Patreon's webhook, changing and resetting the password, signing out and
+// deleting the account. Emails go to a stand-in for Resend's API on this machine.
+// Run with `npm test` from server/account. Nothing here reaches Cloudflare, Patreon or Resend.
 
 import { execFileSync } from "node:child_process";
 import { createHash, createHmac, randomBytes, randomUUID } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
+import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -26,6 +28,21 @@ function sql(command) {
   }).toString())[0].results;
 }
 
+// Resend's API, as far as the Worker can tell: every email it sends lands in `emails`.
+const emails = [];
+const resend = createServer((request, response) => {
+  let body = "";
+  request.on("data", (chunk) => { body += chunk; });
+  request.on("end", () => {
+    if (request.headers.authorization === "Bearer test-resend") emails.push(JSON.parse(body));
+    response.writeHead(request.headers.authorization === "Bearer test-resend" ? 200 : 401, { "Content-Type": "application/json" });
+    response.end(JSON.stringify({ id: randomUUID() }));
+  });
+});
+await new Promise((resolve) => resend.listen(0, "127.0.0.1", resolve));
+process.env.NO_PROXY = [process.env.NO_PROXY, "127.0.0.1", "localhost"].filter(Boolean).join(",");
+const lastEmail = () => emails.at(-1);
+
 const worker = await unstable_startWorker({
   config: join(root, "wrangler.jsonc"),
   bindings: {
@@ -34,6 +51,10 @@ const worker = await unstable_startWorker({
     PATREON_WEBHOOK_SECRET: { type: "plain_text", value: webhookSecret },
     PATREON_CAMPAIGN_ID: { type: "plain_text", value: "4242" },
     PATREON_URL: { type: "plain_text", value: "https://www.patreon.com/seaglass" },
+    RESEND_API_KEY: { type: "plain_text", value: "test-resend" },
+    RESEND_ENDPOINT: { type: "plain_text", value: `http://127.0.0.1:${resend.address().port}/emails` },
+    AUTH_EMAIL_FROM: { type: "plain_text", value: "Seaglass <no-reply@seaglass.test>" },
+    AUTH_EMAIL_READY: { type: "plain_text", value: "true" },
   },
   dev: { persist: state, server: { port: 0, secure: true }, inspector: false, logLevel: "error" },
 });
@@ -77,8 +98,8 @@ try {
   let response = await call("GET", "/health");
   check(response.status === 200 && response.data.status === "ok", "health");
   response = await call("GET", "/v1/status");
-  check(response.data.accountLoginEnabled === true && response.data.emailEnabled === false && response.data.patreonEnabled === true &&
-    response.data.premiumEnabled === true, "status", response.data);
+  check(response.data.accountLoginEnabled === true && response.data.emailEnabled === true && response.data.patreonEnabled === true &&
+    response.data.premiumEnabled === true && response.data.supportEmail?.includes("@"), "status", response.data);
   response = await call("GET", "/account");
   check(response.status === 200 && String(response.data).includes("account.js"), "page served", response.status);
   check((response.headers.get("Content-Security-Policy") ?? "").includes("frame-ancestors 'none'"), "page CSP");
@@ -87,14 +108,21 @@ try {
   response = await call("GET", "/wrangler.jsonc");
   check(response.status === 404, "only the page's files are served", response.status);
 
-  // Signing up and in on the page (no email service: the account works at once).
+  // Signing up on the page, confirming the address from the email, then signing in.
   const email = `test-${randomUUID().slice(0, 8)}@example.com`;
   const password = "correct horse battery";
   const browser = new Map();
   response = await call("GET", "/v1/auth/start?client=web", { cookies: browser });
   check(response.status === 303 && response.headers.get("Location") === "/account?login=web", "web login start", [response.headers.get("Location"), [...response.headers]]);
-  response = await call("POST", "/v1/auth/register", { body: { email, password }, cookies: browser });
-  check(response.status === 200 && response.data.verify === false, "register", response.data);
+  response = await call("POST", "/v1/auth/register", { body: { email, password, language: "it" }, cookies: browser });
+  check(response.status === 200 && response.data.verify === true, "register", response.data);
+  check(lastEmail()?.to?.[0] === email && lastEmail().subject.startsWith("Conferma"), "confirmation email", lastEmail());
+  response = await call("POST", "/v1/auth/login", { body: { email, password }, cookies: browser });
+  check(response.status === 403 && response.data.error === "email_not_verified", "unconfirmed address refused", response.data);
+  const verifyLink = new URL(lastEmail()?.text?.match(/https:\/\/\S+/)?.[0] ?? "invalid:");
+  check(verifyLink.pathname === "/v1/auth/verify", "confirmation link", verifyLink.href);
+  response = await call("GET", verifyLink.pathname + verifyLink.search);
+  check(response.status === 303 && response.headers.get("Location") === "/account?verify=success", "address confirmed", response.status);
   response = await call("POST", "/v1/auth/register", { body: { email, password: "short" }, cookies: browser });
   check(response.status === 400 && response.data.error === "weak_password", "weak password refused", response.data);
   response = await call("POST", "/v1/auth/login", { body: { email, password: "wrong password!!" }, cookies: browser });
@@ -224,12 +252,49 @@ try {
   response = await call("GET", "/v1/account", { cookies: browser });
   check(response.status === 200, "the page stayed signed in", response.status);
 
-  // Signing out everywhere, then deleting the account (with everything that went with it).
+  // A forgotten password: a six-digit code by email, five tries, every session ends. From
+  // another address: sign-in requests are limited to 20 a minute for each.
+  const fromElsewhere = { "CF-Connecting-IP": "203.0.113.7" };
+  const sent = emails.length;
+  response = await call("POST", "/v1/auth/reset/request", { body: { email, language: "en" }, headers: fromElsewhere });
+  const resetCode = lastEmail()?.text?.match(/\b\d{6}\b/)?.[0];
+  check(response.status === 200 && emails.length === sent + 1 && resetCode && lastEmail().subject.includes("code"), "reset code sent", lastEmail());
+  response = await call("POST", "/v1/auth/reset/request", { body: { email: "nobody@example.com" }, headers: fromElsewhere });
+  check(response.status === 200 && emails.length === sent + 1, "no email for an unknown address, same answer", response.data);
+  response = await call("POST", "/v1/auth/reset/request", { body: { email }, headers: fromElsewhere });
+  check(response.status === 200 && emails.length === sent + 1, "one code a minute", emails.length);
+  const wrongCode = resetCode === "000000" ? "111111" : "000000";
+  response = await call("POST", "/v1/auth/reset", { body: { email, code: wrongCode, password: "reset long password" }, headers: fromElsewhere });
+  check(response.status === 400 && response.data.error === "invalid_reset", "wrong code refused", response.data);
+  response = await call("POST", "/v1/auth/reset", { body: { email, code: resetCode, password: "reset long password" }, headers: fromElsewhere });
+  check(response.status === 200, "password reset", response.data);
+  response = await call("GET", "/v1/account", { cookies: browser });
+  check(response.status === 401, "a reset signs out everywhere", response.status);
+  response = await call("POST", "/v1/auth/reset", { body: { email, code: resetCode, password: "reset long password" }, headers: fromElsewhere });
+  check(response.status === 400, "a code works once", response.status);
+  sql(`UPDATE email_tokens SET created_at = created_at - 120`);
+  response = await call("POST", "/v1/auth/reset/request", { body: { email }, headers: fromElsewhere });
+  const secondCode = lastEmail()?.text?.match(/\b\d{6}\b/)?.[0];
+  const otherCode = secondCode === "000000" ? "111111" : "000000";
+  for (let attempt = 1; attempt <= 4; attempt += 1) {
+    response = await call("POST", "/v1/auth/reset", { body: { email, code: otherCode, password: "yet another password" }, headers: fromElsewhere });
+  }
+  check(response.status === 400 && response.data.error === "invalid_reset", "four wrong codes", response.data);
+  response = await call("POST", "/v1/auth/reset", { body: { email, code: otherCode, password: "yet another password" }, headers: fromElsewhere });
+  check(response.status === 400 && response.data.error === "too_many_attempts", "the fifth ends the code", response.data);
+  response = await call("POST", "/v1/auth/reset", { body: { email, code: secondCode, password: "yet another password" }, headers: fromElsewhere });
+  check(response.status === 400, "an ended code doesn't work", response.data);
+
+  // Signing in with the reset password, signing out everywhere, deleting the account (with
+  // everything that went with it).
+  response = await call("GET", "/v1/auth/start?client=web", { cookies: browser });
+  response = await call("POST", "/v1/auth/login", { body: { email, password: "reset long password" }, cookies: browser });
+  check(response.status === 200, "login with the reset password", response.data);
   response = await call("DELETE", "/v1/sessions", { cookies: browser });
   check(response.status === 204 && !browser.has("__Host-seaglass-session"), "signed out everywhere", response.status);
   response = await call("GET", "/v1/auth/start?client=web", { cookies: browser });
-  response = await call("POST", "/v1/auth/login", { body: { email, password: "another long password" }, cookies: browser });
-  check(response.status === 200, "login with the new password", response.data);
+  response = await call("POST", "/v1/auth/login", { body: { email, password: "reset long password" }, cookies: browser });
+  check(response.status === 200, "login again", response.data);
   response = await call("DELETE", "/v1/account", { cookies: browser, body: { confirm: "yes" } });
   check(response.status === 400, "deletion needs the confirmation", response.status);
   response = await call("DELETE", "/v1/account", { cookies: browser, body: { confirm: "ELIMINA IL MIO ACCOUNT" } });
@@ -243,6 +308,7 @@ try {
   console.error("✗ crashed:", error);
 } finally {
   await worker.dispose();
+  resend.close();
   rmSync(state, { recursive: true, force: true });
 }
 

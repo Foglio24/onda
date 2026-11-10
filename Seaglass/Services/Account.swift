@@ -67,12 +67,21 @@ final class AccountService: ObservableObject {
     @Published var signInError: String?
     /// Whether Premium can be bought (the service says so): only then are its features locked.
     @Published private(set) var premiumEnabled: Bool
+    /// Where users write for help, as the service gives it.
+    @Published private(set) var supportEmail: String?
 
     /// The service's address, set by CI in the Info.plist (build.yml): nil, no accounts.
     let origin: URL?
     var isAvailable: Bool { origin != nil }
     /// The account page, where everything about the account is changed.
     var manageURL: URL? { origin?.appending(path: "account") }
+    /// A new email to the support address.
+    var supportURL: URL? {
+        guard let supportEmail, supportEmail.range(of: #"^[^\s@<>"?&]+@[^\s@<>"?&]+\.[^\s@<>"?&]+$"#, options: .regularExpression) != nil
+        else { return nil }
+        return URL(string: "mailto:\(supportEmail)")
+    }
+
     /// The account page's Premium section (after signing in there).
     var premiumURL: URL? {
         guard let manageURL else { return nil }
@@ -119,6 +128,7 @@ final class AccountService: ObservableObject {
         isSignedIn = origin != nil && Keychain.get(Keys.token) != nil
         premiumEnabled = origin != nil && stored.premiumEnabled == true
         details = stored.details
+        supportEmail = stored.supportEmail
         lastSync = stored.lastSync
         lastPreferences = SyncedPreferences.read()
         observeChanges()
@@ -220,13 +230,18 @@ final class AccountService: ObservableObject {
     func refreshStatus() async {
         guard origin != nil else { return }
         if let lastStatus, Date.now.timeIntervalSince(lastStatus) < 3600 { return }
-        struct Status: Decodable { var premiumEnabled: Bool? }
+        struct Status: Decodable {
+            var premiumEnabled: Bool?
+            var supportEmail: String?
+        }
         guard let data = try? await send("v1/status", token: nil),
               let status = try? JSONDecoder().decode(Status.self, from: data) else { return }
         lastStatus = .now
         state.premiumEnabled = status.premiumEnabled == true
+        state.supportEmail = status.supportEmail
         state.save()
         premiumEnabled = status.premiumEnabled == true
+        supportEmail = status.supportEmail
         enforcePremium()
     }
 
@@ -485,6 +500,7 @@ private struct StoredState: Codable {
     var base: Base?
     /// Whether Premium can be bought, as the service last said.
     var premiumEnabled: Bool?
+    var supportEmail: String?
 
     private static var url: URL { Storage.support.appending(path: "account.json") }
 

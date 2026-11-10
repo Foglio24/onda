@@ -8,7 +8,8 @@
 // Reads CLOUDFLARE_API_TOKEN, and optionally CLOUDFLARE_ACCOUNT_ID (when the token opens more
 // than one account), SEAGLASS_ACCOUNT_DOMAIN (the host name to use, e.g. account.example.com;
 // otherwise account.<the account's first active domain>, or workers.dev when it has none),
-// SEAGLASS_EMAIL_FROM (the sender, on a domain onboarded to Cloudflare Email Service),
+// SEAGLASS_EMAIL_FROM (the sender, e.g. "Seaglass <no-reply@example.com>", on a domain verified
+// on Resend, or onboarded to Cloudflare Email Service when there is no RESEND_API_KEY),
 // PATREON_URL (Seaglass's page on Patreon) and PREMIUM_MIN_CENTS (the least a Patreon membership
 // pays a month to be Premium). With GITHUB_OUTPUT set, the results are written there.
 
@@ -121,8 +122,11 @@ async function main() {
   config.workers_dev = !customDomain;
   if (customDomain) config.routes = [{ pattern: hostname, custom_domain: true }];
   const sender = (process.env.SEAGLASS_EMAIL_FROM ?? "").trim();
-  if (sender && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(sender)) throw new Error("SEAGLASS_EMAIL_FROM isn't an email address.");
-  if (sender) config.send_email = [{ name: "EMAIL", allowed_sender_addresses: [sender] }];
+  const address = sender.match(/<([^<>]+)>$/)?.[1] ?? sender;
+  if (sender && !/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(address)) throw new Error("SEAGLASS_EMAIL_FROM isn't an email address.");
+  // Resend (free) when its key is there; otherwise Cloudflare's Email Service (Workers Paid).
+  const resend = Boolean(process.env.RESEND_API_KEY);
+  if (sender && !resend) config.send_email = [{ name: "EMAIL", allowed_sender_addresses: [address] }];
   config.vars = {
     ...config.vars,
     PUBLIC_ORIGIN: origin,
@@ -132,7 +136,7 @@ async function main() {
     ...(process.env.PREMIUM_MIN_CENTS ? { PREMIUM_MIN_CENTS: process.env.PREMIUM_MIN_CENTS.trim() } : {}),
   };
   writeFileSync(`${root}/wrangler.deploy.jsonc`, JSON.stringify(config, null, 2) + "\n");
-  console.log(`${workerName} → ${origin} (database ${databaseName}, email ${sender ? "on" : "off"})`);
+  console.log(`${workerName} → ${origin} (database ${databaseName}, email ${sender ? (resend ? "Resend" : "Cloudflare") : "off"})`);
 }
 
 main().catch((error) => {

@@ -37,6 +37,8 @@
     "AUTH_EMAIL_READY": "false",
     "PATREON_URL": "",
     // The least a Patreon membership pays a month, in cents, to be Premium (1: any paid tier).
-    "PREMIUM_MIN_CENTS": "1"
+    "PREMIUM_MIN_CENTS": "1",
+    // Where users write for help: shown on the account page and in the app.
+    "SUPPORT_EMAIL": "lukylaki04@gmail.com"
   }
 }
