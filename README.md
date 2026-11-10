@@ -55,6 +55,7 @@ Your choice is about the listening experience: more control over transitions, te
 - Public Spotify links may expose only the first 100 songs. For longer playlists, import a Spotify JSON or CSV file from **Library → Import playlist from file**.
 - Discover radio stations and personalised mixes; connect Last.fm for scrobbling and more features based on your listening.
 - **Podcasts** from YouTube Music: follow shows, pick up each episode where you left it, change the speed, skip 15/30 seconds and jump between chapters.
+- **A Seaglass account** (optional, iPhone, iPad and Mac) keeps favourites, playlists, history and listening preferences the same on every device. As on Spotify, the account itself (name, password, Patreon membership, deleting it) is managed on its web page; the app shows it and signs in or out.
 
 ### Follow along and sing
 
@@ -188,7 +189,7 @@ Open a [GitHub issue](https://github.com/Foglio24/onda/issues), including your a
 
 ## Support Seaglass
 
-If Seaglass makes your listening better, you can support continued development through [GitHub Sponsors](https://github.com/sponsors/Foglio24) or [Buy Me a Coffee](https://buymeacoffee.com/foglio). Your support helps fund new features, compatibility work and maintenance across iPhone, iPad and Mac.
+If Seaglass makes your listening better, you can support continued development through [GitHub Sponsors](https://github.com/sponsors/Foglio24), [Buy Me a Coffee](https://buymeacoffee.com/foglio) or Patreon, linked from your Seaglass account page (supporters get a badge in the app; every feature stays free). Your support helps fund new features, compatibility work and maintenance across iPhone, iPad and Mac.
 
 ## Project details
 

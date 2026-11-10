@@ -157,8 +157,23 @@ try {
     bearer: token, origin: null, body: { revision: 0, operationId: randomUUID(), data: { values: { "player.crossfade": 6, "eq.preset": "rock" } } },
   });
   check(response.status === 200, "preferences pushed", response.data);
+  const withPreferences = { ...library, preferences: { "playback.crossfade": 6, "audio.spatial": true, "theme.accent": "blue" } };
+  response = await call("PUT", "/v1/sync/library/library", { bearer: token, origin: null, body: { revision: 1, operationId: randomUUID(), data: withPreferences } });
+  check(response.status === 200 && response.data.revision === 2 && response.data.data.preferences?.["audio.spatial"] === true,
+    "library with preferences pushed", response.data);
+  response = await call("PUT", "/v1/sync/library/library", {
+    bearer: token, origin: null, body: { revision: 2, operationId: randomUUID(), data: { ...library, preferences: { "bad key!": 1 } } },
+  });
+  check(response.status === 400, "invalid preferences refused", response.status);
   response = await call("GET", "/v1/sync/library", { bearer: token });
-  check(response.data.record?.data?.playlists?.[0]?.title === "Mix", "library pulled", response.data);
+  check(response.data.record?.data?.playlists?.[0]?.title === "Mix" && response.data.record.revision === 2, "library pulled", response.data);
+
+  // A session in use is renewed past half its life.
+  sql(`UPDATE sessions SET expires_at = strftime('%s', 'now') + 3600 WHERE account_id = '${accountId}'`);
+  response = await call("GET", "/v1/account", { bearer: token });
+  const tokenHash = createHash("sha256").update(token).digest("base64url");
+  const renewed = sql(`SELECT expires_at - strftime('%s', 'now') AS left FROM sessions WHERE token_hash = '${tokenHash}'`)[0];
+  check(response.status === 200 && renewed.left > 29 * 86_400 - 60, "session renewed", renewed);
   response = await call("GET", "/v1/account", { bearer: token });
   check(response.data.records?.playlist === 1 && response.data.records?.favorites === 1 && response.data.syncedAt > 0 &&
     response.data.profile?.lastName === "Lovelace", "account counts", response.data);

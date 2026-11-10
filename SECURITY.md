@@ -26,9 +26,14 @@ Out of scope:
 
 ## How Seaglass handles data
 
-- **No server, no account, no tracking.** Seaglass has no server or account of its own and
-  contains no analytics or tracking. The library, playlists, downloads, listening history and
-  settings stay on the device.
+- **An optional account, no tracking.** Seaglass contains no analytics or tracking. Without an
+  account, the library, playlists, downloads, listening history and settings stay on the device.
+  On iPhone, iPad and Mac the user can sign in to a Seaglass account (the service in
+  `server/account`, on Cloudflare): liked songs, playlists (name and songs), the listening
+  history and some listening preferences are then kept on it and synced between devices.
+  Downloads, playlist covers and Mixes stay on each device. The account is managed on its web
+  page (name, password, Patreon, deleting it, downloading its data); deleting it deletes
+  everything synced at once.
 - **Network.** The apps talk only to:
   - YouTube Music (`music.youtube.com`, and `www.youtube.com` and Google's media hosts for
     streams);
@@ -37,13 +42,21 @@ Out of scope:
     own API key;
   - Spotify's and Apple Music's public pages (`open.spotify.com`, `music.apple.com` and their
     short links), when the user imports a playlist from a link;
-  - the GitHub API, to check for updates.
+  - the GitHub API, to check for updates;
+  - the Seaglass account service (`account.<domain>`, set at build time), only when the user
+    signs in.
   - Shazam (`amp.shazam.com`), only when the user starts song recognition on iPhone, iPad or
     Mac. Only a locally generated audio fingerprint is sent, not the recorded audio. Artwork
     and optional catalog links in the response are accepted only over HTTPS.
 - **Last.fm credentials.** On iOS the Last.fm API secret and session key are kept in the
   Keychain; on a Mac, in the Mac's login keychain (the app is signed ad hoc, without the
   entitlements the iOS keychain needs there).
+- **Account sign-in.** The app signs in through the account page in a private sign-in sheet
+  (`ASWebAuthenticationSession`, never sharing the browser's cookies). The page returns a
+  one-time code to the app's callback, which only the verifier the app generated can exchange
+  (as PKCE). The resulting session token is kept like Last.fm's credentials, in the Keychain.
+  The service stores passwords as PBKDF2-SHA256 hashes with a salt per account, and sessions,
+  codes and email links only as SHA-256 hashes. Patreon's tokens are used once and not kept.
 - **Lyrics translation.** It runs on the device: Apple's Translation framework on iOS, ML Kit on
   Android.
 - **Song recognition.** The microphone is requested only after a tap on the recognition control.
@@ -64,7 +77,8 @@ Treat a change that breaks any of these as **P0** (secrets, updates) or **P1** (
 - The only key material in the repository is the public certificate
   `android/signing/seaglass-cert.pem`. The Android signing key lives in the
   `ANDROID_SIGNING_KEY` secret.
-- Credentials the user enters (Last.fm) go in the Keychain on iOS (the login keychain on a Mac),
+- Credentials the user enters (Last.fm) and the account's session token go in the Keychain on
+  iOS (the login keychain on a Mac),
   never in `UserDefaults`, files in Documents, logs or diagnostics. The same applies on Android when Last.fm arrives:
   encrypted storage, never plain preferences or logs.
 
@@ -122,6 +136,22 @@ folder. For example, a YouTube video ID matches `[A-Za-z0-9_-]{11}`.
 - `PendingIntent`s are immutable unless they must be mutable.
 - Intent extras (including the CI `scene` extras) may only navigate and start playback. They
   must never delete data, change credentials, or read or write files outside the app.
+
+### Account service (`server/account`)
+
+- Passwords are hashed with PBKDF2-SHA256 and a salt per account. Session tokens, sign-in codes,
+  Patreon states and email links are stored only as SHA-256 hashes; none of them is logged.
+- The page's session cookie stays `__Host-`, `HttpOnly`, `Secure` and `SameSite=Lax`, and every
+  write made with it checks that the request comes from the page's own origin.
+- The app's sign-in ends with a one-time code bound to the app's verifier. The callback is
+  `com.onda.player.auth:/callback` and nothing else.
+- The page keeps its Content-Security-Policy (only its own scripts and styles, no framing) and
+  builds every user-supplied text with `textContent`, never `innerHTML`.
+- Patreon's webhook is accepted only with a valid `X-Patreon-Signature`. Linking Patreon only
+  finishes in the browser, signed in to the account, that started it.
+- Deleting the account deletes everything synced with it at once. Sync never deletes anything
+  on a device except what the user deleted on another device (see `LibraryMerge`).
+- Cloudflare and Patreon credentials are GitHub secrets, given to the deploy steps that use them.
 
 ### iOS files
 

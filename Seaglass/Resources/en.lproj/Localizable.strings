@@ -778,3 +778,31 @@
 "Troppe richieste di riconoscimento. Attendi un minuto e riprova." = "Too many recognition requests. Wait a minute and try again.";
 "Impossibile creare l’impronta audio. Riprova ad ascoltare il brano." = "Unable to create the audio fingerprint. Try listening to the song again.";
 "Volume nel player" = "Volume in the player";
+
+/* Account */
+"Account Seaglass" = "Seaglass account";
+"Accedi per sincronizzare la libreria" = "Sign in to sync your library";
+"Accedi per salvare playlist, preferiti, cronologia e preferenze, e ritrovarli su iPhone, iPad e Mac." = "Sign in to save your playlists, favorites, history and preferences, and find them on iPhone, iPad and Mac.";
+"Accedi o crea un account" = "Sign in or create an account";
+"Email" = "Email";
+"Email non confermata" = "Email not confirmed";
+"Piano" = "Plan";
+"Sostenitore su Patreon" = "Patreon supporter";
+"Gratuito" = "Free";
+"Su Seaglass dal" = "On Seaglass since";
+"Ultima sincronizzazione" = "Last synced";
+"Sincronizza ora" = "Sync now";
+"Sincronizzazione" = "Sync";
+"Playlist, preferiti, cronologia e preferenze di ascolto sono gli stessi su tutti i dispositivi collegati all'account." = "Playlists, favorites, history and listening preferences are the same on every device signed in to the account.";
+"Gestisci account" = "Manage account";
+"Nome, password, abbonamento ed eliminazione dell'account si gestiscono sul sito di Seaglass." = "Your name, password, membership and account deletion are managed on the Seaglass website.";
+"Esci" = "Sign out";
+"Uscire dall'account?" = "Sign out of your account?";
+"La libreria resta su questo dispositivo, ma non si sincronizza più." = "Your library stays on this device, but it no longer syncs.";
+"In corso…" = "In progress…";
+"Mai" = "Never";
+"Sostenitore" = "Supporter";
+"Accesso non riuscito. Riprova." = "Couldn't sign in. Try again.";
+"La sessione è scaduta: accedi di nuovo." = "Your session has expired: sign in again.";
+"La libreria è troppo grande per la sincronizzazione." = "Your library is too large to sync.";
+"Il servizio account non risponde. Riprova più tardi." = "The account service isn't responding. Try again later.";

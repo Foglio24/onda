@@ -699,3 +699,31 @@
 "Troppe richieste di riconoscimento. Attendi un minuto e riprova." = "Trop de demandes de reconnaissance. Attendez une minute et réessayez.";
 "Impossibile creare l’impronta audio. Riprova ad ascoltare il brano." = "Impossible de créer l’empreinte audio. Réessayez d’écouter le morceau.";
 "Volume nel player" = "Volume dans le lecteur";
+
+/* Account */
+"Account Seaglass" = "Compte Seaglass";
+"Accedi per sincronizzare la libreria" = "Connectez-vous pour synchroniser la bibliothèque";
+"Accedi per salvare playlist, preferiti, cronologia e preferenze, e ritrovarli su iPhone, iPad e Mac." = "Connectez-vous pour enregistrer vos playlists, favoris, historique et préférences, et les retrouver sur iPhone, iPad et Mac.";
+"Accedi o crea un account" = "Se connecter ou créer un compte";
+"Email" = "E-mail";
+"Email non confermata" = "E-mail non confirmé";
+"Piano" = "Formule";
+"Sostenitore su Patreon" = "Soutien sur Patreon";
+"Gratuito" = "Gratuit";
+"Su Seaglass dal" = "Sur Seaglass depuis";
+"Ultima sincronizzazione" = "Dernière synchronisation";
+"Sincronizza ora" = "Synchroniser maintenant";
+"Sincronizzazione" = "Synchronisation";
+"Playlist, preferiti, cronologia e preferenze di ascolto sono gli stessi su tutti i dispositivi collegati all'account." = "Les playlists, favoris, l’historique et les préférences d’écoute sont les mêmes sur tous les appareils connectés au compte.";
+"Gestisci account" = "Gérer le compte";
+"Nome, password, abbonamento ed eliminazione dell'account si gestiscono sul sito di Seaglass." = "Le nom, le mot de passe, l’abonnement et la suppression du compte se gèrent sur le site de Seaglass.";
+"Esci" = "Se déconnecter";
+"Uscire dall'account?" = "Se déconnecter du compte ?";
+"La libreria resta su questo dispositivo, ma non si sincronizza più." = "La bibliothèque reste sur cet appareil, mais n’est plus synchronisée.";
+"In corso…" = "En cours…";
+"Mai" = "Jamais";
+"Sostenitore" = "Soutien";
+"Accesso non riuscito. Riprova." = "Connexion impossible. Réessayez.";
+"La sessione è scaduta: accedi di nuovo." = "La session a expiré : reconnectez-vous.";
+"La libreria è troppo grande per la sincronizzazione." = "La bibliothèque est trop volumineuse pour être synchronisée.";
+"Il servizio account non risponde. Riprova più tardi." = "Le service de compte ne répond pas. Réessayez plus tard.";

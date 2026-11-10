@@ -6,6 +6,7 @@ struct SettingsView: View {
     @EnvironmentObject private var lastfm: LastFM
     @EnvironmentObject private var downloads: DownloadManager
     @EnvironmentObject private var updater: AppUpdater
+    @EnvironmentObject private var account: AccountService
 
     @AppStorage(Preferences.wifiQuality) private var wifiQuality = Preferences.defaultWifiQuality
     @AppStorage(Preferences.songTransition) private var transition: SongTransition = Preferences.songTransitionSetting
@@ -17,6 +18,12 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             List {
+                // Only in builds that know the account service (see build.yml).
+                if account.isAvailable {
+                    Section {
+                        NavigationLink { AccountSettingsView() } label: { AccountSettingsRow() }
+                    }
+                }
                 Section {
                     NavigationLink { AudioSettingsView() } label: {
                         SettingsRow("Audio", symbol: "waveform", tint: .pink, value: wifiQuality.title)

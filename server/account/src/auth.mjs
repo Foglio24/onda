@@ -267,9 +267,16 @@ export async function authenticate(request, db) {
     if (!originHeader || originHeader !== new URL(request.url).origin) throw new HttpError(403, "wrong_origin");
   }
   const tokenHash = await hash(token);
-  const session = await db.prepare(`SELECT accounts.id, accounts.created_at, accounts.email, accounts.email_verified_at FROM sessions JOIN accounts ON accounts.id = sessions.account_id
-    WHERE token_hash = ? AND expires_at > ?`).bind(tokenHash, unix()).first();
+  const now = unix();
+  const session = await db.prepare(`SELECT accounts.id, accounts.created_at, accounts.email, accounts.email_verified_at,
+    sessions.expires_at FROM sessions JOIN accounts ON accounts.id = sessions.account_id
+    WHERE token_hash = ? AND expires_at > ?`).bind(tokenHash, now).first();
   if (!session) throw new HttpError(401, "authentication_required");
+  // A session in use stays signed in (as Spotify's): past half its life it is renewed, so only
+  // a device unused for 30 days has to sign in again. The page's cookie keeps its own expiry.
+  if (session.expires_at - now < sessionLifetime / 2) {
+    await db.prepare("UPDATE sessions SET expires_at = ? WHERE token_hash = ?").bind(now + sessionLifetime, tokenHash).run();
+  }
   return { accountId: session.id, createdAt: session.created_at, email: session.email, emailVerified: Boolean(session.email_verified_at), tokenHash };
 }
 

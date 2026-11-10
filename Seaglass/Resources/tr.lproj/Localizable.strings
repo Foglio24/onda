@@ -699,3 +699,31 @@
 "Troppe richieste di riconoscimento. Attendi un minuto e riprova." = "Çok fazla tanıma isteği. Bir dakika bekleyip tekrar deneyin.";
 "Impossibile creare l’impronta audio. Riprova ad ascoltare il brano." = "Ses parmak izi oluşturulamadı. Şarkıyı tekrar dinlemeyi deneyin.";
 "Volume nel player" = "Oynatıcıda ses düzeyi";
+
+/* Account */
+"Account Seaglass" = "Seaglass hesabı";
+"Accedi per sincronizzare la libreria" = "Arşivi eşzamanlamak için giriş yapın";
+"Accedi per salvare playlist, preferiti, cronologia e preferenze, e ritrovarli su iPhone, iPad e Mac." = "Çalma listelerinizi, favorilerinizi, geçmişinizi ve tercihlerinizi kaydetmek ve iPhone, iPad ve Mac’te bulmak için giriş yapın.";
+"Accedi o crea un account" = "Giriş yap veya hesap oluştur";
+"Email" = "E-posta";
+"Email non confermata" = "E-posta onaylanmadı";
+"Piano" = "Plan";
+"Sostenitore su Patreon" = "Patreon destekçisi";
+"Gratuito" = "Ücretsiz";
+"Su Seaglass dal" = "Seaglass’ta şu tarihten beri";
+"Ultima sincronizzazione" = "Son eşzamanlama";
+"Sincronizza ora" = "Şimdi eşzamanla";
+"Sincronizzazione" = "Eşzamanlama";
+"Playlist, preferiti, cronologia e preferenze di ascolto sono gli stessi su tutti i dispositivi collegati all'account." = "Çalma listeleri, favoriler, geçmiş ve dinleme tercihleri hesaba bağlı tüm cihazlarda aynıdır.";
+"Gestisci account" = "Hesabı yönet";
+"Nome, password, abbonamento ed eliminazione dell'account si gestiscono sul sito di Seaglass." = "Ad, parola, üyelik ve hesap silme Seaglass web sitesinde yönetilir.";
+"Esci" = "Çıkış yap";
+"Uscire dall'account?" = "Hesaptan çıkış yapılsın mı?";
+"La libreria resta su questo dispositivo, ma non si sincronizza più." = "Arşiv bu cihazda kalır ancak artık eşzamanlanmaz.";
+"In corso…" = "Sürüyor…";
+"Mai" = "Hiçbir zaman";
+"Sostenitore" = "Destekçi";
+"Accesso non riuscito. Riprova." = "Giriş yapılamadı. Yeniden deneyin.";
+"La sessione è scaduta: accedi di nuovo." = "Oturumun süresi doldu: yeniden giriş yapın.";
+"La libreria è troppo grande per la sincronizzazione." = "Arşiv eşzamanlanamayacak kadar büyük.";
+"Il servizio account non risponde. Riprova più tardi." = "Hesap hizmeti yanıt vermiyor. Daha sonra yeniden deneyin.";

@@ -699,3 +699,31 @@
 "Troppe richieste di riconoscimento. Attendi un minuto e riprova." = "طلبات تعرّف كثيرة جدًا. انتظر دقيقة وحاول مجددًا.";
 "Impossibile creare l’impronta audio. Riprova ad ascoltare il brano." = "تعذّر إنشاء البصمة الصوتية. حاول الاستماع إلى الأغنية مجددًا.";
 "Volume nel player" = "مستوى الصوت في المشغّل";
+
+/* Account */
+"Account Seaglass" = "حساب Seaglass";
+"Accedi per sincronizzare la libreria" = "سجّل الدخول لمزامنة المكتبة";
+"Accedi per salvare playlist, preferiti, cronologia e preferenze, e ritrovarli su iPhone, iPad e Mac." = "سجّل الدخول لحفظ قوائم التشغيل والمفضلة والسجل والتفضيلات والعثور عليها على iPhone وiPad وMac.";
+"Accedi o crea un account" = "تسجيل الدخول أو إنشاء حساب";
+"Email" = "البريد الإلكتروني";
+"Email non confermata" = "البريد الإلكتروني غير مؤكَّد";
+"Piano" = "الخطة";
+"Sostenitore su Patreon" = "داعم على Patreon";
+"Gratuito" = "مجاني";
+"Su Seaglass dal" = "على Seaglass منذ";
+"Ultima sincronizzazione" = "آخر مزامنة";
+"Sincronizza ora" = "مزامنة الآن";
+"Sincronizzazione" = "المزامنة";
+"Playlist, preferiti, cronologia e preferenze di ascolto sono gli stessi su tutti i dispositivi collegati all'account." = "قوائم التشغيل والمفضلة والسجل وتفضيلات الاستماع هي نفسها على كل الأجهزة المسجّلة في الحساب.";
+"Gestisci account" = "إدارة الحساب";
+"Nome, password, abbonamento ed eliminazione dell'account si gestiscono sul sito di Seaglass." = "تتم إدارة الاسم وكلمة السر والعضوية وحذف الحساب على موقع Seaglass.";
+"Esci" = "تسجيل الخروج";
+"Uscire dall'account?" = "هل تريد تسجيل الخروج من الحساب؟";
+"La libreria resta su questo dispositivo, ma non si sincronizza più." = "تبقى المكتبة على هذا الجهاز، لكنها لا تُزامَن بعد الآن.";
+"In corso…" = "قيد التنفيذ…";
+"Mai" = "أبدًا";
+"Sostenitore" = "داعم";
+"Accesso non riuscito. Riprova." = "تعذّر تسجيل الدخول. حاول مرة أخرى.";
+"La sessione è scaduta: accedi di nuovo." = "انتهت صلاحية الجلسة: سجّل الدخول مرة أخرى.";
+"La libreria è troppo grande per la sincronizzazione." = "المكتبة أكبر من أن تُزامَن.";
+"Il servizio account non risponde. Riprova più tardi." = "خدمة الحساب لا تستجيب. حاول مرة أخرى لاحقًا.";

@@ -699,3 +699,31 @@
 "Troppe richieste di riconoscimento. Attendi un minuto e riprova." = "Zu viele Erkennungsanfragen. Warte eine Minute und versuche es erneut.";
 "Impossibile creare l’impronta audio. Riprova ad ascoltare il brano." = "Der Audio-Fingerabdruck konnte nicht erstellt werden. Versuche erneut, den Song anzuhören.";
 "Volume nel player" = "Lautstärke im Player";
+
+/* Account */
+"Account Seaglass" = "Seaglass-Account";
+"Accedi per sincronizzare la libreria" = "Anmelden, um die Mediathek zu synchronisieren";
+"Accedi per salvare playlist, preferiti, cronologia e preferenze, e ritrovarli su iPhone, iPad e Mac." = "Melde dich an, um Playlists, Favoriten, Verlauf und Einstellungen zu sichern und sie auf iPhone, iPad und Mac wiederzufinden.";
+"Accedi o crea un account" = "Anmelden oder Account erstellen";
+"Email" = "E-Mail";
+"Email non confermata" = "E-Mail nicht bestätigt";
+"Piano" = "Tarif";
+"Sostenitore su Patreon" = "Unterstützer auf Patreon";
+"Gratuito" = "Kostenlos";
+"Su Seaglass dal" = "Bei Seaglass seit";
+"Ultima sincronizzazione" = "Zuletzt synchronisiert";
+"Sincronizza ora" = "Jetzt synchronisieren";
+"Sincronizzazione" = "Synchronisierung";
+"Playlist, preferiti, cronologia e preferenze di ascolto sono gli stessi su tutti i dispositivi collegati all'account." = "Playlists, Favoriten, Verlauf und Hörgewohnheiten sind auf allen Geräten gleich, die mit dem Account verbunden sind.";
+"Gestisci account" = "Account verwalten";
+"Nome, password, abbonamento ed eliminazione dell'account si gestiscono sul sito di Seaglass." = "Name, Passwort, Mitgliedschaft und das Löschen des Accounts werden auf der Website von Seaglass verwaltet.";
+"Esci" = "Abmelden";
+"Uscire dall'account?" = "Vom Account abmelden?";
+"La libreria resta su questo dispositivo, ma non si sincronizza più." = "Die Mediathek bleibt auf diesem Gerät, wird aber nicht mehr synchronisiert.";
+"In corso…" = "Läuft…";
+"Mai" = "Nie";
+"Sostenitore" = "Unterstützer";
+"Accesso non riuscito. Riprova." = "Anmeldung fehlgeschlagen. Versuche es erneut.";
+"La sessione è scaduta: accedi di nuovo." = "Die Sitzung ist abgelaufen: Melde dich erneut an.";
+"La libreria è troppo grande per la sincronizzazione." = "Die Mediathek ist zu groß für die Synchronisierung.";
+"Il servizio account non risponde. Riprova più tardi." = "Der Account-Dienst antwortet nicht. Versuche es später erneut.";

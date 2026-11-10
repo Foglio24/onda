@@ -287,6 +287,46 @@ final class Library: ObservableObject {
         Self.save(downloads, as: "downloads")
     }
 
+    // MARK: Account sync
+
+    /// What the account keeps of the library (see `LibrarySync`).
+    func syncSnapshot(preferences: [String: SyncValue]) -> LibrarySnapshot {
+        LibrarySnapshot(liked: liked,
+                        playlists: playlists.map { SyncedPlaylist(id: $0.id, title: $0.name, tracks: $0.tracks) },
+                        history: history,
+                        preferences: preferences)
+    }
+
+    /// Takes the library merged with the account's. Covers, Mixes and import reports of the
+    /// playlists still here stay; downloads are never touched.
+    func applySync(_ snapshot: LibrarySnapshot) {
+        let syncedLiked = snapshot.liked.uniqued()
+        if syncedLiked != liked {
+            liked = syncedLiked
+            Self.save(liked, as: "liked")
+        }
+        let syncedHistory = Array(snapshot.history.uniqued().prefix(Self.historyLimit))
+        if syncedHistory != history {
+            history = syncedHistory
+            Self.save(history, as: "history")
+        }
+        let current = Dictionary(playlists.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        let syncedPlaylists = snapshot.playlists.map { synced -> Playlist in
+            guard var playlist = current[synced.id] else {
+                return Playlist(id: synced.id, name: synced.title, tracks: synced.tracks.uniqued(), createdAt: .now)
+            }
+            playlist.name = synced.title
+            playlist.tracks = synced.tracks.uniqued()
+            return playlist
+        }
+        guard syncedPlaylists != playlists else { return }
+        // A playlist deleted on another device takes its cover with it, as when deleted here.
+        let kept = Set(syncedPlaylists.map(\.id))
+        for playlist in playlists where !kept.contains(playlist.id) { Self.deleteFile(playlist.customCoverURL) }
+        playlists = syncedPlaylists
+        savePlaylists()
+    }
+
     // MARK: Persistence
 
     private static func fileURL(_ name: String) -> URL {

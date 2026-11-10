@@ -44,6 +44,8 @@ the lyrics translation; each language's model is downloaded from Google the firs
   [ONNX](https://github.com/onnx/onnx) and [ONNX Runtime](https://github.com/microsoft/onnxruntime)
   (MIT/Apache-2.0), [NumPy](https://github.com/numpy/numpy) (BSD-3-Clause), to convert and check the karaoke model.
 - [XcodeGen](https://github.com/yonaskolb/XcodeGen) (MIT), to generate the Xcode project.
+- [Wrangler](https://github.com/cloudflare/workers-sdk) 4.151.3 (MIT OR Apache-2.0), with its
+  Miniflare and workerd, to test and deploy the account service (`server/account`).
 - [JamendoLyrics](https://github.com/f90/jamendolyrics) (code MIT; each song under its own Creative
   Commons licence), downloaded by the "AutoMix on real songs" workflow to check AutoMix's voice
   detection against the timed lyrics and to render test transitions. Only the songs whose licence
@@ -67,3 +69,5 @@ to their respective rights holders.
   [ShazamIO](https://github.com/shazamio/ShazamIO/tree/3578d409e647843d94492bfdccb39dcdc7983222)
   (MIT); the app uses Apple's local ShazamKit signature generator and does not bundle ShazamIO.
 - **GitHub**: release information and downloads for the update check.
+- **Cloudflare**: hosts Seaglass's own account service (Workers and D1), when the user signs in.
+- **Patreon**: supporting Seaglass, linked on the account page.

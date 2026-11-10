@@ -9,6 +9,8 @@ struct SeaglassApp: App {
     private var library: Library { .shared }
     private var lastfm: LastFM { .shared }
     private var updater: AppUpdater { .shared }
+    private var account: AccountService { .shared }
+    @Environment(\.scenePhase) private var scenePhase
 
     init() {
         // A bigger shared cache keeps cover art loaded by AsyncImage between screens.
@@ -27,6 +29,14 @@ struct SeaglassApp: App {
                     await lastfm.flushPending()
                 }
                 .task { await updater.check(userInitiated: false) }
+                // The account's library and preferences: brought in on opening, sent on leaving.
+                .onChange(of: scenePhase, initial: true) { _, phase in
+                    switch phase {
+                    case .active: account.appBecameActive()
+                    case .background: account.appEnteredBackground()
+                    default: break
+                    }
+                }
                 #if targetEnvironment(macCatalyst)
                 .onAppear {
                     // Seaglass in the menu bar: the song playing, its controls, and the window again.
@@ -67,5 +77,6 @@ extension View {
             .environmentObject(AppRouter.shared)
             .environmentObject(LyricsTranslator.shared)
             .environmentObject(AppUpdater.shared)
+            .environmentObject(AccountService.shared)
     }
 }

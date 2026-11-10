@@ -699,3 +699,31 @@
 "Troppe richieste di riconoscimento. Attendi un minuto e riprova." = "認識リクエストが多すぎます。1 分待ってからもう一度お試しください。";
 "Impossibile creare l’impronta audio. Riprova ad ascoltare il brano." = "音声のフィンガープリントを作成できません。もう一度曲を聴かせてください。";
 "Volume nel player" = "プレーヤーに音量を表示";
+
+/* Account */
+"Account Seaglass" = "Seaglass アカウント";
+"Accedi per sincronizzare la libreria" = "サインインしてライブラリを同期";
+"Accedi per salvare playlist, preferiti, cronologia e preferenze, e ritrovarli su iPhone, iPad e Mac." = "サインインすると、プレイリスト、お気に入り、履歴、設定を保存して iPhone、iPad、Mac で使えます。";
+"Accedi o crea un account" = "サインインまたはアカウントを作成";
+"Email" = "メール";
+"Email non confermata" = "メール未確認";
+"Piano" = "プラン";
+"Sostenitore su Patreon" = "Patreon のサポーター";
+"Gratuito" = "無料";
+"Su Seaglass dal" = "Seaglass 登録日";
+"Ultima sincronizzazione" = "最終同期";
+"Sincronizza ora" = "今すぐ同期";
+"Sincronizzazione" = "同期";
+"Playlist, preferiti, cronologia e preferenze di ascolto sono gli stessi su tutti i dispositivi collegati all'account." = "プレイリスト、お気に入り、履歴、再生の設定は、アカウントにサインインしたすべてのデバイスで共通です。";
+"Gestisci account" = "アカウントを管理";
+"Nome, password, abbonamento ed eliminazione dell'account si gestiscono sul sito di Seaglass." = "名前、パスワード、メンバーシップ、アカウントの削除は Seaglass の Web サイトで管理します。";
+"Esci" = "サインアウト";
+"Uscire dall'account?" = "アカウントからサインアウトしますか？";
+"La libreria resta su questo dispositivo, ma non si sincronizza più." = "ライブラリはこのデバイスに残りますが、同期されなくなります。";
+"In corso…" = "処理中…";
+"Mai" = "なし";
+"Sostenitore" = "サポーター";
+"Accesso non riuscito. Riprova." = "サインインできませんでした。もう一度お試しください。";
+"La sessione è scaduta: accedi di nuovo." = "セッションの有効期限が切れました。もう一度サインインしてください。";
+"La libreria è troppo grande per la sincronizzazione." = "ライブラリが大きすぎて同期できません。";
+"Il servizio account non risponde. Riprova più tardi." = "アカウントサービスが応答しません。しばらくしてからもう一度お試しください。";

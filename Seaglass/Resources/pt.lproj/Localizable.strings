@@ -699,3 +699,31 @@
 "Troppe richieste di riconoscimento. Attendi un minuto e riprova." = "Muitas solicitações de reconhecimento. Aguarde um minuto e tente novamente.";
 "Impossibile creare l’impronta audio. Riprova ad ascoltare il brano." = "Não foi possível criar a impressão digital de áudio. Tente ouvir a música novamente.";
 "Volume nel player" = "Volume no player";
+
+/* Account */
+"Account Seaglass" = "Conta Seaglass";
+"Accedi per sincronizzare la libreria" = "Entre para sincronizar a biblioteca";
+"Accedi per salvare playlist, preferiti, cronologia e preferenze, e ritrovarli su iPhone, iPad e Mac." = "Entre para guardar playlists, favoritos, histórico e preferências, e encontrá-los no iPhone, iPad e Mac.";
+"Accedi o crea un account" = "Entrar ou criar uma conta";
+"Email" = "E-mail";
+"Email non confermata" = "E-mail não confirmado";
+"Piano" = "Plano";
+"Sostenitore su Patreon" = "Apoiador no Patreon";
+"Gratuito" = "Gratuito";
+"Su Seaglass dal" = "No Seaglass desde";
+"Ultima sincronizzazione" = "Última sincronização";
+"Sincronizza ora" = "Sincronizar agora";
+"Sincronizzazione" = "Sincronização";
+"Playlist, preferiti, cronologia e preferenze di ascolto sono gli stessi su tutti i dispositivi collegati all'account." = "Playlists, favoritos, histórico e preferências de reprodução são os mesmos em todos os dispositivos ligados à conta.";
+"Gestisci account" = "Gerir conta";
+"Nome, password, abbonamento ed eliminazione dell'account si gestiscono sul sito di Seaglass." = "O nome, a senha, a assinatura e a eliminação da conta são geridos no site do Seaglass.";
+"Esci" = "Sair";
+"Uscire dall'account?" = "Sair da conta?";
+"La libreria resta su questo dispositivo, ma non si sincronizza più." = "A biblioteca fica neste dispositivo, mas deixa de ser sincronizada.";
+"In corso…" = "Em curso…";
+"Mai" = "Nunca";
+"Sostenitore" = "Apoiador";
+"Accesso non riuscito. Riprova." = "Não foi possível entrar. Tente novamente.";
+"La sessione è scaduta: accedi di nuovo." = "A sessão expirou: entre novamente.";
+"La libreria è troppo grande per la sincronizzazione." = "A biblioteca é grande demais para ser sincronizada.";
+"Il servizio account non risponde. Riprova più tardi." = "O serviço de conta não responde. Tente mais tarde.";

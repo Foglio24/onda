@@ -4,8 +4,9 @@ Guidance for coding agents and automated code review (Codex) in this repository.
 
 ## The project
 
-Seaglass is a YouTube Music player with no server and no account of its own. It talks to YouTube
-Music (InnerTube) directly from the device. It comes in two apps:
+Seaglass is a YouTube Music player. It talks to YouTube Music (InnerTube) directly from the
+device; its only server is the optional account service (`server/account`), where the iPhone,
+iPad and Mac app keep the library in sync. It comes in two apps:
 
 - **iPhone and iPad**: SwiftUI, iOS 26 or later. The Xcode project is generated from `project.yml`
   with XcodeGen. The sources are in `Seaglass/` (`App`, `Models`, `Player`, `Services`, `Views`,
@@ -27,6 +28,10 @@ Other folders:
   release, localization and download-count scripts.
 - `.github/workflows/` holds CI: `build.yml` (iOS), `android.yml`, the AltStore source and the
   download counter.
+- `server/account/` holds the account service: a Cloudflare Worker with D1 and the account's web
+  page, deployed by `.github/workflows/account.yml` (see its README). As on Spotify, the account
+  is managed on the page; the app (`Seaglass/Services/Account.swift`) signs in, shows it and syncs
+  the library (`Seaglass/Services/LibrarySync.swift`).
 - `docs/` holds the README's screenshots.
 - `AutoMix-listening/` holds listening material for AutoMix, not code.
 
@@ -55,6 +60,8 @@ Other folders:
     audio path, quality) talk to the real YouTube Music and skip themselves when YouTube refuses
     the runner.
   - `./gradlew assembleRelease` builds the APKs, one per ABI.
+- **Account service** (Node 22), from `server/account/`: `npm ci`, then `npm test` runs the
+  whole service end to end on a local copy.
 - **iOS** (macOS with Xcode 27):
   - `xcodegen generate`, then build the `Seaglass` scheme (for the Mac:
     `-destination 'generic/platform=macOS,variant=Mac Catalyst'`).
@@ -83,7 +90,8 @@ Treat these as **P1**:
 - **Data loss.** Changes to stored data (library, playlists, downloads, preferences keys,
   `UserDefaults`/`SharedPreferences`, cached analyses) must keep reading what earlier versions
   wrote. Renamed keys are migrated, not dropped. Downloads and the library are never deleted
-  except by the user.
+  except by the user. Account sync removes from a device only what the user removed on another
+  device since the last sync (`LibraryMerge`), never what it couldn't send.
 - **Fragile YouTube parsing.** InnerTube responses change without notice. Parsing must tolerate
   missing or unexpected fields: no force unwraps (`!`, `!!`, `as!`) or unchecked indexing on
   response data. A song, album or page that can't be parsed is skipped, not a crash.

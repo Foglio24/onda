@@ -699,3 +699,31 @@
 "Troppe richieste di riconoscimento. Attendi un minuto e riprova." = "Слишком много запросов на распознавание. Подождите минуту и повторите попытку.";
 "Impossibile creare l’impronta audio. Riprova ad ascoltare il brano." = "Не удалось создать аудиоотпечаток. Попробуйте прослушать песню ещё раз.";
 "Volume nel player" = "Громкость в плеере";
+
+/* Account */
+"Account Seaglass" = "Аккаунт Seaglass";
+"Accedi per sincronizzare la libreria" = "Войдите, чтобы синхронизировать медиатеку";
+"Accedi per salvare playlist, preferiti, cronologia e preferenze, e ritrovarli su iPhone, iPad e Mac." = "Войдите, чтобы сохранять плейлисты, избранное, историю и настройки и видеть их на iPhone, iPad и Mac.";
+"Accedi o crea un account" = "Войти или создать аккаунт";
+"Email" = "Эл. почта";
+"Email non confermata" = "Почта не подтверждена";
+"Piano" = "Тариф";
+"Sostenitore su Patreon" = "Спонсор на Patreon";
+"Gratuito" = "Бесплатно";
+"Su Seaglass dal" = "В Seaglass с";
+"Ultima sincronizzazione" = "Последняя синхронизация";
+"Sincronizza ora" = "Синхронизировать";
+"Sincronizzazione" = "Синхронизация";
+"Playlist, preferiti, cronologia e preferenze di ascolto sono gli stessi su tutti i dispositivi collegati all'account." = "Плейлисты, избранное, история и настройки прослушивания одинаковы на всех устройствах, подключённых к аккаунту.";
+"Gestisci account" = "Управление аккаунтом";
+"Nome, password, abbonamento ed eliminazione dell'account si gestiscono sul sito di Seaglass." = "Имя, пароль, подписка и удаление аккаунта настраиваются на сайте Seaglass.";
+"Esci" = "Выйти";
+"Uscire dall'account?" = "Выйти из аккаунта?";
+"La libreria resta su questo dispositivo, ma non si sincronizza più." = "Медиатека останется на этом устройстве, но больше не будет синхронизироваться.";
+"In corso…" = "Выполняется…";
+"Mai" = "Никогда";
+"Sostenitore" = "Спонсор";
+"Accesso non riuscito. Riprova." = "Не удалось войти. Попробуйте ещё раз.";
+"La sessione è scaduta: accedi di nuovo." = "Сеанс истёк: войдите снова.";
+"La libreria è troppo grande per la sincronizzazione." = "Медиатека слишком большая для синхронизации.";
+"Il servizio account non risponde. Riprova più tardi." = "Сервис аккаунтов не отвечает. Попробуйте позже.";

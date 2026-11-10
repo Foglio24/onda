@@ -699,3 +699,31 @@
 "Troppe richieste di riconoscimento. Attendi un minuto e riprova." = "Demasiadas solicitudes de reconocimiento. Espera un minuto e inténtalo de nuevo.";
 "Impossibile creare l’impronta audio. Riprova ad ascoltare il brano." = "No se pudo crear la huella de audio. Vuelve a intentar escuchar la canción.";
 "Volume nel player" = "Volumen en el reproductor";
+
+/* Account */
+"Account Seaglass" = "Cuenta de Seaglass";
+"Accedi per sincronizzare la libreria" = "Inicia sesión para sincronizar la biblioteca";
+"Accedi per salvare playlist, preferiti, cronologia e preferenze, e ritrovarli su iPhone, iPad e Mac." = "Inicia sesión para guardar tus playlists, favoritos, historial y preferencias, y tenerlos en iPhone, iPad y Mac.";
+"Accedi o crea un account" = "Iniciar sesión o crear una cuenta";
+"Email" = "Correo electrónico";
+"Email non confermata" = "Correo no confirmado";
+"Piano" = "Plan";
+"Sostenitore su Patreon" = "Mecenas en Patreon";
+"Gratuito" = "Gratis";
+"Su Seaglass dal" = "En Seaglass desde";
+"Ultima sincronizzazione" = "Última sincronización";
+"Sincronizza ora" = "Sincronizar ahora";
+"Sincronizzazione" = "Sincronización";
+"Playlist, preferiti, cronologia e preferenze di ascolto sono gli stessi su tutti i dispositivi collegati all'account." = "Las playlists, los favoritos, el historial y las preferencias de escucha son los mismos en todos los dispositivos conectados a la cuenta.";
+"Gestisci account" = "Gestionar cuenta";
+"Nome, password, abbonamento ed eliminazione dell'account si gestiscono sul sito di Seaglass." = "El nombre, la contraseña, la suscripción y la eliminación de la cuenta se gestionan en el sitio web de Seaglass.";
+"Esci" = "Cerrar sesión";
+"Uscire dall'account?" = "¿Cerrar sesión en la cuenta?";
+"La libreria resta su questo dispositivo, ma non si sincronizza più." = "La biblioteca se queda en este dispositivo, pero ya no se sincroniza.";
+"In corso…" = "En curso…";
+"Mai" = "Nunca";
+"Sostenitore" = "Mecenas";
+"Accesso non riuscito. Riprova." = "No se ha podido iniciar sesión. Inténtalo de nuevo.";
+"La sessione è scaduta: accedi di nuovo." = "La sesión ha caducado: vuelve a iniciar sesión.";
+"La libreria è troppo grande per la sincronizzazione." = "La biblioteca es demasiado grande para sincronizarla.";
+"Il servizio account non risponde. Riprova più tardi." = "El servicio de cuentas no responde. Inténtalo más tarde.";

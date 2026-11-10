@@ -37,22 +37,35 @@ function syncTrack(track) {
   };
 }
 
+// The app's whole library in one record (Seaglass/Services/LibrarySync.swift has the same limits):
+// D1 keeps up to 2 MB in a row.
+const libraryBytes = 1_900_000;
+
+function preferenceValues(values) {
+  return values && typeof values === "object" && !Array.isArray(values) && Object.keys(values).length <= 100 &&
+    Object.entries(values).every(([key, value]) => settingKey.test(key) &&
+      (typeof value === "boolean" || (typeof value === "number" && Number.isFinite(value)) ||
+        (typeof value === "string" && value.length <= 500)));
+}
+
 function libraryPayload(data) {
-  if (!data || !Array.isArray(data.liked) || data.liked.length > 2000 ||
-      !Array.isArray(data.playlists) || data.playlists.length > 500 ||
-      !Array.isArray(data.history) || data.history.length > 200) return null;
+  if (!data || !Array.isArray(data.liked) || data.liked.length > 10_000 ||
+      !Array.isArray(data.playlists) || data.playlists.length > 1000 ||
+      !Array.isArray(data.history) || data.history.length > 200 ||
+      (data.preferences != null && !preferenceValues(data.preferences))) return null;
   const liked = data.liked.map(syncTrack);
   const history = data.history.map(syncTrack);
   if (liked.includes(null) || history.includes(null)) return null;
   const playlists = data.playlists.map((playlist) => {
     if (!playlist || typeof playlist !== "object" || !uuid.test(playlist.id) ||
-        !boundedString(playlist.title, 200) || !Array.isArray(playlist.tracks) || playlist.tracks.length > 5000) return null;
+        !boundedString(playlist.title, 200) || !Array.isArray(playlist.tracks) || playlist.tracks.length > 10_000) return null;
     const tracks = playlist.tracks.map(syncTrack);
     return tracks.includes(null) ? null : { id: playlist.id, title: playlist.title.trim(), tracks };
   });
   if (playlists.includes(null)) return null;
-  const value = JSON.stringify({ liked, playlists, history });
-  if (new TextEncoder().encode(value).byteLength > 800_000) throw new HttpError(413, "sync_record_too_large");
+  const value = JSON.stringify(data.preferences == null ? { liked, playlists, history }
+    : { liked, playlists, history, preferences: data.preferences });
+  if (new TextEncoder().encode(value).byteLength > libraryBytes) throw new HttpError(413, "sync_record_too_large");
   return value;
 }
 
@@ -78,11 +91,7 @@ function recordPayload(kind, data) {
       data.trackIds.length <= 2000 && data.trackIds.every((id) => typeof id === "string" && id.length <= 255)) {
     return JSON.stringify({ trackIds: [...new Set(data.trackIds)] });
   }
-  if (data && kind === "preferences" && data.values && typeof data.values === "object" &&
-      !Array.isArray(data.values) && Object.keys(data.values).length <= 100 &&
-      Object.entries(data.values).every(([key, value]) => settingKey.test(key) &&
-        (typeof value === "boolean" || (typeof value === "number" && Number.isFinite(value)) ||
-          (typeof value === "string" && value.length <= 500)))) {
+  if (data && kind === "preferences" && preferenceValues(data.values)) {
     return JSON.stringify({ values: data.values });
   }
   if (data && kind === "history" && typeof data.videoId === "string" && videoId.test(data.videoId) &&
@@ -139,7 +148,7 @@ export async function writeSync(request, db, accountId, kind, id) {
   if ((kind === "profile" && id !== "profile") || (kind !== "profile" && !uuid.test(id))) {
     if (!(kind === "library" && id === cloudRecordId)) throw new HttpError(400, "invalid_record_id");
   }
-  const { revision, operationId, data } = await readJson(request, 1_000_000);
+  const { revision, operationId, data } = await readJson(request, 2_200_000);
   if (!Number.isSafeInteger(revision) || revision < 0 ||
       typeof operationId !== "string" || !uuid.test(operationId)) {
     throw new HttpError(400, "invalid_mutation");

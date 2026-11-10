@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.30.0 (2026-11-10)
+
+### Added
+- **Seaglass account** (iPhone, iPad and Mac). **Settings › Account** signs in to a Seaglass account, or creates one, through its web page. Favourites, playlists (their names and songs), the listening history and listening preferences (audio quality, transitions, lyrics, appearance) are then the same on every device signed in: what one device adds or removes, the others do too, and when two devices change the same playlist both changes are kept. Downloads, playlist covers and Mixes stay on each device; signing out keeps the library on the device. As on Spotify, the app only shows the account (name, email, plan, last sync): the name, the password, the Patreon membership and deleting the account are on the account page, opened by **Manage account**.
+- **Supporting Seaglass on Patreon**, linked on the account page. Supporters get a badge beside their name in the app; every feature stays free.
+
+The account is available in builds that know the account service (see `server/account/README.md`).
+
 ## 1.29.1 (2026-11-09)
 
 ### Fixed
