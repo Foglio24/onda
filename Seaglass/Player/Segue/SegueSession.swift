@@ -102,13 +102,19 @@ final class SegueSession {
     }
 
     /// Keeps the next song on its place against the playing one (`outgoingTime`, nil while it isn't
-    /// playing) every 50 ms: while silent up to 8 % faster or slower (put back by a seek if far off),
-    /// once heard up to 2 % (the mix is left if it goes far off: `lost`). `window` when the window
-    /// starts, `ended` when it ends; then the speed goes back to its own.
+    /// playing) every 50 ms, by nudging its speed: the median of the last five distances (a player's
+    /// time moves in steps of 10–20 ms, which a single reading would chase), nothing inside a dead
+    /// band, and the rest made good over a horizon. Silent (the run-up), fast and strong: up to 8 %
+    /// over 0.3 s, a seek when far off. Heard, gentle, so its tempo never sways: up to 0.8 % over 2 s
+    /// (1.5 % over 0.8 s while it is still low in the mix), the mix left (`lost`) when far off.
+    /// `window` when the window starts, `ended` when it ends; then the speed goes back to its own.
     func follow(outgoingTime: @escaping () -> Double?, window: @escaping () -> Void, ended: @escaping () -> Void,
                 lost: @escaping (String) -> Void) {
         task?.cancel()
+        let incomingLevel = plan.lanes.first { $0.side == .incoming && $0.target == .level }
         task = Task {
+            var readings: [Double] = []
+            var loggedAt = 0.0
             while !Task.isCancelled {
                 try? await Task.sleep(for: .milliseconds(50))
                 guard !Task.isCancelled, phase == .running || phase == .mixing else { return }
@@ -121,24 +127,37 @@ final class SegueSession {
                 // Not playing yet (its start is ahead) is fine; stopped while it should play is a stall.
                 if player.timeControlStatus != .playing {
                     if phase == .mixing { return lost("incoming stalled") }
+                    readings.removeAll()
                     continue
                 }
-                let error = player.currentTime().seconds - plan.incomingTime(atOutgoing: outgoingTime)
+                readings.append(player.currentTime().seconds - plan.incomingTime(atOutgoing: outgoingTime))
+                if readings.count > 5 { readings.removeFirst() }
+                let error = readings.sorted()[readings.count / 2]
                 lastError = error
-                if abs(error) > Self.lostDistance {
-                    if phase == .mixing { return lost(String(format: "incoming %.0f ms off", error * 1000)) }
-                    _ = await player.seek(to: CMTime(seconds: plan.incomingTime(atOutgoing: outgoingTime) + 0.05 * plan.rate,
+                let heard = phase == .mixing
+                if abs(error) > Self.lostDistance, readings.count >= 3 {
+                    if heard { return lost(String(format: "incoming %.0f ms off", error * 1000)) }
+                    _ = await player.seek(to: CMTime(seconds: plan.incomingTime(atOutgoing: outgoingTime) + 0.12 * plan.rate,
                                                      preferredTimescale: 48_000), toleranceBefore: .zero, toleranceAfter: .zero)
+                    readings.removeAll()
                     continue
                 }
-                if phase == .mixing { worstError = max(worstError, abs(error)) }
-                // The error made good over about a second, within the phase's bound.
-                let bound = phase == .mixing ? 0.02 : 0.08
-                let correction = max(-bound, min(bound, -error))
-                let target = Float(plan.rate * (1 + correction))
-                if abs(target - player.rate) > 0.0003 {
+                if heard { worstError = max(worstError, abs(error)) }
+                let x = plan.position(.outgoing, sourceTime: outgoingTime)
+                let gain = incomingLevel.map { $0.isSilent(at: x) ? 0 : pow(10, $0.value(at: x) / 20) } ?? 1
+                let quiet = gain < 0.35 || plan.level == .hard
+                let dead = heard ? 0.012 : 0.002
+                let horizon = heard ? (quiet ? 0.8 : 2) : 0.3
+                let limit = heard ? (quiet ? 0.015 : 0.008) : 0.08
+                let nudge = abs(error) <= dead ? 0 : max(-limit, min(limit, -error / horizon))
+                let target = Float(plan.rate * (1 + nudge))
+                if abs(target - rate) > 0.0005 {
                     player.rate = target
                     rate = target
+                }
+                if Self.logs, outgoingTime - loggedAt >= 1 {
+                    loggedAt = outgoingTime
+                    print(String(format: "segue: %@ %+.0f ms, rate %.4f", heard ? "mix" : "run-up", error * 1000, rate))
                 }
             }
             guard !Task.isCancelled else { return }
@@ -146,6 +165,9 @@ final class SegueSession {
             await restore()
         }
     }
+
+    /// Once a second in CI's log: how far the next song is from its place.
+    static var logs = false
 
     /// Back to its own speed: a little at a time, so it is never heard as a jump.
     private func restore() async {

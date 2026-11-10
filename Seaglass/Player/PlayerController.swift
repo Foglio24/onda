@@ -2247,6 +2247,7 @@ final class PlayerController: ObservableObject {
         segueSession = session
         let outgoing = player
         let offset = itemOffset
+        SegueSession.logs = LaunchScene.isActive
         if LaunchScene.isActive { print("segue: arming \(session.summary)") }
         Task {
             guard await session.prepare(spatial: Self.spatializationFormats), self.segueSession === session, self.player === outgoing else {

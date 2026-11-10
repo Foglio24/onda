@@ -34,6 +34,14 @@ grep -q "segue: window" "$work/live.log" || { echo "::error::The live mix's wind
 grep -q "segue: mixed" "$work/live.log" || { echo "::error::The live mix didn't reach its end"; failed=1; }
 grep -q "segue-scene: next song" "$work/live.log" || { echo "::error::The next song didn't take over"; failed=1; }
 if grep -q "segue: \(lost\|dropped\)" "$work/live.log"; then echo "::warning::The live mix was left or dropped (see the log)"; fi
+# The second player's worst distance from its place while both were heard: beats more than 30 ms
+# apart start to flam, past 100 ms they are two beats.
+worst=$(grep -o "segue: mixed .*worst [0-9]* ms" "$work/live.log" | grep -o "worst [0-9]*" | grep -o "[0-9]*$" | tail -1)
+if [ -n "$worst" ]; then
+  echo "Worst distance while heard: $worst ms"
+  if [ "$worst" -gt 100 ]; then echo "::error::The next song drifted $worst ms from its place while heard"; failed=1
+  elif [ "$worst" -gt 30 ]; then echo "::warning::The next song drifted $worst ms from its place while heard"; fi
+fi
 grep -q "segue-scene: next song" "$work/off.log" || { echo "::error::Without the live mix the next song didn't take over"; failed=1; }
 if grep -q "segue: arming" "$work/off.log"; then echo "::error::The live mix ran while turned off"; failed=1; fi
 exit $failed
