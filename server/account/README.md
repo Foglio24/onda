@@ -42,9 +42,9 @@ npm run migrate:local    # then: npx wrangler dev --local-protocol https
 domain on the Cloudflare account and serves the service at **`account.<domain>`** (a Worker
 custom domain: Cloudflare creates the DNS record and the certificate), creates the
 `seaglass-account` D1 database the first time and applies its migrations. Without a domain it
-uses `seaglass-account.<subdomain>.workers.dev` (today `https://seaglass-account.lukylaki04.workers.dev`,
-which `project.yml` gives the app). The app's build (`build.yml`) finds the same address, or a
-custom domain's, and puts it in the app.
+uses `seaglass-account.<subdomain>.workers.dev`. Today it is `https://account.mystudioappweb.com`,
+which `project.yml` gives the app; the app's build (`build.yml`) asks Cloudflare for the same
+address and puts it in the app.
 
 ### 1. Cloudflare API token (required)
 
