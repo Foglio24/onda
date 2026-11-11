@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.33.1 (2026-11-11)
+
+### Fixed
+- **Choosing a folder for the local files did nothing.** In Files' picker, "Apri" didn't answer: the picker of SwiftUI stops working when another one is in the same page (the Library has one, for importing playlists). The folder is now chosen with Files' own picker, and a folder that can't be opened says so instead of staying silent.
+
 ## 1.33.0 (2026-11-11)
 
 ### Added

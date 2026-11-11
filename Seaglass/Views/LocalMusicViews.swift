@@ -1,11 +1,11 @@
 import SwiftUI
-import UniformTypeIdentifiers
 
 /// The user's own songs (see `LocalMusic`): the folders they chose, and the songs in them, which play,
 /// queue and mix like any other.
 struct LocalMusicView: View {
     @ObservedObject private var local = LocalMusic.shared
-    @State private var choosing = false
+    /// The folder just chosen couldn't be opened.
+    @State private var failed = false
     private var player: PlayerController { .shared }
 
     var body: some View {
@@ -33,10 +33,15 @@ struct LocalMusicView: View {
         }
         .navigationTitle("File locali")
         .task { local.refreshOnce() }
-        .fileImporter(isPresented: $choosing, allowedContentTypes: [.folder], allowsMultipleSelection: false) { result in
-            if case .success(let urls) = result, let url = urls.first {
-                local.add(folder: url)
-            }
+        .alert("Cartella non raggiungibile", isPresented: $failed) {
+            Button("OK", role: .cancel) {}
+        }
+    }
+
+    /// Files' own picker (see `FolderPicker`: SwiftUI's stops answering beside the Library's).
+    private func chooseFolder() {
+        FolderPicker.shared.present { url in
+            if !local.add(folder: url) { failed = true }
         }
     }
 
@@ -51,7 +56,7 @@ struct LocalMusicView: View {
                         }
                     }
             }
-            Button { choosing = true } label: {
+            Button { chooseFolder() } label: {
                 Label("Aggiungi cartella…", systemImage: "folder.badge.plus")
             }
             .listRowBackground(Color.clear)
@@ -100,7 +105,7 @@ struct LocalMusicView: View {
         } description: {
             Text("Scegli una cartella con la tua musica sul dispositivo: i brani restano dove sono e Seaglass li riproduce da lì, senza copiarli.")
         } actions: {
-            Button("Aggiungi cartella…") { choosing = true }
+            Button("Aggiungi cartella…") { chooseFolder() }
                 .buttonStyle(.borderedProminent)
         }
     }

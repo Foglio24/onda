@@ -40,19 +40,28 @@ final class LocalMusic: ObservableObject {
 
     // MARK: Folders
 
-    /// A folder the user picked in the Files picker: kept, opened and read.
-    func add(folder url: URL) {
+    /// A folder the user picked in the Files picker: kept, opened and read. False when it can't be kept
+    /// (no bookmark could be made of it, or it can't be opened).
+    @discardableResult
+    func add(folder url: URL) -> Bool {
         let scoped = url.startAccessingSecurityScopedResource()
         defer { if scoped { url.stopAccessingSecurityScopedResource() } }
-        guard let bookmark = try? url.bookmarkData(options: [], includingResourceValuesForKeys: nil, relativeTo: nil) else { return }
+        guard let bookmark = try? url.bookmarkData(options: [], includingResourceValuesForKeys: nil, relativeTo: nil) else { return false }
         // The same folder again keeps its songs (the ID comes from where it is).
         let id = LocalMusicIndex.folderID(path: url.standardizedFileURL.path)
         folders.removeAll { $0.id == id }
         folders.append(LocalFolder(id: id, name: url.lastPathComponent, bookmark: bookmark))
         openFolders()
+        // A folder that can't be opened is not kept: it would only sit in the list, unreachable.
+        guard access[id] != nil else {
+            folders.removeAll { $0.id == id }
+            publish()
+            return false
+        }
         publish()
         save()
         rescan()
+        return true
     }
 
     /// Takes a folder out of the app: its files stay where they are, untouched.
