@@ -415,6 +415,33 @@ expect(rms(heardOutCross, from: 2.2, to: 3.5) < 0.001 && abs(rms(heardInCross, f
        && rms(heardInCross, from: 0, to: 1.9) < 0.001 && abs(rms(heardOutCross, from: 0, to: 1.9) / 0.5 - 1) < 0.01,
        "the stretched player alone before the crossover, the fresh one alone after it")
 
+// A beat-matched window carries the playing song on a fresh player at the next one's tempo: its own
+// deck crosses out on the window's first downbeat while the carrying deck crosses in, then plays the
+// plan's outgoing lanes. Together, on the same music, a steady level through the crossover.
+let carriedSource = SeguePlan(level: .lockedShort, shape: .bassSwap, outgoingStart: 2, incomingStart: 2, rate: 0.98, length: 8,
+                              bars: 4, tempo: 120, phaseMedian: 0.001, phaseP95: 0.002,
+                              lanes: compiler.locked(.bassSwap, swap: 0.5, beatShare: 1.0 / 16, matchA: 1, matchB: 1), swap: 0.5)
+let ownDeck = SegueStage(), carryingDeck = SegueStage()
+ownDeck.prepare(sampleRate: deckRate, channels: 2, isFloat: true)
+carryingDeck.prepare(sampleRate: deckRate, channels: 2, isFloat: true)
+ownDeck.arm(SeguePlan.crossover(at: 2, length: 0.08), side: .outgoing)
+carryingDeck.arm(carriedSource.carried(crossover: 0.08), side: .outgoing)
+let ownHeard = process(ownDeck, steady, start: 0, rate: deckRate, block: 64)
+let carryingHeard = process(carryingDeck, steady, start: 0, rate: deckRate, block: 64)
+let plainOut = SegueStage()
+plainOut.prepare(sampleRate: deckRate, channels: 2, isFloat: true)
+plainOut.arm(carriedSource, side: .outgoing)
+let plainHeard = process(plainOut, steady, start: 0, rate: deckRate, block: 64)
+var carryWorst: Float = 0
+for i in Int(1.5 * deckRate)..<Int(2.4 * deckRate) {
+    carryWorst = max(carryWorst, abs(ownHeard[i] + carryingHeard[i] - plainHeard[i]) / 0.5)
+}
+expect(carryWorst < 0.08, "the playing song carried over to its fresh player: as heard without the change within 8 % (\(format(Double(carryWorst) * 100, 1)) %)")
+expect(rms(carryingHeard, from: 0, to: 1.9) < 0.001 && rms(ownHeard, from: 2.2, to: 3.5) < 0.001,
+       "the carrying player silent before the window, the song's own one after its first 80 ms")
+expect(abs(rms(carryingHeard, from: 3, to: 3.5) - rms(plainHeard, from: 3, to: 3.5)) < 0.002,
+       "and the carrying player then plays the plan's outgoing lanes")
+
 // After its window the incoming song's deck is released (SegueSession): a seek back to before the
 // window, where its lanes hold it silent, must still play it. Two cases: released then sent back,
 // and sent back in the middle of the release (counted by the sound played, not the song's time).

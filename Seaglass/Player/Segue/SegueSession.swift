@@ -1,18 +1,24 @@
 import AVFoundation
 
 /// A live AutoMix transition (see `SeguePolicy`): the next song on a second player, prepared ahead,
-/// started a little before the window in step with the playing song (silent: its lanes hold it so
-/// until the window), at the speed that puts its bars on the playing song's, and corrected only while
-/// it is still quiet in the mix. After the window it goes back to its own speed on a fresh player
-/// (see `returnToOwnSpeed`). The lanes themselves play inside each player's audio processing
-/// (`SegueStage`), by each song's own time.
+/// started in step with the playing song (silent: its lanes hold it so until the window), and
+/// corrected only while it is still quiet in the mix. The lanes themselves play inside each player's
+/// audio processing (`SegueStage`), by each song's own time.
+///
+/// For a beat-matched window the playing song changes tempo, not the next one (`carried`): on the
+/// window's first downbeat it crosses over (80 ms) to a fresh player of its own file already at the
+/// next song's tempo, which carries it out of the mix; the next song plays at its own speed and with
+/// its own sound from its first note, so nothing changes once the mix is over. Without the playing
+/// song's file the next song is the one stretched, and goes back to its own speed on a fresh player
+/// after the window (`returnToOwnSpeed`).
 ///
 /// Why a heard player's speed never changes: a playing player renders its sound again whenever its
 /// rate changes, and its time jumps by 20–40 ms (CI's Mac: the deck's samples jumped, and the
 /// measured distance with them). On an iPhone that was heard as sound coming and going (steps back to
 /// the song's own speed every 250 ms), then as a cut where one change brought it back; giving the
 /// change to the playing song as the window opened put the two 100 ms apart; keeping the speed to the
-/// song's end left it slowed (or sped up) and time-stretched to the end.
+/// song's end left it slowed (or sped up) and time-stretched to the end; going back on a fresh player
+/// after the mix was still heard, the stretched sound giving way to the song's own.
 @MainActor
 final class SegueSession {
     enum Phase: String { case preparing, ready, running, mixing, restoring, finished, abandoned }
@@ -46,6 +52,19 @@ final class SegueSession {
     /// For CI's log: where the song went back to its own speed (its time) and how far the fresh
     /// player started from the stretched one's place (s).
     private var returnedAt: Double?, returnedOff = 0.0
+    /// The playing song's own file and "Volume uniforme" gain, to carry it on a fresh player (nil: the
+    /// next song is the one stretched).
+    let outgoingFile: URL?
+    let outgoingGain: Float
+    /// The playing song carried out of the mix on a fresh player at the next song's tempo, from the
+    /// window's first downbeat; its stage plays the plan's outgoing lanes. The player it took over
+    /// from goes silent there and is let go once its sound is out of the speakers.
+    private(set) var carried: AVPlayer?
+    private var carriedItem: AVPlayerItem?
+    private var carriedStage: SegueStage?
+    private weak var original: AVPlayer?
+    /// The carried song's speed: its time against the next song's, the next one at its own speed.
+    private var carriedRate: Float { Float(1 / plan.rate) }
     /// The playing song's stage (in its item's audio processing), and the next song's.
     let outgoingStage: SegueStage
     /// What the playing song's item time is ahead of the song's (a song carried on from a rendered mix).
@@ -75,8 +94,11 @@ final class SegueSession {
     private var jumpsAtWindow = (incoming: 0, outgoing: 0), jumpsAtEnd = (incoming: 0, outgoing: 0)
 
     init(plan: SeguePlan, outgoingTrackID: String, next: Track, file: URL, label: String, incomingGain: Float,
-         outgoingStage: SegueStage, outgoingOffset: Double = 0, outgoingRate: Double = 1) {
+         outgoingStage: SegueStage, outgoingOffset: Double = 0, outgoingRate: Double = 1,
+         outgoingFile: URL? = nil, outgoingGain: Float = 1) {
         self.outgoingOffset = outgoingOffset
+        self.outgoingFile = outgoingFile
+        self.outgoingGain = outgoingGain
         self.outgoingRate = outgoingRate > 0 ? outgoingRate : 1
         // A window that doesn't match the beats plays the next song at its own speed, whatever the
         // playing song's: its time then passes 1 / outgoingRate as fast as the playing song's.
@@ -95,11 +117,18 @@ final class SegueSession {
         player.automaticallyWaitsToMinimizeStalling = false
     }
 
-    /// The speed the next song plays at: its time against the playing song's, times that song's speed.
-    var playRate: Double { plan.rate * outgoingRate }
+    /// The speed the next song plays at: its own when the playing song is carried; otherwise its time
+    /// against the playing song's, times that song's speed.
+    var playRate: Double { carried != nil ? 1 : plan.rate * outgoingRate }
 
-    /// Where the next song starts: its run-up before the window (never before its start).
-    private var incomingStartTime: Double { max(0, plan.incomingStart - Self.runUp * playRate) }
+    /// Where the next song starts: its run-up before the window (never before its start); carried, a
+    /// third of a second before it, as the carrying player.
+    private var incomingStartTime: Double {
+        max(0, plan.incomingStart - (carried != nil ? Self.silentStart : Self.runUp) * playRate)
+    }
+
+    /// Where the carrying player starts: a third of a second before the window, at its speed.
+    private var carriedStartTime: Double { max(0, plan.outgoingStart - Self.silentStart * Double(carriedRate)) }
 
     /// Loads the next song where its run-up starts, its lanes and effects on, prerolled at its speed.
     /// `pitch`: how the app changes songs' speed (Tempo's key lock: the pitch kept, or moving as on a
@@ -109,6 +138,12 @@ final class SegueSession {
         self.spatial = spatial
         // Not the time-domain algorithm: it is made for speech, and on music it stutters.
         self.pitch = pitch == .timeDomain ? .spectral : pitch
+        // A beat-matched window carries the playing song at the next one's tempo, when its file is here.
+        if plan.level.isLocked, abs(plan.rate - 1) > 0.0005, abs(outgoingRate - 1) <= 0.0005, let outgoingFile,
+           await prepareCarried(outgoingFile) {
+            rate = 1
+        }
+        guard phase == .preparing else { return false }
         let item = AVPlayerItem(url: file)
         item.allowedAudioSpatializationFormats = spatial
         item.audioTimePitchAlgorithm = self.pitch
@@ -116,7 +151,13 @@ final class SegueSession {
         guard effects.segue != nil, phase == .preparing else { return false }
         item.audioMix = effects.mix
         incomingStage.arm(plan, side: .incoming)
-        outgoingStage.arm(plan, side: .outgoing, offset: outgoingOffset)
+        if carried != nil {
+            // The playing song's own player only crosses over to the carrying one at the window.
+            outgoingStage.arm(SeguePlan.crossover(at: plan.outgoingStart, length: Self.crossover),
+                              side: .outgoing, offset: outgoingOffset)
+        } else {
+            outgoingStage.arm(plan, side: .outgoing, offset: outgoingOffset)
+        }
         self.item = item
         player.replaceCurrentItem(with: item)
         player.defaultRate = rate
@@ -135,12 +176,59 @@ final class SegueSession {
         return true
     }
 
-    /// Starts the next song on the system clock, so that its run-up meets the playing song's time.
-    /// False when that moment has passed.
+    /// The playing song on a fresh player of its own file, at the next song's tempo, ready to take
+    /// over at the window: its stage plays the plan's outgoing lanes, their level crossing in from
+    /// silence over the first 80 ms. False when it can't be (no processing, not ready in time).
+    private func prepareCarried(_ url: URL) async -> Bool {
+        let player = AVPlayer()
+        player.automaticallyWaitsToMinimizeStalling = false
+        PlaybackVolume.shared.register(player)
+        let item = AVPlayerItem(url: url)
+        item.allowedAudioSpatializationFormats = spatial
+        item.audioTimePitchAlgorithm = pitch
+        let stage = SegueStage()
+        let effects = await AudioEffects.mix(for: item, gain: outgoingGain, segue: stage)
+        guard effects.segue != nil, phase == .preparing else { return false }
+        item.audioMix = effects.mix
+        stage.arm(plan.carried(crossover: Self.crossover), side: .outgoing)
+        player.replaceCurrentItem(with: item)
+        player.defaultRate = Float(1 / plan.rate)
+        _ = await player.seek(to: CMTime(seconds: max(0, plan.outgoingStart - Self.silentStart / plan.rate), preferredTimescale: 48_000),
+                              toleranceBefore: .zero, toleranceAfter: .zero)
+        var waited = 0
+        while item.status == .unknown, waited < 50, phase == .preparing {
+            try? await Task.sleep(for: .milliseconds(100))
+            waited += 1
+        }
+        guard item.status == .readyToPlay, phase == .preparing, await player.preroll(atRate: Float(1 / plan.rate)) else {
+            player.replaceCurrentItem(with: nil)
+            return false
+        }
+        carried = player
+        carriedItem = item
+        carriedStage = stage
+        return true
+    }
+
+    /// Starts the next song on the system clock, so that its run-up meets the playing song's time;
+    /// carried, the next song and the carrying player both start a third of a second before the
+    /// window, silent until it. False when that moment has passed.
     func start(outgoing: AVPlayer, offset: Double) -> Bool {
         guard phase == .ready, let item = outgoing.currentItem, let timebase = item.timebase else { return false }
         let outgoingRate = CMTimebaseGetRate(timebase)
         let now = CMTimebaseGetTime(timebase).seconds - offset
+        if let carried {
+            let delay = (plan.outgoingStart - now) / max(0.01, outgoingRate)
+            guard outgoingRate > 0, now.isFinite, delay > Self.silentStart + 0.15 else { return false }
+            let window = CMTimeAdd(CMClockGetTime(CMClockGetHostTimeClock()), CMTime(seconds: delay, preferredTimescale: 1_000_000_000))
+            let early = CMTimeSubtract(window, CMTime(seconds: Self.silentStart, preferredTimescale: 1_000_000_000))
+            startsAt = early.seconds
+            player.setRate(1, time: CMTime(seconds: incomingStartTime, preferredTimescale: 48_000), atHostTime: early)
+            carried.setRate(carriedRate, time: CMTime(seconds: carriedStartTime, preferredTimescale: 48_000), atHostTime: early)
+            original = outgoing
+            phase = .running
+            return true
+        }
         // The playing song's time at which the next one is at its run-up's start.
         let meet = plan.outgoingStart - (plan.incomingStart - incomingStartTime) / plan.rate
         let delay = (meet - now) / max(0.01, outgoingRate)
@@ -164,6 +252,17 @@ final class SegueSession {
                 lost: @escaping (String) -> Void) {
         task?.cancel()
         let incomingLevel = plan.lanes.first { $0.side == .incoming && $0.target == .level }
+        // Carried, the playing song's time is the carrying player's once it runs (its own player goes
+        // silent at the window and is let go); before the window its own player must still play (a
+        // pause stops nothing else).
+        let carriedTime: () -> Double? = { [weak self] in
+            guard let self else { return nil }
+            guard let carried = self.carried, let carriedItem = self.carriedItem else { return outgoingTime() }
+            if self.phase == .running, outgoingTime() == nil { return nil }
+            guard CMClockGetTime(CMClockGetHostTimeClock()).seconds >= self.startsAt + 0.1,
+                  carried.timeControlStatus == .playing else { return self.phase == .mixing ? nil : outgoingTime() }
+            return carriedItem.currentTime().seconds
+        }
         task = Task {
             var readings: [Double] = []
             var loggedAt = 0.0
@@ -172,7 +271,7 @@ final class SegueSession {
             while !Task.isCancelled {
                 try? await Task.sleep(for: .milliseconds(50))
                 guard !Task.isCancelled, phase == .running || phase == .mixing else { return }
-                guard let outgoingTime = outgoingTime() else {
+                guard let outgoingTime = carriedTime() else {
                     // The playing song stopped (its item ended or was let go) while the next one plays
                     // on: after 2 seconds the window is over, so the next song still comes back to
                     // its speed and nothing waits on it for ever.
@@ -188,6 +287,8 @@ final class SegueSession {
                     correcting = false
                     jumpsAtWindow = (incomingStage.jumps, outgoingStage.jumps)
                     window()
+                    // Taken over by the controller (not dropped there): the playing song's own player goes.
+                    if phase == .mixing { letGoOfOriginal() }
                 }
                 if outgoingTime >= plan.outgoingEnd { break }
                 // Not playing yet (its start is ahead) is fine; stopped while it should play is a stall.
@@ -252,6 +353,19 @@ final class SegueSession {
     /// Once a second in CI's log: how far the next song is from its place.
     static var logs = false
 
+    /// Carried: the playing song's own player, silent once it has crossed over, let go once its last
+    /// sound is out of the speakers.
+    private func letGoOfOriginal() {
+        guard carried != nil, let original else { return }
+        let session = AVAudioSession.sharedInstance()
+        let latency = max(0, session.outputLatency) + max(0, session.ioBufferDuration)
+        Task {
+            try? await Task.sleep(for: .seconds(Self.crossover + latency + 0.3))
+            original.pause()
+            original.replaceCurrentItem(with: nil)
+        }
+    }
+
     /// After the window (from `restoring`): the next song back to its own speed (`returnToOwnSpeed`),
     /// and once the playing song is gone (its echo rung out), the session is done.
     private func restore() async {
@@ -302,9 +416,7 @@ final class SegueSession {
             let bars = max(0, ((now + Self.returnLead * Double(rate) - plan.incomingStart) / bar).rounded(.up))
             let at = plan.incomingStart + bars * bar
             guard length.isFinite, at + 10 < length else { return false }
-            let cross = SeguePlan(level: .simpleFade, shape: .fade, outgoingStart: at, incomingStart: at, rate: 1,
-                                  length: Self.crossover, bars: nil, tempo: nil, phaseMedian: nil, phaseP95: nil,
-                                  lanes: SegueCompiler(tuning: SegueTuning()).crossover(), swap: 0.5)
+            let cross = SeguePlan.crossover(at: at, length: Self.crossover)
             let fresh = AVPlayer()
             fresh.automaticallyWaitsToMinimizeStalling = false
             // At the app's volume, as the stretched one, from its first sound.
@@ -428,20 +540,24 @@ final class SegueSession {
     /// The playing song goes back to its plain sound (the next one stalled while heard).
     func releaseOutgoing() { outgoingStage.release(over: 0.4) }
 
-    /// Dropped before it was heard: the next song's player stops, the playing song plays on plainly.
+    /// Dropped before it was heard: the next song's player (and the carrying one) stops, the playing
+    /// song plays on plainly.
     func abandon() {
         task?.cancel()
         phase = .abandoned
         player.pause()
         player.replaceCurrentItem(with: nil)
+        carried?.pause()
+        carried?.replaceCurrentItem(with: nil)
         outgoingStage.disarm()
         incomingStage.disarm()
     }
 
     /// For Settings and CI's log.
     var summary: String {
-        String(format: "%@ %@, %.1f s from %.1f s, rate %.4f, phase %.0f/%.0f ms, worst %.0f ms",
+        String(format: "%@ %@, %.1f s from %.1f s, rate %.4f%@, phase %.0f/%.0f ms, worst %.0f ms",
                plan.level.rawValue, plan.shape.rawValue, plan.length, plan.outgoingStart, plan.rate,
+               carried != nil ? String(format: " (the playing song carried at %.4f)", Double(carriedRate)) : "",
                (plan.phaseMedian ?? 0) * 1000, (plan.phaseP95 ?? 0) * 1000, worstError * 1000)
     }
 }

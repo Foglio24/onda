@@ -232,6 +232,36 @@ struct SeguePlan: Equatable, Codable, Sendable {
 
     /// The incoming song's own time that goes with a time of the outgoing one in the window.
     func incomingTime(atOutgoing time: Double) -> Double { incomingStart + (time - outgoingStart) * rate }
+
+    /// The plan for the player that carries the outgoing song out of the mix (see
+    /// `SegueSession.carried`): its level crossing in from silence over the window's first
+    /// `crossover` seconds (equal gain against the player it takes over from, which plays
+    /// `SeguePlan.crossover`), the other lanes as they are.
+    func carried(crossover: Double) -> SeguePlan {
+        var carried = self
+        guard length > 0, let index = carried.lanes.firstIndex(where: { $0.side == .outgoing && $0.target == .level }) else {
+            return carried
+        }
+        let lane = carried.lanes[index]
+        let span = min(0.5, crossover / length)
+        // Twelve steps: the lane interpolates in dB, so a straight gain needs knots close together.
+        var knots = (0...12).map { step -> SegueLane.Knot in
+            let x = span * Double(step) / 12
+            let value: Double? = step == 0 || lane.isSilent(at: x) ? nil : lane.value(at: x) + 20 * log10(Double(step) / 12)
+            return SegueLane.Knot(at: x, value: value)
+        }
+        knots += lane.knots.filter { $0.at > span }
+        carried.lanes[index].knots = knots
+        return carried
+    }
+
+    /// One song crossing over to itself on another player, from `at` (its time on both) over
+    /// `length` seconds: the outgoing side the player it leaves, the incoming side the one it goes to.
+    static func crossover(at: Double, length: Double) -> SeguePlan {
+        SeguePlan(level: .simpleFade, shape: .fade, outgoingStart: at, incomingStart: at, rate: 1, length: length,
+                  bars: nil, tempo: nil, phaseMedian: nil, phaseP95: nil,
+                  lanes: SegueCompiler(tuning: SegueTuning()).crossover(), swap: 0.5)
+    }
 }
 
 /// What a plan must be to run: every problem found (none: it may play).

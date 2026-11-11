@@ -804,6 +804,12 @@ final class PlayerController: ObservableObject {
         requestedSeek?.setPlaying(false, now: ProcessInfo.processInfo.systemUptime)
         player.pause()
         dropLiveSpeed()
+        // A live mix not heard yet is armed again after the pause (its plan stays): its players run
+        // on the system clock, not with the paused one.
+        if let session = segueSession, [.preparing, .ready, .running].contains(session.phase) {
+            session.abandon()
+            segueSession = nil
+        }
         // An AutoMix transition about to start is prepared again after the pause.
         disarm()
         rememberPosition(progress.currentTime)
@@ -2117,7 +2123,7 @@ final class PlayerController: ObservableObject {
                     self.autoMixTask = nil
                     self.seguePlanned = SeguePlanned(trackID: track.id, nextID: next.id, plan: segue, file: incomingFile.url,
                                                      label: incomingFile.label, incomingGain: incomingGain, outgoingStage: stage,
-                                                     outgoingRate: speed)
+                                                     outgoingRate: speed, outgoingFile: outgoingFile, outgoingGain: outgoingGain)
                     UserDefaults.standard.set("\(track.title) → \(next.title)\nSegue: \(Self.describe(segue))\(why)",
                                               forKey: Preferences.lastAutoMixChoice)
                     self.autoMixNote = Self.describe(segue)
@@ -2340,7 +2346,8 @@ final class PlayerController: ObservableObject {
         let offset = itemOffset
         let session = SegueSession(plan: planned.plan, outgoingTrackID: track.id, next: queue[index + 1], file: planned.file,
                                    label: planned.label, incomingGain: planned.incomingGain, outgoingStage: planned.outgoingStage,
-                                   outgoingOffset: offset, outgoingRate: planned.outgoingRate)
+                                   outgoingOffset: offset, outgoingRate: planned.outgoingRate,
+                                   outgoingFile: planned.outgoingFile, outgoingGain: planned.outgoingGain)
         session.finished = { [weak self, weak session] in
             guard let self, let session else { return }
             self.segueFinished(session)
@@ -2399,7 +2406,9 @@ final class PlayerController: ObservableObject {
         fadeOutTask = nil
         fadeInTask?.cancel()
         pendingFadeIn = nil
-        outgoingPlayer = outgoing
+        // Carried, the playing song goes on on the player that carries it at the next song's tempo
+        // (its own player, silent from here, is let go by the session).
+        outgoingPlayer = session.carried ?? outgoing
         outgoingLength = current?.duration ?? 0
         mixHandover = true
         player = session.player
@@ -2420,9 +2429,10 @@ final class PlayerController: ObservableObject {
         // An echo's repeats ring on in the outgoing song's audio processing: it plays on (silent but
         // for them) until they have died away.
         let tail = session.plan.hasEcho ? SeguePlan.echoTail : 0
+        let heard = session.carried ?? outgoing
         Task {
             try? await Task.sleep(for: .seconds(Self.outputLatency + 0.3 + tail))
-            if self.outgoingPlayer === outgoing { self.endCrossfade(interrupted: false) }
+            if self.outgoingPlayer === heard { self.endCrossfade(interrupted: false) }
         }
     }
 
@@ -3308,6 +3318,10 @@ private struct SeguePlanned {
     let outgoingStage: SegueStage
     /// The speed the playing song plays at (see `PlayerController.liveSpeed`).
     let outgoingRate: Double
+    /// The playing song's own file and gain, for the player that carries it out of the mix at the
+    /// next song's tempo (see `SegueSession.carried`).
+    let outgoingFile: URL
+    let outgoingGain: Float
 }
 
 /// The mix's player, loaded and waiting for its moment.
