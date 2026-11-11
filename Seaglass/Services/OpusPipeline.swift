@@ -19,7 +19,7 @@ enum OpusError: LocalizedError, Equatable {
 
 /// Plays YouTube's best rendition (Opus in WebM), which AVPlayer can't open:
 /// the WebM is downloaded, its Opus packets are decoded with Apple's own Opus decoder
-/// and the result is written as Apple Lossless, a bit-exact copy that AVPlayer plays natively.
+/// and the result is written in ALAC, which keeps the decoded audio exactly and AVPlayer plays natively.
 actor OpusPipeline {
     static let shared = OpusPipeline()
 
@@ -29,7 +29,7 @@ actor OpusPipeline {
     private let files = SharedAudioFiles()
     private static let conversion = AudioConversionLock()
 
-    /// A playable lossless file for an Opus stream, decoding it unless it is already cached.
+    /// A playable file of an Opus stream (decoded, in ALAC), decoding it unless it is already cached.
     func playableFile(videoId: String, stream: ResolvedStream) async throws -> URL {
         return try await cached(Self.cacheFile(videoId: videoId, stream: stream)) { destination in
             try Self.checkConversionBudget()
@@ -52,7 +52,7 @@ actor OpusPipeline {
         let files = (try? FileManager.default.contentsOfDirectory(at: cacheDirectory,
                                                                   includingPropertiesForKeys: [.fileSizeKey])) ?? []
         let matches = files.filter { $0.lastPathComponent.hasPrefix("\(videoId)__") }
-        // The biggest file is the best quality (lossless Opus beats a plain AAC copy).
+        // The biggest file is the best quality (decoded Opus beats a plain AAC copy).
         guard let best = matches.max(by: { size(of: $0) < size(of: $1) }) else { return nil }
         let parts = best.deletingPathExtension().lastPathComponent.components(separatedBy: "__")
         let label = parts.count == 3 ? "\(parts[1]) · \(parts[2]) kbps" : "AAC"
@@ -115,7 +115,7 @@ actor OpusPipeline {
         try await ChunkedDownload.fetch(url, to: destination)
     }
 
-    /// Decodes a downloaded WebM/Opus file into an Apple Lossless .m4a at `destination`.
+    /// Decodes a downloaded WebM/Opus file into an ALAC .m4a at `destination`.
     nonisolated static func transcode(webm: URL, to destination: URL) throws {
         try conversion.perform {
             try transcodeSerial(webm: webm, to: destination)

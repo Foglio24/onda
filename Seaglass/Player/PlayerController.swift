@@ -285,10 +285,6 @@ final class PlayerController: ObservableObject {
     /// The Opus stream the current item plays from while it downloads (see `OpusStream`), and the
     /// one of a song fading out (the stream serves its item until the end).
     private var opusPlayback: (item: AVPlayerItem, stream: OpusStream)?
-    /// The song playing from a lossless copy (see `LosslessSources`): its item, so that a failure or
-    /// a long stall hands it over once to the song's usual source, where it was.
-    private var losslessPlayback: (trackID: String, item: AVPlayerItem, choice: LosslessSources.Choice)?
-    private var losslessStall: Task<Void, Never>?
     private var outgoingOpus: OpusStream?
     /// Between the start of a mix and the end of the song it takes over from.
     private var mixHandover = false
@@ -1025,8 +1021,6 @@ final class PlayerController: ObservableObject {
         localFile = nil
         pendingStartTime = nil
         isRestoredSession = false
-        losslessPlayback = nil
-        losslessStall?.cancel()
         resetAutoMix()
         guard let track = current else { return }
         if track.isPodcastEpisode { pendingStartTime = PodcastLibrary.shared.startTime(for: track.videoId) }
@@ -1087,21 +1081,6 @@ final class PlayerController: ObservableObject {
             do {
                 guard !Task.isCancelled, self.requests.isCurrentLoad(generation) else { return }
                 var playable = Library.shared.resolvedTrack(matching: track) ?? track
-                // A lossless copy (a file of the user's, their own server), within a short budget:
-                // otherwise the song plays as before, and the search goes on for the next time.
-                let searchStarted = Date()
-                let choice = await LosslessSources.shared.choice(for: playable, budget: LosslessSources.startupBudget)
-                if LaunchScene.isActive {
-                    let seconds = Date().timeIntervalSince(searchStarted).formatted(.number.precision(.fractionLength(1)))
-                    print("lossless: choice in \(seconds) s: \(choice?.label ?? "none")")
-                }
-                if let choice {
-                    guard !Task.isCancelled, self.requests.isCurrentLoad(generation), self.index == position else { return }
-                    self.startupMetrics.resolved(generation, source: choice.isLocal ? .localFile : .network)
-                    self.start(lossless: choice, track: playable)
-                    return
-                }
-                guard !Task.isCancelled, self.requests.isCurrentLoad(generation), self.index == position else { return }
                 if playable.videoId == nil {
                     // Last.fm tracks only know artist and title: find them on YouTube Music first.
                     playable = try await InnerTube.shared.resolve(track)
@@ -1209,72 +1188,6 @@ final class PlayerController: ObservableObject {
                               duration: track.duration)
         opus.start()
         return .stream(opus, label: stream.label)
-    }
-
-    // MARK: Lossless
-
-    /// Plays a lossless copy (see `LosslessSources`), showing its format as the audio itself states it.
-    private func start(lossless choice: LosslessSources.Choice, track: Track) {
-        streamInfo = choice.label
-        start(url: choice.url, track: track)
-        guard let item = player.currentItem else { return }
-        losslessPlayback = (track.id, item, choice)
-        Task {
-            guard let format = await AudioFormatProbe.probe(item.asset), self.player.currentItem === item else { return }
-            self.streamInfo = LosslessSources.Choice.label(format, source: choice.candidate.source)
-            if LaunchScene.isActive { print("lossless: verified \(format.label) (\(choice.isLocal ? "file" : "stream"))") }
-        }
-    }
-
-    /// The lossless copy failed while playing (an error, a dropped stream, an expired address, audio
-    /// that doesn't decode): the song's usual source (its download, or YouTube at the quality set)
-    /// carries on from where it was, once. The copy isn't tried again for it (no going back and forth).
-    private func fallBackFromLossless(_ item: AVPlayerItem, track: Track, reason: String) {
-        guard let lossless = losslessPlayback, lossless.item === item, player.currentItem === item else { return }
-        losslessPlayback = nil
-        losslessStall?.cancel()
-        LosslessSources.shared.failed(track, lossless.choice.candidate)
-        if LaunchScene.isActive { print("lossless: fallback (\(reason))") }
-        let position = progress.currentTime
-        let generation = requests.loadGeneration
-        let time = Date.now.formatted(date: .omitted, time: .standard)
-        UserDefaults.standard.set("\(time) · \(lossless.choice.label): \(reason)", forKey: Preferences.lastLosslessFallback)
-        retryTask?.cancel()
-        retryTask = Task {
-            do {
-                var playable = track
-                if playable.videoId == nil, !playable.id.hasPrefix(LocalLosslessLibrary.trackPrefix) {
-                    playable = try await InnerTube.shared.resolve(track)
-                }
-                let stream = try await self.stream(for: playable)
-                guard !Task.isCancelled, self.requests.isCurrentLoad(generation), self.player.currentItem === item else { return }
-                self.switchItem(to: AVPlayerItem(url: stream.url),
-                                label: "\(stream.label) · " + String(localized: "lossless non disponibile"),
-                                track: track, at: position)
-            } catch {
-                guard !Task.isCancelled, self.requests.isCurrentLoad(generation), self.player.currentItem === item else { return }
-                self.fail(reason.isEmpty ? error.localizedDescription : reason)
-            }
-        }
-    }
-
-    /// CI only (see LaunchScene): the lossless stream cut off where it is, as a dropped connection is.
-    func simulateLosslessFailure() {
-        guard LaunchScene.isActive, let lossless = losslessPlayback, let track = current else { return }
-        fallBackFromLossless(lossless.item, track: track, reason: "simulated dropout")
-    }
-
-    /// A lossless stream that stays stalled while it should play (the server gone, the network too
-    /// slow for it) hands over like a failure, after a few seconds.
-    private func watchLosslessStall(_ item: AVPlayerItem) {
-        guard let lossless = losslessPlayback, lossless.item === item, !lossless.choice.isLocal, let track = current else { return }
-        losslessStall?.cancel()
-        losslessStall = Task {
-            try? await Task.sleep(for: .seconds(6))
-            guard !Task.isCancelled, self.losslessPlayback?.item === item, self.playWhenReady,
-                  !item.isPlaybackLikelyToKeepUp, self.player.timeControlStatus != .playing else { return }
-            self.fallBackFromLossless(item, track: track, reason: String(localized: "stream interrotto"))
-        }
     }
 
     /// AAC plays where Opus should have: kept, with the reason, for Settings → Diagnostica.
@@ -1621,8 +1534,6 @@ final class PlayerController: ObservableObject {
     /// Prepare the requested song only. Upcoming songs never run the Opus decoder.
     private func prepareCurrentAudio(for track: Track) {
         upgradeTask?.cancel()
-        // A lossless copy plays as it is: no copy of YouTube's stream takes its place.
-        guard losslessPlayback?.trackID != track.id else { return }
         guard playWhenReady, !isPlayingStems, Storage.localAudio(for: track) == nil,
               let videoId = track.videoId, let asset = player.currentItem?.asset as? AVURLAsset else { return }
         // An Opus stream becomes the song's decoded file by itself.
@@ -1695,9 +1606,6 @@ final class PlayerController: ObservableObject {
             updateNowPlayingInfo()
         case .failed:
             if opusPlayback?.item === item { return playAAC(insteadOf: item, track: track) }
-            if losslessPlayback?.item === item {
-                return fallBackFromLossless(item, track: track, reason: item.error?.localizedDescription ?? "")
-            }
             let message = player.currentItem?.error?.localizedDescription
                 ?? PlayerError.unavailable.localizedDescription
             guard !retriedCurrentItem, let videoId = track.videoId, Storage.localAudio(for: track) == nil else {
@@ -2158,13 +2066,6 @@ final class PlayerController: ObservableObject {
     /// cached file, or a fresh copy; at the Opus qualities, its Opus decoded (so the song after a
     /// mix plays Opus too).
     private func analysisFile(for track: Track, videoId: String) async -> (url: URL, label: String)? {
-        // A lossless copy of the song (kept on the device, or fetched from the user's server): the
-        // song after the mix then plays from it too.
-        if let file = await LosslessSources.shared.file(for: track, fetch: true),
-           let format = await AudioFormatProbe.probe(file), format.isLossless {
-            let source: LosslessSourceKind = LosslessCacheKey.isLossless(file.lastPathComponent) ? .openSubsonic : .localFile
-            return (file, LosslessSources.Choice.label(format, source: source))
-        }
         if let local = Storage.localAudio(for: track) {
             return (local, "\(DownloadManager.formatLabel(for: track) ?? "AAC") · offline")
         }
@@ -2200,11 +2101,6 @@ final class PlayerController: ObservableObject {
     /// for the next listen) is encoded differently: its music lands some milliseconds off, which is
     /// heard as a jump at the handover.
     private func outgoingFile(for track: Track, videoId: String, source: URL?) async -> URL? {
-        // Playing a lossless copy: that very file (a server's is fetched whole, the same bytes it streams).
-        if let lossless = losslessPlayback, lossless.trackID == track.id {
-            if lossless.choice.isLocal { return lossless.choice.url }
-            return await LosslessSources.shared.file(for: track, fetch: true)
-        }
         if let source, source.isFileURL { return source }
         // An Opus stream: its decoded file, once the whole song is in.
         if let source, source.scheme == OpusStream.scheme, let opus = opusPlayback?.stream, opus.playbackURL == source,
@@ -2627,7 +2523,6 @@ final class PlayerController: ObservableObject {
         prefetchLyrics()
         guard index + 1 < queue.count else { return }
         let track = queue[index + 1]
-        LosslessSources.shared.prefetch(track)
         // An episode is far bigger than a song: it is only fetched when it plays.
         guard let videoId = track.videoId, !track.isPodcastEpisode else { return }
         // With AutoMix the next song's copy is made by `prepareAutoMix`, at the quality it will play.
@@ -2771,8 +2666,7 @@ final class PlayerController: ObservableObject {
         stallTask?.cancel()
         guard status == .waitingToPlayAtSpecifiedRate, watched.reasonForWaitingToPlay == .toMinimizeStalls,
               playWhenReady, let track = current, let item = watched.currentItem,
-              let url = (item.asset as? AVURLAsset)?.url, !url.isFileURL, url.scheme != OpusStream.scheme,
-              losslessPlayback?.item !== item else { return }
+              let url = (item.asset as? AVURLAsset)?.url, !url.isFileURL, url.scheme != OpusStream.scheme else { return }
         stallTask = Task {
             try? await Task.sleep(for: .seconds(8))
             guard !Task.isCancelled, self.player === watched, watched.currentItem === item, self.current?.id == track.id,
@@ -2812,22 +2706,10 @@ final class PlayerController: ObservableObject {
         NotificationCenter.default.publisher(for: AVPlayerItem.playbackStalledNotification)
             .receive(on: DispatchQueue.main)
             .sink { note in
-                guard (note.object as? AVPlayerItem) === self.player.currentItem else { return }
-                if self.progress.duration > 0, self.progress.currentTime >= self.progress.duration - 3 {
-                    return self.itemFinished()
-                }
-                if let item = note.object as? AVPlayerItem { self.watchLosslessStall(item) }
-            }
-            .store(in: &cancellables)
-
-        // A lossless stream cut off before its end: the song's usual source takes over.
-        NotificationCenter.default.publisher(for: AVPlayerItem.failedToPlayToEndTimeNotification)
-            .receive(on: DispatchQueue.main)
-            .sink { note in
-                guard let item = note.object as? AVPlayerItem, item === self.player.currentItem,
-                      self.losslessPlayback?.item === item, let track = self.current else { return }
-                let error = note.userInfo?[AVPlayerItemFailedToPlayToEndTimeErrorKey] as? Error
-                self.fallBackFromLossless(item, track: track, reason: error?.localizedDescription ?? "")
+                guard (note.object as? AVPlayerItem) === self.player.currentItem,
+                      self.progress.duration > 0,
+                      self.progress.currentTime >= self.progress.duration - 3 else { return }
+                self.itemFinished()
             }
             .store(in: &cancellables)
 

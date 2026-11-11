@@ -68,7 +68,6 @@ jobs:
           bash Tools/RecommendationCheck/run.sh
           bash Tools/AutoMixCheck/run.sh
           bash Tools/AutoMixRenderCheck/run.sh
-          bash Tools/LosslessCheck/run.sh
           bash Tools/SegueCheck/run.sh
           bash Tools/AutoMixPlaybackProbe/run.sh
           bash Tools/OpusStreamCheck/run.sh
@@ -369,25 +368,11 @@ jobs:
         timeout-minutes: 2
         run: bash Tools/MacPlayerCheck/run.sh build-mac/Build/Products/Release-maccatalyst/Seaglass.app
 
-      # Lossless files made on the runner (FLAC 24 bit/96 kHz, ALAC, an AAC file to refuse), imported,
-      # read and played; one of them broken so it no longer decodes and hands over.
-      - name: Check lossless files on the Mac
-        timeout-minutes: 3
-        run: bash Tools/LosslessScenes/run.sh build-mac/Build/Products/Release-maccatalyst/Seaglass.app files
-
       # AutoMix's live transition between two songs the app makes: planned beat-matched, the next
       # song started on a second player in step, mixed in, and the rendered mix with it turned off.
       - name: Check AutoMix's live mix on the Mac
         timeout-minutes: 12
         run: bash Tools/SegueScene/run.sh build-mac/Build/Products/Release-maccatalyst/Seaglass.app
-
-      # The public Navidrome demo server: a FLAC found and streamed, a server that doesn't answer, a
-      # stream cut off while playing. Live, so it doesn't block the build.
-      - name: Check lossless servers on the Mac (live)
-        if: ${{ !inputs.release }}
-        continue-on-error: true
-        timeout-minutes: 3
-        run: bash Tools/LosslessScenes/run.sh build-mac/Build/Products/Release-maccatalyst/Seaglass.app live
 
       # Signed in to a throwaway account on the live account service, as the sign-in sheet leaves it:
       # the session stays in the Mac's keychain and Settings › Account shows the account. It talks

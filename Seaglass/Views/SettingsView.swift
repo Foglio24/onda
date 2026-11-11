@@ -198,8 +198,6 @@ private struct AudioSettingsView: View {
                 Text("Volume uniforme porta tutti i brani allo stesso livello.")
             }
 
-            LosslessSettingsSection()
-
             Section {
                 Toggle(isOn: $preferDolby) {
                     Label("Dolby quando disponibile", systemImage: "hifispeaker.2")

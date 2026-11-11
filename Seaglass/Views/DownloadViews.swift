@@ -415,7 +415,7 @@ struct DownloadStorageView: View {
         await Task.detached(priority: .utility) {
             var result: [String: Int64] = [:]
             for videoId in videoIds {
-                result[videoId] = Storage.audioFiles(for: videoId).reduce(0) { $0 + fileSize($1) } + fileSize(Storage.artworkFile(for: videoId))
+                result[videoId] = fileSize(Storage.audioFile(for: videoId)) + fileSize(Storage.artworkFile(for: videoId))
             }
             return result
         }.value

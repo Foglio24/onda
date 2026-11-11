@@ -53,7 +53,7 @@ enum AudioQuality: String, CaseIterable, Identifiable, Sendable {
 
     var id: Self { self }
 
-    /// Downloads skip the medium level: a lossless copy of a 70 kbps stream makes no sense.
+    /// Downloads skip the medium level: a decoded copy of a 70 kbps stream makes no sense.
     static let downloadCases: [AudioQuality] = [.max, .high, .low]
 
     var title: String {
@@ -67,9 +67,9 @@ enum AudioQuality: String, CaseIterable, Identifiable, Sendable {
 
     var downloadTitle: String {
         switch self {
-        // Opus decoded once and kept in ALAC: nothing more is lost, but nothing YouTube's Opus lost
-        // comes back, so it isn't called lossless (real lossless copies come from `LosslessSources`).
-        case .max: return String(localized: "Massima · Opus in ALAC, senza altre perdite (~5 MB/min)")
+        // Opus decoded once and kept as it came out of the decoder (in ALAC, which AVPlayer plays):
+        // the quality is YouTube's Opus, nothing more and nothing less.
+        case .max: return String(localized: "Massima · Opus 160 kbps (~5 MB/min)")
         case .high: return String(localized: "Alta · AAC 128 kbps (~1 MB/min)")
         case .medium, .low: return String(localized: "Risparmio · AAC 48 kbps (~0,4 MB/min)")
         }
@@ -147,11 +147,6 @@ enum Preferences {
     static let equalizerCustom = "audio.equalizer.custom"
     static let preferDolby = "audio.preferDolby"
     static let downloadFormats = "download.formats"
-    /// Looks for a lossless copy of each song (the user's files, their OpenSubsonic server) before
-    /// YouTube's streams; on by default, as it does nothing until a source is set up.
-    static let losslessSearch = "lossless.search"
-    /// Lossless streams on mobile data too (several times the data of the usual streams).
-    static let losslessCellular = "lossless.cellular"
     /// AutoMix's live transitions (two players in step, see `SegueSession`); off, the rendered mixes.
     static let liveMix = "automix.liveMix"
     static var liveMixEnabled: Bool { UserDefaults.standard.object(forKey: liveMix) as? Bool ?? true }
@@ -170,8 +165,6 @@ enum Preferences {
     static let opusFromStart = "audio.opusFromStart"
     /// The last time Opus couldn't play from the start and AAC played instead, and why.
     static let lastOpusFallback = "diagnostics.lastOpusFallback"
-    /// The last time a lossless copy failed while playing, and why (Settings → Diagnostica).
-    static let lastLosslessFallback = "diagnostics.lastLosslessFallback"
     static let accent = "theme.accent"
     /// The Mac's zoom in percent (see `MacZoom`).
     static let macZoom = "mac.zoom"
@@ -309,7 +302,6 @@ final class NetworkMonitor: @unchecked Sendable {
     private let monitor = NWPathMonitor()
     private let lock = NSLock()
     private var expensive = false
-    private var online = true
 
     var isExpensive: Bool {
         lock.lock()
@@ -317,24 +309,16 @@ final class NetworkMonitor: @unchecked Sendable {
         return expensive
     }
 
-    /// Whether any network is there (true until the first answer).
-    var isOnline: Bool {
-        lock.lock()
-        defer { lock.unlock() }
-        return online
-    }
-
     private init() {
         monitor.pathUpdateHandler = { [unowned self] path in
-            self.update(path.isExpensive || path.usesInterfaceType(.cellular), online: path.status == .satisfied)
+            self.update(path.isExpensive || path.usesInterfaceType(.cellular))
         }
         monitor.start(queue: DispatchQueue(label: "seaglass.network-monitor"))
     }
 
-    private func update(_ metered: Bool, online: Bool) {
+    private func update(_ metered: Bool) {
         lock.lock()
         expensive = metered
-        self.online = online
         lock.unlock()
     }
 }

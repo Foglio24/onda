@@ -150,9 +150,6 @@ struct SongInfoView: View {
             Section {
                 if isCurrent, let info = player.streamInfo {
                     LabeledContent("In riproduzione", value: info)
-                    // Where it goes: the device's own rate can differ from the file's (resampled),
-                    // and the effects process the samples, so this is never claimed as bit-perfect.
-                    LabeledContent("Uscita audio", value: AudioOutputInfo.current)
                 }
                 if let downloadSize {
                     LabeledContent("Scaricato",

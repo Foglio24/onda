@@ -14,22 +14,15 @@
   - **Automatic equaliser:** bass, mids, highs, filters and an echo on the beat pass from one song to the other; turned off, only the volumes move.
   - **Echo:** in some mixes the outgoing song's last beats are thrown into an echo on its beat, which rings on over the next song.
   - Settings shows the last choice and why the more ambitious levels weren't used. **Settings › Riproduzione › Mix dal vivo** turns it off (back to the prepared mixes); its length and equaliser are under it.
-- **Lossless from your own sources** (iPhone, iPad and Mac). In **Settings › Audio › Lossless**:
-  - **Imported files.** FLAC, ALAC, WAV and AIFF files stay on the device as they are and play instead of the stream when title, artist, length and version match the song. An AAC file is refused.
-  - **Your OpenSubsonic server** (Navidrome and compatible servers, over HTTPS). The password stays in the keychain and each request uses a token instead. The server's original file plays, with no conversion. Lossless streams play on Wi-Fi, or on mobile data when you allow it.
-  - **Matching by recording.** A live take, remix, acoustic, instrumental, edit or sped-up upload is another recording. A remaster is the same one.
-  - **Never what stops a song.** A song waits at most 2.5 seconds for the server. When nothing is found, or the copy fails or is cut off while playing, the song carries on from YouTube at the same point, once.
-  - **Formats.** The song's details show the format that plays (for example FLAC · 24 bit/96 kHz) and the audio output's apart. AutoMix analyses and mixes the lossless file itself, and downloads keep a lossless copy in its own format.
 
 ### Changed
-- **"Massima · lossless da Opus"** is now **"Opus in ALAC, senza altre perdite"**: it was never more than Opus's quality.
+- **The "Massima" download quality is called "Opus 160 kbps (~5 MB/min)"** instead of "lossless da Opus": the file keeps YouTube's Opus as it was decoded, and was never lossless audio.
 
 ### Fixed
 - **Tempo no longer freezes streamed songs.** With Tempo away from 0, a song that wasn't downloaded could stop loading for good, even after resetting Tempo: YouTube's stream comes in at about the song's own speed, slower than a sped-up song plays. Now the song's copy on the device takes over as soon as it is there. A song that stays stuck for 8 seconds gets a fresh stream, once, and then plays with what has arrived. Measuring the BPM no longer competes with playback.
 
 ### What still has to be checked
 - AutoMix live on devices, by listening: the timing with wired, Bluetooth and AirPlay outputs, and the tuning on different genres. The checks run on songs made for them and on the build Mac.
-- Lossless was tested with FLAC 24/96 and ALAC 16/44.1 files made on the build Mac and with the public Navidrome demo server, not with a personal server.
 
 ## 1.31.4 (2026-11-10)
 

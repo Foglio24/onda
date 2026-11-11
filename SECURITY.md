@@ -48,10 +48,6 @@ Out of scope:
   - Shazam (`amp.shazam.com`), only when the user starts song recognition on iPhone, iPad or
     Mac. Only a locally generated audio fingerprint is sent, not the recorded audio. Artwork
     and optional catalog links in the response are accepted only over HTTPS.
-  - the user's own OpenSubsonic server (Navidrome and others), only when they set it up in
-    Settings › Audio › Lossless, and only over HTTPS: searches for the songs that play, and
-    their original files. Seaglass ships no lossless service, server or credentials, and never
-    uses third-party relays of paid streaming services.
 - **Last.fm credentials.** On iOS the Last.fm API secret and session key are kept in the
   Keychain; on a Mac, in the Mac's login keychain (the app is signed ad hoc, without the
   entitlements the iOS keychain needs there).
@@ -83,9 +79,8 @@ Treat a change that breaks any of these as **P0** (secrets, updates) or **P1** (
 - The only key material in the repository is the public certificate
   `android/signing/seaglass-cert.pem`. The Android signing key lives in the
   `ANDROID_SIGNING_KEY` secret.
-- Credentials the user enters (Last.fm, their OpenSubsonic server's password) and the account's
-  session token go in the Keychain on iOS (the login keychain on a Mac); the OpenSubsonic
-  password itself never travels (each request carries a salted token),
+- Credentials the user enters (Last.fm) and the account's session token go in the Keychain on
+  iOS (the login keychain on a Mac),
   never in `UserDefaults`, files in Documents, logs or diagnostics. The same applies on Android when Last.fm arrives:
   encrypted storage, never plain preferences or logs.
 

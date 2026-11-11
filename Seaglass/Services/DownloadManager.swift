@@ -56,10 +56,8 @@ final class DownloadManager: ObservableObject {
     private var downloadedFiles: Set<String> {
         if let downloadedIDs { return downloadedIDs }
         let names = (try? FileManager.default.contentsOfDirectory(atPath: Storage.downloads.path)) ?? []
-        let suffixes = ["m4a"] + Storage.losslessDownloadSuffixes
         let ids = Set(names.compactMap { name in
-            let suffix = (name as NSString).pathExtension.lowercased()
-            return suffixes.contains(suffix) && !name.hasPrefix(".") ? (name as NSString).deletingPathExtension : nil
+            name.hasSuffix(".m4a") && !name.hasPrefix(".") ? String(name.dropLast(4)) : nil
         })
         downloadedIDs = ids
         return ids
@@ -244,19 +242,6 @@ final class DownloadManager: ObservableObject {
                 return
             }
             progress[videoId] = progress.removeValue(forKey: requestKey) ?? 0
-            // A lossless copy of the recording (the user's server, or a file of theirs) is kept as it
-            // is, in its own format, rather than YouTube's stream.
-            if let lossless = await Self.losslessDownload(playable, videoId: videoId) {
-                destination = lossless.file
-                try Task.checkCancellation()
-                if let artwork = playable.largeArtworkURL,
-                   let result = try? await URLSession.shared.data(from: artwork) {
-                    try? result.0.write(to: Storage.artworkFile(for: videoId))
-                }
-                Self.recordFormat(lossless.label, for: videoId)
-                Library.shared.addDownload(playable)
-                return
-            }
             let audioDestination = Storage.audioFile(for: videoId)
             destination = audioDestination
             let requestedQuality = Preferences.downloadQualitySetting
@@ -281,7 +266,7 @@ final class DownloadManager: ObservableObject {
                 }
             }
             if stream.format == .opus {
-                // Lossless copy of YouTube's best stream: decode the Opus and save it as Apple Lossless.
+                // YouTube's best stream, decoded once: the Opus kept in ALAC, as the decoder gave it.
                 let webm = Storage.downloads.appending(path: ".\(videoId).webm")
                 defer { try? FileManager.default.removeItem(at: webm) }
                 do {
@@ -312,28 +297,8 @@ final class DownloadManager: ObservableObject {
 
     private func deleteFiles(of track: Track) {
         guard let videoId = (Library.shared.resolvedTrack(matching: track) ?? track).videoId else { return }
-        for file in Storage.audioFiles(for: videoId) { try? FileManager.default.removeItem(at: file) }
+        try? FileManager.default.removeItem(at: Storage.audioFile(for: videoId))
         try? FileManager.default.removeItem(at: Storage.artworkFile(for: videoId))
-    }
-
-    /// The song's lossless file, copied into the downloads under its own extension (".flac"; ALAC
-    /// stays ".m4a"), with its label. Nil, to download from YouTube as before, when there is none.
-    private static func losslessDownload(_ track: Track, videoId: String) async -> (file: URL, label: String)? {
-        guard let source = await LosslessSources.shared.file(for: track, fetch: true),
-              let format = await AudioFormatProbe.probe(source), format.isLossless else { return nil }
-        let suffix = format.codec == .alac ? "m4a" : source.pathExtension.lowercased()
-        let destination = suffix == "m4a" ? Storage.audioFile(for: videoId) : Storage.audioFile(for: videoId, suffix: suffix)
-        guard suffix == "m4a" || Storage.losslessDownloadSuffixes.contains(suffix) else { return nil }
-        do {
-            try await Task.detached(priority: .utility) {
-                try? FileManager.default.removeItem(at: destination)
-                try FileManager.default.copyItem(at: source, to: destination)
-            }.value
-        } catch {
-            return nil
-        }
-        let origin = LosslessCacheKey.isLossless(source.lastPathComponent) ? LosslessSourceKind.openSubsonic : .localFile
-        return (destination, LosslessSources.Choice.label(format, source: origin))
     }
 
     private static func recordFormat(_ label: String, for videoId: String) {
