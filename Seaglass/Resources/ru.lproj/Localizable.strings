@@ -755,3 +755,15 @@
 "Breve: fino a 8 battute. Normale: fino a 16. Lunga: fino a 32, quando i due brani tengono il tempo così a lungo. Con l'equalizzazione automatica bassi, medi, alti, filtri ed eco passano da un brano all'altro; spenta, cambiano solo i volumi." = "Короткий: до 8 тактов. Обычный: до 16. Длинный: до 32, если обе песни так долго держат ритм. С автоматическим эквалайзером басы, середина, верха, фильтры и эхо переходят от одной песни к другой; если он выключен, меняется только громкость.";
 "Segna il mix sulla barra" = "Отмечать микс на полосе";
 "Quando si avvicina, la barra di avanzamento del player mostra dove avverrà il mix." = "Когда микс приближается, полоса прогресса плеера показывает, где он произойдёт.";
+"File locali" = "Локальные файлы";
+"Aggiungi cartella…" = "Добавить папку…";
+"Nessun file locale" = "Нет локальных файлов";
+"Scegli una cartella con la tua musica sul dispositivo: i brani restano dove sono e Seaglass li riproduce da lì, senza copiarli." = "Выберите папку с музыкой на этом устройстве: треки остаются на месте, а Seaglass воспроизводит их оттуда, не копируя.";
+"Cartelle" = "Папки";
+"Aggiorna" = "Обновить";
+"Lettura dei file: %lld" = "Чтение файлов: %lld";
+"Sul dispositivo" = "На этом устройстве";
+"Cartella non raggiungibile" = "Папка недоступна";
+"Rimuovi cartella" = "Удалить папку";
+"Rimuovere una cartella non elimina i file: Seaglass non li copia né li modifica." = "Удаление папки не удаляет её файлы: Seaglass не копирует и не изменяет их.";
+"Rimuovi dalla cronologia" = "Удалить из истории";

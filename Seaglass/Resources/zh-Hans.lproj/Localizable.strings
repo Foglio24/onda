@@ -755,3 +755,15 @@
 "Breve: fino a 8 battute. Normale: fino a 16. Lunga: fino a 32, quando i due brani tengono il tempo così a lungo. Con l'equalizzazione automatica bassi, medi, alti, filtri ed eco passano da un brano all'altro; spenta, cambiano solo i volumi." = "短：最多 8 小节。正常：最多 16 小节。长：最多 32 小节，前提是两首歌都能保持这么久的节拍。开启自动均衡时，低音、中音、高音、滤波和回声会从一首歌过渡到另一首；关闭时只改变音量。";
 "Segna il mix sulla barra" = "在进度条上标出混音";
 "Quando si avvicina, la barra di avanzamento del player mostra dove avverrà il mix." = "混音临近时，播放器的进度条会显示它将在哪里发生。";
+"File locali" = "本地文件";
+"Aggiungi cartella…" = "添加文件夹…";
+"Nessun file locale" = "没有本地文件";
+"Scegli una cartella con la tua musica sul dispositivo: i brani restano dove sono e Seaglass li riproduce da lì, senza copiarli." = "选择设备上存放音乐的文件夹：歌曲保留在原位，Seaglass 直接从那里播放，不会复制。";
+"Cartelle" = "文件夹";
+"Aggiorna" = "刷新";
+"Lettura dei file: %lld" = "正在读取文件：%lld";
+"Sul dispositivo" = "在此设备上";
+"Cartella non raggiungibile" = "无法访问该文件夹";
+"Rimuovi cartella" = "移除文件夹";
+"Rimuovere una cartella non elimina i file: Seaglass non li copia né li modifica." = "移除文件夹不会删除其中的文件：Seaglass 不会复制或修改它们。";
+"Rimuovi dalla cronologia" = "从历史记录中移除";

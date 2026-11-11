@@ -6,6 +6,7 @@ struct LibraryView: View {
     @EnvironmentObject private var downloads: DownloadManager
     @ObservedObject private var importer = PlaylistImporter.shared
     @ObservedObject private var podcasts = PodcastLibrary.shared
+    @ObservedObject private var local = LocalMusic.shared
     @State private var showDownloads = false
     /// Opened directly only by CI (see `LaunchScene.opensPlaylistInLibrary`).
     @State private var openedPlaylist: UUID?
@@ -46,6 +47,9 @@ struct LibraryView: View {
                     }
                     NavigationLink { TrackCollectionView(collection: .history) } label: {
                         shortcut("Cronologia", symbol: "clock.fill", tint: .orange, count: library.history.count)
+                    }
+                    NavigationLink { LocalMusicView() } label: {
+                        shortcut("File locali", symbol: "internaldrive.fill", tint: .teal, count: local.tracks.count)
                     }
                     NavigationLink { PodcastsView() } label: {
                         shortcut("Podcast", symbol: "mic.fill", tint: .purple, count: podcasts.followed.count)

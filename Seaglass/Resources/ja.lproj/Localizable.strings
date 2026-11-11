@@ -755,3 +755,15 @@
 "Breve: fino a 8 battute. Normale: fino a 16. Lunga: fino a 32, quando i due brani tengono il tempo così a lungo. Con l'equalizzazione automatica bassi, medi, alti, filtri ed eco passano da un brano all'altro; spenta, cambiano solo i volumi." = "短め：最大 8 小節。標準：最大 16 小節。長め：最大 32 小節（2 曲ともそれだけ長くビートを保てる場合）。自動イコライザをオンにすると、低音・中音・高音・フィルター・エコーが一方の曲からもう一方へ移ります。オフでは音量だけが変わります。";
 "Segna il mix sulla barra" = "バーにミックスを表示";
 "Quando si avvicina, la barra di avanzamento del player mostra dove avverrà il mix." = "ミックスが近づくと、プレーヤーの再生バーにミックスが起こる位置が表示されます。";
+"File locali" = "ローカルファイル";
+"Aggiungi cartella…" = "フォルダを追加…";
+"Nessun file locale" = "ローカルファイルはありません";
+"Scegli una cartella con la tua musica sul dispositivo: i brani restano dove sono e Seaglass li riproduce da lì, senza copiarli." = "このデバイス上の音楽が入ったフォルダを選んでください。曲は元の場所に残り、Seaglass はコピーせずにそこから再生します。";
+"Cartelle" = "フォルダ";
+"Aggiorna" = "更新";
+"Lettura dei file: %lld" = "ファイルを読み込み中：%lld";
+"Sul dispositivo" = "このデバイス上";
+"Cartella non raggiungibile" = "フォルダにアクセスできません";
+"Rimuovi cartella" = "フォルダを削除";
+"Rimuovere una cartella non elimina i file: Seaglass non li copia né li modifica." = "フォルダを削除してもファイルは削除されません。Seaglass はファイルをコピーも変更もしません。";
+"Rimuovi dalla cronologia" = "履歴から削除";

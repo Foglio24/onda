@@ -32,6 +32,8 @@ struct SeaglassApp: App {
             RootView()
                 .appEnvironment()
                 .task {
+                    // The user's own songs: their folders opened, so a song from the history plays at once.
+                    _ = LocalMusic.shared
                     // Warms YouTube's player script up front, so the first tapped song starts quickly too.
                     if let recent = library.history.first { StreamPrewarmer.shared.request(recent) }
                     await lastfm.flushPending()

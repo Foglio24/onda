@@ -59,6 +59,12 @@ Out of scope:
   codes and email links only as SHA-256 hashes. Patreon's tokens are used once and not kept.
   The address-confirmation links and password-reset codes are emailed through Resend (or
   Cloudflare's Email Service); a reset code lasts 15 minutes and five tries.
+- **Your own songs.** A folder the user picks in the Files picker is kept as a bookmark (with the
+  access the picker gave, on iPhone and iPad). The apps only read the audio files in it, their tags
+  and their embedded covers (the covers are kept, small, in the app's own folder); they never write
+  to, copy out of or delete from the folder. The songs' names, tags and covers aren't sent anywhere or
+  synced to the account, and the apps make no request to YouTube Music for them. As for any song
+  played, the title and artist go to LRCLIB for lyrics, and to Last.fm when the user connected it.
 - **Lyrics translation.** It runs on the device: Apple's Translation framework on iOS, ML Kit on
   Android.
 - **Song recognition.** The microphone is requested only after a tap on the recognition control.

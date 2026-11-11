@@ -55,6 +55,7 @@ jobs:
           bash Tools/PlaybackVolumeCheck/run.sh
           bash Tools/LibraryCheck/run.sh
           bash Tools/AccountSyncCheck/run.sh
+          bash Tools/LocalMusicCheck/run.sh
           bash Tools/PlaylistImportCheck/run.sh
           bash Tools/ScrobbleCheck/run.sh
           bash Tools/UpdateCheck/run.sh

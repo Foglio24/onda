@@ -1,4 +1,42 @@
 import Foundation
+import os
+
+/// Where the user's own songs are (see `LocalMusic`), for the audio code, which asks from any thread.
+enum LocalFiles {
+    struct Entry: Sendable {
+        let url: URL
+        /// The file's format as shown beside the song's quality ("FLAC", "MP3").
+        let label: String
+        /// The embedded cover, once it has been read.
+        let cover: URL?
+        /// The name the song's analyses (AutoMix) are kept under: not the file's, which says nothing
+        /// ("01 Intro" is in a thousand albums), and new when the file's size changes.
+        let analysisKey: String
+    }
+
+    private struct State: Sendable {
+        var byID: [String: Entry] = [:]
+        var keyByPath: [String: String] = [:]
+    }
+
+    private static let state = OSAllocatedUnfairLock(initialState: State())
+
+    static func replace(with entries: [String: Entry]) {
+        var keys: [String: String] = [:]
+        for entry in entries.values { keys[entry.url.path] = entry.analysisKey }
+        let next = State(byID: entries, keyByPath: keys)
+        state.withLock { $0 = next }
+    }
+
+    static func entry(forID id: String?) -> Entry? {
+        guard let id, Track.isLocalID(id) else { return nil }
+        return state.withLock { $0.byID[id] }
+    }
+
+    static func analysisKey(for url: URL) -> String? {
+        state.withLock { $0.keyByPath[url.path] }
+    }
+}
 
 /// File locations used by the app.
 ///
@@ -45,6 +83,8 @@ enum Storage {
     /// Vocals / instrumental stems made by the karaoke model, kept for replays.
     static let stems: URL = makeDirectory(
         caches.appending(path: "KaraokeStems", directoryHint: .isDirectory))
+    /// The covers read from the user's own songs (see `LocalMusic`); the songs themselves stay where they are.
+    static let localCovers: URL = makeDirectory(support.appending(path: "LocalCovers", directoryHint: .isDirectory))
 
     static func audioFile(for videoId: String) -> URL { downloads.appending(path: "\(videoId).m4a") }
     static func artworkFile(for videoId: String) -> URL { downloads.appending(path: "\(videoId).jpg") }
@@ -54,11 +94,14 @@ enum Storage {
     }
 
     static func localAudio(for track: Track) -> URL? {
-        existing(track.videoId.map { audioFile(for: $0) })
+        // The user's own song: its file where it is, as long as its folder can be opened.
+        if track.isLocal { return existing(LocalFiles.entry(forID: track.videoId)?.url) }
+        return existing(track.videoId.map { audioFile(for: $0) })
     }
 
     static func localArtwork(for track: Track) -> URL? {
-        existing(track.videoId.map { artworkFile(for: $0) })
+        if track.isLocal { return existing(LocalFiles.entry(forID: track.videoId)?.cover) }
+        return existing(track.videoId.map { artworkFile(for: $0) })
     }
 
     private static func existing(_ url: URL?) -> URL? {

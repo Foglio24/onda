@@ -184,6 +184,8 @@ final class DownloadManager: ObservableObject {
     /// "Opus · 160 kbps" for a downloaded song, as recorded when it was saved.
     nonisolated static func formatLabel(for track: Track) -> String? {
         guard let videoId = track.videoId else { return nil }
+        // The user's own song: its file's format.
+        if let entry = LocalFiles.entry(forID: videoId) { return entry.label }
         let labels = UserDefaults.standard.dictionary(forKey: Preferences.downloadFormats) as? [String: String]
         return labels?[videoId]
     }

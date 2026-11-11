@@ -51,6 +51,7 @@ Your choice is about the listening experience: more control over transitions, te
 
 - Search songs, artists and albums; save favourites, create playlists and organise your queue.
 - Download songs, albums and playlists for offline listening and check storage usage in settings.
+- Play your own songs: choose a folder on the device (Files, iCloud Drive, a USB drive) and its MP3, M4A, FLAC, WAV and AIFF files play where they are, with the queue, playlists, AutoMix and karaoke.
 - Import playlists from Spotify, Apple Music and YouTube links. If a song cannot be matched, review the import report and choose a suggested alternative.
 - Public Spotify links may expose only the first 100 songs. For longer playlists, import a Spotify JSON or CSV file from **Library → Import playlist from file**.
 - Discover radio stations and personalised mixes; connect Last.fm for scrobbling and more features based on your listening.

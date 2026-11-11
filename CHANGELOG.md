@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.33.0 (2026-11-11)
+
+### Added
+- **Your own songs, from a folder on the device** (iPhone, iPad and Mac). **Library › File locali** takes a folder you choose (in Files, iCloud Drive, a USB drive) and lists the MP3, M4A, AAC, FLAC, WAV, AIFF and CAF files in it and its subfolders as songs, with their title, artist, album, length and cover read from their tags (the file's name stands in for a missing title). The songs play from where they are: Seaglass never copies, changes or deletes them, and removing a folder only makes the app forget it. They queue, join the favourites and the playlists, mix with AutoMix, sing along with the karaoke and have lyrics as any song does, and the search shows the ones that match first, under **Sul dispositivo**, with no network. A folder is read again when the page is opened for the first time since the app started and with **Aggiorna**, and only the files that are new or changed are read again. Files that are in iCloud Drive but not downloaded yet have to be downloaded in Files first. These songs stay on the device: they aren't synced to the account, have no YouTube radio, and aren't downloaded or shared.
+
+### Changed
+- **The search's history works as the other song lists.** A song in it is a row like any other: swipe it right to add it to the queue, left for the favourites or to take it out of the history, and hold it for its menu. An artist, an album, a playlist or a search in the history are taken out by a swipe left, or held.
+
 ## 1.32.0 (2026-11-11)
 
 ### Added

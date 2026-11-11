@@ -46,8 +46,17 @@ struct Track: Codable, Hashable, Identifiable {
     var largeArtworkURL: URL? { resizedArtwork(1080) }
 
     var shareURL: URL? {
-        videoId.flatMap { URL(string: "https://music.youtube.com/watch?v=\($0)") }
+        guard !isLocal else { return nil }
+        return videoId.flatMap { URL(string: "https://music.youtube.com/watch?v=\($0)") }
     }
+
+    /// A song from a file the user keeps on the device (see `LocalMusic`): its "video ID" is `local-`
+    /// and 16 hexadecimal digits, 22 characters, never a YouTube one (those have 11).
+    static let localPrefix = "local-"
+
+    static func isLocalID(_ id: String) -> Bool { id.count == 22 && id.hasPrefix(localPrefix) }
+
+    var isLocal: Bool { videoId.map(Track.isLocalID) ?? false }
 
     /// Metadata can identify an unresolved Last.fm song, but must never merge two
     /// different YouTube recordings (for example a studio and a live version).

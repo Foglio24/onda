@@ -755,3 +755,15 @@
 "Breve: fino a 8 battute. Normale: fino a 16. Lunga: fino a 32, quando i due brani tengono il tempo così a lungo. Con l'equalizzazione automatica bassi, medi, alti, filtri ed eco passano da un brano all'altro; spenta, cambiano solo i volumi." = "Court : jusqu'à 8 mesures. Normal : jusqu'à 16. Long : jusqu'à 32, quand les deux morceaux tiennent le tempo aussi longtemps. Avec l'égaliseur automatique, les basses, les médiums, les aigus, les filtres et l'écho passent d'un morceau à l'autre ; désactivé, seuls les volumes changent.";
 "Segna il mix sulla barra" = "Indiquer le mix sur la barre";
 "Quando si avvicina, la barra di avanzamento del player mostra dove avverrà il mix." = "À son approche, la barre de progression du lecteur montre où le mix aura lieu.";
+"File locali" = "Fichiers locaux";
+"Aggiungi cartella…" = "Ajouter un dossier…";
+"Nessun file locale" = "Aucun fichier local";
+"Scegli una cartella con la tua musica sul dispositivo: i brani restano dove sono e Seaglass li riproduce da lì, senza copiarli." = "Choisissez un dossier avec votre musique sur cet appareil : les morceaux restent où ils sont et Seaglass les lit depuis cet endroit, sans les copier.";
+"Cartelle" = "Dossiers";
+"Aggiorna" = "Actualiser";
+"Lettura dei file: %lld" = "Lecture des fichiers : %lld";
+"Sul dispositivo" = "Sur cet appareil";
+"Cartella non raggiungibile" = "Dossier inaccessible";
+"Rimuovi cartella" = "Retirer le dossier";
+"Rimuovere una cartella non elimina i file: Seaglass non li copia né li modifica." = "Retirer un dossier ne supprime pas ses fichiers : Seaglass ne les copie ni ne les modifie.";
+"Rimuovi dalla cronologia" = "Retirer de l'historique";

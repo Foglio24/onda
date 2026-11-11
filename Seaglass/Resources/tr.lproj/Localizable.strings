@@ -755,3 +755,15 @@
 "Breve: fino a 8 battute. Normale: fino a 16. Lunga: fino a 32, quando i due brani tengono il tempo così a lungo. Con l'equalizzazione automatica bassi, medi, alti, filtri ed eco passano da un brano all'altro; spenta, cambiano solo i volumi." = "Kısa: en fazla 8 ölçü. Normal: en fazla 16. Uzun: iki şarkı da ritmi bu kadar uzun tutarsa en fazla 32. Otomatik ekolayzer açıkken baslar, orta sesler, tizler, filtreler ve yankı bir şarkıdan diğerine geçer; kapalıyken yalnızca ses düzeyleri değişir.";
 "Segna il mix sulla barra" = "Miksi çubukta göster";
 "Quando si avvicina, la barra di avanzamento del player mostra dove avverrà il mix." = "Yaklaştığında, oynatıcının ilerleme çubuğu miksin nerede olacağını gösterir.";
+"File locali" = "Yerel dosyalar";
+"Aggiungi cartella…" = "Klasör ekle…";
+"Nessun file locale" = "Yerel dosya yok";
+"Scegli una cartella con la tua musica sul dispositivo: i brani restano dove sono e Seaglass li riproduce da lì, senza copiarli." = "Bu cihazdaki müziğinizin bulunduğu bir klasör seçin: şarkılar yerinde kalır ve Seaglass onları kopyalamadan oradan çalar.";
+"Cartelle" = "Klasörler";
+"Aggiorna" = "Yenile";
+"Lettura dei file: %lld" = "Dosyalar okunuyor: %lld";
+"Sul dispositivo" = "Bu cihazda";
+"Cartella non raggiungibile" = "Klasöre erişilemiyor";
+"Rimuovi cartella" = "Klasörü kaldır";
+"Rimuovere una cartella non elimina i file: Seaglass non li copia né li modifica." = "Bir klasörü kaldırmak dosyalarını silmez: Seaglass onları kopyalamaz veya değiştirmez.";
+"Rimuovi dalla cronologia" = "Geçmişten kaldır";

@@ -396,8 +396,10 @@ struct TrackMenu: View {
                 Label("Aggiungi in coda", systemImage: "text.line.last.and.arrowtriangle.forward")
             }
         }
-        Button { player.playRadio(from: track) } label: {
-            Label("Avvia radio", systemImage: "dot.radiowaves.left.and.right")
+        if !track.isLocal {
+            Button { player.playRadio(from: track) } label: {
+                Label("Avvia radio", systemImage: "dot.radiowaves.left.and.right")
+            }
         }
         if !track.primaryArtist.isEmpty {
             Button { router.page = .artist(id: track.artistID, name: track.primaryArtist) } label: {
@@ -409,8 +411,10 @@ struct TrackMenu: View {
                 Label("Vai all'album", systemImage: "square.stack")
             }
         }
-        Button { router.page = .song(track) } label: {
-            Label("Informazioni sul brano", systemImage: "info.circle")
+        if !track.isLocal {
+            Button { router.page = .song(track) } label: {
+                Label("Informazioni sul brano", systemImage: "info.circle")
+            }
         }
         Divider()
         Button { library.toggleLike(track) } label: {
@@ -423,7 +427,10 @@ struct TrackMenu: View {
         Button { router.trackToAdd = track } label: {
             Label("Aggiungi a playlist…", systemImage: "text.badge.plus")
         }
-        if downloads.isDownloaded(track) {
+        // The user's own songs are on the device already: nothing to download.
+        if track.isLocal {
+            EmptyView()
+        } else if downloads.isDownloaded(track) {
             Button(role: .destructive) { downloads.remove(track) } label: {
                 Label("Rimuovi download", systemImage: "trash")
             }

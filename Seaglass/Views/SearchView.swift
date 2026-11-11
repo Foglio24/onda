@@ -7,6 +7,8 @@ struct SearchView: View {
     @AppStorage(Preferences.recentSearchItems) private var recentData = Data()
     @State private var query = ""
     @State private var results: [Track] = []
+    /// The user's own songs that match, shown at once (no network) above YouTube Music's.
+    @State private var localResults: [Track] = []
     @State private var catalog = CatalogResults()
     @State private var isSearching = false
     /// The text the results shown are for (they stay while the next search runs).
@@ -17,6 +19,8 @@ struct SearchView: View {
 
     /// Songs shown before "Mostra tutti i brani", so playlists and artists stay in sight.
     private static let songsPreview = 6
+    /// The user's own songs shown (the Library page has them all).
+    private static let localPreview = 8
 
     /// The search's history, newest first: what was picked, with its cover, and searches sent. Until
     /// this version has saved one, the searches older versions kept.
@@ -63,6 +67,19 @@ struct SearchView: View {
                     .listRowBackground(Color.clear)
             } header: {
                 Text("Artista")
+            }
+        }
+        if !localResults.isEmpty {
+            Section {
+                ForEach(Array(localResults.prefix(Self.localPreview).enumerated()), id: \.element.id) { position, track in
+                    TrackRow(track: track) {
+                        remember(RecentSearch(track: track))
+                        player.play(localResults, startAt: position, source: String(localized: "File locali"))
+                    }
+                    .listRowBackground(Color.clear)
+                }
+            } header: {
+                Text("Sul dispositivo")
             }
         }
         if !layout.songs.isEmpty {
@@ -144,14 +161,7 @@ struct SearchView: View {
         if !entries.isEmpty {
             Section {
                 ForEach(entries) { entry in
-                    Button { openRecent(entry) } label: { RecentSearchRow(entry: entry) }
-                        .buttonStyle(.plain)
-                        .listRowBackground(Color.clear)
-                }
-                .onDelete { offsets in
-                    var items = entries
-                    items.remove(atOffsets: offsets)
-                    save(items)
+                    recentRow(entry)
                 }
             } header: {
                 Text("Ricerche recenti")
@@ -159,10 +169,39 @@ struct SearchView: View {
         }
     }
 
+    /// A song of the history is a song row like any other: swiped right it joins the queue, swiped left
+    /// it goes to the favourites or leaves the history, held it opens its menu. The rest (a search, an
+    /// artist, an album, a playlist) opens when tapped and leaves the history by a swipe left or held.
+    @ViewBuilder private func recentRow(_ entry: RecentSearch) -> some View {
+        if let track = entry.track {
+            TrackRow(track: track, remove: { forget(entry) }) { openRecent(entry) }
+                .listRowBackground(Color.clear)
+        } else {
+            Button { openRecent(entry) } label: { RecentSearchRow(entry: entry) }
+                .buttonStyle(.plain)
+                .listRowBackground(Color.clear)
+                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                    Button(role: .destructive) { forget(entry) } label: {
+                        Label("Rimuovi", systemImage: "trash")
+                    }
+                }
+                .contextMenu {
+                    Button(role: .destructive) { forget(entry) } label: {
+                        Label("Rimuovi dalla cronologia", systemImage: "trash")
+                    }
+                }
+        }
+    }
+
+    private func forget(_ entry: RecentSearch) {
+        save(recent.filter { $0.id != entry.id })
+    }
+
     /// A search sent searches again; a song plays (its radio), anything else opens its page.
     private func openRecent(_ entry: RecentSearch) {
         if let track = entry.track {
             remember(entry)
+            // (`playRadio` plays a song of the user's own on its own.)
             player.playRadio(from: track)
         } else if let item = entry.item, let page = MusicPage(item) {
             remember(entry)
@@ -178,10 +217,10 @@ struct SearchView: View {
                 ContentUnavailableView("Cerca su YouTube Music", systemImage: "magnifyingglass",
                                        description: Text("Scegli un brano: parte una radio di canzoni simili."))
             }
-        } else if let errorText, searchedText == query.trimmed {
+        } else if let errorText, searchedText == query.trimmed, localResults.isEmpty {
             ContentUnavailableView("Ricerca non riuscita", systemImage: "wifi.exclamationmark",
                                    description: Text(errorText))
-        } else if results.isEmpty && catalog.isEmpty {
+        } else if results.isEmpty && catalog.isEmpty && localResults.isEmpty {
             // Nothing found only once this very text has been searched; until then, it is on its way.
             if isSearching || searchedText != query.trimmed {
                 ProgressView()
@@ -196,6 +235,8 @@ struct SearchView: View {
     /// playlists, artists and albums.
     private func search() async {
         let text = query.trimmed
+        // The user's own songs need no network: they show with the first letters.
+        localResults = text.isEmpty ? [] : LocalMusic.shared.search(text)
         guard !text.isEmpty else {
             results = []
             catalog = CatalogResults()

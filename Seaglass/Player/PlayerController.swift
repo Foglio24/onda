@@ -389,6 +389,11 @@ final class PlayerController: ObservableObject {
 
     /// Plays a song followed by YouTube Music's radio of similar songs.
     func playRadio(from track: Track) {
+        // The user's own song has no radio: it plays on its own.
+        if track.isLocal {
+            play([track], source: String(localized: "File locali"))
+            return
+        }
         play([track], source: "Radio · \(track.title)", startRadio: true)
     }
 
@@ -1394,6 +1399,9 @@ final class PlayerController: ObservableObject {
         if let local = Storage.localAudio(for: track) {
             return (local, "\(DownloadManager.formatLabel(for: track) ?? "AAC") · offline")
         }
+        // The user's own song whose file can't be opened (its folder moved, a drive unplugged): there
+        // is no stream to fall back to.
+        if track.isLocal { throw PlayerError.unavailable }
         guard let videoId = track.videoId else { throw PlayerError.unavailable }
         if let cached = OpusPipeline.cachedFile(videoId: videoId) { return cached }
         // Usually already resolved by StreamPrewarmer while the song was on screen.
@@ -1548,7 +1556,8 @@ final class PlayerController: ObservableObject {
 
     /// The "Volume uniforme" gain of a song (1 with it off).
     private func volumeGain(for track: Track) async -> Float {
-        guard Preferences.normalizesVolume, let videoId = track.videoId else { return 1 }
+        // The user's own songs play as they are (their loudness isn't YouTube's to tell).
+        guard Preferences.normalizesVolume, let videoId = track.videoId, !track.isLocal else { return 1 }
         return Loudness.gain(forDecibels: await Loudness.shared.decibels(for: videoId))
     }
 
@@ -2757,7 +2766,11 @@ final class PlayerController: ObservableObject {
 
     @discardableResult
     private func extendQueue() async -> Bool {
-        guard let seed = current?.videoId ?? queue.last(where: { $0.videoId != nil })?.videoId else { return false }
+        // Radio follows a YouTube song: the user's own ones have none to ask for.
+        var candidates: [Track] = []
+        if let current { candidates.append(current) }
+        candidates.append(contentsOf: queue.reversed())
+        guard let seed = candidates.first(where: { $0.videoId != nil && !$0.isLocal })?.videoId else { return false }
         return await requests.extendQueue { generation in
             guard self.requests.isCurrentQueue(generation), !Task.isCancelled,
                   let radio = try? await InnerTube.shared.radio(for: seed),
@@ -2785,7 +2798,7 @@ final class PlayerController: ObservableObject {
         guard index + 1 < queue.count else { return }
         let track = queue[index + 1]
         // An episode is far bigger than a song: it is only fetched when it plays.
-        guard let videoId = track.videoId, !track.isPodcastEpisode else { return }
+        guard let videoId = track.videoId, !track.isPodcastEpisode, !track.isLocal else { return }
         // With AutoMix the next song's copy is made by `prepareAutoMix`, at the quality it will play.
         // An Opus song starts from its stream (its first seconds are prepared by PreparedPlayback).
         let needsCopy = Storage.localAudio(for: track) == nil && OpusPipeline.cachedFile(videoId: videoId) == nil

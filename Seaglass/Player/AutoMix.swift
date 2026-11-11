@@ -19,6 +19,16 @@ actor AutoMixLibrary {
         return url
     }()
 
+    /// The name a file's analyses are kept under, when it isn't its own: the app gives the user's own
+    /// songs one (their file names repeat), set once at launch (see `LocalMusic`).
+    nonisolated(unsafe) static var customKey: (@Sendable (URL) -> String?)?
+
+    /// The name a file's analyses are kept under: its own, which for a download or a cached file is its
+    /// song's ID.
+    static func cacheKey(for file: URL) -> String {
+        customKey?(file) ?? file.deletingPathExtension().lastPathComponent
+    }
+
     private var recent: [String: TrackAnalysis] = [:]
     private var recentVocals: [String: VocalActivity] = [:]
     private var running: [String: Task<TrackAnalysis?, Never>] = [:]
@@ -28,7 +38,7 @@ actor AutoMixLibrary {
     /// there and the energy allows it (the tempo panel doesn't wait for them).
     /// `priority`: higher when someone waits for it (the tempo panel's BPM).
     func analysis(of file: URL, priority: TaskPriority = .utility, beats: Bool = true) async -> TrackAnalysis? {
-        let key = file.deletingPathExtension().lastPathComponent
+        let key = Self.cacheKey(for: file)
         var known = recent[key]
         let saved = Self.directory.appending(path: "\(key).json")
         if known == nil, let data = try? Data(contentsOf: saved),
@@ -73,7 +83,7 @@ actor AutoMixLibrary {
     /// Cancelling the caller stops the measuring.
     func vocals(_ part: VocalDetector.Part, of file: URL, analysis: TrackAnalysis,
                 separate: @escaping VocalDetector.Separate) async -> VocalActivity? {
-        let key = file.deletingPathExtension().lastPathComponent
+        let key = Self.cacheKey(for: file)
         let saved = Self.directory.appending(path: "\(key).vocals.json")
         var activity = recentVocals[key]
         if activity == nil, let data = try? Data(contentsOf: saved),

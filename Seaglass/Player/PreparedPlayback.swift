@@ -79,7 +79,8 @@ final class PreparedPlayback {
     }
 
     func offerVisible(_ track: Track, token: UUID, priority: Int = 0) {
-        guard let videoID = track.videoId else { return }
+        // A song on the device needs nothing prepared ahead while it is only on screen.
+        guard let videoID = track.videoId, !track.isLocal else { return }
         visible[token] = track
         candidates.offerVisible(videoID, token: token, priority: priority)
         visible = visible.filter { candidates.visibleTokens.contains($0.key) }

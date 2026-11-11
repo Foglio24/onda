@@ -146,7 +146,8 @@ actor StreamPrewarmer {
     private var running = 0
 
     nonisolated func request(_ track: Track, token: UUID? = nil, priority: Int = 0) {
-        guard EnergyPolicy.current.allowsSpeculativeWork, let videoId = track.videoId else { return }
+        // The user's own songs have no stream to unlock.
+        guard EnergyPolicy.current.allowsSpeculativeWork, let videoId = track.videoId, !track.isLocal else { return }
         Task { await self.enqueue(videoId, token: token, priority: priority) }
     }
 
