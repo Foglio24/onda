@@ -274,18 +274,24 @@ final class SegueSession {
         finished?()
     }
 
-    /// How long ahead the fresh player is prepared (seconds of playing), and the crossover's length.
+    /// How long ahead the fresh player is prepared (seconds of playing), the crossover's length, and
+    /// how long the fresh player runs, silent through its deck, before the crossover: its start (and
+    /// whatever a player does as it starts) is never heard.
     static let returnLead = 2.0
     static let crossover = 0.08
+    static let silentStart = 0.35
 
     /// The song, heard on its own now, back to its own speed without a playing player's rate changing:
-    /// started again on a fresh player at its own speed, from a downbeat a couple of seconds on (its
-    /// bars counted from the window's start), on the system clock so it meets the stretched one there;
-    /// the two cross over in 80 ms through their decks, by the song's time (equal gain: the same
-    /// music, in phase), and the stretched player is let go. Only the tempo steps back, on that
-    /// downbeat. False when it couldn't (the song paused, moved or near its end, the fresh player not
-    /// ready in time, the controller no longer playing it): it plays on at its speed, and a pause or a
-    /// seek brings it back (see `dropSpeed`).
+    /// started again on a fresh player at its own speed, a third of a second before a downbeat a
+    /// couple of seconds on (its bars counted from the window's start) and silent until it, on the
+    /// system clock so it meets the stretched one there; the two cross over in 80 ms through their
+    /// decks, by the song's time (equal gain: the same music, in phase), and the stretched player,
+    /// silent from then on, is let go once all it played has come out of the speakers (with
+    /// Bluetooth, a fifth of a second later; let go sooner, the end of its sound was cut off before
+    /// the fresh one's came, a short gap). Only the tempo steps back, on that downbeat. False when it
+    /// couldn't (the song paused, moved or near its end, the fresh player not ready in time, the
+    /// controller no longer playing it): it plays on at its speed, and a pause or a seek brings it
+    /// back (see `dropSpeed`).
     private func returnToOwnSpeed() async -> Bool {
         guard let item, let tempo = plan.tempo, tempo > 0, plan.level.isLocked, let ownSpeed else { return false }
         let bar = 4 * 60 / tempo * plan.rate
@@ -316,7 +322,8 @@ final class SegueSession {
                 fresh.pause()
                 fresh.replaceCurrentItem(with: nil)
             }
-            _ = await fresh.seek(to: CMTime(seconds: at, preferredTimescale: 48_000), toleranceBefore: .zero, toleranceAfter: .zero)
+            let startsAt = max(0, at - Self.silentStart)
+            _ = await fresh.seek(to: CMTime(seconds: startsAt, preferredTimescale: 48_000), toleranceBefore: .zero, toleranceAfter: .zero)
             var waited = 0
             while freshItem.status == .unknown, waited < 30, phase == .restoring {
                 try? await Task.sleep(for: .milliseconds(50))
@@ -334,14 +341,17 @@ final class SegueSession {
             let speed = CMTimebaseGetRate(timebase)
             let from = CMTimebaseGetTime(timebase).seconds
             let delay = (at - from) / max(0.01, speed)
-            guard speed > 0, delay > 0.15 else {
+            guard speed > 0, delay > (at - startsAt) + 0.15 else {
                 letGo()
                 continue
             }
             let clock = CMClockGetTime(CMClockGetHostTimeClock())
+            // `host`: when the stretched song reaches `at`; the fresh one starts earlier by as much of
+            // its own time as lies between where it starts and `at`.
             let host = CMTimeAdd(clock, CMTime(seconds: delay, preferredTimescale: 1_000_000_000))
+            let freshStart = CMTimeSubtract(host, CMTime(seconds: at - startsAt, preferredTimescale: 1_000_000_000))
             incomingStage.arm(cross, side: .outgoing)
-            fresh.setRate(1, time: CMTime(seconds: at, preferredTimescale: 48_000), atHostTime: host)
+            fresh.setRate(1, time: CMTime(seconds: startsAt, preferredTimescale: 48_000), atHostTime: freshStart)
             // Followed through the crossover: a pause, a seek or a skip calls it off (the fresh player
             // is silent until `at`, and the stretched one goes back to plain).
             var steady = true
@@ -369,8 +379,11 @@ final class SegueSession {
                 return false
             }
             // The fresh player's deck back to plain (a seek back before `at` must play), and the
-            // stretched player, silent now, let go.
+            // stretched player, silent now, let go once its last sound is out of the speakers.
             stage.release(over: 0.05)
+            let session = AVAudioSession.sharedInstance()
+            let latency = max(0, session.outputLatency) + max(0, session.ioBufferDuration)
+            try? await Task.sleep(for: .seconds(latency + 0.25))
             player.pause()
             player.replaceCurrentItem(with: nil)
             return true

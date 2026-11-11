@@ -157,10 +157,13 @@ in under a lock the audio thread only tries.
    been measured on the sound itself.
 5. When the window ends the old player is released once its sound (and its echo) is out, and the
    next song goes back to its own speed on a fresh player: the same file, at its own speed, started
-   on the system clock from a downbeat about two seconds on (its bars counted from the window's
-   start) so that it meets the stretched player there, the two crossing over in 80 ms through their
-   decks by the song's time (equal gain: the same music, in phase); the stretched player is then let
-   go. Only the tempo steps back, on that downbeat. A pause or a seek, which renders the sound again
+   on the system clock a third of a second before a downbeat about two seconds on (its bars counted
+   from the window's start), silent through its deck until it, so that it meets the stretched player
+   there, the two crossing over in 80 ms through their decks by the song's time (equal gain: the same
+   music, in phase); the stretched player, silent from then on, is let go once all it played has
+   come out of the speakers (let go sooner, with Bluetooth's fifth of a second of output latency, the
+   end of its sound was cut off before the fresh one's came: a short gap). Only the tempo steps back,
+   on that downbeat. A pause or a seek, which renders the sound again
    anyway, brings it back at once instead. If the fresh player can't be ready in time, the song
    plays on at the speed it was matched at, and the mix into the next song is matched to that
    (`SegueRequest.outgoingRate`: the 8 % limit counts the incoming song's own change); a rendered
