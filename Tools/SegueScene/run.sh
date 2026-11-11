@@ -36,9 +36,16 @@ grep -q "segue: locked" "$work/live.log" || { echo "::error::The two songs weren
 grep -q "segue: window" "$work/live.log" || { echo "::error::The live mix's window never opened"; failed=1; }
 grep -q "segue: mixed" "$work/live.log" || { echo "::error::The live mix didn't reach its end"; failed=1; }
 grep -q "segue-scene: next song" "$work/live.log" || { echo "::error::The next song didn't take over"; failed=1; }
-# The song a live mix brought in plays on at the speed it was matched at, and its own transition
-# into the next follows, matched to that speed: a finished mix must not hold the next one back.
+# The song a live mix brought in goes back to its own speed after the window, on a fresh player
+# (no playing player's rate changes), and its own transition into the next follows: a finished mix
+# must not hold the next one back.
 grep -q "segue: after the window" "$work/live.log" || { echo "::error::The live mix never finished after its window"; failed=1; }
+fresh=$(grep -c "back to its own speed on a fresh player" "$work/live.log")
+[ "$fresh" -ge 2 ] || { echo "::error::The song brought in went back to its own speed on a fresh player $fresh times in 2 mixes"; failed=1; }
+grep -q "after the window: plays on at rate 1.0000" "$work/live.log" || { echo "::error::The song brought in didn't play on at its own speed"; failed=1; }
+for off in $(grep -o "fresh player at [0-9.]* s, [-+0-9]* ms off" "$work/live.log" | grep -o "[-+][0-9]* ms" | grep -o "[0-9]*"); do
+  if [ "$off" -gt 20 ]; then echo "::warning::The fresh player started $off ms from the stretched one's place"; fi
+done
 mixes=$(grep -c "segue: mixed" "$work/live.log")
 [ "$mixes" -ge 2 ] || { echo "::error::Only $mixes live mix(es) in three songs: the next transition didn't come after the first"; failed=1; }
 grep -q "segue-scene: next song Segue C" "$work/live.log" || { echo "::error::The third song didn't take over"; failed=1; }

@@ -3,15 +3,16 @@ import AVFoundation
 /// A live AutoMix transition (see `SeguePolicy`): the next song on a second player, prepared ahead,
 /// started a little before the window in step with the playing song (silent: its lanes hold it so
 /// until the window), at the speed that puts its bars on the playing song's, and corrected only while
-/// it is still quiet in the mix. It keeps that speed to its end, as a DJ leaves the pitch fader: the
-/// mix into the song after it is matched to it (`outgoingRate`). The lanes themselves play inside
-/// each player's audio processing (`SegueStage`), by each song's own time.
+/// it is still quiet in the mix. After the window it goes back to its own speed on a fresh player
+/// (see `returnToOwnSpeed`). The lanes themselves play inside each player's audio processing
+/// (`SegueStage`), by each song's own time.
 ///
-/// Why a heard song's speed never changes: a playing player renders its sound again whenever its rate
-/// changes, and its time jumps by 20–40 ms (CI's Mac: the deck's samples jumped, and the measured
-/// distance with them). On an iPhone that was heard as sound coming and going (steps back to the
-/// song's own speed every 250 ms), then as a cut where one change brought it back after the window;
-/// giving the change to the playing song as the window opened put the two 100 ms apart.
+/// Why a heard player's speed never changes: a playing player renders its sound again whenever its
+/// rate changes, and its time jumps by 20–40 ms (CI's Mac: the deck's samples jumped, and the
+/// measured distance with them). On an iPhone that was heard as sound coming and going (steps back to
+/// the song's own speed every 250 ms), then as a cut where one change brought it back; giving the
+/// change to the playing song as the window opened put the two 100 ms apart; keeping the speed to the
+/// song's end left it slowed (or sped up) and time-stretched to the end.
 @MainActor
 final class SegueSession {
     enum Phase: String { case preparing, ready, running, mixing, restoring, finished, abandoned }
@@ -29,6 +30,22 @@ final class SegueSession {
     let file: URL
     let label: String
     let incomingGain: Float
+    /// The song started again at its own speed after the window, handed to the player controller,
+    /// which plays it from then on (false: it couldn't take it, the fresh player is let go).
+    struct OwnSpeed {
+        let player: AVPlayer
+        let item: AVPlayerItem
+        let stage: SegueStage
+        let fader: HandoverFader?
+    }
+
+    var ownSpeed: ((OwnSpeed) -> Bool)?
+    /// What the controller plays the songs with (see `prepare`), for the fresh player too.
+    private var spatial: AVAudioSpatializationFormats = []
+    private var pitch: AVAudioTimePitchAlgorithm = .spectral
+    /// For CI's log: where the song went back to its own speed (its time) and how far the fresh
+    /// player started from the stretched one's place (s).
+    private var returnedAt: Double?, returnedOff = 0.0
     /// The playing song's stage (in its item's audio processing), and the next song's.
     let outgoingStage: SegueStage
     /// What the playing song's item time is ahead of the song's (a song carried on from a rendered mix).
@@ -89,10 +106,12 @@ final class SegueSession {
     /// turntable), so nothing changes it once the song plays on its own. False when it can't be (no
     /// audio processing for the lanes, not ready in time).
     func prepare(spatial: AVAudioSpatializationFormats, pitch: AVAudioTimePitchAlgorithm) async -> Bool {
+        self.spatial = spatial
+        // Not the time-domain algorithm: it is made for speech, and on music it stutters.
+        self.pitch = pitch == .timeDomain ? .spectral : pitch
         let item = AVPlayerItem(url: file)
         item.allowedAudioSpatializationFormats = spatial
-        // Not the time-domain algorithm: it is made for speech, and on music it stutters.
-        item.audioTimePitchAlgorithm = pitch == .timeDomain ? .spectral : pitch
+        item.audioTimePitchAlgorithm = self.pitch
         let effects = await AudioEffects.mix(for: item, gain: incomingGain, segue: incomingStage)
         guard effects.segue != nil, phase == .preparing else { return false }
         item.audioMix = effects.mix
@@ -233,20 +252,139 @@ final class SegueSession {
     /// Once a second in CI's log: how far the next song is from its place.
     static var logs = false
 
-    /// After the window (from `restoring`): the next song plays on at its speed, and once the playing
-    /// song is gone (its echo rung out), the session is done.
+    /// After the window (from `restoring`): the next song back to its own speed (`returnToOwnSpeed`),
+    /// and once the playing song is gone (its echo rung out), the session is done.
     private func restore() async {
         guard phase == .restoring else { return }
+        let jumpsBefore = incomingStage.jumps
+        if abs(Double(rate) - 1) > 0.0005, await returnToOwnSpeed() {
+            rate = 1
+        }
         try? await Task.sleep(for: .seconds(0.5 + (plan.hasEcho ? SeguePlan.echoTail : 0)))
         guard phase == .restoring else { return }
         phase = .finished
         if Self.logs {
-            print(String(format: "segue: after the window: plays on at rate %.4f (the playing song's %.4f); heard with %d speed "
+            let returned = returnedAt.map { String(format: "back to its own speed on a fresh player at %.2f s, %+.0f ms off", $0, returnedOff * 1000) }
+                ?? "no fresh player"
+            print(String(format: "segue: after the window: plays on at rate %.4f (the playing song's %.4f), %@; heard with %d speed "
                          + "changes; deck jumps in the window: incoming %d, outgoing %d; incoming after it: %d",
-                         rate, outgoingRate, heardRateChanges, jumpsAtEnd.incoming - jumpsAtWindow.incoming,
-                         jumpsAtEnd.outgoing - jumpsAtWindow.outgoing, incomingStage.jumps - jumpsAtEnd.incoming))
+                         rate, outgoingRate, returned, heardRateChanges, jumpsAtEnd.incoming - jumpsAtWindow.incoming,
+                         jumpsAtEnd.outgoing - jumpsAtWindow.outgoing, incomingStage.jumps - jumpsBefore))
         }
         finished?()
+    }
+
+    /// How long ahead the fresh player is prepared (seconds of playing), and the crossover's length.
+    static let returnLead = 2.0
+    static let crossover = 0.08
+
+    /// The song, heard on its own now, back to its own speed without a playing player's rate changing:
+    /// started again on a fresh player at its own speed, from a downbeat a couple of seconds on (its
+    /// bars counted from the window's start), on the system clock so it meets the stretched one there;
+    /// the two cross over in 80 ms through their decks, by the song's time (equal gain: the same
+    /// music, in phase), and the stretched player is let go. Only the tempo steps back, on that
+    /// downbeat. False when it couldn't (the song paused, moved or near its end, the fresh player not
+    /// ready in time, the controller no longer playing it): it plays on at its speed, and a pause or a
+    /// seek brings it back (see `dropSpeed`).
+    private func returnToOwnSpeed() async -> Bool {
+        guard let item, let tempo = plan.tempo, tempo > 0, plan.level.isLocked, let ownSpeed else { return false }
+        let bar = 4 * 60 / tempo * plan.rate
+        let length = item.duration.seconds
+        for _ in 0..<3 {
+            guard phase == .restoring, player.timeControlStatus == .playing, player.currentItem === item else { return false }
+            let now = player.currentTime().seconds
+            let bars = max(0, ((now + Self.returnLead * Double(rate) - plan.incomingStart) / bar).rounded(.up))
+            let at = plan.incomingStart + bars * bar
+            guard length.isFinite, at + 10 < length else { return false }
+            let cross = SeguePlan(level: .simpleFade, shape: .fade, outgoingStart: at, incomingStart: at, rate: 1,
+                                  length: Self.crossover, bars: nil, tempo: nil, phaseMedian: nil, phaseP95: nil,
+                                  lanes: SegueCompiler(tuning: SegueTuning()).crossover(), swap: 0.5)
+            let fresh = AVPlayer()
+            fresh.automaticallyWaitsToMinimizeStalling = false
+            // At the app's volume, as the stretched one, from its first sound.
+            PlaybackVolume.shared.register(fresh)
+            let freshItem = AVPlayerItem(url: file)
+            freshItem.allowedAudioSpatializationFormats = spatial
+            freshItem.audioTimePitchAlgorithm = pitch
+            let stage = SegueStage()
+            let effects = await AudioEffects.mix(for: freshItem, gain: incomingGain, segue: stage)
+            guard effects.segue != nil else { return false }
+            freshItem.audioMix = effects.mix
+            stage.arm(cross, side: .incoming)
+            fresh.replaceCurrentItem(with: freshItem)
+            func letGo() {
+                fresh.pause()
+                fresh.replaceCurrentItem(with: nil)
+            }
+            _ = await fresh.seek(to: CMTime(seconds: at, preferredTimescale: 48_000), toleranceBefore: .zero, toleranceAfter: .zero)
+            var waited = 0
+            while freshItem.status == .unknown, waited < 30, phase == .restoring {
+                try? await Task.sleep(for: .milliseconds(50))
+                waited += 1
+            }
+            guard freshItem.status == .readyToPlay, phase == .restoring, await fresh.preroll(atRate: 1) else {
+                letGo()
+                return false
+            }
+            // When the stretched song reaches `at`, on the system clock; too late, the next bar.
+            guard player.timeControlStatus == .playing, player.currentItem === item, let timebase = item.timebase else {
+                letGo()
+                return false
+            }
+            let speed = CMTimebaseGetRate(timebase)
+            let from = CMTimebaseGetTime(timebase).seconds
+            let delay = (at - from) / max(0.01, speed)
+            guard speed > 0, delay > 0.15 else {
+                letGo()
+                continue
+            }
+            let clock = CMClockGetTime(CMClockGetHostTimeClock())
+            let host = CMTimeAdd(clock, CMTime(seconds: delay, preferredTimescale: 1_000_000_000))
+            incomingStage.arm(cross, side: .outgoing)
+            fresh.setRate(1, time: CMTime(seconds: at, preferredTimescale: 48_000), atHostTime: host)
+            // Followed through the crossover: a pause, a seek or a skip calls it off (the fresh player
+            // is silent until `at`, and the stretched one goes back to plain).
+            var steady = true
+            while CMClockGetTime(CMClockGetHostTimeClock()).seconds < host.seconds + Self.crossover + 0.05 {
+                try? await Task.sleep(for: .milliseconds(20))
+                let elapsed = CMClockGetTime(CMClockGetHostTimeClock()).seconds - clock.seconds
+                if phase != .restoring || player.timeControlStatus != .playing || player.currentItem !== item
+                    || abs(player.currentTime().seconds - (from + elapsed * speed)) > 0.25 {
+                    steady = false
+                    break
+                }
+            }
+            guard steady else {
+                letGo()
+                incomingStage.release(over: 0.05)
+                return false
+            }
+            // How far the fresh player is from the stretched one's place, both counted from `at`.
+            let since = CMClockGetTime(CMClockGetHostTimeClock()).seconds - host.seconds
+            returnedOff = (fresh.currentTime().seconds - at) - since
+            returnedAt = at
+            guard ownSpeed(OwnSpeed(player: fresh, item: freshItem, stage: stage, fader: effects.fader)) else {
+                letGo()
+                incomingStage.release(over: 0.05)
+                return false
+            }
+            // The fresh player's deck back to plain (a seek back before `at` must play), and the
+            // stretched player, silent now, let go.
+            stage.release(over: 0.05)
+            player.pause()
+            player.replaceCurrentItem(with: nil)
+            return true
+        }
+        return false
+    }
+
+    /// A pause or a seek hides a change of speed: the song brought in goes back to its own there
+    /// (paused, from its next start), and no fresh player is needed.
+    func dropSpeed() {
+        guard abs(Double(rate) - 1) > 0.0005 else { return }
+        rate = 1
+        player.defaultRate = 1
+        if player.timeControlStatus != .paused { player.rate = 1 }
     }
 
     /// Done with at once (the song it brought in is no longer playing, or the next mix needs its

@@ -396,6 +396,25 @@ released.release(over: 0.4)
 let afterRelease = process(released, Array(tone[Int(5 * deckRate)...]), start: 5, rate: deckRate)
 expect(abs(rms(afterRelease, from: 1, to: 2) / full - 1) < 0.02, "released halfway, a deck is back to plain within half a second")
 
+// The return to the song's own speed crosses the song over to itself on two players (the same
+// music, in phase): equal gain, so the sum of the two decks neither dips nor swells.
+let crossPlan = SeguePlan(level: .simpleFade, shape: .fade, outgoingStart: 2, incomingStart: 2, rate: 1, length: 0.08, bars: nil,
+                          tempo: nil, phaseMedian: nil, phaseP95: nil, lanes: compiler.crossover(), swap: 0.5)
+let crossOut = SegueStage(), crossIn = SegueStage()
+crossOut.prepare(sampleRate: deckRate, channels: 2, isFloat: true)
+crossIn.prepare(sampleRate: deckRate, channels: 2, isFloat: true)
+crossOut.arm(crossPlan, side: .outgoing)
+crossIn.arm(crossPlan, side: .incoming)
+let steady = Array(constant[0..<Int(4 * deckRate)])
+let heardOutCross = process(crossOut, steady, start: 0, rate: deckRate, block: 64)
+let heardInCross = process(crossIn, steady, start: 0, rate: deckRate, block: 64)
+var crossWorst: Float = 0
+for i in heardOutCross.indices { crossWorst = max(crossWorst, abs(heardOutCross[i] + heardInCross[i] - 0.5) / 0.5) }
+expect(crossWorst < 0.08, "a song crossing over to itself: the sum steady within 8 % (\(format(Double(crossWorst) * 100, 1)) %)")
+expect(rms(heardOutCross, from: 2.2, to: 3.5) < 0.001 && abs(rms(heardInCross, from: 2.2, to: 3.5) / 0.5 - 1) < 0.01
+       && rms(heardInCross, from: 0, to: 1.9) < 0.001 && abs(rms(heardOutCross, from: 0, to: 1.9) / 0.5 - 1) < 0.01,
+       "the stretched player alone before the crossover, the fresh one alone after it")
+
 // After its window the incoming song's deck is released (SegueSession): a seek back to before the
 // window, where its lanes hold it silent, must still play it. Two cases: released then sent back,
 // and sent back in the middle of the release (counted by the sound played, not the song's time).

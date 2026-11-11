@@ -513,10 +513,43 @@ final class PlayerController: ObservableObject {
         return Double(live.rate)
     }
 
-    /// Notes the speed a live mix's song plays on at.
+    /// Notes the speed a live mix's song plays on at, while it is still in force (a pause or a seek
+    /// brings it back to its own, and so does its return on a fresh player).
     private func keepLiveSpeed(of session: SegueSession) {
-        guard let item = session.item, player.currentItem === item else { return }
+        guard let item = session.item, player.currentItem === item, liveSpeed?.item === item else { return }
         liveSpeed = (item, session.rate)
+    }
+
+    /// A pause or a seek hides a change of speed (the player renders its sound again either way):
+    /// a song a live mix brought in goes back to its own there.
+    private func dropLiveSpeed() {
+        if let session = segueSession, session.next.id == current?.id, session.player === player {
+            session.dropSpeed()
+        }
+        if let live = liveSpeed, live.item === player.currentItem {
+            liveSpeed = nil
+            applyRate()
+        }
+    }
+
+    /// The song a live mix brought in, started again at its own speed on a fresh player (see
+    /// `SegueSession.returnToOwnSpeed`): played from it from now on, its stage the one the next
+    /// transition is planned on. False when the song or its player changed meanwhile.
+    private func adoptOwnSpeed(_ own: SegueSession.OwnSpeed, from session: SegueSession) -> Bool {
+        guard segueSession === session, current?.id == session.next.id, player === session.player,
+              let track = current else { return false }
+        player = own.player
+        attach(own.player)
+        itemEffects = (own.item, session.incomingGain, own.fader, own.stage)
+        liveSpeed = nil
+        itemStatus = own.item.publisher(for: \.status)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak item = own.item] status in
+                guard let item else { return }
+                self.itemStatusChanged(status, item: item, track: track)
+            }
+        updateNowPlayingInfo()
+        return true
     }
 
     /// How the current item's tempo is changed: songs as the key lock says, podcasts always keeping
@@ -770,6 +803,7 @@ final class PlayerController: ObservableObject {
         stopPreparationWork()
         requestedSeek?.setPlaying(false, now: ProcessInfo.processInfo.systemUptime)
         player.pause()
+        dropLiveSpeed()
         // An AutoMix transition about to start is prepared again after the pause.
         disarm()
         rememberPosition(progress.currentTime)
@@ -908,6 +942,7 @@ final class PlayerController: ObservableObject {
             session.abandon()
             segueSession = nil
         }
+        dropLiveSpeed()
         if let mix = mixItem, player.currentItem === mix.item, let track = current {
             // An AutoMix item holds the song only from the end of its mix: before that, the song's
             // own file takes over.
@@ -2309,6 +2344,10 @@ final class PlayerController: ObservableObject {
         session.finished = { [weak self, weak session] in
             guard let self, let session else { return }
             self.segueFinished(session)
+        }
+        session.ownSpeed = { [weak self, weak session] own in
+            guard let self, let session else { return false }
+            return self.adoptOwnSpeed(own, from: session)
         }
         segueSession = session
         let outgoing = player

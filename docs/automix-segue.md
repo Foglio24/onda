@@ -156,17 +156,22 @@ in under a lock the audio thread only tries.
    players' clocks. Both play to the same output, so what is heard keeps that alignment; it hasn't
    been measured on the sound itself.
 5. When the window ends the old player is released once its sound (and its echo) is out, and the
-   next song plays on at the speed it was matched at, to its end, as a DJ leaves the pitch fader
-   (with Tempo's key lock its pitch stays its own). The mix into the song after it is matched to
-   that speed (`SegueRequest.outgoingRate`: the 8 % limit counts the incoming song's own change), a
-   window that doesn't match beats starts that song at its own speed, and a rendered mix, which
-   takes the playing song at its own speed, gives way to a plain crossfade.
-6. Why the speed isn't brought back: a playing player renders its sound again whenever its rate
-   changes, and its time jumps by 20–40 ms (CI's Mac: the deck's samples jumped, and the measured
-   distance with them). Brought back in steps every 250 ms (with the time-domain algorithm), the
-   song was heard on an iPhone coming and going for 10–20 seconds; brought back in one change after
-   the window, as a cut; giving the change to the playing song as the window opened put the two
-   100 ms apart. A heard song's speed is never changed.
+   next song goes back to its own speed on a fresh player: the same file, at its own speed, started
+   on the system clock from a downbeat about two seconds on (its bars counted from the window's
+   start) so that it meets the stretched player there, the two crossing over in 80 ms through their
+   decks by the song's time (equal gain: the same music, in phase); the stretched player is then let
+   go. Only the tempo steps back, on that downbeat. A pause or a seek, which renders the sound again
+   anyway, brings it back at once instead. If the fresh player can't be ready in time, the song
+   plays on at the speed it was matched at, and the mix into the next song is matched to that
+   (`SegueRequest.outgoingRate`: the 8 % limit counts the incoming song's own change); a rendered
+   mix, which takes the playing song at its own speed, then gives way to a plain crossfade.
+6. Why not change the speed: a playing player renders its sound again whenever its rate changes,
+   and its time jumps by 20–40 ms (CI's Mac: the deck's samples jumped, and the measured distance
+   with them). Brought back in steps every 250 ms (with the time-domain algorithm), the song was
+   heard on an iPhone coming and going for 10–20 seconds; brought back in one change after the
+   window, as a cut; giving the change to the playing song as the window opened put the two 100 ms
+   apart; kept to the song's end, it stayed slowed (or sped up) and time-stretched. A heard
+   player's speed is never changed.
 7. Until then nothing else starts: the song's own preparation (its local copy, the next song's
    stream) and the analysis of the transition into the next song wait, so that the vocal model
    doesn't compete with two players for the processor. Then the session goes, and the next
@@ -193,8 +198,8 @@ heard, the lanes ramp back to plain sound over 0.4 s and the songs carry on as t
 - Album songs played in order keep Seaglass's album junction, rendered exactly.
 - Speeds are changed by `AVPlayer` (time stretching with the pitch kept, or resampling as Tempo's
   key lock says), not by a dedicated time-stretch engine. A player's rate can't glide without its
-  sound being rendered again, so the next song keeps the speed it was matched at instead of going
-  back to its own little by little (0.1 % per beat, as Segue does).
+  sound being rendered again, so the next song goes back to its own speed on a fresh player, in
+  one step on a downbeat, instead of little by little (0.1 % per beat, as Segue does).
 
 ## Checks
 

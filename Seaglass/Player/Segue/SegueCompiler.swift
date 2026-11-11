@@ -219,4 +219,10 @@ struct SegueCompiler {
         lanes.append(lane(.outgoing, .lowShelf, [knot(0, 0), knot(0.4, 0), knot(0.6, t.bassKillDB), knot(1, t.bassKillDB)]))
         return lanes
     }
+
+    /// One song crossing over to itself, the same music on two players (see `SegueSession`'s return
+    /// to its own speed): equal gain, the two adding up to one all the way, as they are in phase.
+    func crossover() -> [SegueLane] {
+        levels { x in (1 - x, x) }
+    }
 }
