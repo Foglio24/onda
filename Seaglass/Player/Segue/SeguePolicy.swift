@@ -826,7 +826,9 @@ enum SeguePolicy {
             var refused: [String: Int] = [:]
             let compiler = SegueCompiler(tuning: t)
             for bars in lengths {
-                let outs = exits(phrases: phrases, fitting: 0).compactMap { point -> (Point, SegueStretch)? in
+                // Only the bars a window of this length fits after: the latest exits first would
+                // otherwise all lie too near the end for a long one.
+                let outs = exits(phrases: phrases, fitting: Double(bars) * a.barLength).compactMap { point -> (Point, SegueStretch)? in
                     guard let stretch = SegueStretch.measure(a, bar: point.bar, bars: bars, tuning: t, metre: a.tailMetre),
                           stretch.start >= zoneStart - 0.05, stretch.end <= a.analysis.soundEnd else { return nil }
                     return (point, stretch)

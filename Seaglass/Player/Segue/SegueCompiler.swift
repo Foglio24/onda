@@ -46,8 +46,9 @@ struct SegueCompiler {
         for x in positions {
             let (ga, gb) = gains(x)
             let power = ga * ga + gb * gb
-            let sum = ga + gb + reserve(x)
-            let scale = min(power > 1 ? 1 / power.squareRoot() : 1, sum > t.overlapMaxSum ? t.overlapMaxSum / sum : 1)
+            // The echo's share of the bound is taken first: the faders get what is left of it.
+            let room = max(0.01, t.overlapMaxSum - reserve(x))
+            let scale = min(power > 1 ? 1 / power.squareRoot() : 1, ga + gb > room ? room / (ga + gb) : 1)
             outgoing.append(knot(x, decibels(ga * scale)))
             incoming.append(knot(x, decibels(gb * scale)))
         }
