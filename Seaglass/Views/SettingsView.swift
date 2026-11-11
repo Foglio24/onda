@@ -240,16 +240,19 @@ private struct PlaybackSettingsView: View {
                 })
     }
 
+    /// A choice's name in the picker: AutoMix is a beta feature, and a Premium one.
+    private func pickerTitle(_ option: SongTransition) -> String {
+        guard option == .autoMix else { return option.title }
+        let beta = "\(option.title) · \(String(localized: "Beta"))"
+        return account.unlocks(.autoMix) ? beta : "\(beta) · Premium"
+    }
+
     var body: some View {
         Form {
             Section {
                 Picker(selection: shownTransition) {
                     ForEach(SongTransition.allCases) { option in
-                        if option == .autoMix, !account.unlocks(.autoMix) {
-                            Text(verbatim: "\(option.title) · Premium").tag(option)
-                        } else {
-                            Text(option.title).tag(option)
-                        }
+                        Text(verbatim: pickerTitle(option)).tag(option)
                     }
                 } label: {
                     Label("Transizioni", systemImage: "waveform.path")
@@ -294,6 +297,11 @@ private struct PlaybackSettingsView: View {
                         Toggle(isOn: $autoMixEqualiser) {
                             Label("Equalizzazione automatica", systemImage: "slider.vertical.3")
                         }
+                    }
+                } header: {
+                    HStack(spacing: 6) {
+                        Text("AutoMix")
+                        BetaBadge()
                     }
                 } footer: {
                     VStack(alignment: .leading, spacing: 6) {

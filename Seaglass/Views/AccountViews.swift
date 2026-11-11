@@ -166,7 +166,7 @@ struct AccountSettingsView: View {
                         .fontWeight(.semibold)
                 }
             } footer: {
-                Text("Premium sblocca AutoMix, l'import delle playlist da link, il riconoscimento dei brani, la traduzione dei testi, il karaoke AI e il Tempo.")
+                Text("Premium sblocca AutoMix (beta), il Mix delle playlist (beta), l'import delle playlist da link, il riconoscimento dei brani, la traduzione dei testi, il karaoke AI e il Tempo.")
             }
         }
         Section {
@@ -302,10 +302,13 @@ struct PremiumView: View {
                     }
                     VStack(alignment: .leading, spacing: 14) {
                         ForEach(PremiumFeature.allCases) { item in
-                            Label(item.title, systemImage: item.symbol)
-                                .fontWeight(item == feature ? .semibold : .regular)
-                                .foregroundStyle(item == feature ? accent.color : .primary)
-                                .frame(maxWidth: .infinity, alignment: .leading)
+                            HStack(spacing: 8) {
+                                Label(item.title, systemImage: item.symbol)
+                                if item.isBeta { BetaBadge() }
+                            }
+                            .fontWeight(item == feature ? .semibold : .regular)
+                            .foregroundStyle(item == feature ? accent.color : .primary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                         }
                     }
                     .padding(18)

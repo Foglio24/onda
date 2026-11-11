@@ -1957,7 +1957,7 @@ final class PlayerController: ObservableObject {
     /// The Mix of the playlist playing, when it is on: its transitions play, whatever the setting.
     private var playlistMix: PlaylistMix? {
         guard let id = playlistContext, let mix = Library.shared.playlist(id)?.mix, mix.enabled,
-              AccountService.shared.unlocks(.autoMix) else { return nil }
+              AccountService.shared.unlocks(.playlistMix) else { return nil }
         return mix
     }
 

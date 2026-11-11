@@ -686,3 +686,17 @@ extension View {
         frame(maxWidth: width).frame(maxWidth: .infinity)
     }
 }
+
+/// "Beta" beside the name of a feature that still is being tuned (AutoMix, the playlists' Mix).
+struct BetaBadge: View {
+    var body: some View {
+        Text("Beta")
+            .font(.system(size: 10, weight: .bold))
+            .textCase(.uppercase)
+            .foregroundStyle(.white)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(Capsule().fill(Color.orange))
+            .fixedSize()
+    }
+}

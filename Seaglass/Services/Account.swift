@@ -607,8 +607,11 @@ enum SyncedPreferences {
 
 /// What Seaglass Premium unlocks, where Premium can be bought (see `AccountService.unlocks`).
 enum PremiumFeature: String, Identifiable, CaseIterable {
-    /// AutoMix, and the playlists' Mix it plays.
+    /// AutoMix (a beta feature).
     case autoMix
+    /// The playlists' Mix: the transitions between a playlist's songs as the listener designs them, and
+    /// the playlist mixed as it plays (a beta feature).
+    case playlistMix
     case playlistLinks
     case recognition
     case lyricsTranslation
@@ -617,9 +620,13 @@ enum PremiumFeature: String, Identifiable, CaseIterable {
 
     var id: Self { self }
 
+    /// Still being tuned: shown with "Beta" wherever it is named.
+    var isBeta: Bool { self == .autoMix || self == .playlistMix }
+
     var title: String {
         switch self {
         case .autoMix: return String(localized: "AutoMix")
+        case .playlistMix: return String(localized: "Mix delle playlist")
         case .playlistLinks: return String(localized: "Importa playlist da link")
         case .recognition: return String(localized: "Riconosci un brano")
         case .lyricsTranslation: return String(localized: "Traduci i testi")
@@ -631,6 +638,7 @@ enum PremiumFeature: String, Identifiable, CaseIterable {
     var symbol: String {
         switch self {
         case .autoMix: return "waveform.path"
+        case .playlistMix: return "slider.horizontal.3"
         case .playlistLinks: return "link"
         case .recognition: return "waveform.badge.magnifyingglass"
         case .lyricsTranslation: return "translate"

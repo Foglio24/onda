@@ -1,5 +1,9 @@
 # AutoMix: live transitions
 
+AutoMix, and the playlists' Mix that builds on it, are **beta features**: they are marked *Beta* in
+the apps, on the account page and in the README, while their tuning is confirmed by listening on
+more devices and genres.
+
 On iPhone, iPad and Mac, AutoMix can play a transition live, on two players in step, instead of
 rendering it into a file. The engine is in `Seaglass/Player/Segue/`. It is Seaglass's own code,
 written after the behaviour of the "Segue" engine of Myspoti (kota-zo/myspoti, GPL-3.0). None of

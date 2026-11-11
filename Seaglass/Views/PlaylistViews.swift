@@ -34,11 +34,11 @@ struct PlaylistDetailView: View {
     @State private var photoItem: PhotosPickerItem?
     @State private var showMix = false
     @ObservedObject private var account = AccountService.shared
-    /// The Mix plays AutoMix: where AutoMix needs Premium and there is none, it explains Premium.
+    /// The Mix is a Premium feature of its own: where Premium is needed and there is none, it explains it.
     @State private var paywall: PremiumFeature?
 
     private func openMix() {
-        if account.unlocks(.autoMix) { showMix = true } else { paywall = .autoMix }
+        if account.unlocks(.playlistMix) { showMix = true } else { paywall = .playlistMix }
     }
 
     /// Reordering: the songs show handles to drag them by (and the delete button), and are not
@@ -225,21 +225,26 @@ struct PlaylistDetailView: View {
     /// transition of the playlist is mixed when it plays: the ones designed in the sheet, AutoMix's
     /// choice for the others, whatever "Transizioni tra brani" says.
     private func mixRow(_ playlist: Playlist) -> some View {
-        let isOn = (playlist.mix?.enabled ?? false) && account.unlocks(.autoMix)
+        let isOn = (playlist.mix?.enabled ?? false) && account.unlocks(.playlistMix)
         let glass: Glass = isOn ? .regular.tint(accent.color.opacity(0.55)).interactive() : .regular.interactive()
         return VStack(spacing: 6) {
             HStack(spacing: 12) {
                 Button {
-                    guard account.unlocks(.autoMix) else {
-                        paywall = .autoMix
+                    guard account.unlocks(.playlistMix) else {
+                        paywall = .playlistMix
                         return
                     }
                     library.setMixEnabled(!isOn, for: playlistID)
                     player.applyTransitionPreference()
                 } label: {
-                    Label(isOn ? "Mix attivo" : "Attiva il Mix",
-                          systemImage: isOn ? "checkmark.circle.fill" : "slider.horizontal.3")
+                    HStack(spacing: 6) {
+                        Label(isOn ? "Mix attivo" : "Attiva il Mix",
+                              systemImage: isOn ? "checkmark.circle.fill" : "slider.horizontal.3")
+                        BetaBadge()
+                    }
                         .font(.subheadline.weight(.semibold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 11)
                         .contentShape(.capsule)
@@ -249,8 +254,13 @@ struct PlaylistDetailView: View {
                 .accessibilityAddTraits(isOn ? .isSelected : [])
 
                 Button { openMix() } label: {
-                    Label("Transizioni", systemImage: "arrow.left.arrow.right")
+                    HStack(spacing: 6) {
+                        Label("Transizioni", systemImage: "arrow.left.arrow.right")
+                        BetaBadge()
+                    }
                         .font(.subheadline.weight(.semibold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 11)
                         .contentShape(.capsule)

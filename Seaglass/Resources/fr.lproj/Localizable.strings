@@ -728,7 +728,7 @@
 "Seaglass Free" = "Seaglass Free";
 "Premium" = "Premium";
 "Passa a Premium" = "Passer à Premium";
-"Premium sblocca AutoMix, l'import delle playlist da link, il riconoscimento dei brani, la traduzione dei testi, il karaoke AI e il Tempo." = "Premium débloque AutoMix, l’import de playlists par lien, la reconnaissance de morceaux, la traduction des paroles, le karaoké IA et le Tempo.";
+"Premium sblocca AutoMix (beta), il Mix delle playlist (beta), l'import delle playlist da link, il riconoscimento dei brani, la traduzione dei testi, il karaoke AI e il Tempo." = "Premium débloque AutoMix (bêta), le Mix des playlists (bêta), l’import de playlists par lien, la reconnaissance de morceaux, la traduction des paroles, le karaoké IA et le Tempo.";
 "%@ fa parte di Premium." = "%@ fait partie de Premium.";
 "Premium è l'abbonamento a Seaglass su Patreon: si attiva e si gestisce sul sito di Seaglass e vale su iPhone, iPad e Mac." = "Premium est l’abonnement Seaglass sur Patreon : il s’active et se gère sur le site de Seaglass et fonctionne sur iPhone, iPad et Mac.";
 "Ho già Premium" = "J’ai déjà Premium";
@@ -767,3 +767,5 @@
 "Rimuovi cartella" = "Retirer le dossier";
 "Rimuovere una cartella non elimina i file: Seaglass non li copia né li modifica." = "Retirer un dossier ne supprime pas ses fichiers : Seaglass ne les copie ni ne les modifie.";
 "Rimuovi dalla cronologia" = "Retirer de l'historique";
+"Beta" = "Bêta";
+"Mix delle playlist" = "Mix des playlists";

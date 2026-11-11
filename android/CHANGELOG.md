@@ -1,5 +1,10 @@
 # Changelog (Android)
 
+## 0.4.3 (2026-11-11)
+
+### Changed
+- **AutoMix is marked as a beta feature**, as on the iPhone: it is new and still being tuned on many kinds of music. Settings › Riproduzione names it "AutoMix · Beta".
+
 ## 0.4.2 (2026-11-09)
 
 ### Fixed

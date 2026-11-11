@@ -1,6 +1,10 @@
 # Changelog
 
-## 1.33.1 (2026-11-11)
+## 1.34.0 (2026-11-11)
+
+### Changed
+- **The playlists' Mix is a Premium feature of its own** (iPhone, iPad and Mac). The transitions designed between the songs of a downloaded playlist (**Mix delle playlist**) now have their own line among what Premium unlocks, in the app and on the account page, and the explanation of Premium opens on it when the Mix is used without Premium. (It was locked together with AutoMix before, and still is where Premium can be bought and there is none.)
+- **AutoMix and the playlists' Mix are marked as beta features.** A **Beta** label stands beside their names: in Settings › Riproduzione (the choice of transitions and the AutoMix section), the queue's AutoMix switch, the playlist's Mix buttons and the Mix editor, and the list of what Premium unlocks; and on the account page, the README, the AltStore source and the documentation. On Android, Settings › Riproduzione names it "AutoMix · Beta" (0.4.3).
 
 ### Fixed
 - **Choosing a folder for the local files did nothing.** In Files' picker, "Apri" didn't answer: the picker of SwiftUI stops working when another one is in the same page (the Library has one, for importing playlists). The folder is now chosen with Files' own picker, and a folder that can't be opened says so instead of staying silent.

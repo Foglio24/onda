@@ -1,7 +1,7 @@
 {
   "name": "Seaglass",
   "subtitle": "Your music, your rhythm",
-  "description": "Discover Seaglass, an independent music player for iPhone and iPad with AutoMix, playlists and synced lyrics. Get release notes and updates through AltStore Classic.",
+  "description": "Discover Seaglass, an independent music player for iPhone and iPad with AutoMix (beta), playlists and synced lyrics. Get release notes and updates through AltStore Classic.",
   "iconURL": "https://raw.githubusercontent.com/Foglio24/onda/main/Seaglass/Assets.xcassets/AppIcon.appiconset/AppIcon.png",
   "headerURL": "https://raw.githubusercontent.com/Foglio24/onda/main/docs/images/seaglass-banner.jpg",
   "website": "https://github.com/Foglio24/onda",
@@ -11,8 +11,8 @@
       "name": "Seaglass",
       "bundleIdentifier": "com.onda.player",
       "developerName": "Foglio24",
-      "subtitle": "Music, AutoMix and synced lyrics",
-      "localizedDescription": "Your music, your rhythm.\n\nSeaglass is an independent music player for iPhone and iPad using the YouTube Music catalogue. Enjoy background playback, a personal library and transitions tailored to the songs.\n\n• AutoMix analyses songs and can align their beats while preserving pitch.\n• Discover podcasts, follow shows and resume episodes where you left off.\n• Create playlists, download music for offline listening and review missing matches when importing playlists.\n• Follow synced lyrics, translate supported languages and adjust vocals with AI karaoke.\n• Customise audio quality and EQ, explore radio and mixes, and connect Last.fm.\n\nRequires iOS or iPadOS 26 or later. Audio formats and transitions depend on each song. Seaglass is an unofficial independent project, not affiliated with Google, YouTube, Spotify or Apple.",
+      "subtitle": "Music, AutoMix (beta) and synced lyrics",
+      "localizedDescription": "Your music, your rhythm.\n\nSeaglass is an independent music player for iPhone and iPad using the YouTube Music catalogue. Enjoy background playback, a personal library and transitions tailored to the songs.\n\n• AutoMix (beta) analyses songs and can align their beats while preserving pitch.\n• Discover podcasts, follow shows and resume episodes where you left off.\n• Create playlists, download music for offline listening and review missing matches when importing playlists.\n• Follow synced lyrics, translate supported languages and adjust vocals with AI karaoke.\n• Customise audio quality and EQ, explore radio and mixes, and connect Last.fm.\n\nRequires iOS or iPadOS 26 or later. Audio formats and transitions depend on each song. Seaglass is an unofficial independent project, not affiliated with Google, YouTube, Spotify or Apple.",
       "iconURL": "https://raw.githubusercontent.com/Foglio24/onda/main/Seaglass/Assets.xcassets/AppIcon.appiconset/AppIcon.png",
       "tintColor": "#EC3F8E",
       "screenshots": [

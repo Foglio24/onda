@@ -140,8 +140,11 @@ struct PlaylistMixView: View {
             Section {
                 VStack(alignment: .leading, spacing: 10) {
                     Toggle(isOn: enabled) {
-                        Label("Mix attivo", systemImage: "slider.horizontal.3")
-                            .font(.headline)
+                        HStack(spacing: 8) {
+                            Label("Mix attivo", systemImage: "slider.horizontal.3")
+                                .font(.headline)
+                            BetaBadge()
+                        }
                     }
                     Text("Le transizioni tra i brani della playlist come le scegli tu: preset, volume, EQ, filtri, effetti e loop. Suonano quando ascolti la playlist, anche con AutoMix spento; dove non cambi nulla decide AutoMix.")
                         .font(.footnote)

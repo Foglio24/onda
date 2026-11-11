@@ -72,7 +72,8 @@ enum class SongTransition(val key: String) {
 
     val title: String
         get() = when (this) {
-            AUTOMIX -> tr("AutoMix")
+            // A beta feature, as on the iPhone ("Beta" is one of the shared translations).
+            AUTOMIX -> "${tr("AutoMix")} · ${tr("Beta")}"
             CROSSFADE -> tr("Dissolvenza incrociata")
             OFF -> tr("Nessuna")
         }

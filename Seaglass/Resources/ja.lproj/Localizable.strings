@@ -728,7 +728,7 @@
 "Seaglass Free" = "Seaglass Free";
 "Premium" = "Premium";
 "Passa a Premium" = "Premium にアップグレード";
-"Premium sblocca AutoMix, l'import delle playlist da link, il riconoscimento dei brani, la traduzione dei testi, il karaoke AI e il Tempo." = "Premium では、AutoMix、リンクからのプレイリストの読み込み、曲の認識、歌詞の翻訳、AI カラオケ、テンポが使えます。";
+"Premium sblocca AutoMix (beta), il Mix delle playlist (beta), l'import delle playlist da link, il riconoscimento dei brani, la traduzione dei testi, il karaoke AI e il Tempo." = "Premium では、AutoMix（ベータ）、プレイリストのミックス（ベータ）、リンクからのプレイリストの読み込み、曲の認識、歌詞の翻訳、AI カラオケ、テンポが使えます。";
 "%@ fa parte di Premium." = "%@ は Premium の機能です。";
 "Premium è l'abbonamento a Seaglass su Patreon: si attiva e si gestisce sul sito di Seaglass e vale su iPhone, iPad e Mac." = "Premium は Patreon での Seaglass のサブスクリプションです。Seaglass の Web サイトで登録・管理でき、iPhone、iPad、Mac で使えます。";
 "Ho già Premium" = "Premium に登録済み";
@@ -767,3 +767,5 @@
 "Rimuovi cartella" = "フォルダを削除";
 "Rimuovere una cartella non elimina i file: Seaglass non li copia né li modifica." = "フォルダを削除してもファイルは削除されません。Seaglass はファイルをコピーも変更もしません。";
 "Rimuovi dalla cronologia" = "履歴から削除";
+"Beta" = "ベータ";
+"Mix delle playlist" = "プレイリストのミックス";

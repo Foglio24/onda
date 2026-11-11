@@ -10,8 +10,8 @@ A Cloudflare Worker with a D1 database. It gives Seaglass accounts, as Spotify d
   history) and some preferences.
 - **Seaglass Premium** is a Patreon membership of Seaglass's campaign, linked on the page: an
   active paid membership (at least `PREMIUM_MIN_CENTS` a month, any paid tier by default) is
-  Premium. In the app it unlocks AutoMix and playlist Mixes, importing playlists from links, song
-  recognition, lyrics translation, AI karaoke and Tempo. The app locks them only when the service says Premium can be
+  Premium. In the app it unlocks AutoMix and playlist Mixes (both beta features), importing playlists from
+  links, song recognition, lyrics translation, AI karaoke and Tempo. The app locks them only when the service says Premium can be
   bought (`premiumEnabled` in `/v1/status`: Patreon set up, with `PATREON_URL`).
 
 ## Layout

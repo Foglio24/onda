@@ -28,7 +28,7 @@ A hands-on music player for iPhone, iPad, <strong>Mac</strong> and Android, buil
 
 If cost is not the deciding factor, choose Seaglass for the way it lets you shape listening. Apple Music and Spotify offer broad catalogues; Seaglass brings a more hands-on player to your iPhone, iPad and Mac, using the YouTube Music catalogue.
 
-- **Make playlists flow:** AutoMix chooses transitions and beat-matches when the songs suit it.
+- **Make playlists flow:** AutoMix (beta) chooses transitions and beat-matches when the songs suit it.
 - **Take the controls:** adjust tempo with key lock, or build transitions for downloaded tracks with waveforms, EQ and effects.
 - **Make listening interactive:** follow synced lyrics, translate where supported, and try on-device AI karaoke.
 - **Bring playlists along:** import playlists from Spotify, Apple Music and YouTube links or files.
@@ -41,8 +41,11 @@ Your choice is about the listening experience: more control over transitions, te
 
 ### Your music, in motion
 
-- **AutoMix** analyses songs and chooses a suitable transition. When the rhythm allows, it tries to align the beats by gradually changing tempo without changing pitch; for less compatible songs it can choose another type of transition.
-- **Playlist Mix** automatically transitions through a playlist. For downloaded songs, you can also customise transitions using waveforms, volume, EQ and effects.
+- **AutoMix (beta)** analyses songs and chooses a suitable transition. When the rhythm allows, it tries to align the beats by gradually changing tempo without changing pitch; for less compatible songs it can choose another type of transition.
+- **Playlist Mix (beta)** automatically transitions through a playlist. For downloaded songs, you can also customise transitions using waveforms, volume, EQ and effects.
+
+AutoMix and the playlist Mix are **beta features**: they work, but they are still being tuned and some transitions may not sound right yet. They are marked *Beta* in the apps and on the account page.
+
 - **Adjustable audio quality** for Wi-Fi, mobile data and downloads. Maximum quality can use Opus; Dolby Digital Plus or AAC may be used when available. The actual format depends on the song and device conditions.
 - **Equaliser and volume normalisation** let you tailor your listening experience.
 - **Tempo fader** (iPhone, iPad and Mac), as in a DJ app: songs up to 15% faster or slower (or 8, 25 or 50%), with their BPM, and a key lock to keep voices at their pitch or let it move with the tempo as on a turntable.
@@ -51,13 +54,13 @@ Your choice is about the listening experience: more control over transitions, te
 
 - Search songs, artists and albums; save favourites, create playlists and organise your queue.
 - Download songs, albums and playlists for offline listening and check storage usage in settings.
-- Play your own songs: choose a folder on the device (Files, iCloud Drive, a USB drive) and its MP3, M4A, FLAC, WAV and AIFF files play where they are, with the queue, playlists, AutoMix and karaoke.
+- Play your own songs: choose a folder on the device (Files, iCloud Drive, a USB drive) and its MP3, M4A, FLAC, WAV and AIFF files play where they are, with the queue, playlists, AutoMix (beta) and karaoke.
 - Import playlists from Spotify, Apple Music and YouTube links. If a song cannot be matched, review the import report and choose a suggested alternative.
 - Public Spotify links may expose only the first 100 songs. For longer playlists, import a Spotify JSON or CSV file from **Library → Import playlist from file**.
 - Discover radio stations and personalised mixes; connect Last.fm for scrobbling and more features based on your listening.
 - **Podcasts** from YouTube Music: follow shows, pick up each episode where you left it, change the speed, skip 15/30 seconds and jump between chapters.
 - **A Seaglass account** (optional, iPhone, iPad and Mac) keeps favourites, playlists, history and listening preferences the same on every device. As on Spotify, the account itself (name, password, subscription, deleting it) is managed on its web page; the app shows it and signs in or out.
-- **Seaglass Premium**, a subscription on Patreon linked to the account, unlocks AutoMix and playlist Mixes, importing playlists from links, song recognition, lyrics translation, AI karaoke and Tempo on iPhone, iPad and Mac.
+- **Seaglass Premium**, a subscription on Patreon linked to the account, unlocks AutoMix and playlist Mixes (both beta features), importing playlists from links, song recognition, lyrics translation, AI karaoke and Tempo on iPhone, iPad and Mac.
 
 ### Follow along and sing
 
@@ -78,7 +81,7 @@ Your choice is about the listening experience: more control over transitions, te
   </tr>
   <tr>
     <td align="center"><img src="docs/screenshots/album.jpg" width="200" alt="Album"><br><sub>Album</sub></td>
-    <td align="center"><img src="docs/screenshots/mix.jpg" width="200" alt="Playlist Mix editor"><br><sub>Playlist Mix</sub></td>
+    <td align="center"><img src="docs/screenshots/mix.jpg" width="200" alt="Playlist Mix editor"><br><sub>Playlist Mix (beta)</sub></td>
     <td align="center"><img src="docs/screenshots/equalizer.jpg" width="200" alt="Equaliser"><br><sub>Equaliser</sub></td>
     <td align="center"><img src="docs/screenshots/settings.jpg" width="200" alt="Audio settings"><br><sub>Settings</sub></td>
   </tr>
@@ -100,7 +103,7 @@ Your choice is about the listening experience: more control over transitions, te
     <td align="center"><img src="docs/screenshots/android/settings.jpg" width="200" alt="Audio settings on Android"><br><sub>Audio settings</sub></td>
   </tr>
   <tr>
-    <td align="center"><img src="docs/screenshots/android/automix.jpg" width="200" alt="AutoMix in the playback settings on Android"><br><sub>AutoMix</sub></td>
+    <td align="center"><img src="docs/screenshots/android/automix.jpg" width="200" alt="AutoMix in the playback settings on Android"><br><sub>AutoMix (beta)</sub></td>
     <td align="center"><img src="docs/screenshots/android/equalizer.jpg" width="200" alt="Equaliser on the Rock preset on Android"><br><sub>Equaliser</sub></td>
     <td></td>
   </tr>
@@ -134,7 +137,7 @@ The app can check GitHub for new releases and notify you or download the IPA to 
 
 ## Mac
 
-**Seaglass for Mac** is laid out as Apple Music on the Mac: the sidebar with the library and your playlists, the player bar along the bottom, and the player with its controls in glass. It has the Liquid Glass design and every feature (AutoMix, the tempo fader, the AI karaoke, the equaliser, lyrics and translation, downloads, podcasts, Last.fm), in a window of its own. It needs a Mac with **Apple silicon** (M1 or later) running **macOS 26 Tahoe** or later.
+**Seaglass for Mac** is laid out as Apple Music on the Mac: the sidebar with the library and your playlists, the player bar along the bottom, and the player with its controls in glass. It has the Liquid Glass design and every feature (AutoMix (beta), the tempo fader, the AI karaoke, the equaliser, lyrics and translation, downloads, podcasts, Last.fm), in a window of its own. It needs a Mac with **Apple silicon** (M1 or later) running **macOS 26 Tahoe** or later.
 
 1. [Download Seaglass-mac.zip](https://github.com/Foglio24/onda/releases/latest/download/Seaglass-mac.zip) and open it: the zip becomes `Seaglass.app`.
 2. Drag Seaglass to **Applications**.
@@ -158,7 +161,7 @@ Closing the window keeps the music playing, as with Apple Music: Seaglass's note
 - Search, artist, album and playlist pages; radios and automatic radio; background playback with the media notification, lock-screen and Bluetooth controls.
 - **Downloads** of songs, albums and playlists for offline listening.
 - **Audio quality** for Wi-Fi, mobile data and downloads, as on the iPhone, with **Dolby** when the phone decodes it and **volume normalisation**.
-- **AutoMix**: the app finds each song's tempo, beats and bars on the phone and mixes into the next song in time, bar by bar, with a bass swap and a filter sweep (a simple crossfade when the songs don't suit it). Or a plain **crossfade**, or none.
+- **AutoMix (beta)**: the app finds each song's tempo, beats and bars on the phone and mixes into the next song in time, bar by bar, with a bass swap and a filter sweep (a simple crossfade when the songs don't suit it). Or a plain **crossfade**, or none.
 - **Equaliser** with Spotify's six bands and all of its 22 presets, or a curve of your own.
 - **AI karaoke**: the song without its voice, or the voice alone, separated on the phone by the same AI model as on the iPhone (downloaded once, the first time).
 - Synced lyrics with **on-device translation**, favourites, playlists (also imported from YouTube links), history and a sleep timer.
@@ -176,6 +179,9 @@ Updates install over the app, keeping its library; **Settings → Updates** find
 
 **Why is the audio format not always Opus?**  
 Availability varies by song. The app can use an alternative format, for example when Dolby is available or Opus decoding cannot be used. Check the format shown in the player and the diagnostics in settings.
+
+**Why is AutoMix called beta?**  
+It is new and still being tuned on many kinds of music: the choice of transition and the timing can still be off for some songs. The same goes for the playlist Mix. They keep improving with each version.
 
 **Does AutoMix always use beat matching?**  
 No. It tries to favour transitions in time when they suit the songs, but can choose another transition if their rhythms or vocals make a mix unsuitable.

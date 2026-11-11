@@ -19,6 +19,7 @@ struct QueueView: View {
                     HStack(spacing: 8) {
                         Label("AutoMix", systemImage: "waveform.path")
                             .font(controlFont)
+                        BetaBadge()
                         if !account.unlocks(.autoMix) { PremiumLock() }
                     }
                 }

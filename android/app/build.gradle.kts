@@ -45,8 +45,8 @@ android {
         applicationId = "com.onda.seaglass"
         minSdk = 29
         targetSdk = 37
-        versionCode = 7
-        versionName = "0.4.2"
+        versionCode = 8
+        versionName = "0.4.3"
     }
 
     // Only the app's languages: the libraries' other translations stay out of the APK.
