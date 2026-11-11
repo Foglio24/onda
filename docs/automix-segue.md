@@ -23,6 +23,23 @@ nothing: they play the lanes.
 voices (`VocalActivity`, from the karaoke's vocal model, near the end of one song and the start of
 the next). The same two songs always give the same plan.
 
+## Beats and bars
+
+The bars come from Beat This! (Foscarin, Schlüter and Widmer, JKU Linz, ISMIR 2024; MIT licence,
+code and weights), the neural beat tracker Myspoti's Segue also plans on. Its `small0` checkpoint
+is converted to Core ML in CI and bundled; `Seaglass/Player/BeatThis.swift` computes its log-mel
+input as upstream does and runs it in chunks of 30 seconds. When AutoMix analyses a song, the
+model's beats and downbeats are added to the analysis (not in Low Power Mode or when the device is
+hot: then the song is planned on Seaglass's own grid, as before, and the model runs the next time).
+
+With the model, a song's bars are its beats, every fourth starting a bar on the beat its downbeats
+vote for near the song's start and near its end. Each bar keeps how sure the model was of its
+downbeat. Sections come from the analysis' harmony and loudness changes, phrases are 8 bars from
+the last section start. A stretch is fitted on the model's beats inside it: at least 85 % of the
+beats it should hold, 95 % of them within 40 ms of a straight line, no bar sliding more than 30 ms
+off it, and downbeats the model was at least 50 % sure of on average. A build-up without clear
+beats, which the next song arrives after, takes the beat of the bars it leads into.
+
 ## Levels
 
 The policy tries these levels in order and keeps the first whose best candidate passes:
@@ -120,8 +137,8 @@ heard, the lanes ramp back to plain sound over 0.4 s and the songs carry on as t
 
 ## Differences from Segue
 
-- Beats come from Seaglass's own analysis (onset grid, downbeat, beat strengths, local timing),
-  not from a neural beat tracker. The reliability of each stretch is measured on its own beats.
+- Beat This! runs on Core ML at full precision (Segue runs an int8 copy through ONNX Runtime); the
+  beats are its peaks, without Segue's onset grid on top.
 - Voices are measured only near the end of the outgoing song and the start of the next, with the
   karaoke's MDX model, and only when the device allows it (energy, time). Unmeasured voices count
   as unknown: guards don't reject on them, the score trusts them less.
