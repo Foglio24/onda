@@ -149,6 +149,23 @@ if let plan = close.plan {
 let again = decide(a, b)
 expect(again.plan == close.plan, "the same songs, the same plan")
 
+// A song whose first 24 bars are a quiet intro (10 dB down), longer than any window: the mix enters
+// where the song arrives, or mixes over the intro's end, never leaving the intro to play on its own
+// after the window (it used to enter at the first attack, skipping no music at any cost).
+let introSong = song(bpm: 126, seconds: 150, introBars: 24)
+if let intro = analyze(introSong.samples, "126 BPM, quiet intro") {
+    let decision = decide(a, intro)
+    let introEnd = intro.soundStart + 24 * 4 * 60 / 126.0
+    if let plan = decision.plan, decision.level.isLocked {
+        let windowEnd = plan.incomingStart + plan.length * plan.rate
+        print(String(format: "quiet intro: enters at %.1f s, the window ends at %.1f s, the intro at %.1f s", plan.incomingStart, windowEnd, introEnd))
+        expect(windowEnd >= introEnd - 2 * 4 * 60 / 126.0,
+               "a quiet intro isn't left to play alone after the window (window ends \(format(windowEnd, 1)) s, intro \(format(introEnd, 1)) s)")
+    } else {
+        expect(false, "a song with a quiet intro: still beat-matched (\(decision.level.rawValue): \(decision.why))")
+    }
+}
+
 // A song a live mix brought in keeps the speed it was matched at, and the next one is matched to it:
 // the speed change counted is the incoming song's own (its time against the outgoing song's, times
 // that song's speed). The 124 BPM song played 3 % slower is at 120.3 BPM: the 126 BPM one plays at
@@ -378,6 +395,28 @@ _ = process(released, Array(tone[0..<Int(5 * deckRate)]), start: 0, rate: deckRa
 released.release(over: 0.4)
 let afterRelease = process(released, Array(tone[Int(5 * deckRate)...]), start: 5, rate: deckRate)
 expect(abs(rms(afterRelease, from: 1, to: 2) / full - 1) < 0.02, "released halfway, a deck is back to plain within half a second")
+
+// After its window the incoming song's deck is released (SegueSession): a seek back to before the
+// window, where its lanes hold it silent, must still play it. Two cases: released then sent back,
+// and sent back in the middle of the release (counted by the sound played, not the song's time).
+let afterWindow = SegueStage()
+afterWindow.prepare(sampleRate: deckRate, channels: 2, isFloat: true)
+afterWindow.arm(fadePlan, side: .incoming)
+_ = process(afterWindow, Array(tone[0..<Int(9 * deckRate)]), start: 0, rate: deckRate)
+afterWindow.release(over: 0.5)
+_ = process(afterWindow, Array(tone[0..<Int(1 * deckRate)]), start: 9, rate: deckRate)
+let sentBack = process(afterWindow, Array(tone[0..<Int(3 * deckRate)]), start: 0, rate: deckRate)
+expect(abs(rms(sentBack, from: 0.5, to: 2.5) / full - 1) < 0.02,
+       "released after its window, then sent back before it: the song plays (\(format(rms(sentBack, from: 0.5, to: 2.5) / full, 2)))")
+let midRelease = SegueStage()
+midRelease.prepare(sampleRate: deckRate, channels: 2, isFloat: true)
+midRelease.arm(fadePlan, side: .incoming)
+_ = process(midRelease, Array(tone[0..<Int(6 * deckRate)]), start: 0, rate: deckRate)
+midRelease.release(over: 0.4)
+_ = process(midRelease, Array(tone[0..<Int(0.1 * deckRate)]), start: 6, rate: deckRate)
+let backMid = process(midRelease, Array(tone[0..<Int(3 * deckRate)]), start: 0, rate: deckRate)
+expect(abs(rms(backMid, from: 1, to: 2.5) / full - 1) < 0.02,
+       "sent back halfway through its release: back to plain all the same (\(format(rms(backMid, from: 1, to: 2.5) / full, 2)))")
 
 // A sweep from open to 400 Hz on noise: finite, never louder than it came in.
 let sweepPlan = SeguePlan(level: .filtered, shape: .sweepOut, outgoingStart: 1, incomingStart: 1, rate: 1, length: 8, bars: nil,

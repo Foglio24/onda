@@ -41,6 +41,16 @@ enum PlayerError: LocalizedError {
 final class PlaybackProgress: ObservableObject {
     @Published var currentTime: TimeInterval = 0
     @Published var duration: TimeInterval = 0
+    /// Where the transition into the next song will happen, in the song's time (nil: none planned,
+    /// or not shown; see `Preferences.transitionMark`).
+    @Published var transitionMark: TransitionMark?
+}
+
+/// The stretch of the playing song a transition takes: the live mix's window, the prepared mix's,
+/// or the crossfade at its end.
+struct TransitionMark: Equatable {
+    var start: TimeInterval
+    var end: TimeInterval
 }
 
 /// What song lists and the Home show about playback: the current song, whether it plays, and
@@ -892,6 +902,12 @@ final class PlayerController: ObservableObject {
     func seek(to seconds: TimeInterval) {
         recognitionAudio?.mayResume = false
         if outgoingPlayer != nil { endCrossfade() }
+        // A live mix not heard yet starts over from the song's new place: its plan stays, and it is
+        // armed again as the song nears the window (or, past it, the song ends with a plain fade).
+        if let session = segueSession, [.preparing, .ready, .running].contains(session.phase) {
+            session.abandon()
+            segueSession = nil
+        }
         if let mix = mixItem, player.currentItem === mix.item, let track = current {
             // An AutoMix item holds the song only from the end of its mix: before that, the song's
             // own file takes over.
@@ -1911,6 +1927,27 @@ final class PlayerController: ObservableObject {
 
     /// Seconds of plain crossfade at the end of a song: the setting's with "Dissolvenza incrociata";
     /// with AutoMix, a short one while no plan is ready.
+    /// Where the playing song's transition will happen, for the progress bar: the live mix planned
+    /// (or armed), the prepared mix, or the crossfade at its end; none when the song just ends, or
+    /// the mark is turned off.
+    private func transitionMark(length: TimeInterval) -> TransitionMark? {
+        guard Preferences.showsTransitionMark, length > 0, let current, index + 1 < queue.count else { return nil }
+        if let session = segueSession, session.outgoingTrackID == current.id,
+           [.preparing, .ready, .running].contains(session.phase) {
+            return TransitionMark(start: session.plan.outgoingStart, end: session.plan.outgoingEnd)
+        }
+        if let planned = seguePlanned, planned.trackID == current.id {
+            return TransitionMark(start: planned.plan.outgoingStart, end: planned.plan.outgoingEnd)
+        }
+        if let planned = plannedTransition() {
+            return TransitionMark(start: planned.plan.outStart, end: planned.plan.outEnd)
+        }
+        if segueNormalPair == "\(current.id)>\(queue[index + 1].id)" { return nil }
+        let crossfade = plainCrossfadeSeconds
+        guard crossfade > 0, canCrossfade, length > crossfade * 3 else { return nil }
+        return TransitionMark(start: length - crossfade, end: length)
+    }
+
     private var plainCrossfadeSeconds: Double {
         if playlistMix != nil { return 5 }
         switch transitionSetting {
@@ -2961,6 +2998,8 @@ final class PlayerController: ObservableObject {
             progress.duration = length
             updateNowPlayingInfo()
         }
+        let mark = transitionMark(length: length)
+        if progress.transitionMark != mark { progress.transitionMark = mark }
         if player.timeControlStatus == .playing, delta > 0, delta < 1.5 {
             scrobbler.addListeningTime(delta, trackLength: progress.duration)
             ListeningLog.shared.addListened(delta)

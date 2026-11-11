@@ -753,3 +753,5 @@
 "Durata del mix" = "Duração da mixagem";
 "Equalizzazione automatica" = "Equalização automática";
 "Breve: fino a 8 battute. Normale: fino a 16. Lunga: fino a 32, quando i due brani tengono il tempo così a lungo. Con l'equalizzazione automatica bassi, medi, alti, filtri ed eco passano da un brano all'altro; spenta, cambiano solo i volumi." = "Curta: até 8 compassos. Normal: até 16. Longa: até 32, quando as duas músicas mantêm o ritmo por tanto tempo. Com a equalização automática, graves, médios, agudos, filtros e eco passam de uma música para a outra; desligada, só os volumes mudam.";
+"Segna il mix sulla barra" = "Marcar a mixagem na barra";
+"Quando si avvicina, la barra di avanzamento del player mostra dove avverrà il mix." = "Quando se aproxima, a barra de progresso do player mostra onde a mixagem vai acontecer.";

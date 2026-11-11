@@ -221,6 +221,10 @@ final class SegueSession {
             guard !Task.isCancelled else { return }
             phase = .restoring
             jumpsAtEnd = (incomingStage.jumps, outgoingStage.jumps)
+            // The window is over: the next song's deck goes back to plain sound (from its lanes' last
+            // values, plain already or nearly). Left on its lanes, a seek back to before the window,
+            // where they hold it silent, would play nothing while the song went on.
+            incomingStage.release(over: 0.5)
             ended()
             await restore()
         }

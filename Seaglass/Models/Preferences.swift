@@ -149,6 +149,9 @@ enum Preferences {
     static let downloadFormats = "download.formats"
     /// AutoMix's live transitions (two players in step, see `SegueSession`); off, the rendered mixes.
     static let liveMix = "automix.liveMix"
+    /// The player's progress bar shows where the transition into the next song will happen.
+    static let transitionMark = "player.transitionMark"
+    static var showsTransitionMark: Bool { UserDefaults.standard.object(forKey: transitionMark) as? Bool ?? true }
     static var liveMixEnabled: Bool { UserDefaults.standard.object(forKey: liveMix) as? Bool ?? true }
     /// How long AutoMix's live mixes may be (`SegueLength`: 0 short, 1 normal, 2 long).
     static let mixLengthKey = "automix.length"

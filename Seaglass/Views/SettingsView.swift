@@ -227,6 +227,7 @@ private struct PlaybackSettingsView: View {
     @AppStorage(Preferences.liveMix) private var liveMix = true
     @AppStorage(Preferences.mixLengthKey) private var mixLength = SegueLength.normal.rawValue
     @AppStorage(Preferences.autoMixEqualiserKey) private var autoMixEqualiser = true
+    @AppStorage(Preferences.transitionMark) private var transitionMark = true
     @ObservedObject private var account = AccountService.shared
     @State private var paywall: PremiumFeature?
 
@@ -304,6 +305,16 @@ private struct PlaybackSettingsView: View {
                 }
                 .onChange(of: mixLength) { _, _ in player.applyTransitionPreference() }
                 .onChange(of: autoMixEqualiser) { _, _ in player.applyTransitionPreference() }
+            }
+
+            if shownTransition.wrappedValue != .off {
+                Section {
+                    Toggle(isOn: $transitionMark) {
+                        Label("Segna il mix sulla barra", systemImage: "point.topleft.down.to.point.bottomright.curvepath")
+                    }
+                } footer: {
+                    Text("Quando si avvicina, la barra di avanzamento del player mostra dove avverrà il mix.")
+                }
             }
 
             Section {

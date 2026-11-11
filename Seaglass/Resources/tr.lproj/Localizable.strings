@@ -753,3 +753,5 @@
 "Durata del mix" = "Miks süresi";
 "Equalizzazione automatica" = "Otomatik ekolayzer";
 "Breve: fino a 8 battute. Normale: fino a 16. Lunga: fino a 32, quando i due brani tengono il tempo così a lungo. Con l'equalizzazione automatica bassi, medi, alti, filtri ed eco passano da un brano all'altro; spenta, cambiano solo i volumi." = "Kısa: en fazla 8 ölçü. Normal: en fazla 16. Uzun: iki şarkı da ritmi bu kadar uzun tutarsa en fazla 32. Otomatik ekolayzer açıkken baslar, orta sesler, tizler, filtreler ve yankı bir şarkıdan diğerine geçer; kapalıyken yalnızca ses düzeyleri değişir.";
+"Segna il mix sulla barra" = "Miksi çubukta göster";
+"Quando si avvicina, la barra di avanzamento del player mostra dove avverrà il mix." = "Yaklaştığında, oynatıcının ilerleme çubuğu miksin nerede olacağını gösterir.";

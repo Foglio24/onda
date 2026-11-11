@@ -67,7 +67,10 @@ final class SegueStage: @unchecked Sendable {
     /// While going back to plain: the values it leaves from and where (song time) it started.
     private var releaseFrom: (level: Double, lowShelf: Double, mid: Double, highShelf: Double, lowPass: Double, highPass: Double,
                               echo: Double)?
-    private var releaseStart = 0.0
+    /// Seconds of the song's sound processed since the release began: counted by what is played, not
+    /// read from the song's time, so a seek back (to before the window, where the lanes are silent)
+    /// can't stop it half way.
+    private var releaseElapsed = 0.0
     private var lastProcessed = -Double.infinity
     /// The echo's delay line, a ring of `echoCapacity` frames per channel (allocated in `prepare`, off
     /// the audio thread), its write position, and per channel the send's low-cut state (input, output).
@@ -215,6 +218,7 @@ final class SegueStage: @unchecked Sendable {
             let count = min(Self.blockFrames, frames - start)
             let blockTime = time + Double(start) * step
             let values = mode == 2 ? releasing(at: blockTime) : read(at: blockTime)
+            if mode == 2 { releaseElapsed += Double(count) * step }
             let target = values.level <= -59.99 ? 0 : pow(10, min(6, values.level) / 20)
             updateFilters(values)
             let send = max(0, min(1, values.echo))
@@ -245,10 +249,10 @@ final class SegueStage: @unchecked Sendable {
     private func releasing(at time: Double) -> Values {
         if releaseFrom == nil {
             releaseFrom = read(at: time)
-            releaseStart = time
+            releaseElapsed = 0
         }
         guard let from = releaseFrom else { return (0, 0, 0, 0, 20_000, 20, 0) }
-        let u = max(0, min(1, (time - releaseStart) / active[Header.release]))
+        let u = max(0, min(1, releaseElapsed / active[Header.release]))
         let level = from.level + (0 - from.level) * u
         return (level, from.lowShelf * (1 - u), from.mid * (1 - u), from.highShelf * (1 - u),
                 from.lowPass * pow(20_000 / max(20, from.lowPass), u), from.highPass * pow(20 / max(20, from.highPass), u),

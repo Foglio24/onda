@@ -32,6 +32,12 @@ input as upstream does and runs it in chunks of 30 seconds. When AutoMix analyse
 model's beats and downbeats are added to the analysis (not in Low Power Mode or when the device is
 hot: then the song is planned on Seaglass's own grid, as before, and the model runs the next time).
 
+Where the next song comes in: its first attack, or a section or phrase start up to a minute in
+(never past a third of its music), or where it arrives after the window. A section start ranks
+near the attack (above it when the first eight bars are a quiet intro, 3 dB or more under the
+song), and up to 30 seconds of the song's start may be left out without counting as music lost; a
+quiet intro the window spans, the song arriving right after it, ranks as the attack does.
+
 With the model, a song's bars are its beats, every fourth starting a bar on the beat its downbeats
 vote for near the song's start and near its end. Each bar keeps how sure the model was of its
 downbeat. Sections come from the analysis' harmony and loudness changes, phrases are 8 bars from
@@ -167,8 +173,11 @@ in under a lock the audio thread only tries.
    transition is planned as for any song.
 
 If anything goes wrong before the window (the file isn't ready, the moment has passed, the queue
-changed, the song was paused or moved), the live transition is dropped and the song plays on;
-that pair isn't tried live again. If the incoming song stalls or drifts more than 0.4 s once
+changed, the song was paused), the live transition is dropped and the song plays on; that pair
+isn't tried live again. A seek before the window only starts it over: the plan stays, and the
+next song is armed again as the playing one nears it. Once the window is over, the next song's
+deck goes back to plain sound (its release counted by the sound played, not by the song's time),
+so a seek back to before its window, where its lanes are silent, still plays it. If the incoming song stalls or drifts more than 0.4 s once
 heard, the lanes ramp back to plain sound over 0.4 s and the songs carry on as they are.
 
 ## Differences from Segue

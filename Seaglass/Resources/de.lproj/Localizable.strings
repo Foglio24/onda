@@ -753,3 +753,5 @@
 "Durata del mix" = "Mix-Länge";
 "Equalizzazione automatica" = "Automatischer Equalizer";
 "Breve: fino a 8 battute. Normale: fino a 16. Lunga: fino a 32, quando i due brani tengono il tempo così a lungo. Con l'equalizzazione automatica bassi, medi, alti, filtri ed eco passano da un brano all'altro; spenta, cambiano solo i volumi." = "Kurz: bis zu 8 Takte. Normal: bis zu 16. Lang: bis zu 32, wenn beide Songs den Takt so lange halten. Mit dem automatischen Equalizer gehen Bässe, Mitten, Höhen, Filter und Echo von einem Song zum anderen über; aus, ändern sich nur die Lautstärken.";
+"Segna il mix sulla barra" = "Mix auf der Leiste zeigen";
+"Quando si avvicina, la barra di avanzamento del player mostra dove avverrà il mix." = "Kurz davor zeigt die Fortschrittsleiste des Players, wo der Mix stattfindet.";

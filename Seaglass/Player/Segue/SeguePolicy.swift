@@ -35,10 +35,16 @@ struct SegueTuning: Sendable {
     var rateFree = 0.02
     /// Width of the energy continuity's bell, dB.
     var energySigma = 3.0
-    /// Entry notes: the first attack 1, a later section start, anywhere else.
-    var entrySection = 0.6, entryOther = 0.3
+    /// Entry notes: the first attack 1 (`entryQuietIntro` when the song's first bars are at least
+    /// `quietIntroDB` under its body: the song proper starts later), a later section start (less by
+    /// up to `entryDistanceCost` of it at the end of the entry zone), anywhere else.
+    var entrySection = 0.8, entryOther = 0.3, entryQuietIntro = 0.6
+    var entryDistanceCost = 0.3, quietIntroDB = 3.0
     /// Seconds of music left out (both songs) at which the "lost" defect is full.
     var lostFull = 20.0
+    /// Seconds of the incoming song's start that may be left out without counting as lost: an intro,
+    /// to enter where the song proper starts.
+    var entrySkipFree = 30.0
     /// Choosing within a level: the cost of the music nobody hears, locked and faded.
     var lostPickLocked = 0.4, lostPickFade = 1.0
     /// A cut leaving out more than this (both songs) is left to the short fade.
@@ -60,7 +66,7 @@ struct SegueTuning: Sendable {
     /// Exits lie in this last share of the outgoing song's music; entries within this much of the
     /// incoming song's first attack.
     var exitZoneShare = 1.0 / 3.0
-    var entryZone = 40.0
+    var entryZone = 60.0
     var candidatesPerSide = 8
     var lateCandidates = 4
     /// The anti-click ramp of a cut.
@@ -663,22 +669,33 @@ enum SeguePolicy {
             return max(0, min(1, (rise - t.arrivalRiseMin) / (t.arrivalRiseFull - t.arrivalRiseMin)))
         }
 
-        /// The incoming song's first downbeat at its attack, then later section and phrase starts,
-        /// and, for a window of `bars` bars, where the song arrives after it.
+        /// The incoming song's first downbeat at its attack, then later section and phrase starts up
+        /// to a minute in (never past a third of its music), and, for a window of `bars` bars, where
+        /// the song arrives after it. A section start ranks near the attack, and above it when the
+        /// song's first bars are a quiet intro: the mix may enter where the song proper starts, not
+        /// always at its very beginning.
         func entries(phrases: Bool, span: Double, bars: Int = 0) -> [Point] {
             let first = b.barStarts.firstIndex { $0 >= b.analysis.soundStart - 0.08 }
             var points: [Point] = []
             if let first {
-                points.append(Point(time: b.barStarts[first], bar: first, rank: 1, boundary: true))
+                // A quiet intro is worth entering on when the window spans it, the song arriving after
+                // it (a DJ's mix over an intro); otherwise the song proper, later, ranks above it.
+                let intro = b.levelBars(first, first + 8), body = b.levelBars(first + 8, first + 40)
+                let quietIntro = intro > -100 && body > -100 && body - intro >= t.quietIntroDB
+                let firstArrives = bars > 0 ? arrival(first, bars: bars) : 0
+                points.append(Point(time: b.barStarts[first], bar: first, rank: quietIntro ? max(firstArrives, t.entryQuietIntro) : 1,
+                                    boundary: true, arrives: firstArrives > 0))
                 let zone = min(b.analysis.soundStart + t.entryZone, b.analysis.soundEnd / 3)
                 var bar = first + 1
                 while bar < b.bars, b.barStarts[bar] < zone {
                     let on = b.boundary(bar)
                     let arrives = bars > 0 ? arrival(bar, bars: bars) : 0
                     if on || !phrases || arrives > 0 {
-                        let base = b.sectionStrength(bar) > 0 ? t.entrySection : t.entryOther
-                        let skipped = b.barStarts[bar] - b.analysis.soundStart
-                        points.append(Point(time: b.barStarts[bar], bar: bar, rank: max(arrives, base * (1 - skipped / t.entryZone)),
+                        let distance = (b.barStarts[bar] - b.analysis.soundStart) / t.entryZone
+                        let base = b.sectionStrength(bar) > 0
+                            ? t.entrySection * (1 - t.entryDistanceCost * distance)
+                            : t.entryOther * (1 - distance)
+                        points.append(Point(time: b.barStarts[bar], bar: bar, rank: max(arrives, base),
                                             boundary: on, arrives: arrives > 0))
                     }
                     bar += 1
@@ -687,6 +704,11 @@ enum SeguePolicy {
                 points.append(Point(time: b.analysis.soundStart, bar: -1, rank: 1, boundary: true))
             }
             return points.filter { $0.time + span <= b.analysis.soundEnd }.sorted { $0.rank > $1.rank }.prefix(t.candidatesPerSide).map { $0 }
+        }
+
+        /// The incoming song's music left out by entering at `time`, past what an intro may be.
+        func skippedIn(_ time: Double) -> Double {
+            max(0, time - b.analysis.soundStart - t.entrySkipFree)
         }
 
         // MARK: Measures
@@ -766,7 +788,7 @@ enum SeguePolicy {
             let voiceBefore = b.voiceShare(from: b.analysis.soundStart, to: entry.time) ?? 0
             total -= t.penaltyVoiceCut * max(voiceAfter, voiceBefore)
             total -= t.penaltyBass * bassClash(exit: exit.time, entry: entry.time, length: length, span: span, lanes: lanes)
-            let lost = max(0, a.analysis.soundEnd - (exit.time + length)) + max(0, entry.time - b.analysis.soundStart)
+            let lost = max(0, a.analysis.soundEnd - (exit.time + length)) + skippedIn(entry.time)
             total -= t.penaltyLost * min(1, lost / t.lostFull)
             total -= t.penaltySobriety * min(1, Double(effects) / 3)
             return total
@@ -872,7 +894,7 @@ enum SeguePolicy {
                             let effects = Set(lanes.map(\.target)).count - 1
                             let score = score(exit: exit, entry: entry, length: sa.length, span: sb.length, lanes: lanes,
                                               phaseMedian: phase?.median, rateChange: change, pulse: pulse, effects: effects)
-                            let lost = max(0, a.analysis.soundEnd - sa.end) + max(0, sb.start - b.analysis.soundStart)
+                            let lost = max(0, a.analysis.soundEnd - sa.end) + skippedIn(sb.start)
                             let arrival = entry.arrives && score >= t.thresholdLocked ? t.arrivalPick * entry.rank : 0
                             let pick = score - t.lostPickLocked * min(1, lost / t.lostFull) + arrival
                             guard best.map({ pick > $0.pick }) ?? true else { continue }
@@ -972,7 +994,7 @@ enum SeguePolicy {
                         if !crossed.isEmpty { for name in crossed { refused[name, default: 0] += 1 }; continue }
                         let score = score(exit: exit, entry: entry, length: length, span: length, lanes: lanes, phaseMedian: nil,
                                           rateChange: 0, pulse: 0, effects: Set(lanes.map(\.target)).count - 1)
-                        let lost = max(0, a.analysis.soundEnd - (exit.time + length)) + max(0, entry.time - b.analysis.soundStart)
+                        let lost = max(0, a.analysis.soundEnd - (exit.time + length)) + skippedIn(entry.time)
                         let pick = score - t.lostPickFade * min(1, lost / t.lostFull)
                         guard best.map({ pick > $0.pick }) ?? true else { continue }
                         let plan = SeguePlan(level: level, shape: shape, outgoingStart: exit.time, incomingStart: entry.time, rate: 1,

@@ -843,6 +843,7 @@ private struct PlayerScrubber: View {
                 let fraction = min(max(shown / duration, 0), 1)
                 ZStack(alignment: .leading) {
                     Capsule().fill(Color.white.opacity(0.25))
+                    transitionMarkView(width: width, duration: duration, shown: shown)
                     Capsule().fill(Color.white).frame(width: width * CGFloat(fraction))
                 }
                 .frame(height: isScrubbing ? 12 : 6)
@@ -870,6 +871,7 @@ private struct PlayerScrubber: View {
             }
             .frame(height: 30)
             .animation(.spring(duration: 0.25), value: isScrubbing)
+            .animation(.easeInOut(duration: 0.6), value: progress.transitionMark)
             HStack {
                 Text(shown.formattedTime)
                 Spacer()
@@ -881,4 +883,22 @@ private struct PlayerScrubber: View {
         // Time runs left to right in every language (Arabic included), like the Music app's.
         .environment(\.layoutDirection, .leftToRight)
     }
+
+    /// Where the transition into the next song will happen, shown once it is less than a minute
+    /// away (Settings › Riproduzione), under the part already played.
+    @ViewBuilder private func transitionMarkView(width: CGFloat, duration: TimeInterval, shown: TimeInterval) -> some View {
+        if let mark = progress.transitionMark, shown >= mark.start - Self.markLead, mark.end > mark.start {
+            let start = CGFloat(min(max(mark.start / duration, 0), 1)) * width
+            let end = CGFloat(min(max(mark.end / duration, 0), 1)) * width
+            Capsule()
+                .fill(LinearGradient(colors: [Color.cyan, Color.purple], startPoint: .leading, endPoint: .trailing))
+                .frame(width: max(4, end - start))
+                .offset(x: start)
+                .transition(.opacity)
+                .accessibilityHidden(true)
+        }
+    }
+
+    /// How long before the transition its mark appears.
+    private static let markLead: TimeInterval = 60
 }

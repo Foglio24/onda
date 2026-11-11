@@ -13,7 +13,9 @@
   - **Mix length:** Breve (up to 8 bars), Normale (up to 16) or Lunga (up to 32, when both songs hold their beat that long), with shorter or longer fades to match.
   - **Automatic equaliser:** bass, mids, highs, filters and an echo on the beat pass from one song to the other; turned off, only the volumes move.
   - **Echo:** in some mixes the outgoing song's last beats are thrown into an echo on its beat, which rings on over the next song.
+  - **Where the next song comes in.** It can come in where it really starts, not always at its very beginning: after a quiet intro, on a section start or where it arrives after the mix, up to a minute in (never past a third of it). Up to 30 seconds of its start can be left out this way without counting against the mix; a quiet intro the mix spans, with the song arriving right after it, is still played as a DJ would.
   - Settings shows the last choice and why the more ambitious levels weren't used. **Settings › Riproduzione › Mix dal vivo** turns it off (back to the prepared mixes); its length and equaliser are under it.
+- **The mix on the progress bar** (iPhone, iPad, and the full player on a Mac). Less than a minute before the transition into the next song, the player's progress bar shows where it will happen: the live mix, the prepared mix or the crossfade. **Settings › Riproduzione › Segna il mix sulla barra** turns it off.
 - **Recent searches with their covers** (iPhone, iPad and Mac). What you pick from the results (a song, an artist, an album, a playlist) is kept in the search's history with its cover, round for an artist; a tap plays the song or opens the page. Searches sent without picking anything stay, with a magnifying glass.
 
 ### Changed
@@ -22,6 +24,7 @@
 - **Search results while you type.** The songs show as soon as they arrive, a moment after you stop typing, without waiting for the playlists and artists or for the return key; the previous results stay until then, instead of "no results".
 
 ### Fixed
+- **No more silence after going back in a song a live mix brought in.** Moved back to before where the mix began, or back to its start during the mix, the song went on without a sound: its mix was still holding it silent there. Its sound now goes back to plain once the mix is over, and a mix still to come starts over from where the song was moved to.
 - **Last.fm's lists in the queue** (Top Last.fm, Taste Mix, Riscopri, recognized songs): the next five songs are looked up on YouTube Music ahead, not only when they play, so the queue shows their covers and AutoMix can mix into them instead of saying "Non disponibile per questi brani".
 - **Tempo no longer freezes streamed songs.** With Tempo away from 0, a song that wasn't downloaded could stop loading for good, even after resetting Tempo: YouTube's stream comes in at about the song's own speed, slower than a sped-up song plays. Now the song's copy on the device takes over as soon as it is there. A song that stays stuck for 8 seconds gets a fresh stream, once, and then plays with what has arrived. Measuring the BPM no longer competes with playback.
 
