@@ -19,7 +19,7 @@ A hands-on music player for iPhone, iPad, <strong>Mac</strong> and Android, buil
 </p>
 
 <p align="center">
-  <a href="#discover-seaglass">Features</a> · <a href="#screenshots">Screenshots</a> ·
+  <a href="https://seaglass.mystudioappweb.com">Website</a> · <a href="#discover-seaglass">Features</a> · <a href="#screenshots">Screenshots</a> ·
   <a href="#installation">Installation</a> · <a href="#mac">Mac</a> · <a href="#android">Android</a> · <a href="#frequently-asked-questions">FAQ</a> ·
   <a href="CHANGELOG.md">Changelog</a> · <a href="android/CHANGELOG.md">Android changelog</a>
 </p>
