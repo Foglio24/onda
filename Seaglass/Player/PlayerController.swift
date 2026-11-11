@@ -494,7 +494,7 @@ final class PlayerController: ObservableObject {
     /// The player plays at `playbackRate` from its next `play()` on, and right away if it is playing.
     private func applyRate() {
         // A song coming in through a live mix plays at the speed its session sets (the plan's, then
-        // its own, corrected while it is mixed): nothing here may jump it to another.
+        // its own): nothing here may jump it to another.
         if let session = segueSession, session.player === player, session.phase == .mixing || session.phase == .restoring {
             if session.next.id == current?.id {
                 player.defaultRate = session.rate
@@ -2259,8 +2259,6 @@ final class PlayerController: ObservableObject {
         session.abandon()
         if segueSession === session { segueSession = nil }
         seguePlanned = nil
-        // The playing song back at its own speed, had the window opened (the speeds change hands then).
-        applyRate()
         noteHandover(String(localized: "mix non pronto: dissolvenza semplice") + " (\(reason))")
         if LaunchScene.isActive { print("segue: dropped (\(reason))") }
         guard let track = current, index + 1 < queue.count else { return }

@@ -2,15 +2,17 @@ import AVFoundation
 
 /// A live AutoMix transition (see `SeguePolicy`): the next song on a second player, prepared ahead,
 /// started a little before the window in step with the playing song (silent: its lanes hold it so
-/// until the window), at the plan's speed. When the window opens the speeds change hands: the playing
-/// song takes the next one's tempo and the next song plays at its own speed from then on, kept in
-/// step by small corrections only when it drifts. The lanes themselves play inside each player's
-/// audio processing (`SegueStage`), by each song's own time.
+/// until the window), at the plan's speed, and corrected only when it drifts while the two are heard.
+/// When the window ends, on a downbeat of the next song, it goes back to its own speed in one change.
+/// The lanes themselves play inside each player's audio processing (`SegueStage`), by each song's
+/// own time.
 ///
-/// Why the speeds change hands: a player renders its sound again on every change of its rate, and
-/// that can be heard (on CI's Mac each change made the deck's samples jump). Changed at the window's
-/// first downbeat, the next song is still silent and the playing one changes once and then goes; the
-/// song that stays is never brought back to its speed while it is heard on its own.
+/// Why one change: a playing player renders its sound again whenever its rate changes, and its time
+/// jumps by 20–40 ms (CI's Mac: the deck's samples jumped and the measured distance with them).
+/// Brought back in steps every 250 ms, the song was heard coming and going for 10–20 seconds; the
+/// speeds changing hands as the window opened (the playing song taking the next one's tempo) put the
+/// two 100 ms apart. So the next song plays the whole window at the plan's speed, as it started, and
+/// changes once, where the window's last bar ends.
 @MainActor
 final class SegueSession {
     enum Phase: String { case preparing, ready, running, mixing, restoring, finished, abandoned }
@@ -36,13 +38,8 @@ final class SegueSession {
     let player = AVPlayer()
     private(set) var item: AVPlayerItem?
     private(set) var phase: Phase = .preparing
-    /// The next song's speed now: the plan's through the run-up, its own (corrected when it drifts)
-    /// from the window on.
+    /// The next song's speed now: the plan's (corrected when it drifts), then its own.
     private(set) var rate: Float
-    /// Its speed before corrections: the plan's, then 1 once the speeds changed hands.
-    private var base: Double
-    /// The playing song's player, which takes the change of speed when the window opens.
-    private weak var outgoing: AVPlayer?
     /// Its distance from its place (seconds of its own time; positive: ahead): the last, and the
     /// largest while it was heard.
     private(set) var lastError = 0.0
@@ -51,8 +48,8 @@ final class SegueSession {
     /// When it starts on the system clock (seconds): before then (and just after) its time says
     /// where it will start, not where it is, so it isn't measured.
     private var startsAt = 0.0
-    /// Called once the window is over, the next song at its own speed and the playing one gone (not
-    /// when the session is dropped or stopped).
+    /// Called once the window is over, the next song back at its own speed and the playing one gone
+    /// (not when the session is dropped or stopped).
     var finished: (() -> Void)?
     /// For CI's log: the next song's speed changes while it was heard, and after the window.
     private(set) var heardRateChanges = 0
@@ -71,7 +68,6 @@ final class SegueSession {
         self.incomingGain = incomingGain
         self.outgoingStage = outgoingStage
         rate = Float(plan.rate)
-        base = plan.rate
         PlaybackVolume.shared.register(player)
         // It starts at an exact moment (`setRate(_:time:atHostTime:)`) only without its own waiting.
         player.automaticallyWaitsToMinimizeStalling = false
@@ -81,14 +77,13 @@ final class SegueSession {
     private var incomingStartTime: Double { max(0, plan.incomingStart - Self.runUp * plan.rate) }
 
     /// Loads the next song where its run-up starts, its lanes and effects on, prerolled at its speed.
-    /// `pitch`: how the app changes songs' speed (Tempo's key lock), so nothing changes it once the
-    /// song plays on its own. False when it can't be (no audio processing for the lanes, not ready in
-    /// time).
+    /// `pitch`: how the app changes songs' speed (Tempo's key lock: the pitch kept, or moving as on a
+    /// turntable), so nothing changes it once the song plays on its own. False when it can't be (no
+    /// audio processing for the lanes, not ready in time).
     func prepare(spatial: AVAudioSpatializationFormats, pitch: AVAudioTimePitchAlgorithm) async -> Bool {
         let item = AVPlayerItem(url: file)
         item.allowedAudioSpatializationFormats = spatial
-        // Not the time-domain algorithm: it is made for speech, and on music it stutters. The run-up
-        // at the plan's speed is silent; from the window on the song plays at its own.
+        // Not the time-domain algorithm: it is made for speech, and on music it stutters.
         item.audioTimePitchAlgorithm = pitch == .timeDomain ? .spectral : pitch
         let effects = await AudioEffects.mix(for: item, gain: incomingGain, segue: incomingStage)
         guard effects.segue != nil, phase == .preparing else { return false }
@@ -126,26 +121,8 @@ final class SegueSession {
         let host = CMTimeAdd(CMClockGetTime(CMClockGetHostTimeClock()), CMTime(seconds: delay, preferredTimescale: 1_000_000_000))
         startsAt = host.seconds
         player.setRate(rate, time: CMTime(seconds: incomingStartTime, preferredTimescale: 48_000), atHostTime: host)
-        self.outgoing = outgoing
         phase = .running
         return true
-    }
-
-    /// The window opens: the speeds change hands, in step as they were. The playing song goes to the
-    /// next one's tempo (its pitch kept beyond 1 %), the next song, still silent, to its own speed.
-    private func handOverSpeed() {
-        guard abs(plan.rate - 1) > 0.0005, let outgoing, outgoing.rate > 0 else { return }
-        let outgoingRate = outgoing.rate / Float(plan.rate)
-        if abs(outgoingRate - 1) > 0.01, let item = outgoing.currentItem, item.audioTimePitchAlgorithm == .varispeed {
-            item.audioTimePitchAlgorithm = .spectral
-        }
-        outgoing.rate = outgoingRate
-        base = 1
-        let incomingRate = rate / Float(plan.rate)
-        player.rate = incomingRate
-        rate = incomingRate
-        // The players' times settle after a change: not measured for a moment.
-        startsAt = CMClockGetTime(CMClockGetHostTimeClock()).seconds
     }
 
     /// Keeps the next song on its place against the playing one (`outgoingTime`, nil while it isn't
@@ -155,7 +132,7 @@ final class SegueSession {
     /// over 0.3 s, a seek when far off. Heard, seldom and gentle, so its tempo never sways and its
     /// player rarely renders again: nothing until it is 20 ms off, then up to 0.8 % over 2 s (1.5 %
     /// over 0.8 s while it is still low in the mix) until it is within 5 ms; the mix left (`lost`)
-    /// when far off. `window` when the window starts (the speeds change hands), `ended` when it ends.
+    /// when far off. `window` when the window starts, `ended` when it ends.
     func follow(outgoingTime: @escaping () -> Double?, window: @escaping () -> Void, ended: @escaping () -> Void,
                 lost: @escaping (String) -> Void) {
         task?.cancel()
@@ -181,8 +158,6 @@ final class SegueSession {
                 outgoingGone = 0
                 if phase == .running, outgoingTime >= plan.outgoingStart {
                     phase = .mixing
-                    handOverSpeed()
-                    readings.removeAll()
                     correcting = false
                     jumpsAtWindow = (incomingStage.jumps, outgoingStage.jumps)
                     window()
@@ -220,7 +195,7 @@ final class SegueSession {
                 let horizon = heard ? (quiet ? 0.8 : 2) : 0.3
                 let limit = heard ? (quiet ? 0.015 : 0.008) : 0.08
                 let nudge = correcting ? max(-limit, min(limit, -error / horizon)) : 0
-                let target = Float(base * (1 + nudge))
+                let target = Float(plan.rate * (1 + nudge))
                 if abs(target - rate) > 0.0005 {
                     player.rate = target
                     rate = target
@@ -242,9 +217,9 @@ final class SegueSession {
     /// Once a second in CI's log: how far the next song is from its place.
     static var logs = false
 
-    /// After the window (from `restoring`): the next song at its own speed (a correction still under
-    /// way, under 1.5 %, is taken back in one change), and once the playing song is gone (its echo
-    /// rung out), the session is done.
+    /// After the window (from `restoring`): the next song back to its own speed in one change, on the
+    /// downbeat where the window's last bar ends (the loop sees it within 50 ms; the playing song has
+    /// faded out by then), and once that song is gone (its echo rung out), the session is done.
     private func restore() async {
         guard phase == .restoring else { return }
         if abs(Double(rate) - 1) > 0.0005 {
@@ -285,10 +260,10 @@ final class SegueSession {
     }
 
     /// The next song goes back to its plain sound (the mix was left while it is heard): its lanes
-    /// ramp out and it plays at its own speed.
+    /// ramp out and it goes back to its own speed (one change).
     func releaseIncoming() {
         incomingStage.release(over: 0.4)
-        // Already on its way back (the window is over), it carries on.
+        // Past its window already, it carries on as it is.
         guard phase != .restoring, phase != .finished, phase != .abandoned else { return }
         task?.cancel()
         phase = .restoring
