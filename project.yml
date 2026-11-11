@@ -36,6 +36,12 @@ targets:
         type: folder
         buildPhase: resources
         optional: true
+      # AutoMix's beat tracker (BeatThis.mlmodelc, Beat This! by CPJKU, MIT), converted by CI: see
+      # .github/actions/beat-model.
+      - path: Generated/BeatThis
+        type: folder
+        buildPhase: resources
+        optional: true
     dependencies:
       - package: YouTubeKit
       # The Mac app's AppKit plug-in (menu bar icon, installing updates), in its PlugIns: Mac only.

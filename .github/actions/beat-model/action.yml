@@ -1,0 +1,45 @@
+# AutoMix's beat tracker, Beat This! (CPJKU, MIT licence: code and weights), its small0 checkpoint
+# converted to Core ML and compiled into Generated/BeatThis, where project.yml takes it from. Shared
+# by the iPhone and Mac builds. Upstream's code is pinned to a commit, its checkpoint by its name.
+name: Beat model
+description: Converts (or restores) AutoMix's Beat This! model and compiles it into Generated/BeatThis.
+runs:
+  using: composite
+  steps:
+    # Cached: it only changes with the conversion script.
+    - name: Restore the beat model
+      id: beat-model
+      uses: actions/cache@v4
+      with:
+        path: |
+          Generated/BeatThis.mlpackage
+          Generated/beat-fixture.bin
+        key: beat-model-small0-b95c8ab-${{ hashFiles('Tools/convert_beat_model.py') }}
+
+    - name: Set up Python
+      if: steps.beat-model.outputs.cache-hit != 'true'
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+
+    - name: Convert the beat model to Core ML
+      if: steps.beat-model.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        python -m pip install --quiet "numpy==1.26.4" "torch==2.5.1" "torchaudio==2.5.1" "coremltools==8.3.0" \
+          "einops==0.8.2" "rotary-embedding-torch==0.9.2" "soxr==1.1.0"
+        python -m pip install --quiet --no-deps \
+          "https://github.com/CPJKU/beat_this/archive/b95c8ab0c58c2d9fcfd40508ae8dffbc05ac4f5c.zip"
+        mkdir -p Generated
+        curl -fsSL --retry 3 -o Generated/beat_this-small0.ckpt \
+          https://cloud.cp.jku.at/public.php/dav/files/7ik4RrBKTS273gp/small0.ckpt
+        python Tools/convert_beat_model.py Generated/beat_this-small0.ckpt Generated/BeatThis.mlpackage \
+          Generated/beat-fixture.bin
+        rm Generated/beat_this-small0.ckpt
+
+    - name: Compile the beat model
+      shell: bash
+      run: |
+        mkdir -p Generated/BeatThis
+        xcrun coremlcompiler compile Generated/BeatThis.mlpackage Generated/BeatThis
+        du -sh Generated/BeatThis/BeatThis.mlmodelc

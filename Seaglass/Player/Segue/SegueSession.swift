@@ -24,6 +24,8 @@ final class SegueSession {
     let incomingGain: Float
     /// The playing song's stage (in its item's audio processing), and the next song's.
     let outgoingStage: SegueStage
+    /// What the playing song's item time is ahead of the song's (a song carried on from a rendered mix).
+    let outgoingOffset: Double
     let incomingStage = SegueStage()
     let player = AVPlayer()
     private(set) var item: AVPlayerItem?
@@ -40,7 +42,8 @@ final class SegueSession {
     private var startsAt = 0.0
 
     init(plan: SeguePlan, outgoingTrackID: String, next: Track, file: URL, label: String, incomingGain: Float,
-         outgoingStage: SegueStage) {
+         outgoingStage: SegueStage, outgoingOffset: Double = 0) {
+        self.outgoingOffset = outgoingOffset
         self.plan = plan
         self.outgoingTrackID = outgoingTrackID
         self.next = next
@@ -69,7 +72,7 @@ final class SegueSession {
         guard effects.segue != nil, phase == .preparing else { return false }
         item.audioMix = effects.mix
         incomingStage.arm(plan, side: .incoming)
-        outgoingStage.arm(plan, side: .outgoing)
+        outgoingStage.arm(plan, side: .outgoing, offset: outgoingOffset)
         self.item = item
         player.replaceCurrentItem(with: item)
         player.defaultRate = rate

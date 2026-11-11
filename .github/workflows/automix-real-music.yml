@@ -16,6 +16,9 @@ on:
       - "Seaglass/Player/HandoverFade.swift"
       - "Seaglass/Player/VocalDetector.swift"
       - "Tools/AutoMixRealMusic/**"
+      - "Tools/SegueRealMusic/**"
+      - "Seaglass/Player/Segue/**"
+      - "Seaglass/Player/BeatThis.swift"
       - "Tools/AutoMixLevels/**"
       - "Seaglass/Player/AutoMixPlanner.swift"
       - "Seaglass/Player/AutoMixFilters.swift"
@@ -97,6 +100,13 @@ jobs:
           print(f"{len(rows)} songs")
           PY
           du -sh jamendolyrics
+
+      # The live mix's levels on the same songs, on the analysis' grid and on Beat This!'s beats.
+      - name: Beat model
+        uses: ./.github/actions/beat-model
+
+      - name: Run AutoMix's live mix on them
+        run: bash Tools/SegueRealMusic/run.sh Generated/BeatThis/BeatThis.mlmodelc jamendolyrics "${{ inputs.songs || 40 }}"
 
       - name: Run AutoMix on them
         run: bash Tools/AutoMixRealMusic/run.sh Generated/Karaoke/VocFT.mlmodelc jamendolyrics AutoMix-listening "${{ inputs.songs }}"

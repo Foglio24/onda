@@ -23,6 +23,18 @@ work by others, which keeps its own licence or terms.
 - **Licence:** the model repository doesn't state a licence of its own. All rights in the model
   remain with its authors; it is included with credit, as the projects above redistribute it.
 
+### Beat This! (AutoMix's beat tracker)
+- **What:** the neural beat and downbeat tracker AutoMix's live mix plans its bars on, bundled in the
+  IPA and the Mac app as a Core ML model (the `small0` checkpoint). It is converted in CI from the
+  published PyTorch checkpoint (`Tools/convert_beat_model.py`); the weights are not changed. The
+  app's log-mel front end and chunked inference follow upstream's (`Seaglass/Player/BeatThis.swift`).
+- **Authors:** Francesco Foscarin, Jan Schlüter and Gerhard Widmer, Institute of Computational
+  Perception, Johannes Kepler University Linz: "Beat This! Accurate beat tracking without DBN
+  postprocessing", ISMIR 2024.
+- **Source:** https://github.com/CPJKU/beat_this (code and checkpoints).
+- **Licence:** MIT, code and weights. Copyright (c) 2024 Institute of Computational Perception, JKU
+  Linz, Austria.
+
 ## Included in the Android app
 All under the Apache License 2.0:
 - [Jetpack Compose, AndroidX and Media3](https://developer.android.com/jetpack) (Google): the interface, the player and its notification.

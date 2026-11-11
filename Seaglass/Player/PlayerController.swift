@@ -468,7 +468,7 @@ final class PlayerController: ObservableObject {
             var analysis: TrackAnalysis?
             if let file, !Task.isCancelled {
                 // In the background: never ahead of the decoding of the song that plays.
-                analysis = await AutoMixLibrary.shared.analysis(of: file, priority: .utility)
+                analysis = await AutoMixLibrary.shared.analysis(of: file, priority: .utility, beats: false)
             }
             if LaunchScene.isActive {
                 let times = String(format: "file in %.1f s, analysis in %.1f s", found.timeIntervalSince(started),
@@ -2005,6 +2005,7 @@ final class PlayerController: ObservableObject {
                 guard !Task.isCancelled, self.requests.isCurrentLoad(generation), self.autoMixPair == pair else { return }
                 let why = decision.why.isEmpty ? "" : "\n" + decision.why
                 if LaunchScene.isActive {
+                    print("segue: beats from the model: \(outgoing.modelBeats?.count ?? -1) and \(incoming.modelBeats?.count ?? -1)")
                     print("segue: \(decision.level.rawValue) \(decision.plan.map { "\($0.shape.rawValue) \(Self.describe($0))" } ?? "")\(why)")
                 }
                 if decision.level == .normal {
@@ -2242,11 +2243,12 @@ final class PlayerController: ObservableObject {
 
     private func armSegue(_ planned: SeguePlanned) {
         guard segueSession == nil, let track = current, index + 1 < queue.count, queue[index + 1].id == planned.nextID else { return }
+        let offset = itemOffset
         let session = SegueSession(plan: planned.plan, outgoingTrackID: track.id, next: queue[index + 1], file: planned.file,
-                                   label: planned.label, incomingGain: planned.incomingGain, outgoingStage: planned.outgoingStage)
+                                   label: planned.label, incomingGain: planned.incomingGain, outgoingStage: planned.outgoingStage,
+                                   outgoingOffset: offset)
         segueSession = session
         let outgoing = player
-        let offset = itemOffset
         SegueSession.logs = LaunchScene.isActive
         if LaunchScene.isActive { print("segue: arming \(session.summary)") }
         Task {

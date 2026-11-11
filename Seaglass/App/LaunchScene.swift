@@ -241,13 +241,17 @@ enum LaunchScene {
         case "segue":
             // CI: AutoMix's live transition (see `SegueSession`) between two songs made here, 124 and
             // 126 BPM, two minutes each, played from their files from 40 s in; the player's log says
-            // what was planned and how the second player kept in step. "off": the live mix turned off.
+            // what was planned and how the second player kept in step. "off": the live mix turned off;
+            // "alac": the songs in Apple Lossless instead of AAC.
             Task {
                 let first = Track(videoId: "SeaglassSegueDemoA", title: "Segue A", artists: ["Seaglass Demo"], duration: 120)
                 let second = Track(videoId: "SeaglassSegueDemoB", title: "Segue B", artists: ["Seaglass Demo"], duration: 120)
                 await Task.detached(priority: .userInitiated) {
-                    try? Self.writeDemoSong(to: Storage.audioFile(for: "SeaglassSegueDemoA"), bpm: 124, root: 57, introBars: 0, seconds: 120)
-                    try? Self.writeDemoSong(to: Storage.audioFile(for: "SeaglassSegueDemoB"), bpm: 126, root: 60, introBars: 4, seconds: 120)
+                    let lossless = value == "alac"
+                    try? Self.writeDemoSong(to: Storage.audioFile(for: "SeaglassSegueDemoA"), bpm: 124, root: 57, introBars: 0,
+                                            seconds: 120, lossless: lossless)
+                    try? Self.writeDemoSong(to: Storage.audioFile(for: "SeaglassSegueDemoB"), bpm: 126, root: 60, introBars: 4,
+                                            seconds: 120, lossless: lossless)
                 }.value
                 UserDefaults.standard.set(SongTransition.autoMix.rawValue, forKey: Preferences.songTransition)
                 UserDefaults.standard.set(value != "off", forKey: Preferences.liveMix)
@@ -437,8 +441,10 @@ enum LaunchScene {
     }
 
     /// A song made to a click (kick, hi-hat, a chord per bar), `seconds` long with a second of
-    /// silence at each end, quieter for its first `introBars` bars, saved as AAC.
-    nonisolated private static func writeDemoSong(to url: URL, bpm: Double, root: Int, introBars: Int, seconds: Double = 72) throws {
+    /// silence at each end, quieter for its first `introBars` bars, saved as AAC (`lossless`: as
+    /// Apple Lossless, 16 bit).
+    nonisolated private static func writeDemoSong(to url: URL, bpm: Double, root: Int, introBars: Int, seconds: Double = 72,
+                                                  lossless: Bool = false) throws {
         let rate = 44_100.0
         guard let format = AVAudioFormat(standardFormatWithSampleRate: rate, channels: 2) else { return }
         let frames = Int(seconds * rate)
@@ -474,12 +480,10 @@ enum LaunchScene {
             channels[1][frame] = Float(value * 0.8)
         }
         try? FileManager.default.removeItem(at: url)
-        let file = try AVAudioFile(forWriting: url, settings: [
-            AVFormatIDKey: kAudioFormatMPEG4AAC,
-            AVSampleRateKey: rate,
-            AVNumberOfChannelsKey: 2,
-            AVEncoderBitRateKey: 192_000,
-        ])
+        let settings: [String: Any] = lossless
+            ? [AVFormatIDKey: kAudioFormatAppleLossless, AVSampleRateKey: rate, AVNumberOfChannelsKey: 2, AVEncoderBitDepthHintKey: 16]
+            : [AVFormatIDKey: kAudioFormatMPEG4AAC, AVSampleRateKey: rate, AVNumberOfChannelsKey: 2, AVEncoderBitRateKey: 192_000]
+        let file = try AVAudioFile(forWriting: url, settings: settings)
         try file.write(from: buffer)
     }
 }

@@ -23,29 +23,45 @@ actor AutoMixLibrary {
     private var recentVocals: [String: VocalActivity] = [:]
     private var running: [String: Task<TrackAnalysis?, Never>] = [:]
 
-    /// The analysis of a song's file, made now unless it was made before.
+    /// The analysis of a song's file, made now unless it was made before. `beats`: with Beat This!'s
+    /// beats and downbeats (see `BeatThis`), added to an analysis made without them when the model is
+    /// there and the energy allows it (the tempo panel doesn't wait for them).
     /// `priority`: higher when someone waits for it (the tempo panel's BPM).
-    func analysis(of file: URL, priority: TaskPriority = .utility) async -> TrackAnalysis? {
+    func analysis(of file: URL, priority: TaskPriority = .utility, beats: Bool = true) async -> TrackAnalysis? {
         let key = file.deletingPathExtension().lastPathComponent
-        if let known = recent[key] { return known }
+        var known = recent[key]
         let saved = Self.directory.appending(path: "\(key).json")
-        if let data = try? Data(contentsOf: saved),
+        if known == nil, let data = try? Data(contentsOf: saved),
            let analysis = try? JSONDecoder().decode(TrackAnalysis.self, from: data),
            analysis.version == TrackAnalysis.currentVersion {
             remember(analysis, key: key)
-            return analysis
+            known = analysis
         }
-        if let task = running[key] { return await task.value }
+        let wantsBeats = beats && BeatThis.isBundled && EnergyPolicy.current.allowsAudioConversion
+        if let known, !(wantsBeats && known.modelBeats == nil) { return known }
+        if let task = running[key] {
+            let analysis = await task.value
+            if let analysis, !(wantsBeats && analysis.modelBeats == nil) { return analysis }
+        }
+        let base = known
         let task = Task.detached(priority: priority) { () -> TrackAnalysis? in
-            guard let samples = try? await AutoMixDecoder.samples(of: file) else { return nil }
-            return TrackAnalyzer.analyze(samples, sampleRate: TrackAnalyzer.sampleRate)
+            guard let samples = try? await AutoMixDecoder.samples(of: file) else { return base }
+            guard var analysis = base ?? TrackAnalyzer.analyze(samples, sampleRate: TrackAnalyzer.sampleRate) else { return nil }
+            if wantsBeats, !Task.isCancelled, let model = BeatThis.shared {
+                // A model that fails on this song isn't tried on it again: no beats, as if it found none.
+                let found = (try? model.analyze(samples)) ?? BeatThis.Result(beats: [], downbeats: [], downbeatLogits: [])
+                analysis.modelBeats = found.beats.map(Float.init)
+                analysis.modelDownbeats = found.downbeats.map(Float.init)
+                analysis.modelDownbeatLogits = found.downbeatLogits
+            }
+            return analysis
         }
         running[key] = task
         let analysis = await task.value
         running[key] = nil
         guard let analysis else { return nil }
         remember(analysis, key: key)
-        if let data = try? JSONEncoder().encode(analysis) {
+        if analysis != known, let data = try? JSONEncoder().encode(analysis) {
             try? data.write(to: saved, options: .atomic)
             Self.prune()
         }

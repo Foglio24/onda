@@ -87,8 +87,10 @@ final class SegueStage: @unchecked Sendable {
     // MARK: Main thread
 
     /// Plays `side` of `plan` from now on (its lanes hold their first values until the window).
-    func arm(_ plan: SeguePlan, side: SegueLane.Side) {
-        let anchor = side == .outgoing ? plan.outgoingStart : plan.incomingStart
+    /// `offset`: what the player's item time is ahead of the song's (a song carried on from a rendered
+    /// mix plays inside the mix's file: see `PlayerController.itemOffset`).
+    func arm(_ plan: SeguePlan, side: SegueLane.Side, offset: Double = 0) {
+        let anchor = (side == .outgoing ? plan.outgoingStart : plan.incomingStart) + offset
         let span = side == .outgoing ? plan.length : plan.length * plan.rate
         lock.withLock {
             pending.update(repeating: 0, count: Self.programCount)

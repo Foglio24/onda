@@ -184,6 +184,89 @@ if let plan = singing.plan {
     expect(overlapOK, "two voices never sung over each other for long (\(plan.level.rawValue), \(format(plan.length, 1)) s)")
 }
 
+// MARK: Beat This!'s beats
+
+/// A song whose tempo moves from `from` to `to` BPM over its length, as a band without a click does:
+/// a kick on every beat (stronger on the first of the bar), a hi-hat between, a chord on every bar.
+func drifting(from: Double, to: Double, seconds: Double) -> (samples: [Float], beats: [Double]) {
+    var x = [Float](repeating: 0, count: Int(seconds * rate))
+    var beats: [Double] = []
+    var time = 1.5
+    var k = 0
+    while time < seconds - 2 {
+        beats.append(time)
+        let beat = 60 / (from + (to - from) * time / seconds)
+        let start = Int(time * rate)
+        for i in 0..<Int(0.25 * rate) where start + i < x.count {
+            let t = Double(i) / rate
+            let accent: Double = k % 4 == 0 ? 1.4 : 1
+            x[start + i] += Float(0.8 * sin(2 * Double.pi * (55 + 90 * exp(-t * 40)) * t) * exp(-t * 18) * accent)
+        }
+        let hat = Int((time + beat / 2) * rate)
+        for i in 0..<Int(0.05 * rate) where hat + i < x.count {
+            x[hat + i] += 0.15 * random.next() * Float(exp(-Double(i) / rate * 60))
+        }
+        if k % 4 == 0 {
+            let root = [57, 62, 64, 57][(k / 4) % 4]
+            for i in 0..<Int(4 * beat * rate) where start + i < x.count {
+                let t = Double(i) / rate
+                var value = 0.0
+                for pitch in [root, root + 4, root + 7].map(note) { value += sin(2 * .pi * pitch * t) }
+                x[start + i] += Float(value * min(1, t / 0.02) * 0.08)
+            }
+        }
+        time += beat
+        k += 1
+    }
+    let peak = x.map { abs($0) }.max() ?? 1
+    return (x.map { $0 / peak * 0.8 }, beats)
+}
+
+/// An analysis with the model's beats: `beats`, every fourth from `phase` a downbeat of logit `logit`
+/// (the model is sure of them from about 2).
+func withModel(_ analysis: TrackAnalysis, beats: [Double], phase: Int = 0, logit: Float = 3, jitter: Double = 0.004) -> TrackAnalysis {
+    var noise = Random(state: 11)
+    var copy = analysis
+    let timed = beats.map { $0 + jitter * Double(noise.next()) }
+    copy.modelBeats = timed.map(Float.init)
+    let downbeats = timed.enumerated().filter { ($0.offset - phase) % 4 == 0 }.map { Float($0.element) }
+    copy.modelDownbeats = downbeats
+    copy.modelDownbeatLogits = [Float](repeating: logit, count: downbeats.count)
+    return copy
+}
+
+let liveSong = drifting(from: 120, to: 124, seconds: 150)
+if let live = analyze(liveSong.samples, "120 → 124 BPM, drifting") {
+    let liveModel = withModel(live, beats: liveSong.beats)
+    let bModel = withModel(b, beats: songB.onsets)
+    let plain = decide(live, b)
+    let modelled = decide(liveModel, bModel)
+    print("drifting → 126 on the analysis' grid: \(plain.level.rawValue) — \(plain.why)")
+    print("drifting → 126 on the model's beats: \(modelled.level.rawValue) \(modelled.plan.map { "\($0.shape.rawValue), \($0.bars ?? 0) bars, rate \(format($0.rate, 4)), phase \(format(($0.phaseMedian ?? 0) * 1000, 1)) ms" } ?? "") — \(modelled.why)")
+    expect(modelled.level.isLocked, "a song whose tempo drifts: beat-matched on the model's beats")
+    if let plan = modelled.plan {
+        checkPlan(plan, liveModel, bModel, "drifting → 126 (model)")
+        expect((plan.phaseMedian ?? 1) <= 0.02, "its beats within 20 ms (median \(format((plan.phaseMedian ?? 1) * 1000, 1)) ms)")
+        expect(abs(plan.rate - (plan.tempo ?? 0) / 126) < 0.01 || abs(plan.rate * 126 - (plan.tempo ?? 0)) < 2,
+               "the incoming song at the outgoing one's local tempo (\(format(plan.tempo ?? 0, 1)) BPM, rate \(format(plan.rate, 4)))")
+    }
+    // Bars from the model's downbeats: on the beat it says, even off the analysis' own.
+    let shifted = SegueSong(withModel(b, beats: songB.onsets, phase: 1), voices: nil)
+    let first = SegueSong(bModel, voices: nil)
+    expect(first.fromModel && abs((first.barStarts.first ?? 0) - songB.onsets[0]) < 0.01, "bars start on the model's first downbeat")
+    expect(abs((shifted.barStarts.first ?? 0) - songB.onsets[1]) < 0.01, "a downbeat a beat later moves the bars with it")
+    let barGap = zip(first.barStarts.dropFirst(), first.barStarts).map { $0 - $1 }
+    expect(barGap.allSatisfy { abs($0 - 4 * 60 / 126) < 0.02 }, "a bar every four of the model's beats")
+    expect((first.barDown ?? []).allSatisfy { $0 > 0.9 }, "a sure downbeat on every bar")
+    // Downbeats the model wasn't sure of don't make a stretch to beat-match on.
+    let unsure = decide(withModel(a, beats: songA.onsets, logit: -1), withModel(b, beats: songB.onsets, logit: -1))
+    print("unsure downbeats: \(unsure.level.rawValue) — \(unsure.why)")
+    expect(!unsure.level.isLocked, "downbeats the model wasn't sure of: not beat-matched")
+    // The same songs on the model's beats as on their grid: still beat-matched.
+    let both = decide(withModel(a, beats: songA.onsets), bModel)
+    expect(both.level.isLocked, "steady songs on the model's beats: beat-matched too (\(both.level.rawValue))")
+}
+
 // MARK: Decks
 
 /// Runs `stage` on a stereo copy of `samples` (one buffer per channel), in blocks of `block` frames

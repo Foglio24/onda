@@ -63,6 +63,17 @@ struct SegueTuning: Sendable {
     var lateCandidates = 4
     /// The anti-click ramp of a cut.
     var microFade = 0.03
+    /// Downbeats the model must be sure of, on average, over a stretch (0…1).
+    var stretchMinDownConfidence = 0.5
+    /// A build-up's beat carried back from this many bars after it, searched this many bars on,
+    /// landing this near its start (s).
+    var carryFromBars = 4
+    var carrySearchBars = 8
+    var carryMaxOff = 0.08
+    /// How much the incoming song's level rises past an entry for it to arrive there (dB): from the
+    /// least to a full arrival; and what a full arrival is worth over its start, choosing within a level.
+    var arrivalRiseMin = 2.0, arrivalRiseFull = 6.0
+    var arrivalPick = 0.5
 
     // Lanes.
     var bassKillDB = -30.0
@@ -80,51 +91,186 @@ struct SegueTuning: Sendable {
     var restorePerBeat = 0.001, restoreMinBeats = 16.0
 }
 
-/// What the policy reads of one song: its analysis, its sections and its measured voices, by bar.
+/// What the policy reads of one song: its analysis, its bars, sections and measured voices. With
+/// Beat This!'s beats and downbeats in the analysis (see `BeatThis`) the bars are the model's: its
+/// beats, every fourth starting a bar, the phase chosen by its downbeats near the song's start and
+/// near its end, each bar with how sure the model was of its downbeat; the stretches are measured on
+/// those beats. Without them (an analysis without the model) the bars are the analysis' grid.
 struct SegueSong {
     let analysis: TrackAnalysis
     let shape: SongShape
     let voices: VocalActivity?
-    /// Each bar's start (seconds) from the song's first whole bar.
+    /// The model's beats inside the sound, seconds (empty without the model).
+    let beats: [Double]
+    var fromModel: Bool { !beats.isEmpty }
+    /// Each bar's start (seconds), from the song's first whole bar.
     let barStarts: [Double]
+    /// For each bar, how sure the model is that a downbeat starts it (0…1, 0 where it put none); nil
+    /// without the model.
+    let barDown: [Double]?
+    /// How clearly the model's downbeats chose one beat of four near the start and near the end (0…1;
+    /// 1 without the model, where the analysis' downbeat stands).
+    let headMetre: Double
+    let tailMetre: Double
     /// Each bar's loudness and its bass's (dB).
     let barLevel: [Double]
     let barBass: [Double]
+    /// Each bar's novelty (how much the harmony and the loudness change there), the bars where
+    /// sections start, and the bar offset of 8-bar phrases where no section start says otherwise.
+    let novelty: [Double]
+    let sectionStarts: [Int]
+    let phraseOffset: Int
+    /// A beat's length (seconds): the model's median beat, else the grid's.
+    let beatPeriod: Double
+
+    /// Where the model's downbeats are read for the bars of the song's first and second half (s).
+    static let headSpan = 75.0
+    static let tailSpan = 90.0
+    /// How near a bar start a model downbeat must be to speak for it (s).
+    static let downbeatNear = 0.07
 
     init(_ analysis: TrackAnalysis, voices: VocalActivity?) {
         self.analysis = analysis
         self.voices = voices
-        shape = SongShape(analysis)
-        let first = analysis.firstBarBeat
-        let count = max(0, (analysis.beatCount - first) / 4)
-        barStarts = (0..<count).map { analysis.beatTime(first + 4 * $0) }
-        barLevel = (0..<count).map { Double(analysis.meanLoudness(first + 4 * $0, 4) ?? -100) }
-        barBass = (0..<count).map { bar in
-            let beats = (first + 4 * bar)..<(first + 4 * bar + 4)
-            let share = max(0.001, analysis.bassShare(beats))
-            return Double(analysis.meanLoudness(beats.lowerBound, 4) ?? -100) + 10 * log10(share)
+        let shape = SongShape(analysis)
+        self.shape = shape
+        let a = analysis
+        let modelBeats = (a.modelBeats ?? []).map(Double.init).filter { $0 >= a.soundStart - 0.05 && $0 < a.soundEnd }
+        guard modelBeats.count >= 16 else {
+            // The analysis' grid.
+            beats = []
+            let first = a.firstBarBeat
+            let count = max(0, (a.beatCount - first) / 4)
+            let starts = (0..<count).map { a.beatTime(first + 4 * $0) }
+            barStarts = starts
+            barDown = nil
+            headMetre = 1
+            tailMetre = 1
+            beatPeriod = a.beatLength
+            barLevel = (0..<count).map { Double(a.meanLoudness(first + 4 * $0, 4) ?? -100) }
+            barBass = (0..<count).map { bar in
+                let beats = (first + 4 * bar)..<(first + 4 * bar + 4)
+                let share = max(0.001, a.bassShare(beats))
+                return Double(a.meanLoudness(beats.lowerBound, 4) ?? -100) + 10 * log10(share)
+            }
+            novelty = (0..<count).map { shape.novelty.indices.contains($0) ? shape.novelty[$0] : 0 }
+            sectionStarts = shape.sectionStarts.filter { $0 < count }
+            phraseOffset = 0
+            return
         }
+        beats = modelBeats
+        let gaps = zip(modelBeats.dropFirst(), modelBeats).map { $0 - $1 }.filter { $0 > 60 / 210.0 && $0 < 60 / 55.0 }.sorted()
+        let period = gaps.isEmpty ? a.beatLength : gaps[gaps.count / 2]
+        beatPeriod = period
+        // The downbeats as votes for which beat of four starts the bars, near the start and the end.
+        let downbeats = zip((a.modelDownbeats ?? []).map(Double.init), (a.modelDownbeatLogits ?? []).map(Double.init)).map { $0 }
+        func nearestBeat(_ time: Double) -> Int? {
+            var low = 0, high = modelBeats.count - 1
+            while high - low > 1 {
+                let middle = (low + high) / 2
+                if modelBeats[middle] <= time { low = middle } else { high = middle }
+            }
+            let k = abs(modelBeats[low] - time) <= abs(modelBeats[high] - time) ? low : high
+            return abs(modelBeats[k] - time) < 0.3 * period ? k : nil
+        }
+        func vote(_ votes: [(time: Double, weight: Double)]) -> (phase: Int, metre: Double)? {
+            var tally = [Double](repeating: 0, count: 4)
+            for (time, weight) in votes where weight > 0 {
+                if let k = nearestBeat(time) { tally[k % 4] += weight }
+            }
+            let sum = tally.reduce(0, +)
+            guard sum > 0, let best = tally.indices.max(by: { tally[$0] < tally[$1] }) else { return nil }
+            return (best, max(0, min(1, (tally[best] / sum - 0.25) / 0.75)))
+        }
+        let head = vote(downbeats.filter { $0.0 < a.soundStart + SegueSong.headSpan }.map { (time: $0.0, weight: $0.1) })
+        let tail = vote(downbeats.filter { $0.0 > a.soundEnd - SegueSong.tailSpan }.map { (time: $0.0, weight: $0.1) })
+        // Without the model's word, the analysis' downbeats.
+        let gridBars = stride(from: a.firstBarBeat, to: a.beatCount, by: 4).map { (time: a.beatTime($0), weight: 1.0) }
+        let fallback = vote(gridBars)?.phase ?? 0
+        headMetre = head?.metre ?? 0
+        tailMetre = tail?.metre ?? 0
+        let middle = (a.soundStart + a.soundEnd) / 2
+        var starts: [Double] = []
+        for (k, time) in modelBeats.enumerated() {
+            let phase = (time < middle ? head?.phase : tail?.phase) ?? fallback
+            if ((k - phase) % 4 + 4) % 4 == 0 { starts.append(time) }
+        }
+        barStarts = starts
+        func sigmoid(_ x: Double) -> Double { 1 / (1 + exp(-x)) }
+        barDown = starts.map { start in
+            downbeats.filter { abs($0.0 - start) <= SegueSong.downbeatNear }.map { sigmoid($0.1) }.max() ?? 0
+        }
+        func end(_ bar: Int) -> Double { bar + 1 < starts.count ? starts[bar + 1] : min(a.soundEnd, starts[bar] + 4 * period) }
+        barLevel = starts.indices.map { bar in
+            let power = a.power(from: starts[bar], to: end(bar))
+            return power > 0 ? 10 * log10(power) : -100
+        }
+        barBass = starts.indices.map { bar in
+            let first = Int(((starts[bar] - a.gridStart) / a.beatLength).rounded())
+            let last = Int(((end(bar) - a.gridStart) / a.beatLength).rounded())
+            let power = a.power(from: starts[bar], to: end(bar))
+            let level = power > 0 ? 10 * log10(power) : -100
+            guard last > first, first >= 0, last <= a.beatCount else { return level - 30 }
+            return level + 10 * log10(max(0.001, a.bassShare(first..<last)))
+        }
+        // The analysis' sections (on its grid's bars), on the model's bars by time.
+        let origin = a.beatTime(a.firstBarBeat), gridBar = 4 * a.beatLength
+        func barNear(_ time: Double) -> Int? {
+            guard let index = starts.indices.min(by: { abs(starts[$0] - time) < abs(starts[$1] - time) }),
+                  abs(starts[index] - time) < 2 * period else { return nil }
+            return index
+        }
+        novelty = starts.map { start in
+            let index = Int(((start - origin) / gridBar).rounded(.down))
+            return shape.novelty.indices.contains(index) ? shape.novelty[index] : 0
+        }
+        sectionStarts = Array(Set(shape.sectionStarts.compactMap { barNear(origin + Double($0) * gridBar) })).sorted()
+        var perEight = [Double](repeating: 0, count: 8)
+        for (bar, value) in novelty.enumerated() { perEight[bar % 8] += value }
+        phraseOffset = starts.count >= 16 ? (perEight.indices.max { perEight[$0] < perEight[$1] } ?? 0) : 0
     }
 
     var bars: Int { barStarts.count }
-    var barLength: Double { 4 * analysis.beatLength }
+    var barLength: Double { 4 * beatPeriod }
 
+    /// The bar a time falls in (-1 before the first).
     func bar(at time: Double) -> Int {
-        guard let first = barStarts.first, barLength > 0 else { return -1 }
-        return Int(((time - first) / barLength).rounded(.down))
+        guard let first = barStarts.first, time >= first else { return -1 }
+        var low = 0, high = barStarts.count - 1
+        while low < high {
+            let middle = (low + high + 1) / 2
+            if barStarts[middle] <= time { low = middle } else { high = middle - 1 }
+        }
+        return low
+    }
+
+    /// Where a bar falls in its 8-bar phrase: 0 on its first bar, counted from the last section start
+    /// (from `phraseOffset` before any).
+    func phrasePosition(_ bar: Int) -> Int {
+        let anchor = sectionStarts.last { $0 <= bar } ?? phraseOffset
+        return ((bar - anchor) % 8 + 8) % 8
     }
 
     /// A phrase or a section starts on this bar.
     func boundary(_ bar: Int) -> Bool {
         guard bar >= 0, bar < bars else { return false }
+        if fromModel { return phrasePosition(bar) == 0 || sectionStrength(bar) > 0 }
         let beat = analysis.firstBarBeat + 4 * bar
         return shape.phrase(atBeat: beat) >= 0.75 || shape.sectionStarts.contains(bar)
     }
 
     /// How strongly a section starts there, 0…1 (0 for a plain phrase boundary).
     func sectionStrength(_ bar: Int) -> Double {
-        guard shape.sectionStarts.contains(bar), shape.novelty.indices.contains(bar) else { return 0 }
-        return min(1, shape.novelty[bar])
+        guard sectionStarts.contains(bar), novelty.indices.contains(bar) else { return 0 }
+        return min(1, novelty[bar])
+    }
+
+    /// The level of bars `from..<to` (dB, their mean power).
+    func levelBars(_ from: Int, _ to: Int) -> Double {
+        let range = max(0, from)..<min(bars, max(from, to))
+        guard !range.isEmpty else { return -100 }
+        let power = range.reduce(0.0) { $0 + pow(10, barLevel[$1] / 10) } / Double(range.count)
+        return power > 0 ? 10 * log10(power) : -100
     }
 
     /// The chance a voice sings at a time, and whether it was measured.
@@ -170,7 +316,78 @@ struct SegueStretch: Equatable {
     var length: Double { period * 4 * Double(bars) }
     var end: Double { start + length }
 
-    static func measure(_ song: SegueSong, bar: Int, bars: Int, tuning: SegueTuning) -> SegueStretch? {
+    /// The stretch of `bars` bars from `bar`, or nil when its beats can't be relied on. `metre` stands
+    /// for how sure the downbeats are where the model gave none.
+    static func measure(_ song: SegueSong, bar: Int, bars: Int, tuning: SegueTuning, metre: Double = 1) -> SegueStretch? {
+        song.fromModel ? onModel(song, bar: bar, bars: bars, tuning: tuning, metre: metre)
+            : onGrid(song, bar: bar, bars: bars, tuning: tuning)
+    }
+
+    /// On the model's beats: those between the stretch's first bar start and the bar after its last
+    /// (a quarter of a beat early on both), at least 85 % of the beats it should hold and no more than
+    /// one extra; a straight line through them by their place in it, within 5 % of its rough tempo,
+    /// 95 % of them within the phase guard of the line and no bar sliding off it; downbeats the model
+    /// was sure of on average. Its reliability is the worse of its beats' share and that confidence.
+    private static func onModel(_ song: SegueSong, bar: Int, bars: Int, tuning: SegueTuning, metre: Double) -> SegueStretch? {
+        guard bar >= 0, bars > 0, bar + bars < song.bars else { return nil }
+        let from = song.barStarts[bar], to = song.barStarts[bar + bars]
+        let count = 4 * bars
+        let rough = (to - from) / Double(count)
+        guard rough > 0, 60 / rough >= 55, 60 / rough <= 210 else { return nil }
+        let beats = song.beats.filter { $0 >= from - rough / 4 && $0 < to - rough / 4 }
+        let n = beats.count
+        guard Double(n) >= tuning.stretchMinBeatShare * Double(count), n <= count + 1, n >= 2 else { return nil }
+        let places = beats.map { (($0 - from) / rough).rounded() }
+        let sk = places.reduce(0, +), st = beats.reduce(0, +)
+        let skk = places.reduce(0) { $0 + $1 * $1 }
+        let skt = zip(places, beats).reduce(0) { $0 + $1.0 * $1.1 }
+        let denominator = Double(n) * skk - sk * sk
+        guard denominator > 0 else { return nil }
+        let period = (Double(n) * skt - sk * st) / denominator
+        let start = (st - period * sk) / Double(n)
+        guard period > 0, abs(period / rough - 1) <= 0.05 else { return nil }
+        let residuals = zip(places, beats).map { $0.1 - (start + period * $0.0) }
+        let sorted = residuals.map(abs).sorted()
+        guard sorted[Int(Double(n - 1) * 0.95)] <= tuning.phaseP95Max else { return nil }
+        var drift = 0.0
+        var index = 0
+        while index < n {
+            let group = residuals[index..<min(n, index + 4)]
+            drift = max(drift, abs(group.reduce(0, +) / Double(group.count)))
+            index += 4
+        }
+        guard drift <= tuning.stretchMaxBarDrift else { return nil }
+        let down: Double
+        if let barDown = song.barDown {
+            down = (bar..<(bar + bars)).reduce(0.0) { $0 + (barDown.indices.contains($1) ? barDown[$1] : 0) } / Double(bars)
+        } else {
+            down = metre
+        }
+        guard down >= tuning.stretchMinDownConfidence else { return nil }
+        let share = min(1, Double(n) / Double(count))
+        return SegueStretch(bar: bar, bars: bars, start: start, period: period, beats: beats,
+                            reliability: min(share, down), drift: drift)
+    }
+
+    /// A build-up has too few clear beats of its own, and the song arrives right after it: the `bars`
+    /// bars from `bar` take the beat of the bars they lead into, carried back, when it lands on their
+    /// start. Nil when what follows doesn't hold or doesn't line up.
+    static func carried(_ song: SegueSong, bar: Int, bars: Int, tuning: SegueTuning, metre: Double = 1) -> SegueStretch? {
+        guard bar >= 0, bar < song.bars else { return nil }
+        let count = 4 * bars
+        for gap in 0...tuning.carrySearchBars {
+            guard let next = measure(song, bar: bar + bars + gap, bars: tuning.carryFromBars, tuning: tuning, metre: metre) else { continue }
+            let first = next.start - Double(count + 4 * gap) * next.period
+            guard abs(first - song.barStarts[bar]) <= tuning.carryMaxOff else { return nil }
+            return SegueStretch(bar: bar, bars: bars, start: first, period: next.period,
+                                beats: (0..<count).map { first + Double($0) * next.period },
+                                reliability: min(next.reliability, tuning.reliabilityForMiddle), drift: next.drift)
+        }
+        return nil
+    }
+
+    /// On the analysis' grid (no model): its marked beats, where the onsets fall.
+    private static func onGrid(_ song: SegueSong, bar: Int, bars: Int, tuning: SegueTuning) -> SegueStretch? {
         let a = song.analysis
         guard bar >= 0, bar + bars <= song.bars, a.beatLength > 0 else { return nil }
         let firstBeat = a.firstBarBeat + 4 * bar
@@ -267,6 +484,8 @@ enum SeguePolicy {
         var bar: Int
         var rank: Double
         var boundary: Bool
+        /// The incoming song arrives here (its level rises past the window): see `arrival`.
+        var arrives = false
     }
 
     private struct Found {
@@ -385,22 +604,34 @@ enum SeguePolicy {
             return 1 - share
         }
 
-        /// The incoming song's first downbeat at its attack, then later section and phrase starts.
-        func entries(phrases: Bool, span: Double) -> [Point] {
+        /// How far the incoming song arrives right after a window of `bars` bars from `bar`, 0…1: its
+        /// level over the next 4 bars against the window's, from `arrivalRiseMin` to `arrivalRiseFull` dB.
+        func arrival(_ bar: Int, bars: Int) -> Double {
+            let end = bar + bars
+            guard bars > 0, end + 5 <= b.bars else { return 0 }
+            let rise = b.levelBars(end, end + 4) - b.levelBars(max(0, end - bars), end)
+            return max(0, min(1, (rise - t.arrivalRiseMin) / (t.arrivalRiseFull - t.arrivalRiseMin)))
+        }
+
+        /// The incoming song's first downbeat at its attack, then later section and phrase starts,
+        /// and, for a window of `bars` bars, where the song arrives after it.
+        func entries(phrases: Bool, span: Double, bars: Int = 0) -> [Point] {
             let first = b.barStarts.firstIndex { $0 >= b.analysis.soundStart - 0.08 }
             var points: [Point] = []
             if let first {
                 points.append(Point(time: b.barStarts[first], bar: first, rank: 1, boundary: true))
                 let zone = min(b.analysis.soundStart + t.entryZone, b.analysis.soundEnd / 3)
-                var bar = first + 4
+                var bar = first + 1
                 while bar < b.bars, b.barStarts[bar] < zone {
                     let on = b.boundary(bar)
-                    if on || !phrases {
+                    let arrives = bars > 0 ? arrival(bar, bars: bars) : 0
+                    if on || !phrases || arrives > 0 {
                         let base = b.sectionStrength(bar) > 0 ? t.entrySection : t.entryOther
                         let skipped = b.barStarts[bar] - b.analysis.soundStart
-                        points.append(Point(time: b.barStarts[bar], bar: bar, rank: base * (1 - skipped / t.entryZone), boundary: on))
+                        points.append(Point(time: b.barStarts[bar], bar: bar, rank: max(arrives, base * (1 - skipped / t.entryZone)),
+                                            boundary: on, arrives: arrives > 0))
                     }
-                    bar += 4
+                    bar += 1
                 }
             } else {
                 points.append(Point(time: b.analysis.soundStart, bar: -1, rank: 1, boundary: true))
@@ -546,7 +777,7 @@ enum SeguePolicy {
             let compiler = SegueCompiler(tuning: t)
             for bars in lengths {
                 let outs = exits(phrases: phrases, fitting: 0).compactMap { point -> (Point, SegueStretch)? in
-                    guard let stretch = SegueStretch.measure(a, bar: point.bar, bars: bars, tuning: t),
+                    guard let stretch = SegueStretch.measure(a, bar: point.bar, bars: bars, tuning: t, metre: a.tailMetre),
                           stretch.start >= zoneStart - 0.05, stretch.end <= a.analysis.soundEnd else { return nil }
                     return (point, stretch)
                 }
@@ -554,9 +785,12 @@ enum SeguePolicy {
                 // The incoming bars over the same time: as many, or half or twice as many (half or double tempo).
                 for (barsB, factor) in [(bars, 1.0), (bars / 2, 2.0), (bars * 2, 0.5)] {
                     if factor != 1, bars > t.lockedMiddleBars || barsB < t.lockedTinyBars { continue }
-                    let ins = entries(phrases: phrases, span: 0).compactMap { point -> (Point, SegueStretch)? in
-                        guard point.bar >= 0, let stretch = SegueStretch.measure(b, bar: point.bar, bars: barsB, tuning: t) else { return nil }
-                        return (point, stretch)
+                    let ins = entries(phrases: phrases, span: 0, bars: barsB).compactMap { point -> (Point, SegueStretch)? in
+                        guard point.bar >= 0 else { return nil }
+                        // A build-up the song arrives after takes the beat of what follows it.
+                        let stretch = SegueStretch.measure(b, bar: point.bar, bars: barsB, tuning: t, metre: b.headMetre)
+                            ?? (point.arrives ? SegueStretch.carried(b, bar: point.bar, bars: barsB, tuning: t, metre: b.headMetre) : nil)
+                        return stretch.map { (point, $0) }
                     }
                     for (exit, sa) in outs {
                         for (entry, sb) in ins {
@@ -584,7 +818,8 @@ enum SeguePolicy {
                             let score = score(exit: exit, entry: entry, length: sa.length, span: sb.length, lanes: lanes,
                                               phaseMedian: phase?.median, rateChange: change, pulse: pulse, effects: effects)
                             let lost = max(0, a.analysis.soundEnd - sa.end) + max(0, sb.start - b.analysis.soundStart)
-                            let pick = score - t.lostPickLocked * min(1, lost / t.lostFull)
+                            let arrival = entry.arrives && score >= t.thresholdLocked ? t.arrivalPick * entry.rank : 0
+                            let pick = score - t.lostPickLocked * min(1, lost / t.lostFull) + arrival
                             guard best.map({ pick > $0.pick }) ?? true else { continue }
                             let restore = max(t.restoreMinBeats, change / t.restorePerBeat) * sb.period / rate
                             let plan = SeguePlan(level: level, shape: shape, outgoingStart: sa.start, incomingStart: sb.start, rate: rate,
@@ -674,11 +909,11 @@ enum SeguePolicy {
         }
 
         mutating func hard(_ level: SegueLevel) -> Found? {
-            guard a.bars > 0, a.analysis.isGridLocked else { return fail(level, .noGrid) }
+            guard a.bars > 0, a.fromModel || a.analysis.isGridLocked else { return fail(level, .noGrid) }
             var best: Found?
             var refused: [String: Int] = [:]
             let compiler = SegueCompiler(tuning: t)
-            let beat = a.analysis.beatLength
+            let beat = a.beatPeriod
             for exit in exits(phrases: true, fitting: beat) {
                 for entry in entries(phrases: true, span: beat) {
                     let length = 2 * beat

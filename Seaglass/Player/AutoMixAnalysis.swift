@@ -50,6 +50,13 @@ struct TrackAnalysis: Codable, Equatable, Sendable {
     /// `MixFilters`). Nil in analyses made before 1.19.
     var beatHeard: [UInt8]? = nil
     var beatHeardBass: [UInt8]? = nil
+    /// Beat This!'s beats and downbeats (seconds) and each downbeat's logit (see `BeatThis`): the bars
+    /// AutoMix's live mix is planned on (`SegueSong`). Nil where the model didn't run (a build without
+    /// it, energy saving, an analysis made before 1.32): it runs the next time AutoMix needs the song.
+    /// Empty when it ran and found no beat.
+    var modelBeats: [Float]? = nil
+    var modelDownbeats: [Float]? = nil
+    var modelDownbeatLogits: [Float]? = nil
 
     var tempo: Double { 60 / beatLength }
     var beatCount: Int { beatLoudness.count }
