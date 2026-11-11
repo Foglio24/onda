@@ -94,8 +94,6 @@ struct SegueTuning: Sendable {
     var curveKnots = 16
     /// Loudness gap left alone, and the largest corrected, dB.
     var matchFromDB = 1.5, matchToDB = 6.0
-    /// Tempo back to the song's own after the window: share of the speed per beat, least beats.
-    var restorePerBeat = 0.001, restoreMinBeats = 16.0
 }
 
 /// What the policy reads of one song: its analysis, its bars, sections and measured voices. With
@@ -874,10 +872,9 @@ enum SeguePolicy {
                             let arrival = entry.arrives && score >= t.thresholdLocked ? t.arrivalPick * entry.rank : 0
                             let pick = score - t.lostPickLocked * min(1, lost / t.lostFull) + arrival
                             guard best.map({ pick > $0.pick }) ?? true else { continue }
-                            let restore = max(t.restoreMinBeats, change / t.restorePerBeat) * sb.period / rate
                             let plan = SeguePlan(level: level, shape: shape, outgoingStart: sa.start, incomingStart: sb.start, rate: rate,
                                                  length: sa.length, bars: bars, tempo: 60 / sa.period, phaseMedian: phase?.median,
-                                                 phaseP95: phase?.p95, lanes: lanes, swap: swap, restoreSeconds: restore,
+                                                 phaseP95: phase?.p95, lanes: lanes, swap: swap,
                                                  echoDelay: shape == .echoTail ? echoDelay(sa.period) : nil)
                             best = Found(plan: plan, score: score, pick: pick)
                         }
@@ -976,7 +973,7 @@ enum SeguePolicy {
                         guard best.map({ pick > $0.pick }) ?? true else { continue }
                         let plan = SeguePlan(level: level, shape: shape, outgoingStart: exit.time, incomingStart: entry.time, rate: 1,
                                              length: length, bars: nil, tempo: nil, phaseMedian: nil, phaseP95: nil, lanes: lanes,
-                                             swap: t.filteredSwap, restoreSeconds: 0,
+                                             swap: t.filteredSwap,
                                              echoDelay: shape == .echoOut ? echoDelay(a.beatPeriod) : nil)
                         best = Found(plan: plan, score: score, pick: pick)
                     }
@@ -1010,7 +1007,7 @@ enum SeguePolicy {
                     let start = max(0, exit.time - beat), entryStart = max(0, entry.time - beat)
                     let plan = SeguePlan(level: level, shape: .cut, outgoingStart: start, incomingStart: entryStart, rate: 1,
                                          length: length, bars: nil, tempo: nil, phaseMedian: nil, phaseP95: nil, lanes: lanes,
-                                         swap: 0.5, restoreSeconds: 0)
+                                         swap: 0.5)
                     best = Found(plan: plan, score: score, pick: score)
                 }
             }
@@ -1035,7 +1032,7 @@ enum SeguePolicy {
                 return fail(level, .noCandidate)
             }
             let plan = SeguePlan(level: level, shape: .fade, outgoingStart: start, incomingStart: entry, rate: 1, length: length,
-                                 bars: nil, tempo: nil, phaseMedian: nil, phaseP95: nil, lanes: lanes, swap: 0.5, restoreSeconds: 0)
+                                 bars: nil, tempo: nil, phaseMedian: nil, phaseP95: nil, lanes: lanes, swap: 0.5)
             return Found(plan: plan, score: 0, pick: 0)
         }
     }

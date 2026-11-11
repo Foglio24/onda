@@ -36,15 +36,18 @@ grep -q "segue: locked" "$work/live.log" || { echo "::error::The two songs weren
 grep -q "segue: window" "$work/live.log" || { echo "::error::The live mix's window never opened"; failed=1; }
 grep -q "segue: mixed" "$work/live.log" || { echo "::error::The live mix didn't reach its end"; failed=1; }
 grep -q "segue-scene: next song" "$work/live.log" || { echo "::error::The next song didn't take over"; failed=1; }
-# The song a live mix brought in comes back to its own speed, and its own transition into the next
-# follows: a finished mix must not hold the next one back.
-grep -q "segue: back to its own speed" "$work/live.log" || { echo "::error::The song brought in never came back to its own speed"; failed=1; }
+# The song a live mix brought in plays at its own speed after the window, and its own transition
+# into the next follows: a finished mix must not hold the next one back.
+grep -q "segue: back to its own speed" "$work/live.log" || { echo "::error::The live mix never finished after its window"; failed=1; }
 mixes=$(grep -c "segue: mixed" "$work/live.log")
 [ "$mixes" -ge 2 ] || { echo "::error::Only $mixes live mix(es) in three songs: the next transition didn't come after the first"; failed=1; }
 grep -q "segue-scene: next song Segue C" "$work/live.log" || { echo "::error::The third song didn't take over"; failed=1; }
-# The samples through the song's deck follow on from each other after the window (no rendering
-# again on the speed's steps back): informative, the speakers aren't measured.
-grep -o "segue: back to its own speed.*" "$work/live.log" | sed "s/^/Restore: /"
+# How often the players rendered their sound again (each change of a player's rate does): the
+# speed changes while the next song was heard, and the jumps in each deck's samples. Informative:
+# the speakers aren't measured.
+grep -o "segue: back to its own speed.*" "$work/live.log" | sed "s/^/After the window: /"
+heard=$(grep -o "heard with [0-9]* speed changes" "$work/live.log" | grep -o "[0-9]*" | sort -n | tail -1)
+if [ -n "$heard" ] && [ "$heard" -gt 4 ]; then echo "::warning::The next song's speed changed $heard times while heard"; fi
 if grep -q "segue: \(lost\|dropped\)" "$work/live.log"; then echo "::warning::The live mix was left or dropped (see the log)"; fi
 # The second player's worst distance from its place while both were heard: beats more than 30 ms
 # apart start to flam, past 100 ms they are two beats.

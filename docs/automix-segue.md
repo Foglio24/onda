@@ -83,7 +83,7 @@ Settings › Riproduzione, under Mix dal vivo:
 
 Guards reject a candidate whatever its score:
 
-- the incoming song's speed changes by more than 8 %;
+- the two songs' tempos are more than 8 % apart (the speed change the mix needs);
 - the expected beat misalignment exceeds 20 ms (median) or 40 ms (95th percentile);
 - the grids drift apart by more than 0.1 beat over the window;
 - two voices are heard together, both within 10 dB of full level, for more than 1 second
@@ -134,25 +134,31 @@ in under a lock the audio thread only tries.
 `SegueSession` runs the transition:
 
 1. 15 seconds before the window, the next song is loaded on a second player, its deck armed and
-   prerolled at the plan's speed (within 1 % by resampling, more with the pitch kept by Apple's
-   spectral algorithm, as Tempo's key lock does; the time-domain one is made for speech and
-   stutters on music).
+   prerolled at the plan's speed. It keeps the app's way of changing speed (Tempo's key lock:
+   Apple's spectral algorithm, or resampling); never the time-domain one, which is made for speech
+   and stutters on music.
 2. 2.5 seconds before the window it starts, silent, at an exact moment of the system clock
    computed from the playing song's timebase.
 3. Every 50 ms its distance from its place is measured (the median of the last five readings: a
    player's time moves in steps of 10–20 ms) and made good by nudging its speed. While silent it
-   is corrected fast: up to 8 % over 0.3 s, with a seek if it is more than 0.4 s off. Once heard
-   it is corrected gently, so its tempo never sways: nothing within 12 ms, then up to 0.8 % over
-   2 s (1.5 % over 0.8 s while it is still low in the mix). On CI's Mac (two songs made by the
-   app, 126 BPM slowed to 124) its time was on its place when the window opened and stayed there
-   through a 16-bar mix, by the two players' clocks. Both play to the same output, so what is
-   heard keeps that alignment; it hasn't been measured on the sound itself.
-4. When the window starts, the second player becomes the main one (the queue moves on). When it
-   ends, the old player is released and the new song goes back to its own speed over the plan's
-   time for it (0.1 % per beat, at least 16 beats), in a few steps too small to hear: 0.25 % while
-   the pitch moves with the speed, 0.5 % while it is kept. Few, because each is a change of the
-   player's rate and the song is now heard on its own.
-5. Until then nothing else starts: the song's own preparation (its local copy, the next song's
+   is corrected fast: up to 8 % over 0.3 s, with a seek if it is more than 0.4 s off.
+4. When the window opens (on its first downbeat), the speeds change hands, in step as they were:
+   the playing song goes to the next one's tempo (its pitch kept beyond 1 %), the next song, still
+   silent there, to its own speed, which it keeps. The second player becomes the main one (the
+   queue moves on). The reason: a player renders its sound again whenever its rate changes, and
+   that can be heard. On CI's Mac every change made the deck's samples jump; bringing the song
+   back to its speed after the window, in steps every 250 ms with the time-domain algorithm, was
+   heard on an iPhone as sound coming and going for 10–20 seconds. Now the song that stays is
+   never changed while it is heard on its own, and the one that goes changes once.
+5. Once heard, the next song is corrected only when it drifts, so its tempo never sways and its
+   player seldom renders again: nothing until it is 20 ms off, then up to 0.8 % over 2 s (1.5 %
+   over 0.8 s while it is still low in the mix) until it is within 5 ms. On CI's Mac (songs made by
+   the app, 126 BPM to 124 and 128 to 126) it was on its place when the window opened and stayed
+   there through 8- and 16-bar mixes, by the two players' clocks. Both play to the same output, so
+   what is heard keeps that alignment; it hasn't been measured on the sound itself.
+6. When the window ends, a correction still under way is taken back (one change), and the old
+   player is released once its sound (and its echo) is out.
+7. Until then nothing else starts: the song's own preparation (its local copy, the next song's
    stream) and the analysis of the transition into the next song wait, so that the vocal model
    doesn't compete with two players for the processor. Then the session goes, and the next
    transition is planned as for any song.
@@ -173,14 +179,17 @@ heard, the lanes ramp back to plain sound over 0.4 s and the songs carry on as t
 - The faders' sum is bounded, but there is no limiter shared by the two players (each plays on its
   own `AVPlayer`; iOS mixes them).
 - Album songs played in order keep Seaglass's album junction, rendered exactly.
-- The incoming song's speed is changed by `AVPlayer` (resampling within 1 %, time stretching
-  beyond), not by a dedicated time-stretch engine.
+- Speeds are changed by `AVPlayer` (resampling, or time stretching with the pitch kept), not by a
+  dedicated time-stretch engine. A player's rate can't glide without its sound being rendered
+  again, so the speeds change hands once, when the window opens, instead of the next song being
+  brought back to its own speed little by little after it.
 
 ## Checks
 
 On CI's Mac, `bash Tools/SegueScene/run.sh` plays three songs made by the app (124, 126 and
-128 BPM) through two live mixes in a row, and checks that each song brought in comes back to its
-own speed and that the second mix comes after the first.
+128 BPM) through two live mixes in a row, and checks that each song brought in plays at its own
+speed after its window and that the second mix comes after the first. Its log counts the speed
+changes while the next song is heard and the jumps in each deck's samples.
 
 `bash Tools/SegueCheck/run.sh` builds songs whose beats, bars and voices are known and checks the
 levels the policy reaches and why the others were refused, that plans are valid and the same for

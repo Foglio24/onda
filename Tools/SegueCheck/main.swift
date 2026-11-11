@@ -145,7 +145,6 @@ if let plan = close.plan {
     // Its bars as long as the outgoing song's: a 126 BPM song slowed to 124 BPM.
     expect(abs(plan.rate - 124.0 / 126.0) < 0.005, "the incoming song plays at the outgoing one's tempo (rate \(format(plan.rate, 4)))")
     expect((plan.phaseMedian ?? 1) <= 0.02, "beats within 20 ms (median \(format((plan.phaseMedian ?? 1) * 1000, 1)) ms)")
-    expect(plan.restoreSeconds > 0, "the incoming song goes back to its own speed afterwards (\(format(plan.restoreSeconds, 1)) s)")
 }
 let again = decide(a, b)
 expect(again.plan == close.plan, "the same songs, the same plan")
@@ -319,7 +318,7 @@ expect(process(idle, tone, start: 0, rate: deckRate) == tone, "unarmed, a deck l
 
 let compiler = SegueCompiler(tuning: SegueTuning())
 let fadePlan = SeguePlan(level: .simpleFade, shape: .fade, outgoingStart: 4, incomingStart: 4, rate: 1, length: 4, bars: nil,
-                         tempo: nil, phaseMedian: nil, phaseP95: nil, lanes: compiler.fade(), swap: 0.5, restoreSeconds: 0)
+                         tempo: nil, phaseMedian: nil, phaseP95: nil, lanes: compiler.fade(), swap: 0.5)
 let incomingDeck = SegueStage()
 incomingDeck.prepare(sampleRate: deckRate, channels: 2, isFloat: true)
 incomingDeck.arm(fadePlan, side: .incoming)
@@ -366,7 +365,7 @@ expect(abs(rms(afterRelease, from: 1, to: 2) / full - 1) < 0.02, "released halfw
 // A sweep from open to 400 Hz on noise: finite, never louder than it came in.
 let sweepPlan = SeguePlan(level: .filtered, shape: .sweepOut, outgoingStart: 1, incomingStart: 1, rate: 1, length: 8, bars: nil,
                           tempo: nil, phaseMedian: nil, phaseP95: nil, lanes: compiler.filtered(.sweepOut, matchA: 1, matchB: 1),
-                          swap: 0.6, restoreSeconds: 0)
+                          swap: 0.6)
 var white = Random(state: 9)
 let noiseIn = (0..<Int(deckRate * 10)).map { _ in 0.5 * white.next() }
 let sweeper = SegueStage()
@@ -378,7 +377,7 @@ expect(swept.allSatisfy { $0.isFinite } && (swept.map(abs).max() ?? 9) <= 0.75, 
 // The echo: the outgoing song's last beats thrown into it as its fader shuts, the repeats ringing on.
 let echoLanes = compiler.locked(.echoTail, swap: 0.5, beatShare: 1.0 / 16, matchA: 1, matchB: 1)
 let echoPlan = SeguePlan(level: .lockedShort, shape: .echoTail, outgoingStart: 2, incomingStart: 2, rate: 1, length: 4, bars: 2,
-                         tempo: 120, phaseMedian: 0.001, phaseP95: 0.002, lanes: echoLanes, swap: 0.5, restoreSeconds: 0, echoDelay: 0.375)
+                         tempo: 120, phaseMedian: 0.001, phaseP95: 0.002, lanes: echoLanes, swap: 0.5, echoDelay: 0.375)
 expect(SegueValidator.problems(echoPlan, outgoingDuration: 12, incomingDuration: 12).isEmpty,
        "an echo plan is valid \(SegueValidator.problems(echoPlan, outgoingDuration: 12, incomingDuration: 12))")
 expect(!SegueValidator.problems(echoPlan, outgoingDuration: 7, incomingDuration: 12).isEmpty, "and refused without room for its repeats")

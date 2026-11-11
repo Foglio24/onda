@@ -201,8 +201,6 @@ struct SeguePlan: Equatable, Codable, Sendable {
     var lanes: [SegueLane]
     /// Where the bass changes hands, 0…1 of the window.
     var swap: Double
-    /// Seconds the incoming song takes after the window to return to its own speed.
-    var restoreSeconds: Double
     /// The echo's delay (seconds, on the outgoing song's beat), for the shapes that throw it into one.
     var echoDelay: Double? = nil
     var score: Double?

@@ -422,7 +422,7 @@ final class PlayerController: ObservableObject {
         let wasMixing = songTempo == 0
         songTempo = value
         UserDefaults.standard.set(value, forKey: Preferences.songTempo)
-        // A live mix still bringing the song back to its own speed gives way to the tempo set.
+        // A live mix still finishing (just after its window) gives way to the tempo set.
         if let session = segueSession, session.phase == .restoring {
             session.settle()
             segueSession = nil
@@ -493,8 +493,8 @@ final class PlayerController: ObservableObject {
 
     /// The player plays at `playbackRate` from its next `play()` on, and right away if it is playing.
     private func applyRate() {
-        // A song coming in through a live mix plays at the speed its session sets (in step, then back
-        // to its own): nothing here may jump it to another.
+        // A song coming in through a live mix plays at the speed its session sets (the plan's, then
+        // its own, corrected while it is mixed): nothing here may jump it to another.
         if let session = segueSession, session.player === player, session.phase == .mixing || session.phase == .restoring {
             if session.next.id == current?.id {
                 player.defaultRate = session.rate
@@ -1838,9 +1838,9 @@ final class PlayerController: ObservableObject {
     /// takes over from the playing song at the plan's handover. Until it is ready the song ends with
     /// a short plain crossfade.
     private func prepareAutoMix() {
-        // While a live mix brings the playing song in, and back to its own speed, the next transition
-        // waits (see `segueFinished`): its analysis and the vocal model would compete with two
-        // players, one of them time-stretched, for the processor.
+        // While a live mix brings the playing song in, the next transition waits (see
+        // `segueFinished`): its analysis and the vocal model would compete with two players, one of
+        // them time-stretched, for the processor.
         if liveMixBringingIn { return }
         // With the tempo changed AutoMix waits, but the tempo panel shows the song's BPM: each song's
         // is measured as it starts, so it's there when the panel opens.
@@ -2168,7 +2168,8 @@ final class PlayerController: ObservableObject {
         SegueSession.logs = LaunchScene.isActive
         if LaunchScene.isActive { print("segue: arming \(session.summary)") }
         Task {
-            guard await session.prepare(spatial: Self.spatializationFormats), self.segueSession === session, self.player === outgoing else {
+            guard await session.prepare(spatial: Self.spatializationFormats, pitch: PlaybackTempo.pitchAlgorithm),
+                  self.segueSession === session, self.player === outgoing else {
                 if self.segueSession === session { self.dropSegue(session, reason: "not ready") }
                 return
             }
@@ -2258,6 +2259,8 @@ final class PlayerController: ObservableObject {
         session.abandon()
         if segueSession === session { segueSession = nil }
         seguePlanned = nil
+        // The playing song back at its own speed, had the window opened (the speeds change hands then).
+        applyRate()
         noteHandover(String(localized: "mix non pronto: dissolvenza semplice") + " (\(reason))")
         if LaunchScene.isActive { print("segue: dropped (\(reason))") }
         guard let track = current, index + 1 < queue.count else { return }
@@ -2266,8 +2269,9 @@ final class PlayerController: ObservableObject {
         prepareAutoMix()
     }
 
-    /// The song a live mix brought in is back at its own speed: the session goes, and what waited for
-    /// it (the song's own preparation, the transition into the next one) starts.
+    /// The live mix that brought the playing song in is over (the song at its own speed, the one before
+    /// it gone): the session goes, and what waited for it (the song's own preparation, the transition
+    /// into the next one) starts.
     private func segueFinished(_ session: SegueSession) {
         guard segueSession === session else { return }
         segueSession = nil
@@ -2276,8 +2280,8 @@ final class PlayerController: ObservableObject {
         prepareAutoMix()
     }
 
-    /// A session that is over, or still bringing in a song that no longer plays, gives way to the next
-    /// one; one bringing the playing song back to its speed ends there at once.
+    /// A session that is over, or still finishing for a song that no longer plays, gives way to the
+    /// next one; one still finishing for the playing song ends there at once.
     private func retireSegue() {
         guard let session = segueSession else { return }
         switch session.phase {
@@ -2291,7 +2295,8 @@ final class PlayerController: ObservableObject {
         }
     }
 
-    /// A live mix is bringing the playing song in (its window), or back to its own speed.
+    /// A live mix is bringing the playing song in: its window, and the moment after it while the song
+    /// before it rings out.
     private var liveMixBringingIn: Bool {
         guard let session = segueSession, session.next.id == current?.id else { return false }
         return session.phase == .mixing || session.phase == .restoring
