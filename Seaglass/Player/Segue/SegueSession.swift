@@ -3,8 +3,8 @@ import AVFoundation
 /// A live AutoMix transition (see `SeguePolicy`): the next song on a second player, prepared ahead,
 /// started a little before the window in step with the playing song (silent: its lanes hold it so
 /// until the window), and kept there by small changes of its speed while the two are heard together.
-/// After the window it goes back to its own speed little by little. The lanes themselves play inside
-/// each player's audio processing (`SegueStage`), by each song's own time.
+/// After the window it goes back to its own speed in steps too small to hear. The lanes themselves
+/// play inside each player's audio processing (`SegueStage`), by each song's own time.
 @MainActor
 final class SegueSession {
     enum Phase: String { case preparing, ready, running, mixing, restoring, finished, abandoned }
@@ -40,6 +40,13 @@ final class SegueSession {
     /// When it starts on the system clock (seconds): before then (and just after) its time says
     /// where it will start, not where it is, so it isn't measured.
     private var startsAt = 0.0
+    /// Called once the next song is back at its own speed (not when the session is dropped or stopped).
+    var finished: (() -> Void)?
+    /// For CI's log: speed changes while it was heard, and the steps back to its own.
+    private(set) var heardRateChanges = 0
+    private(set) var restoreSteps = 0
+    /// The incoming deck's jumps (see `SegueStage.jumps`) when the window opened and when it closed.
+    private var jumpsAtWindow = 0, jumpsAtEnd = 0
 
     init(plan: SeguePlan, outgoingTrackID: String, next: Track, file: URL, label: String, incomingGain: Float,
          outgoingStage: SegueStage, outgoingOffset: Double = 0) {
@@ -66,8 +73,9 @@ final class SegueSession {
         let item = AVPlayerItem(url: file)
         item.allowedAudioSpatializationFormats = spatial
         // Within 1 % by resampling alone (the pitch moves by under 17 cents until it comes back);
-        // more keeps the pitch.
-        item.audioTimePitchAlgorithm = abs(plan.rate - 1) <= 0.01 ? .varispeed : .timeDomain
+        // more keeps the pitch with the spectral algorithm, as Tempo's key lock does. Not the
+        // time-domain one: it is made for speech, and on music it stutters.
+        item.audioTimePitchAlgorithm = abs(plan.rate - 1) <= 0.01 ? .varispeed : .spectral
         let effects = await AudioEffects.mix(for: item, gain: incomingGain, segue: incomingStage)
         guard effects.segue != nil, phase == .preparing else { return false }
         item.audioMix = effects.mix
@@ -122,12 +130,24 @@ final class SegueSession {
         task = Task {
             var readings: [Double] = []
             var loggedAt = 0.0
+            var outgoingGone = 0
             while !Task.isCancelled {
                 try? await Task.sleep(for: .milliseconds(50))
                 guard !Task.isCancelled, phase == .running || phase == .mixing else { return }
-                guard let outgoingTime = outgoingTime() else { continue }
+                guard let outgoingTime = outgoingTime() else {
+                    // The playing song stopped (its item ended or was let go) while the next one plays
+                    // on: after 2 seconds the window is over, so the next song still comes back to
+                    // its speed and nothing waits on it for ever.
+                    if phase == .mixing, player.timeControlStatus == .playing {
+                        outgoingGone += 1
+                        if outgoingGone >= 40 { break }
+                    }
+                    continue
+                }
+                outgoingGone = 0
                 if phase == .running, outgoingTime >= plan.outgoingStart {
                     phase = .mixing
+                    jumpsAtWindow = incomingStage.jumps
                     window()
                 }
                 if outgoingTime >= plan.outgoingEnd { break }
@@ -162,6 +182,7 @@ final class SegueSession {
                 if abs(target - rate) > 0.0005 {
                     player.rate = target
                     rate = target
+                    if heard { heardRateChanges += 1 }
                 }
                 if Self.logs, outgoingTime - loggedAt >= 1 {
                     loggedAt = outgoingTime
@@ -169,6 +190,8 @@ final class SegueSession {
                 }
             }
             guard !Task.isCancelled else { return }
+            phase = .restoring
+            jumpsAtEnd = incomingStage.jumps
             ended()
             await restore()
         }
@@ -177,21 +200,49 @@ final class SegueSession {
     /// Once a second in CI's log: how far the next song is from its place.
     static var logs = false
 
-    /// Back to its own speed: a little at a time, so it is never heard as a jump.
+    /// Back to its own speed (from `restoring`), never heard as a jump: in steps of at most 0.25 %
+    /// while the pitch moves with it (4 cents), 0.5 % while it is kept, spread over the plan's time
+    /// for it. Few steps rather than many: each is a change of the player's rate, which is all the
+    /// player has, and the song is heard on its own by now.
     private func restore() async {
-        phase = .restoring
-        let from = Double(player.rate)
-        guard abs(from - 1) > 0.0005 else {
+        guard phase == .restoring else { return }
+        // The session's own speed, not the player's: paused, that one reads 0.
+        let from = Double(rate)
+        let change = 1 - from
+        if abs(change) > 0.0005 {
+            let largest = item?.audioTimePitchAlgorithm == .varispeed ? 0.0025 : 0.005
+            let steps = max(1, Int((abs(change) / largest).rounded(.up)))
+            let spacing = max(0.25, plan.restoreSeconds / Double(steps))
+            for step in 1...steps {
+                try? await Task.sleep(for: .seconds(spacing))
+                guard !Task.isCancelled, phase == .restoring else { return }
+                setRate(Float(from + change * Double(step) / Double(steps)))
+                restoreSteps = step
+            }
+        } else {
             setRate(1)
-            phase = .finished
-            return
         }
-        let steps = max(1, Int(plan.restoreSeconds / 0.25))
-        for step in 1...steps {
-            try? await Task.sleep(for: .milliseconds(250))
-            guard !Task.isCancelled, phase == .restoring else { return }
-            setRate(Float(from + (1 - from) * Double(step) / Double(steps)))
+        guard phase == .restoring else { return }
+        phase = .finished
+        if Self.logs {
+            print(String(format: "segue: back to its own speed in %d steps; heard with %d speed changes; incoming deck jumps: %d in the window, %d after it",
+                         restoreSteps, heardRateChanges, jumpsAtEnd - jumpsAtWindow, incomingStage.jumps - jumpsAtEnd))
         }
+        finished?()
+    }
+
+    /// Done with at once (the song it brought in is no longer playing, or the next mix needs its
+    /// place): nothing more is changed on the player.
+    func stop() {
+        task?.cancel()
+        if phase != .abandoned { phase = .finished }
+    }
+
+    /// Back to its own speed at once (the next mix must start from it): the last of the way in one step.
+    func settle() {
+        guard phase == .restoring else { return }
+        task?.cancel()
+        setRate(1)
         phase = .finished
     }
 
@@ -204,12 +255,12 @@ final class SegueSession {
     /// The next song goes back to its plain sound (the mix was left while it is heard): its lanes
     /// ramp out and its speed returns to its own.
     func releaseIncoming() {
-        task?.cancel()
         incomingStage.release(over: 0.4)
-        if phase != .finished, phase != .abandoned {
-            phase = .restoring
-            Task { await restore() }
-        }
+        // Already on its way back (the window is over), it carries on.
+        guard phase != .restoring, phase != .finished, phase != .abandoned else { return }
+        task?.cancel()
+        phase = .restoring
+        Task { await restore() }
     }
 
     /// The playing song goes back to its plain sound (the next one stalled while heard).

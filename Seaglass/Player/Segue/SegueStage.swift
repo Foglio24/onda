@@ -80,6 +80,9 @@ final class SegueStage: @unchecked Sendable {
     /// The song time at the end of the last block processed (read by the main thread, unsynchronised:
     /// a Double written whole by one thread).
     private(set) var processedTime = -Double.infinity
+    /// How many times the samples didn't follow on from the last ones (a seek, or the player
+    /// rendering again after a change), for CI's log; written by the audio thread alone, as above.
+    private(set) var jumps = 0
 
     init() {
         pending = .allocate(capacity: Self.programCount)
@@ -220,6 +223,7 @@ final class SegueStage: @unchecked Sendable {
             echoSend = send
             start += count
         }
+        if processedTime.isFinite, abs(time - processedTime) > 0.002 { jumps &+= 1 }
         processedTime = time + Double(frames) * step
         lastProcessed = processedTime
     }

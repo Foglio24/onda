@@ -368,10 +368,11 @@ jobs:
         timeout-minutes: 2
         run: bash Tools/MacPlayerCheck/run.sh build-mac/Build/Products/Release-maccatalyst/Seaglass.app
 
-      # AutoMix's live transition between two songs the app makes: planned beat-matched, the next
-      # song started on a second player in step, mixed in, and the rendered mix with it turned off.
+      # AutoMix's live transitions between three songs the app makes: planned beat-matched, each next
+      # song started on a second player in step, mixed in and brought back to its own speed, two
+      # mixes in a row; and the rendered mix with it turned off.
       - name: Check AutoMix's live mix on the Mac
-        timeout-minutes: 12
+        timeout-minutes: 15
         run: bash Tools/SegueScene/run.sh build-mac/Build/Products/Release-maccatalyst/Seaglass.app
 
       # Signed in to a throwaway account on the live account service, as the sign-in sheet leaves it:

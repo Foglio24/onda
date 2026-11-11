@@ -422,6 +422,11 @@ final class PlayerController: ObservableObject {
         let wasMixing = songTempo == 0
         songTempo = value
         UserDefaults.standard.set(value, forKey: Preferences.songTempo)
+        // A live mix still bringing the song back to its own speed gives way to the tempo set.
+        if let session = segueSession, session.phase == .restoring {
+            session.settle()
+            segueSession = nil
+        }
         applyRate()
         // AutoMix and the crossfade pause while the tempo is changed, and come back at 0.
         if wasMixing != (value == 0) {
@@ -491,9 +496,14 @@ final class PlayerController: ObservableObject {
         // A song coming in through a live mix plays at the speed its session sets (in step, then back
         // to its own): nothing here may jump it to another.
         if let session = segueSession, session.player === player, session.phase == .mixing || session.phase == .restoring {
-            player.defaultRate = session.rate
-            updateNowPlayingInfo()
-            return
+            if session.next.id == current?.id {
+                player.defaultRate = session.rate
+                updateNowPlayingInfo()
+                return
+            }
+            // Another song plays on its player now (a skip): the session leaves the speed alone.
+            session.stop()
+            segueSession = nil
         }
         let rate = playbackRate
         if let item = player.currentItem, item.audioTimePitchAlgorithm != pitchAlgorithm {
@@ -1521,7 +1531,7 @@ final class PlayerController: ObservableObject {
     /// prepared player, which would otherwise compete with the stream's first seconds.
     private func startDeferredPreparation() {
         guard let pending = deferredPreparation, requests.isCurrentLoad(pending.generation),
-              current?.id == pending.track.id else { return }
+              current?.id == pending.track.id, !liveMixBringingIn else { return }
         deferredPreparation = nil
         prepareCurrentAudio(for: pending.track)
         prefetchNext()
@@ -1828,6 +1838,10 @@ final class PlayerController: ObservableObject {
     /// takes over from the playing song at the plan's handover. Until it is ready the song ends with
     /// a short plain crossfade.
     private func prepareAutoMix() {
+        // While a live mix brings the playing song in, and back to its own speed, the next transition
+        // waits (see `segueFinished`): its analysis and the vocal model would compete with two
+        // players, one of them time-stretched, for the processor.
+        if liveMixBringingIn { return }
         // With the tempo changed AutoMix waits, but the tempo panel shows the song's BPM: each song's
         // is measured as it starts, so it's there when the panel opens.
         if songTempo != 0, playWhenReady { measureSongBPM() }
@@ -2128,6 +2142,7 @@ final class PlayerController: ObservableObject {
     /// start), the song ends with a plain crossfade instead.
     private func followSegue(_ planned: SeguePlanned, at seconds: TimeInterval) {
         let start = planned.plan.outgoingStart
+        retireSegue()
         guard segueSession == nil else { return }
         if seconds >= start - SegueSession.prepareLead, seconds < start - SegueSession.runUp - 1 {
             armSegue(planned)
@@ -2144,6 +2159,10 @@ final class PlayerController: ObservableObject {
         let session = SegueSession(plan: planned.plan, outgoingTrackID: track.id, next: queue[index + 1], file: planned.file,
                                    label: planned.label, incomingGain: planned.incomingGain, outgoingStage: planned.outgoingStage,
                                    outgoingOffset: offset)
+        session.finished = { [weak self, weak session] in
+            guard let self, let session else { return }
+            self.segueFinished(session)
+        }
         segueSession = session
         let outgoing = player
         SegueSession.logs = LaunchScene.isActive
@@ -2245,6 +2264,37 @@ final class PlayerController: ObservableObject {
         segueRefusedPair = "\(track.id)>\(queue[index + 1].id)"
         autoMixPair = nil
         prepareAutoMix()
+    }
+
+    /// The song a live mix brought in is back at its own speed: the session goes, and what waited for
+    /// it (the song's own preparation, the transition into the next one) starts.
+    private func segueFinished(_ session: SegueSession) {
+        guard segueSession === session else { return }
+        segueSession = nil
+        guard current?.id == session.next.id else { return }
+        startDeferredPreparation()
+        prepareAutoMix()
+    }
+
+    /// A session that is over, or still bringing in a song that no longer plays, gives way to the next
+    /// one; one bringing the playing song back to its speed ends there at once.
+    private func retireSegue() {
+        guard let session = segueSession else { return }
+        switch session.phase {
+        case .finished, .abandoned:
+            segueSession = nil
+        case .restoring:
+            if session.next.id == current?.id { session.settle() } else { session.stop() }
+            segueSession = nil
+        case .preparing, .ready, .running, .mixing:
+            break
+        }
+    }
+
+    /// A live mix is bringing the playing song in (its window), or back to its own speed.
+    private var liveMixBringingIn: Bool {
+        guard let session = segueSession, session.next.id == current?.id else { return false }
+        return session.phase == .mixing || session.phase == .restoring
     }
 
     /// A live plan in words, for the queue.
@@ -2454,9 +2504,11 @@ final class PlayerController: ObservableObject {
         autoMix = nil
         seguePlanned = nil
         segueNormalPair = nil
-        // A live mix not yet heard is dropped; one under way plays on.
+        // A live mix not yet heard is dropped; one under way plays on; one that is over is forgotten.
         if let session = segueSession, [.preparing, .ready, .running].contains(session.phase) {
             session.abandon()
+            segueSession = nil
+        } else if let session = segueSession, session.phase == .finished || session.phase == .abandoned {
             segueSession = nil
         }
         if autoMixNote != nil { autoMixNote = nil }

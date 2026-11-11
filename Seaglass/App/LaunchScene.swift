@@ -191,38 +191,47 @@ enum LaunchScene {
                 print("zoom: \(report); window \(before) → \(size())")
             }
         case "segue":
-            // CI: AutoMix's live transition (see `SegueSession`) between two songs made here, 124 and
-            // 126 BPM, two minutes each, played from their files from 40 s in; the player's log says
-            // what was planned and how the second player kept in step. "off": the live mix turned off;
-            // "alac": the songs in ALAC, as the "Massima" downloads are, instead of AAC.
+            // CI: AutoMix's live transition (see `SegueSession`) between songs made here, 124, 126 and
+            // 128 BPM, two minutes each, played from their files from 40 s in; the player's log says
+            // what was planned and how the second player kept in step. Live, three songs: the second
+            // mix must come too, once the first song brought in is back at its own speed. "off": the
+            // live mix turned off; "alac": the songs in ALAC instead of AAC (two songs each).
             Task {
                 let first = Track(videoId: "SeaglassSegueDemoA", title: "Segue A", artists: ["Seaglass Demo"], duration: 120)
                 let second = Track(videoId: "SeaglassSegueDemoB", title: "Segue B", artists: ["Seaglass Demo"], duration: 120)
+                let third = Track(videoId: "SeaglassSegueDemoC", title: "Segue C", artists: ["Seaglass Demo"], duration: 120)
+                let live = value.isEmpty
                 await Task.detached(priority: .userInitiated) {
                     let alac = value == "alac"
                     try? Self.writeDemoSong(to: Storage.audioFile(for: "SeaglassSegueDemoA"), bpm: 124, root: 57, introBars: 0,
                                             seconds: 120, alac: alac)
                     try? Self.writeDemoSong(to: Storage.audioFile(for: "SeaglassSegueDemoB"), bpm: 126, root: 60, introBars: 4,
                                             seconds: 120, alac: alac)
+                    if live {
+                        try? Self.writeDemoSong(to: Storage.audioFile(for: "SeaglassSegueDemoC"), bpm: 128, root: 62, introBars: 4,
+                                                seconds: 120, alac: alac)
+                    }
                 }.value
                 UserDefaults.standard.set(SongTransition.autoMix.rawValue, forKey: Preferences.songTransition)
                 UserDefaults.standard.set(value != "off", forKey: Preferences.liveMix)
                 let player = PlayerController.shared
-                player.play([first, second], source: "Segue demo")
+                player.play(live ? [first, second, third] : [first, second], source: "Segue demo")
                 router.openPlayer()
                 try? await Task.sleep(for: .seconds(2))
                 player.seek(to: 40)
-                var handedOver = false
-                for _ in 0..<200 {
+                let songs = live ? [second, third] : [second]
+                var arrived = 0
+                for _ in 0..<600 {
                     try? await Task.sleep(for: .milliseconds(500))
-                    if !handedOver, player.current?.id == second.id {
-                        handedOver = true
-                        print(String(format: "segue-scene: next song at %.1f s, %@", player.progress.currentTime, player.autoMixNote ?? "-"))
-                    } else if handedOver, player.progress.currentTime > 45 {
+                    if arrived < songs.count, player.current?.id == songs[arrived].id {
+                        print(String(format: "segue-scene: next song %@ at %.1f s, %@", songs[arrived].title,
+                                     player.progress.currentTime, player.autoMixNote ?? "-"))
+                        arrived += 1
+                    } else if arrived == songs.count, player.progress.currentTime > 45 {
                         break
                     }
                 }
-                print(handedOver ? "segue-scene: done" : "segue-scene: the next song never came")
+                print(arrived == songs.count ? "segue-scene: done" : "segue-scene: the next song never came")
             }
         case "tempo-live":
             // A real song played from its stream (`value`, a video id): the tempo panel's BPM, as

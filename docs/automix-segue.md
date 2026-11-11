@@ -134,7 +134,9 @@ in under a lock the audio thread only tries.
 `SegueSession` runs the transition:
 
 1. 15 seconds before the window, the next song is loaded on a second player, its deck armed and
-   prerolled at the plan's speed (within 1 % by resampling, more with the pitch kept).
+   prerolled at the plan's speed (within 1 % by resampling, more with the pitch kept by Apple's
+   spectral algorithm, as Tempo's key lock does; the time-domain one is made for speech and
+   stutters on music).
 2. 2.5 seconds before the window it starts, silent, at an exact moment of the system clock
    computed from the playing song's timebase.
 3. Every 50 ms its distance from its place is measured (the median of the last five readings: a
@@ -146,8 +148,14 @@ in under a lock the audio thread only tries.
    through a 16-bar mix, by the two players' clocks. Both play to the same output, so what is
    heard keeps that alignment; it hasn't been measured on the sound itself.
 4. When the window starts, the second player becomes the main one (the queue moves on). When it
-   ends, the old player is released and the new song goes back to its own speed a little at a
-   time (0.1 % per beat, over at least 16 beats).
+   ends, the old player is released and the new song goes back to its own speed over the plan's
+   time for it (0.1 % per beat, at least 16 beats), in a few steps too small to hear: 0.25 % while
+   the pitch moves with the speed, 0.5 % while it is kept. Few, because each is a change of the
+   player's rate and the song is now heard on its own.
+5. Until then nothing else starts: the song's own preparation (its local copy, the next song's
+   stream) and the analysis of the transition into the next song wait, so that the vocal model
+   doesn't compete with two players for the processor. Then the session goes, and the next
+   transition is planned as for any song.
 
 If anything goes wrong before the window (the file isn't ready, the moment has passed, the queue
 changed, the song was paused or moved), the live transition is dropped and the song plays on;
@@ -169,6 +177,10 @@ heard, the lanes ramp back to plain sound over 0.4 s and the songs carry on as t
   beyond), not by a dedicated time-stretch engine.
 
 ## Checks
+
+On CI's Mac, `bash Tools/SegueScene/run.sh` plays three songs made by the app (124, 126 and
+128 BPM) through two live mixes in a row, and checks that each song brought in comes back to its
+own speed and that the second mix comes after the first.
 
 `bash Tools/SegueCheck/run.sh` builds songs whose beats, bars and voices are known and checks the
 levels the policy reaches and why the others were refused, that plans are valid and the same for
