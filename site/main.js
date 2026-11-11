@@ -1,17 +1,10 @@
-// Seaglass's website: language, reveal on scroll and the small demos. No libraries, no requests.
+// Seaglass's website: reveal on scroll and the small demos. No libraries, no requests.
 (() => {
   "use strict";
 
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
   const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
-  const I18N = window.SEAGLASS_I18N || {};
-
-  // Browsers can refuse storage (private windows, blocked site data): the page works without it.
-  const store = {
-    get(key) { try { return localStorage.getItem(key); } catch { return null; } },
-    set(key, value) { try { localStorage.setItem(key, value); } catch { /* not kept */ } },
-  };
 
   /** Runs `start` while `element` is on screen and the tab is showing, `stop` otherwise. */
   function whileVisible(element, start, stop) {
@@ -25,29 +18,6 @@
     new IntersectionObserver((entries) => { visible = entries[entries.length - 1].isIntersecting; update(); }, { rootMargin: "80px" }).observe(element);
     document.addEventListener("visibilitychange", update);
   }
-
-  // ---- Language -------------------------------------------------------------------------------
-  let lang = "en";
-  const listeners = [];
-  const tr = (key) => (I18N[lang] && I18N[lang][key]) || (I18N.en && I18N.en[key]) || key;
-
-  function applyLanguage(next, remember) {
-    lang = I18N[next] ? next : "en";
-    document.documentElement.lang = lang;
-    for (const el of $$("[data-i18n]")) el.textContent = tr(el.dataset.i18n);
-    for (const el of $$("[data-i18n-html]")) el.innerHTML = tr(el.dataset.i18nHtml); // our own strings, with <em>
-    for (const el of $$("[data-i18n-alt]")) el.setAttribute("alt", tr(el.dataset.i18nAlt));
-    for (const el of $$("[data-i18n-aria]")) el.setAttribute("aria-label", tr(el.dataset.i18nAria));
-    for (const button of $$("[data-lang]")) button.setAttribute("aria-pressed", String(button.dataset.lang === lang));
-    if (remember) store.set("seaglass-lang", lang);
-    listeners.forEach((listener) => listener());
-  }
-  const onLanguage = (listener) => listeners.push(listener);
-
-  for (const button of $$("[data-lang]")) button.addEventListener("click", () => applyLanguage(button.dataset.lang, true));
-  const saved = store.get("seaglass-lang");
-  const preferred = saved || ((navigator.languages && navigator.languages[0]) || navigator.language || "en").slice(0, 2);
-  applyLanguage(preferred === "it" ? "it" : "en", false);
 
   // ---- Navigation -------------------------------------------------------------------------------
   const nav = $(".nav");
@@ -272,12 +242,11 @@
       $("#tSpeed").textContent = `${percent > 0 ? "+" : percent < 0 ? "−" : ""}${Math.abs(percent)}%`;
       $("#tBpm").textContent = (BASE * ratio).toFixed(1);
       const semitones = 12 * Math.log2(ratio);
-      $("#tPitch").textContent = lock.checked || percent === 0 ? tr("tempo.original") : `${semitones > 0 ? "+" : "−"}${Math.abs(semitones).toFixed(2)} st`;
+      $("#tPitch").textContent = lock.checked || percent === 0 ? "original key" : `${semitones > 0 ? "+" : "−"}${Math.abs(semitones).toFixed(2)} st`;
       deck.style.setProperty("--spin", `${(1.8 / ratio).toFixed(3)}s`);
     };
     range.addEventListener("input", () => { hint.style.opacity = "0"; render(); });
     lock.addEventListener("change", render);
-    onLanguage(render);
     render();
   })();
 
@@ -403,7 +372,7 @@
         } catch { /* the address stays selected for a manual copy */ }
       }
       if (!done) return;
-      note.textContent = tr("install.alt.copied");
+      note.textContent = "Copied";
       clearTimeout(timer);
       timer = setTimeout(() => { note.textContent = ""; }, 2600);
     });

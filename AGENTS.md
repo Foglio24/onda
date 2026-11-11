@@ -32,11 +32,11 @@ Other folders:
   page, deployed by `.github/workflows/account.yml` (see its README). As on Spotify, the account
   is managed on the page; the app (`Seaglass/Services/Account.swift`) signs in, shows it and syncs
   the library (`Seaglass/Services/LibrarySync.swift`).
-- `site/` holds the website: one animated page (English and Italian, no third-party requests) served
-  by a Cloudflare Worker, deployed from `main` by `.github/workflows/site.yml` (see its header for the
-  variables). Its text is in `site/i18n.js` and, in English, in `site/index.html`; `npm test` in `site/`
-  checks both and the page in Chromium (computer, phone, reduced motion, no JavaScript). The page must
-  keep saying that Seaglass is unofficial and unaffiliated.
+- `site/` holds the website: one animated page, in English only (the owner wants it that way: don't add
+  other languages) with no third-party requests, served by a Cloudflare Worker and deployed from `main` by
+  `.github/workflows/site.yml` (see its header for the variables). `npm test` in `site/` checks the page and
+  its files, and the page in Chromium (computer, phone, reduced motion, no JavaScript). The page must keep
+  saying that Seaglass is unofficial and unaffiliated.
 - `docs/` holds the README's screenshots.
 - `AutoMix-listening/` holds listening material for AutoMix, not code.
 

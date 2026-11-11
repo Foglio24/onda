@@ -7,7 +7,6 @@ import { createRequire } from "node:module";
 import { existsSync, mkdirSync, readFileSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
-import vm from "node:vm";
 import { serve } from "../scripts/serve-lib.mjs";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
@@ -28,51 +27,15 @@ const section = (name) => console.log(`\n${name}`);
 section("Text and files");
 const html = readFileSync(path.join(root, "index.html"), "utf8");
 const css = readFileSync(path.join(root, "style.css"), "utf8");
-const window = {};
-vm.runInNewContext(readFileSync(path.join(root, "i18n.js"), "utf8"), { window });
-const dictionary = window.SEAGLASS_I18N;
-const decode = (text) => text.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/\s+/g, " ").trim();
 
-check(Object.keys(dictionary).sort().join() === "en,it", "the page has English and Italian");
-const used = new Set();
-const kinds = [
-  ["data-i18n", /<([a-z0-9]+)\b[^>]*?\sdata-i18n="([^"]+)"[^>]*>([\s\S]*?)<\/\1>/g, 3],
-  ["data-i18n-html", /<([a-z0-9]+)\b[^>]*?\sdata-i18n-html="([^"]+)"[^>]*>([\s\S]*?)<\/\1>/g, 3],
-];
-for (const [, pattern] of kinds) {
-  for (const match of html.matchAll(pattern)) {
-    const key = match[2];
-    used.add(key);
-    // English is written in the page too, so it reads the same without JavaScript.
-    check(decode(match[3]) === decode(dictionary.en[key] ?? "\u0000"), `index.html's text for ${key} differs from i18n.js's English`);
-  }
-}
-for (const attribute of ["alt", "aria-label"]) {
-  const name = attribute === "alt" ? "data-i18n-alt" : "data-i18n-aria";
-  for (const match of html.matchAll(new RegExp(`<[^>]*?\\s${name}="([^"]+)"[^>]*>`, "g"))) {
-    const key = match[1];
-    used.add(key);
-    const value = match[0].match(new RegExp(`\\s${attribute}="([^"]*)"`));
-    check(value && decode(value[1]) === decode(dictionary.en[key] ?? "\u0000"), `index.html's ${attribute} for ${key} differs from i18n.js's English`);
-  }
-}
-for (const lang of ["en", "it"]) {
-  for (const key of used) check(key in dictionary[lang], `${lang} lacks ${key}`);
-  for (const key of Object.keys(dictionary[lang])) {
-    if (!used.has(key)) check(key === "meta.title" || key === "lang.label" || key === "nav.menu" || key === "tabs.label" || key === "install.alt.copied", `${lang} has ${key}, which the page doesn't use`);
-  }
-}
-for (const key of Object.keys(dictionary.en)) {
-  check(Object.keys(dictionary.it).includes(key), `it lacks ${key}`);
-  const same = dictionary.en[key] === dictionary.it[key];
-  if (same && dictionary.en[key].length > 24 && !key.startsWith("lyrics.l") && key !== "hero.eyebrow") check(false, `${key} isn't translated to Italian`);
-  check((dictionary.en[key].match(/<em>/g) ?? []).length === (dictionary.it[key].match(/<em>/g) ?? []).length, `${key} keeps its <em> in both languages`);
-}
-check(/not affiliated/i.test(dictionary.en["footer.disclaimer"]) && /non affiliato/i.test(dictionary.it["footer.disclaimer"]), "the footer says Seaglass isn't affiliated, in both languages");
-check(html.includes('data-i18n="footer.disclaimer"') && html.includes('data-i18n="hero.note"'), "the non-affiliation notice is in the hero and the footer");
-
+check(!existsSync(path.join(root, "i18n.js")) && !/data-i18n|data-lang/.test(html), "the page is in English only");
+check(/<html lang="en"/.test(html), "the page declares English");
+const visible = html.replace(/<(script|style|svg)[\s\S]*?<\/\1>/g, "").replace(/<[^>]+>/g, " ");
+const italian = visible.match(/\b(il|della|delle|degli|che|per|con|sono|nel|nella|non|una|uno|gli)\b/g) ?? [];
+check(italian.length < 3, `Italian words in the page: ${[...new Set(italian)].join(", ")}`);
+check(/not affiliated/i.test(html), "the page says Seaglass isn't affiliated");
+check(/<p class="fine">An unofficial, independent project: not affiliated with Google, YouTube, Spotify or Apple\./.test(html) && /<p class="disclaimer">Seaglass is an independent personal project, not affiliated with or endorsed by Google, YouTube, YouTube Music, Spotify, Apple, Patreon, Last\.fm or LRCLIB/.test(html), "the non-affiliation notice is in the hero and the footer");
 check((html.match(/<h1[\s>]/g) ?? []).length === 1, "one h1");
-check(/<html lang="en"/.test(html), "the page declares its language");
 check(/<meta name="description" content="[^"]{60,}/.test(html), "a meta description");
 check(!/\sstyle="/.test(html), "no inline style attributes (the content security policy forbids them)");
 check(!/<script(?![^>]*\ssrc=)[^>]*>/.test(html), "no inline scripts");
@@ -138,7 +101,7 @@ for (const [label, options] of [
   section(`  ${label}`);
   const { context, page, problems } = await open(options, label);
   await page.waitForTimeout(500);
-  check(await page.locator("h1").innerText() === "Make every playlist flow.", "the title reads in English");
+  check(await page.locator("h1").innerText() === "Make every playlist flow.", "the title reads right");
   await page.screenshot({ path: path.join(shots, `${label}-top.png`) });
 
   await scrollThrough(page);
@@ -181,18 +144,6 @@ for (const [label, options] of [
   check(first.sum !== second.sum, "the mix animation moves");
   check(/BPM$/.test(await page.locator("#mixReadout").innerText()), "the mix shows a tempo");
   await page.locator("#mixStage").screenshot({ path: path.join(shots, `${label}-mix.png`) });
-
-  // Language.
-  await page.locator('[data-lang="it"]').click();
-  check(await page.locator("h1").innerText() === "Fai fluire ogni playlist.", "Italian: the title");
-  check(await page.evaluate(() => document.documentElement.lang) === "it", "Italian: the page's language");
-  check((await page.title()).includes("Fai fluire"), "Italian: the tab's title");
-  check((await page.locator(".disclaimer").innerText()).includes("non affiliato"), "Italian: the notice");
-  await page.locator("#tempo").scrollIntoViewIfNeeded();
-  await page.waitForTimeout(500);
-  await page.screenshot({ path: path.join(shots, `${label}-tempo-it.png`) });
-  await page.locator('[data-lang="en"]').click();
-  check(await page.locator("h1").innerText() === "Make every playlist flow.", "English again");
 
   // Tempo: ±15 % and the key lock.
   await page.locator("#tRange").evaluate((input) => { input.value = "15"; input.dispatchEvent(new Event("input", { bubbles: true })); });

@@ -44,9 +44,9 @@ jobs:
       - run: npm ci
       - name: Check the scripts
         run: |
-          for file in scripts/*.mjs tests/*.mjs main.js boot.js i18n.js; do node --check "$file"; done
+          for file in scripts/*.mjs tests/*.mjs main.js boot.js; do node --check "$file"; done
       - run: npx playwright install --with-deps chromium
-      - name: The text and files, then the page in a browser (a computer, a phone, reduced motion, no JavaScript)
+      - name: The page and its files, then the page in a browser (a computer, a phone, reduced motion, no JavaScript)
         env:
           SHOTS: ${{ runner.temp }}/site-shots
         run: npm test

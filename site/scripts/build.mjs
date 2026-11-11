@@ -13,7 +13,7 @@ const account = process.env.ACCOUNT_URL ?? "";
 
 await rm(dist, { recursive: true, force: true });
 await mkdir(dist, { recursive: true });
-for (const name of ["index.html", "404.html", "style.css", "main.js", "boot.js", "i18n.js", "_headers", "assets"]) {
+for (const name of ["index.html", "404.html", "style.css", "main.js", "boot.js", "_headers", "assets"]) {
   await cp(path.join(root, name), path.join(dist, name), { recursive: true });
 }
 
