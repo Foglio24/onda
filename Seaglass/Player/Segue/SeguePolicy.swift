@@ -142,7 +142,7 @@ struct SegueSong {
         let shape = SongShape(analysis)
         self.shape = shape
         let a = analysis
-        let modelBeats = (a.modelBeats ?? []).map(Double.init).filter { $0 >= a.soundStart - 0.05 && $0 < a.soundEnd }
+        let modelBeats = (a.modelBeats ?? []).map { Double($0) }.filter { $0 >= a.soundStart - 0.05 && $0 < a.soundEnd }
         guard modelBeats.count >= 16 else {
             // The analysis' grid.
             beats = []
@@ -166,11 +166,17 @@ struct SegueSong {
             return
         }
         beats = modelBeats
-        let gaps = zip(modelBeats.dropFirst(), modelBeats).map { $0 - $1 }.filter { $0 > 60 / 210.0 && $0 < 60 / 55.0 }.sorted()
+        // The median gap between beats, among those of a plausible tempo (55 to 210 BPM).
+        var gaps: [Double] = []
+        for index in modelBeats.indices.dropFirst() {
+            let gap = modelBeats[index] - modelBeats[index - 1]
+            if gap > 0.285, gap < 1.091 { gaps.append(gap) }
+        }
+        gaps.sort()
         let period = gaps.isEmpty ? a.beatLength : gaps[gaps.count / 2]
         beatPeriod = period
         // The downbeats as votes for which beat of four starts the bars, near the start and the end.
-        let downbeats = zip((a.modelDownbeats ?? []).map(Double.init), (a.modelDownbeatLogits ?? []).map(Double.init)).map { $0 }
+        let downbeats = zip((a.modelDownbeats ?? []).map { Double($0) }, (a.modelDownbeatLogits ?? []).map { Double($0) }).map { $0 }
         func nearestBeat(_ time: Double) -> Int? {
             var low = 0, high = modelBeats.count - 1
             while high - low > 1 {

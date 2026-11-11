@@ -72,11 +72,15 @@ expect(result.downbeats.count == reference.downbeats.count, "the same \(referenc
 
 // What they say about the signal: 128 BPM, then 100 BPM, a downbeat every four beats.
 func median(_ values: [Double]) -> Double { values.isEmpty ? 0 : values.sorted()[values.count / 2] }
-let gaps = zip(result.beats.dropFirst(), result.beats).map { (time: $1, gap: $0 - $1) }
+var gaps: [(time: Double, gap: Double)] = []
+for index in result.beats.indices.dropFirst() { gaps.append((result.beats[index - 1], result.beats[index] - result.beats[index - 1])) }
 let first = 60 / median(gaps.filter { $0.time > 5 && $0.time < 26 }.map(\.gap))
 let second = 60 / median(gaps.filter { $0.time > 31 }.map(\.gap))
 expect(abs(first - 128) < 2.5 && abs(second - 100) < 2, String(format: "the tempos: %.1f and %.1f BPM", first, second))
-let bars = zip(result.downbeats.dropFirst(), result.downbeats).map { $0 - $1 }.filter { $0 < 3 }
+var bars: [Double] = []
+for index in result.downbeats.indices.dropFirst() where result.downbeats[index] - result.downbeats[index - 1] < 3 {
+    bars.append(result.downbeats[index] - result.downbeats[index - 1])
+}
 let barMedian = median(bars)
 expect(abs(barMedian - 4 * 60 / 128.0) < 0.05 || abs(barMedian - 4 * 60 / 100.0) < 0.05,
        String(format: "a downbeat every four beats (median bar %.3f s)", barMedian))

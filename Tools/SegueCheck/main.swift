@@ -247,7 +247,7 @@ func withModel(_ analysis: TrackAnalysis, beats: [Double], phase: Int = 0, logit
     var noise = Random(state: 11)
     var copy = analysis
     let timed = beats.map { $0 + jitter * Double(noise.next()) }
-    copy.modelBeats = timed.map(Float.init)
+    copy.modelBeats = timed.map { Float($0) }
     let downbeats = timed.enumerated().filter { ($0.offset - phase) % 4 == 0 }.map { Float($0.element) }
     copy.modelDownbeats = downbeats
     copy.modelDownbeatLogits = [Float](repeating: logit, count: downbeats.count)

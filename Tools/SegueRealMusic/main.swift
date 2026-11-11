@@ -78,8 +78,8 @@ for name in files {
     modelSeconds += Date().timeIntervalSince(started)
     audioSeconds += Double(mono.count) / 22_050
     var modelled = analysis
-    modelled.modelBeats = found.beats.map(Float.init)
-    modelled.modelDownbeats = found.downbeats.map(Float.init)
+    modelled.modelBeats = found.beats.map { Float($0) }
+    modelled.modelDownbeats = found.downbeats.map { Float($0) }
     modelled.modelDownbeatLogits = found.downbeatLogits
     let song = SegueSong(modelled, voices: nil)
     let gaps = zip(found.beats.dropFirst(), found.beats).map { $0 - $1 }.sorted()

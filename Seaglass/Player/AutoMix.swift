@@ -50,8 +50,8 @@ actor AutoMixLibrary {
             if wantsBeats, !Task.isCancelled, let model = BeatThis.shared {
                 // A model that fails on this song isn't tried on it again: no beats, as if it found none.
                 let found = (try? model.analyze(samples)) ?? BeatThis.Result(beats: [], downbeats: [], downbeatLogits: [])
-                analysis.modelBeats = found.beats.map(Float.init)
-                analysis.modelDownbeats = found.downbeats.map(Float.init)
+                analysis.modelBeats = found.beats.map { Float($0) }
+                analysis.modelDownbeats = found.downbeats.map { Float($0) }
                 analysis.modelDownbeatLogits = found.downbeatLogits
             }
             return analysis
