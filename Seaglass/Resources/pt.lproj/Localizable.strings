@@ -774,3 +774,8 @@
 "mix dal vivo" = "mix ao vivo";
 "Mix dal vivo" = "Mix ao vivo";
 "AutoMix suona il brano successivo su un secondo lettore, a tempo con quello in corso, con livelli, bassi e filtri automatici. Spento, usa i mix preparati in un file." = "O AutoMix toca a próxima música num segundo player, no tempo da atual, com níveis, graves e filtros automáticos. Desativado, usa mixes preparados num arquivo.";
+"Breve" = "Curta";
+"Lunga" = "Longa";
+"Durata del mix" = "Duração da mixagem";
+"Equalizzazione automatica" = "Equalização automática";
+"Breve: fino a 8 battute. Normale: fino a 16. Lunga: fino a 32, quando i due brani tengono il tempo così a lungo. Con l'equalizzazione automatica bassi, medi, alti, filtri ed eco passano da un brano all'altro; spenta, cambiano solo i volumi." = "Curta: até 8 compassos. Normal: até 16. Longa: até 32, quando as duas músicas mantêm o ritmo por tanto tempo. Com a equalização automática, graves, médios, agudos, filtros e eco passam de uma música para a outra; desligada, só os volumes mudam.";

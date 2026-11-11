@@ -155,6 +155,14 @@ enum Preferences {
     /// AutoMix's live transitions (two players in step, see `SegueSession`); off, the rendered mixes.
     static let liveMix = "automix.liveMix"
     static var liveMixEnabled: Bool { UserDefaults.standard.object(forKey: liveMix) as? Bool ?? true }
+    /// How long AutoMix's live mixes may be (`SegueLength`: 0 short, 1 normal, 2 long).
+    static let mixLengthKey = "automix.length"
+    static var mixLength: SegueLength {
+        SegueLength(rawValue: UserDefaults.standard.object(forKey: mixLengthKey) as? Int ?? 1) ?? .normal
+    }
+    /// AutoMix's automatic equaliser (bass, bands, filters and echo in the live mix); off, only levels.
+    static let autoMixEqualiserKey = "automix.equaliser"
+    static var autoMixEqualiser: Bool { UserDefaults.standard.object(forKey: autoMixEqualiserKey) as? Bool ?? true }
     static let skipLongMixes = "radio.skipLongMixes"
     static let crossfade = "playback.crossfade"
     static let songTransition = "playback.transition"

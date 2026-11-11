@@ -36,15 +36,18 @@ struct SegueCompiler {
     }
 
     /// Both level lanes from the gains at evenly spread positions (and `extra` ones), the power and
-    /// the sum of the two bounded.
-    private func levels(extra: [Double] = [], _ gains: (Double) -> (Double, Double)) -> [SegueLane] {
+    /// the sum of the two bounded; `reserve`: what an echo adds to the sum there (no fader takes back
+    /// what is already in its repeats, so the faders make room for it).
+    private func levels(extra: [Double] = [], reserve: (Double) -> Double = { _ in 0 },
+                        _ gains: (Double) -> (Double, Double)) -> [SegueLane] {
         var positions = (0...t.curveKnots).map { Double($0) / Double(t.curveKnots) } + extra
         positions = Array(Set(positions.map { max(0, min(1, $0)) })).sorted()
         var outgoing: [SegueLane.Knot] = [], incoming: [SegueLane.Knot] = []
         for x in positions {
             let (ga, gb) = gains(x)
             let power = ga * ga + gb * gb
-            let scale = min(power > 1 ? 1 / power.squareRoot() : 1, ga + gb > t.overlapMaxSum ? t.overlapMaxSum / (ga + gb) : 1)
+            let sum = ga + gb + reserve(x)
+            let scale = min(power > 1 ? 1 / power.squareRoot() : 1, sum > t.overlapMaxSum ? t.overlapMaxSum / sum : 1)
             outgoing.append(knot(x, decibels(ga * scale)))
             incoming.append(knot(x, decibels(gb * scale)))
         }
@@ -81,6 +84,8 @@ struct SegueCompiler {
             return bassSwap(swap: swap, beatShare: beatShare, matchA: matchA, matchB: matchB)
                 .filter { !($0.side == .outgoing && $0.target == .highShelf) }
                 + [lane(.outgoing, .highPass, [knot(0, nil), knot(swap, nil), knot(1, t.riseClosedHz, .exponential)])]
+        case .echoTail:
+            return echoTail(swap: swap, beatShare: beatShare, matchA: matchA, matchB: matchB)
         default:
             return bassSwap(swap: swap, beatShare: beatShare, matchA: matchA, matchB: matchB)
         }
@@ -100,6 +105,28 @@ struct SegueCompiler {
         lanes += bassHandOver(from: swap, to: swap + beatShare)
         lanes.append(lane(.outgoing, .highShelf, [knot(0, 0), knot(t.outgoingTopFrom, 0), knot(1, t.outgoingTopDB)]))
         lanes.append(lane(.incoming, .highShelf, [knot(0, t.incomingTopDB), knot(swap, 0), knot(1, 0)]))
+        return lanes
+    }
+
+    /// The bass swap, the outgoing song's fader shutting a beat before the end under a send that
+    /// throws its last beats into the echo; the repeats ring on over the incoming song.
+    private func echoTail(swap: Double, beatShare: Double, matchA: Double, matchB: Double) -> [SegueLane] {
+        let closed = max(1 - beatShare, swap + 0.01)
+        let opens = max(swap, closed - 2 * beatShare), closes = min(1, closed + beatShare)
+        func send(_ x: Double) -> Double {
+            guard x >= opens, x <= closes else { return 0 }
+            return t.echoSend * (x < closed ? (x - opens) / max(0.001, closed - opens) : (closes - x) / max(0.001, closes - closed))
+        }
+        var lanes = levels(extra: [swap, opens, closed, closes], reserve: send) { x in
+            let after = max(0, min(1, (x - swap) / max(0.001, closed - swap)))
+            let ga = x < swap ? 1 : cos(Double.pi / 2 * after)
+            let gb = x < swap ? t.incomingBed * sin(Double.pi / 2 * (x / max(0.001, swap)))
+                : t.incomingBed + (1 - t.incomingBed) * max(0, min(1, (x - swap) / max(0.001, 1 - swap)))
+            return matched(x, swap: swap, matchA: matchA, matchB: matchB, ga, gb)
+        }
+        lanes += bassHandOver(from: swap, to: swap + beatShare)
+        lanes.append(lane(.incoming, .highShelf, [knot(0, t.incomingTopDB), knot(swap, 0), knot(1, 0)]))
+        lanes.append(lane(.outgoing, .echo, [knot(0, 0), knot(opens, 0), knot(closed, t.echoSend), knot(closes, 0), knot(1, 0)]))
         return lanes
     }
 
@@ -155,6 +182,21 @@ struct SegueCompiler {
                 matched(x, swap: 0.5, matchA: matchA, matchB: matchB, cos(Double.pi / 2 * x), sin(Double.pi / 2 * x))
             }
             lanes += bassHandOver(from: 0.45, to: 0.55)
+            return lanes
+        case .echoOut:
+            // The outgoing song thrown into the echo late in the fade, its fader shut just after.
+            let throwAt = t.echoThrowShare, shut = min(1, t.echoThrowShare + 0.08), closes = min(1, t.echoThrowShare + 0.16)
+            func send(_ x: Double) -> Double {
+                guard x >= throwAt - 0.06, x <= closes else { return 0 }
+                return t.echoSend * (x < throwAt ? (x - (throwAt - 0.06)) / 0.06 : (closes - x) / max(0.001, closes - throwAt))
+            }
+            var lanes = levels(extra: [throwAt - 0.06, throwAt, shut, closes], reserve: send) { x in
+                let ga = x < throwAt ? cos(Double.pi / 4 * x / throwAt) : (x < shut ? cos(Double.pi / 4) * (shut - x) / (shut - throwAt) : 0)
+                return matched(x, swap: swap, matchA: matchA, matchB: matchB, ga, sin(Double.pi / 2 * x))
+            }
+            lanes += bassHandOver(from: swap - 0.1, to: swap)
+            lanes.append(lane(.outgoing, .echo, [knot(0, 0), knot(throwAt - 0.06, 0), knot(throwAt, t.echoSend), knot(closes, 0), knot(1, 0)]))
+            lanes.append(lane(.incoming, .highShelf, [knot(0, t.incomingTopDB), knot(swap, 0), knot(1, 0)]))
             return lanes
         default:
             // The outgoing song filtered away while the incoming one rises.

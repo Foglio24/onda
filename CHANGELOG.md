@@ -9,7 +9,11 @@
   - Each transition is chosen from the two songs' analyses. AutoMix first tries a beat-matched mix over 16 bars on a phrase, then over 8, 4 or 2 bars. If none fits, it tries a filtered fade, then a cut on the beat, then a short fade, and otherwise plays one song after the other. A candidate that would change the next song's speed by more than 8 %, put beats more than 20 ms apart, sing two voices together, or leave out too much of the song is refused, whatever its score.
   - After the transition, the song goes back to its own speed a little at a time.
   - If anything isn't ready in time, the transition becomes a plain fade or the mix prepared as a file, as before. If the next song stalls or drifts while both are heard, the effects ramp back out and the song carries on.
-  - Settings shows the last choice and why the more ambitious levels weren't used. **Settings › Riproduzione › Mix dal vivo** turns it off (back to the prepared mixes).
+  - **Beats from a neural beat tracker.** The bars, phrases and stretches AutoMix mixes on come from Beat This! (JKU Linz, MIT licence), run on the device with Core ML when a song is analysed, as Myspoti's Segue does. Seaglass's own analysis found the tempo but rarely a stretch steady enough to beat-match on real songs, so mixes stopped at a filtered fade.
+  - **Mix length:** Breve (up to 8 bars), Normale (up to 16) or Lunga (up to 32, when both songs hold their beat that long), with shorter or longer fades to match.
+  - **Automatic equaliser:** bass, mids, highs, filters and an echo on the beat pass from one song to the other; turned off, only the volumes move.
+  - **Echo:** in some mixes the outgoing song's last beats are thrown into an echo on its beat, which rings on over the next song.
+  - Settings shows the last choice and why the more ambitious levels weren't used. **Settings › Riproduzione › Mix dal vivo** turns it off (back to the prepared mixes); its length and equaliser are under it.
 - **Lossless from your own sources** (iPhone, iPad and Mac). In **Settings › Audio › Lossless**:
   - **Imported files.** FLAC, ALAC, WAV and AIFF files stay on the device as they are and play instead of the stream when title, artist, length and version match the song. An AAC file is refused.
   - **Your OpenSubsonic server** (Navidrome and compatible servers, over HTTPS). The password stays in the keychain and each request uses a token instead. The server's original file plays, with no conversion. Lossless streams play on Wi-Fi, or on mobile data when you allow it.

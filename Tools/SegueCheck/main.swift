@@ -111,9 +111,9 @@ guard let a = analyze(songA.samples, "124 BPM"), let b = analyze(songB.samples, 
 }
 
 func decide(_ x: TrackAnalysis, _ y: TrackAnalysis, voicesA: VocalActivity? = nil, voicesB: VocalActivity? = nil,
-            sameAlbum: Bool = false) -> SegueDecision {
+            sameAlbum: Bool = false, length: SegueLength = .normal, eq: Bool = true) -> SegueDecision {
     SeguePolicy.decide(SegueRequest(outgoing: SegueSong(x, voices: voicesA), incoming: SegueSong(y, voices: voicesB),
-                                    earliestExit: 0, sameAlbum: sameAlbum))
+                                    earliestExit: 0, sameAlbum: sameAlbum, length: length, eq: eq))
 }
 
 func checkPlan(_ plan: SeguePlan, _ x: TrackAnalysis, _ y: TrackAnalysis, _ name: String) {
@@ -183,6 +183,25 @@ if let plan = singing.plan {
         || plan.attempts.contains { $0.cause == .guards && $0.detail.contains("voice") }
     expect(overlapOK, "two voices never sung over each other for long (\(plan.level.rawValue), \(format(plan.length, 1)) s)")
 }
+
+// MARK: Mix length, equaliser, echo
+
+let short = decide(a, b, length: .short)
+print("124 → 126, short: \(short.level.rawValue) \(short.plan?.bars ?? 0) bars — \(short.why)")
+expect(short.level.isLocked && (short.plan?.bars ?? 99) <= 8, "a short mix: beat-matched over 8 bars at most")
+expect(short.attempts.contains { $0.level == .lockedLong && $0.cause == .lengthNotAllowed }, "and the 16 bars left out for the length, not the songs")
+let longA = song(bpm: 124, seconds: 210), longB = song(bpm: 126, seconds: 210)
+if let la = analyze(longA.samples, "124 BPM, 3'30\""), let lb = analyze(longB.samples, "126 BPM, 3'30\"") {
+    let long = decide(la, lb, length: .long)
+    print("124 → 126, long: \(long.level.rawValue) \(long.plan.map { "\($0.bars ?? 0) bars, \(format($0.length, 1)) s" } ?? "") — \(long.why)")
+    expect(long.level == .lockedLong && long.plan?.bars == 32, "a long mix over 32 bars where both songs hold their beat")
+    if let plan = long.plan { checkPlan(plan, la, lb, "long") }
+    expect(decide(la, lb).plan?.bars ?? 0 <= 16, "the same songs at the normal length: 16 bars at most")
+}
+let flat = decide(a, b, eq: false)
+expect(flat.level.isLocked, "without the equaliser: still beat-matched (\(flat.level.rawValue))")
+expect(flat.plan?.lanes.allSatisfy { $0.target == .level } ?? false, "without the equaliser: only the levels move")
+if let plan = flat.plan { checkPlan(plan, a, b, "no equaliser") }
 
 // MARK: Beat This!'s beats
 
@@ -355,6 +374,36 @@ sweeper.prepare(sampleRate: deckRate, channels: 2, isFloat: true)
 sweeper.arm(sweepPlan, side: .outgoing)
 let swept = process(sweeper, noiseIn, start: 0, rate: deckRate, block: 37)
 expect(swept.allSatisfy { $0.isFinite } && (swept.map(abs).max() ?? 9) <= 0.75, "a filter sweep stays stable (peak \(format(Double(swept.map(abs).max() ?? 0), 3)))")
+
+// The echo: the outgoing song's last beats thrown into it as its fader shuts, the repeats ringing on.
+let echoLanes = compiler.locked(.echoTail, swap: 0.5, beatShare: 1.0 / 16, matchA: 1, matchB: 1)
+let echoPlan = SeguePlan(level: .lockedShort, shape: .echoTail, outgoingStart: 2, incomingStart: 2, rate: 1, length: 4, bars: 2,
+                         tempo: 120, phaseMedian: 0.001, phaseP95: 0.002, lanes: echoLanes, swap: 0.5, restoreSeconds: 0, echoDelay: 0.375)
+expect(SegueValidator.problems(echoPlan, outgoingDuration: 12, incomingDuration: 12).isEmpty,
+       "an echo plan is valid \(SegueValidator.problems(echoPlan, outgoingDuration: 12, incomingDuration: 12))")
+expect(!SegueValidator.problems(echoPlan, outgoingDuration: 7, incomingDuration: 12).isEmpty, "and refused without room for its repeats")
+var sumWorst = 0.0
+if let out = echoLanes.first(where: { $0.side == .outgoing && $0.target == .level }),
+   let inn = echoLanes.first(where: { $0.side == .incoming && $0.target == .level }),
+   let send = echoLanes.first(where: { $0.target == .echo }) {
+    for step in 0...400 {
+        let x = Double(step) / 400
+        let ga = out.isSilent(at: x) ? 0 : pow(10, out.value(at: x) / 20), gb = inn.isSilent(at: x) ? 0 : pow(10, inn.value(at: x) / 20)
+        sumWorst = max(sumWorst, ga + gb + send.value(at: x))
+    }
+}
+expect(sumWorst <= 1.1 + 1e-6, "the faders make room for the echo (with it, at most \(format(sumWorst)))")
+let echoDeck = SegueStage()
+echoDeck.prepare(sampleRate: deckRate, channels: 2, isFloat: true)
+echoDeck.arm(echoPlan, side: .outgoing)
+let echoed = process(echoDeck, tone, start: 0, rate: deckRate)
+let ringing = rms(echoed, from: 6.05, to: 6.6) / full, later = rms(echoed, from: 8.5, to: 9.5) / full
+expect(ringing > 0.05 && later < ringing * 0.25, "the repeats ring on after the fader has shut, then die away (\(format(ringing, 3)), then \(format(later, 4)))")
+expect(echoed.allSatisfy { $0.isFinite } && (echoed.map(abs).max() ?? 9) <= 0.9, "and stay in range (peak \(format(Double(echoed.map(abs).max() ?? 0), 3)))")
+let plainDeck = SegueStage()
+plainDeck.prepare(sampleRate: deckRate, channels: 2, isFloat: true)
+plainDeck.arm(fadePlan, side: .outgoing)
+expect(rms(process(plainDeck, tone, start: 0, rate: deckRate), from: 8.5, to: 9.5) < full * 0.002, "without an echo, silence after the window")
 
 // MARK: A whole mix
 

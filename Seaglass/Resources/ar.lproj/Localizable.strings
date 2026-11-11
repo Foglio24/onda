@@ -774,3 +774,8 @@
 "mix dal vivo" = "مزج مباشر";
 "Mix dal vivo" = "مزج مباشر";
 "AutoMix suona il brano successivo su un secondo lettore, a tempo con quello in corso, con livelli, bassi e filtri automatici. Spento, usa i mix preparati in un file." = "يشغّل AutoMix الأغنية التالية على مشغّل ثانٍ متزامنًا مع الأغنية الحالية، مع ضبط تلقائي للمستويات والجهير والمرشحات. عند إيقافه، يستخدم مزجات مُعدّة في ملف.";
+"Breve" = "قصير";
+"Lunga" = "طويل";
+"Durata del mix" = "مدة المزج";
+"Equalizzazione automatica" = "المعادل التلقائي";
+"Breve: fino a 8 battute. Normale: fino a 16. Lunga: fino a 32, quando i due brani tengono il tempo così a lungo. Con l'equalizzazione automatica bassi, medi, alti, filtri ed eco passano da un brano all'altro; spenta, cambiano solo i volumi." = "قصير: حتى 8 مازورات. عادي: حتى 16. طويل: حتى 32، عندما تحافظ الأغنيتان على الإيقاع طوال هذه المدة. مع المعادل التلقائي تنتقل الترددات المنخفضة والمتوسطة والعالية والمرشحات والصدى من أغنية إلى أخرى؛ وعند إيقافه يتغير مستوى الصوت فقط.";

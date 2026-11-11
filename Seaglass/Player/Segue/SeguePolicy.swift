@@ -49,6 +49,8 @@ struct SegueTuning: Sendable {
 
     // Placement.
     var lockedLongBars = 16, lockedMiddleBars = 8, lockedShortBars = 4, lockedTinyBars = 2
+    /// The lengths tried at the long level, longest first (the long mix length adds 32 bars).
+    var longLengths = [16]
     /// Reliability from which the long, then the middle length is allowed.
     var reliabilityForLong = 0.8, reliabilityForMiddle = 0.6
     var filteredLengths: [Double] = [8, 6, 4]
@@ -82,6 +84,11 @@ struct SegueTuning: Sendable {
     var filteredSwap = 0.6, filteredBed = 0.6
     var sweepClosedHz = 400.0, riseClosedHz = 1_200.0
     var coreOutDB = -24.0, coreInDB = -12.0, topInDB = -12.0
+    /// The echo send at its height, and where in a filtered fade the outgoing song is thrown into it
+    /// (late, so its repeats have the end of the window to themselves); its delay stays between
+    /// these (s: shorter is a flam, longer loses the pulse).
+    var echoSend = 0.5, echoThrowShare = 0.72
+    var echoMin = 0.24, echoMax = 0.62
     /// The two faders' largest sum: under it two peaks meeting on a beat stay in range.
     var overlapMaxSum = 1.1
     var curveKnots = 16
@@ -459,6 +466,34 @@ struct SegueDecision: Sendable {
     var why: String { attempts.map(\.description).joined(separator: "; ") }
 }
 
+/// How long a mix may be, as the listener sets it (Settings › Riproduzione › Durata del mix): short
+/// up to 8 bars, normal up to 16, long up to 32, with the fades shorter or longer to match. The
+/// longest length the two songs allow is played; a shorter one only when no longer one fits.
+enum SegueLength: Int, CaseIterable, Sendable {
+    case short = 0, normal = 1, long = 2
+
+    var maxBars: Int { [8, 16, 32][rawValue] }
+
+    /// The tuning for this length: the beat-matched lengths tried at the top level, the filtered
+    /// fades' and the plain fade's lengths, and how far from the end the outgoing song may leave.
+    func apply(to tuning: SegueTuning) -> SegueTuning {
+        var t = tuning
+        switch self {
+        case .short:
+            t.filteredLengths = [6, 4]
+            t.simpleFade = 4
+        case .normal:
+            break
+        case .long:
+            t.longLengths = [32, 16]
+            t.filteredLengths = [14, 10, 8]
+            t.simpleFade = 10
+            t.exitZoneShare = 0.45
+        }
+        return t
+    }
+}
+
 struct SegueRequest {
     var outgoing: SegueSong
     var incoming: SegueSong
@@ -467,6 +502,10 @@ struct SegueRequest {
     /// The two songs follow each other on their album, played in order.
     var sameAlbum = false
     var harmonic = true
+    var length = SegueLength.normal
+    /// The automatic equaliser: the bass, the bands, the filters and the echo change hands; off,
+    /// only the levels move (and no beat-matched cut between two songs' basses is risked).
+    var eq = true
     var tuning = SegueTuning()
 }
 
@@ -519,7 +558,7 @@ enum SeguePolicy {
             r = request
             a = request.outgoing
             b = request.incoming
-            t = request.tuning
+            t = request.length.apply(to: request.tuning)
             let music = a.analysis.soundEnd - a.analysis.soundStart
             zoneStart = max(a.analysis.soundStart + music * (1 - t.exitZoneShare), request.earliestExit)
         }
@@ -556,9 +595,12 @@ enum SeguePolicy {
 
         mutating func attempt(_ level: SegueLevel) -> Found? {
             switch level {
-            case .lockedLong: return locked(level, lengths: [t.lockedLongBars], phrases: true)
+            case .lockedLong: return locked(level, lengths: t.longLengths, phrases: true)
             case .lockedShort: return locked(level, lengths: [t.lockedMiddleBars, t.lockedShortBars], phrases: true)
-            case .lockedBeat: return locked(level, lengths: [t.lockedShortBars, t.lockedTinyBars], phrases: false)
+            case .lockedBeat:
+                // On any bar, short: only with the bass handed over by the equaliser.
+                guard r.eq else { return fail(level, .disabled, "equaliser off") }
+                return locked(level, lengths: [t.lockedShortBars, t.lockedTinyBars], phrases: false)
             case .filtered: return filtered(level)
             case .hard: return hard(level)
             case .simpleFade: return simple(level)
@@ -766,7 +808,9 @@ enum SeguePolicy {
 
         // MARK: Levels
 
-        mutating func locked(_ level: SegueLevel, lengths: [Int], phrases: Bool) -> Found? {
+        mutating func locked(_ level: SegueLevel, lengths asked: [Int], phrases: Bool) -> Found? {
+            let lengths = asked.filter { $0 <= r.length.maxBars }
+            guard !lengths.isEmpty else { return fail(level, .lengthNotAllowed, "mix length") }
             guard a.analysis.beatLength > 0, b.analysis.beatLength > 0, a.bars > 0, b.bars > 0 else {
                 return fail(level, .noGrid)
             }
@@ -799,14 +843,15 @@ enum SeguePolicy {
                             closest = min(closest, change)
                             if change > t.maxRateChange { continue }
                             let pulse = min(sa.reliability, sb.reliability)
-                            let cap = pulse >= t.reliabilityForLong ? t.lockedLongBars : (pulse >= t.reliabilityForMiddle ? t.lockedMiddleBars : t.lockedShortBars)
+                            let cap = pulse >= t.reliabilityForLong ? r.length.maxBars : (pulse >= t.reliabilityForMiddle ? t.lockedMiddleBars : t.lockedShortBars)
                             if bars > cap { tooLong = true; continue }
                             seen += 1
                             let phase = SegueStretch.phase(sa, sb, rate: rate)
-                            let shape = Self.lockedShape(exitTime: sa.start, entryTime: sb.start, bars: bars, overlapRisk: voiceRisk(sa, sb))
+                            let shape = Self.lockedShape(exitTime: sa.start, entryTime: sb.start, bars: bars, overlapRisk: voiceRisk(sa, sb),
+                                                         eq: r.eq, rings: rings(after: sa.end))
                             let swap = swapShare(exit: sa, entry: sb, bars: bars, rate: rate)
                             let match = loudnessMatch(exit: sa.start, entry: sb.start, length: sa.length, span: sb.length)
-                            let lanes = compiler.locked(shape, swap: swap, beatShare: 1 / Double(bars * 4), matchA: match.a, matchB: match.b)
+                            let lanes = equalised(compiler.locked(shape, swap: swap, beatShare: 1 / Double(bars * 4), matchA: match.a, matchB: match.b))
                             var m = measures(exit: sa.start, entry: sb.start, length: sa.length, span: sb.length, lanes: lanes)
                             m.rateChange = change
                             m.phaseMedian = phase?.median
@@ -824,7 +869,8 @@ enum SeguePolicy {
                             let restore = max(t.restoreMinBeats, change / t.restorePerBeat) * sb.period / rate
                             let plan = SeguePlan(level: level, shape: shape, outgoingStart: sa.start, incomingStart: sb.start, rate: rate,
                                                  length: sa.length, bars: bars, tempo: 60 / sa.period, phaseMedian: phase?.median,
-                                                 phaseP95: phase?.p95, lanes: lanes, swap: swap, restoreSeconds: restore)
+                                                 phaseP95: phase?.p95, lanes: lanes, swap: swap, restoreSeconds: restore,
+                                                 echoDelay: shape == .echoTail ? echoDelay(sa.period) : nil)
                             best = Found(plan: plan, score: score, pick: pick)
                         }
                     }
@@ -867,12 +913,32 @@ enum SeguePolicy {
 
         /// The locked shape: a cut when voices would meet in a short window, otherwise one of the
         /// shapes chosen from the pair itself, so a pair always sounds the same and a playlist varies.
-        static func lockedShape(exitTime: Double, entryTime: Double, bars: Int, overlapRisk: Bool) -> SegueShape {
+        /// Without the equaliser only the levels move (a bass swap of levels, or a cut); the echo needs
+        /// room after the window for its repeats.
+        static func lockedShape(exitTime: Double, entryTime: Double, bars: Int, overlapRisk: Bool, eq: Bool = true,
+                                rings: Bool = false) -> SegueShape {
             if overlapRisk && bars <= 4 { return .cutOnBeat }
             let hash = Int((exitTime * 1000).rounded()) &* 31 &+ Int((entryTime * 1000).rounded())
-            let shapes: [SegueShape] = bars >= 8 ? [.bassSwap, .threeBand, .filterOpen, .riseOut] : [.bassSwap, .filterOpen]
+            var shapes: [SegueShape] = bars >= 8 ? [.bassSwap, .threeBand, .filterOpen, .riseOut] : [.bassSwap, .filterOpen]
+            if !eq { shapes = bars >= 8 ? [.bassSwap] : [.bassSwap, .cutOnBeat] }
+            if eq, rings, bars >= 4 { shapes.append(.echoTail) }
             return shapes[abs(hash) % shapes.count]
         }
+
+        /// The outgoing song has the time after a window ending at `end` for an echo to ring out.
+        func rings(after end: Double) -> Bool { a.analysis.duration - end >= SeguePlan.echoTail }
+
+        /// The echo's delay on the outgoing song's beat: a dotted eighth, a beat, an eighth or a
+        /// beat and a half, the first between `echoMin` and `echoMax`.
+        func echoDelay(_ period: Double) -> Double {
+            for share in [0.75, 1, 0.5, 1.5] where period * share >= t.echoMin && period * share <= t.echoMax {
+                return period * share
+            }
+            return max(t.echoMin, min(t.echoMax, period))
+        }
+
+        /// The lanes as the equaliser setting allows: without it, only the levels.
+        func equalised(_ lanes: [SegueLane]) -> [SegueLane] { r.eq ? lanes : lanes.filter { $0.target == .level } }
 
         mutating func filtered(_ level: SegueLevel) -> Found? {
             var best: Found?
@@ -885,10 +951,13 @@ enum SeguePolicy {
                     for entry in entries(phrases: false, span: length) {
                         let voiceOut = a.voiceShare(from: exit.time, to: exit.time + length) ?? 0
                         let voiceIn = b.voiceShare(from: entry.time, to: entry.time + length) ?? 0
-                        let shape: SegueShape = voiceOut > 0.3 ? .quickOut : (voiceIn > 0.3 ? .lateOut
-                            : ((Int(exit.time * 10) + Int(entry.time * 10)) % 2 == 0 ? .sweepOut : .evenFade))
+                        // What the music asks for first, then a choice from the pair itself.
+                        let variant = abs(Int(exit.time * 10) &+ Int(entry.time * 10))
+                        var choices: [SegueShape] = r.eq ? [.sweepOut, .evenFade] : [.evenFade]
+                        if r.eq, a.fromModel || a.analysis.isGridLocked, rings(after: exit.time + length) { choices.append(.echoOut) }
+                        let shape: SegueShape = voiceOut > 0.3 ? .quickOut : (voiceIn > 0.3 ? .lateOut : choices[variant % choices.count])
                         let match = loudnessMatch(exit: exit.time, entry: entry.time, length: length, span: length)
-                        let lanes = compiler.filtered(shape, matchA: match.a, matchB: match.b)
+                        let lanes = equalised(compiler.filtered(shape, matchA: match.a, matchB: match.b))
                         let m = measures(exit: exit.time, entry: entry.time, length: length, span: length, lanes: lanes)
                         let crossed = crossed(.filtered, m)
                         if !crossed.isEmpty { for name in crossed { refused[name, default: 0] += 1 }; continue }
@@ -899,7 +968,8 @@ enum SeguePolicy {
                         guard best.map({ pick > $0.pick }) ?? true else { continue }
                         let plan = SeguePlan(level: level, shape: shape, outgoingStart: exit.time, incomingStart: entry.time, rate: 1,
                                              length: length, bars: nil, tempo: nil, phaseMedian: nil, phaseP95: nil, lanes: lanes,
-                                             swap: t.filteredSwap, restoreSeconds: 0)
+                                             swap: t.filteredSwap, restoreSeconds: 0,
+                                             echoDelay: shape == .echoOut ? echoDelay(a.beatPeriod) : nil)
                         best = Found(plan: plan, score: score, pick: pick)
                     }
                 }
@@ -945,13 +1015,13 @@ enum SeguePolicy {
             // A fade that ends with the outgoing song's music.
             var length = min(t.simpleFade, max(1, a.analysis.soundEnd - zoneStart))
             var start = max(zoneStart, a.analysis.soundEnd - length)
-            var lanes = compiler.fade()
+            var lanes = equalised(compiler.fade())
             let overlapping = overlap(exit: start, entry: entry, length: length, span: length, lanes: lanes) > t.voiceOverlapMax
             if overlapping {
                 // Over a voice: short, at the very end, without the voice guard.
                 length = t.simpleVoiceFade
                 start = max(zoneStart, a.analysis.soundEnd - length)
-                lanes = compiler.fade()
+                lanes = equalised(compiler.fade())
             }
             guard start + length <= a.analysis.duration, entry + length <= b.analysis.duration else {
                 return fail(level, .noCandidate)

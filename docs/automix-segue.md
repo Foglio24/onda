@@ -60,6 +60,25 @@ grid, tempo out of reach, length not allowed by the grid's reliability, guards c
 counts, score below the threshold, invalid plan). Settings → Informazioni shows the last choice
 and the reasons.
 
+## Length, equaliser and echo
+
+Settings › Riproduzione, under Mix dal vivo:
+
+- **Durata del mix.** Breve allows beat-matched windows of up to 8 bars (filtered fades of 6 or
+  4 seconds, a 4-second plain fade); Normale up to 16 (8, 6 or 4 seconds; 6); Lunga up to 32 bars,
+  tried first when both songs' stretches are reliable enough, with filtered fades of 14, 10 or 8
+  seconds, a 10-second plain fade, and the outgoing song free to leave from the last 45 % of its
+  music instead of the last third. The longest length that clears its threshold plays.
+- **Equalizzazione automatica.** On, the lanes hand over the bass, the bands, the filters and the
+  echo. Off, only the levels move, and the level that beat-matches on any bar (it relies on the
+  bass swap) is left out.
+- **Echo.** Some locked windows (`echoTail`) shut the outgoing song's fader a beat before the end
+  while a send throws its last beats into an echo; some filtered fades (`echoOut`) throw it in
+  late. The delay is on the song's beat (a dotted eighth, a beat, an eighth or a beat and a half,
+  between 240 and 620 ms), each repeat at half the level, the send's bass cut under 250 Hz. The
+  faders make room for the send in the 1.1 sum bound. The outgoing player runs 3 seconds past the
+  window for the repeats to ring out, so the shapes are chosen only where the song has them.
+
 ## Guards and score
 
 Guards reject a candidate whatever its score:
@@ -142,7 +161,7 @@ heard, the lanes ramp back to plain sound over 0.4 s and the songs carry on as t
 - Voices are measured only near the end of the outgoing song and the start of the next, with the
   karaoke's MDX model, and only when the device allows it (energy, time). Unmeasured voices count
   as unknown: guards don't reject on them, the score trusts them less.
-- No echo, delay or reverb shapes: Seaglass has no send effects.
+- An echo send, but no reverb ("room") send.
 - The faders' sum is bounded, but there is no limiter shared by the two players (each plays on its
   own `AVPlayer`; iOS mixes them).
 - Album songs played in order keep Seaglass's album junction, rendered exactly.

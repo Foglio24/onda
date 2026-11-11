@@ -2000,7 +2000,8 @@ final class PlayerController: ObservableObject {
             if design == nil, !albumOrder, self.segueRefusedPair != pair, let stage = self.segueStage(for: track) {
                 let request = SegueRequest(outgoing: SegueSong(outgoing, voices: outgoingVocals),
                                            incoming: SegueSong(incoming, voices: incomingVocals),
-                                           earliestExit: self.progress.currentTime + SegueSession.prepareLead + 5)
+                                           earliestExit: self.progress.currentTime + SegueSession.prepareLead + 5,
+                                           length: Preferences.mixLength, eq: Preferences.autoMixEqualiser)
                 let decision = await Task.detached(priority: .userInitiated) { SeguePolicy.decide(request) }.value
                 guard !Task.isCancelled, self.requests.isCurrentLoad(generation), self.autoMixPair == pair else { return }
                 let why = decision.why.isEmpty ? "" : "\n" + decision.why
@@ -2312,8 +2313,11 @@ final class PlayerController: ObservableObject {
         if current?.id == session.next.id { streamInfo = session.label }
         noteHandover(String(localized: "mix dal vivo") + " · " + session.summary)
         if LaunchScene.isActive { print("segue: mixed \(session.summary)") }
+        // An echo's repeats ring on in the outgoing song's audio processing: it plays on (silent but
+        // for them) until they have died away.
+        let tail = session.plan.hasEcho ? SeguePlan.echoTail : 0
         Task {
-            try? await Task.sleep(for: .seconds(Self.outputLatency + 0.3))
+            try? await Task.sleep(for: .seconds(Self.outputLatency + 0.3 + tail))
             if self.outgoingPlayer === outgoing { self.endCrossfade(interrupted: false) }
         }
     }

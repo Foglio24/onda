@@ -22,11 +22,15 @@ final class SegueStage: @unchecked Sendable {
     static let maxChannels = 8
     /// Automation is read every this many frames, the gain interpolated in between.
     static let blockFrames = 64
-    /// The lanes' order in the program (level, low shelf, middle, high shelf, low-pass, high-pass).
-    private static let targetOrder: [SegueLane.Target] = [.level, .lowShelf, .mid, .highShelf, .lowPass, .highPass]
+    /// The lanes' order in the program (level, low shelf, middle, high shelf, low-pass, high-pass, echo).
+    private static let targetOrder: [SegueLane.Target] = [.level, .lowShelf, .mid, .highShelf, .lowPass, .highPass, .echo]
     private static let laneStride = 1 + 4 * maxKnots
     private static let headerCount = 8
-    private static let programCount = headerCount + 6 * laneStride
+    private static let programCount = headerCount + 7 * laneStride
+    /// The echo's repeats: how much of each comes back, and the send's low cut (Hz) that keeps their
+    /// bass from building up.
+    static let echoFeedback = 0.5
+    static let echoLowCut = 250.0
 
     // Header slots.
     private enum Header {
@@ -39,6 +43,8 @@ final class SegueStage: @unchecked Sendable {
         static let span = 3
         /// Seconds of the song's own time the return to plain takes.
         static let release = 4
+        /// The echo's delay, seconds (0: the plan has none).
+        static let echoDelay = 5
     }
 
     private let lock = OSAllocatedUnfairLock()
@@ -59,9 +65,18 @@ final class SegueStage: @unchecked Sendable {
     private var lastValues = (lowShelf: 0.0, mid: 0.0, highShelf: 0.0, lowPass: 20_000.0, highPass: 20.0)
     private var gain = 1.0
     /// While going back to plain: the values it leaves from and where (song time) it started.
-    private var releaseFrom: (level: Double, lowShelf: Double, mid: Double, highShelf: Double, lowPass: Double, highPass: Double)?
+    private var releaseFrom: (level: Double, lowShelf: Double, mid: Double, highShelf: Double, lowPass: Double, highPass: Double,
+                              echo: Double)?
     private var releaseStart = 0.0
     private var lastProcessed = -Double.infinity
+    /// The echo's delay line, a ring of `echoCapacity` frames per channel (allocated in `prepare`, off
+    /// the audio thread), its write position, and per channel the send's low-cut state (input, output).
+    private var echoLine: UnsafeMutablePointer<Float>?
+    private var echoCapacity = 0
+    private var echoPosition = 0
+    private let echoCut: UnsafeMutablePointer<Double>
+    private var echoCutCoefficient = 0.0
+    private var echoSend = 0.0
     /// The song time at the end of the last block processed (read by the main thread, unsynchronised:
     /// a Double written whole by one thread).
     private(set) var processedTime = -Double.infinity
@@ -75,6 +90,8 @@ final class SegueStage: @unchecked Sendable {
         memory.initialize(repeating: 0, count: Self.maxChannels * filterCount * 2)
         coefficients = .allocate(capacity: 5)
         coefficients.initialize(repeating: .identity, count: 5)
+        echoCut = .allocate(capacity: Self.maxChannels * 2)
+        echoCut.initialize(repeating: 0, count: Self.maxChannels * 2)
     }
 
     deinit {
@@ -82,6 +99,8 @@ final class SegueStage: @unchecked Sendable {
         active.deallocate()
         memory.deallocate()
         coefficients.deallocate()
+        echoCut.deallocate()
+        echoLine?.deallocate()
     }
 
     // MARK: Main thread
@@ -97,6 +116,8 @@ final class SegueStage: @unchecked Sendable {
             pending[Header.mode] = 1
             pending[Header.anchor] = anchor
             pending[Header.span] = max(0.001, span)
+            // Only the outgoing song is thrown into an echo.
+            pending[Header.echoDelay] = side == .outgoing ? min(SeguePlan.maxEchoDelay, max(0, plan.echoDelay ?? 0)) : 0
             for (index, target) in Self.targetOrder.enumerated() {
                 let base = Self.headerCount + index * Self.laneStride
                 guard let lane = plan.lanes.first(where: { $0.side == side && $0.target == target }) else { continue }
@@ -142,11 +163,26 @@ final class SegueStage: @unchecked Sendable {
     // MARK: Audio thread
 
     /// The processing format: float samples only (the others pass untouched).
+    /// Called by the audio processing before it starts (never while it runs), so the echo's line is
+    /// allocated here.
     func prepare(sampleRate: Double, channels: Int, isFloat: Bool) {
         self.sampleRate = sampleRate > 0 ? sampleRate : 44_100
         self.channels = max(1, min(Self.maxChannels, channels))
         self.isFloat = isFloat
         memory.update(repeating: 0, count: Self.maxChannels * filterCount * 2)
+        let capacity = Int(SeguePlan.maxEchoDelay * self.sampleRate) + 2
+        if capacity != echoCapacity {
+            echoLine?.deallocate()
+            echoLine = .allocate(capacity: capacity * Self.maxChannels)
+            echoCapacity = capacity
+        }
+        echoLine?.initialize(repeating: 0, count: capacity * Self.maxChannels)
+        echoCut.update(repeating: 0, count: Self.maxChannels * 2)
+        echoPosition = 0
+        echoSend = 0
+        // One pole: y = c (y' + x - x'), c = RC / (RC + dt).
+        let rc = 1 / (2 * Double.pi * Self.echoLowCut)
+        echoCutCoefficient = rc / (rc + 1 / self.sampleRate)
     }
 
     /// Plays the lanes on `frames` frames whose first is at `time` (song seconds) and which cover
@@ -161,6 +197,10 @@ final class SegueStage: @unchecked Sendable {
                     memory.update(repeating: 0, count: Self.maxChannels * filterCount * 2)
                     releaseFrom = nil
                     gain = currentLevel(at: time)
+                    // A new plan's echo starts from silence (a bounded clear, once per plan).
+                    echoLine?.update(repeating: 0, count: echoCapacity * Self.maxChannels)
+                    echoCut.update(repeating: 0, count: Self.maxChannels * 2)
+                    echoSend = 0
                 }
             }
         }
@@ -174,19 +214,22 @@ final class SegueStage: @unchecked Sendable {
             let values = mode == 2 ? releasing(at: blockTime) : read(at: blockTime)
             let target = values.level <= -59.99 ? 0 : pow(10, min(6, values.level) / 20)
             updateFilters(values)
-            run(buffers, from: start, count: count, gainFrom: gain, gainTo: target)
+            let send = max(0, min(1, values.echo))
+            run(buffers, from: start, count: count, gainFrom: gain, gainTo: target, sendFrom: echoSend, sendTo: send)
             gain = target
+            echoSend = send
             start += count
         }
         processedTime = time + Double(frames) * step
         lastProcessed = processedTime
     }
 
-    private typealias Values = (level: Double, lowShelf: Double, mid: Double, highShelf: Double, lowPass: Double, highPass: Double)
+    private typealias Values = (level: Double, lowShelf: Double, mid: Double, highShelf: Double, lowPass: Double, highPass: Double,
+                                echo: Double)
 
     private func read(at time: Double) -> Values {
         let x = (time - active[Header.anchor]) / active[Header.span]
-        return (lane(0, x, silenceAsFloor: true), lane(1, x), lane(2, x), lane(3, x), lane(4, x), lane(5, x))
+        return (lane(0, x, silenceAsFloor: true), lane(1, x), lane(2, x), lane(3, x), lane(4, x), lane(5, x), lane(6, x))
     }
 
     private func currentLevel(at time: Double) -> Double {
@@ -200,11 +243,12 @@ final class SegueStage: @unchecked Sendable {
             releaseFrom = read(at: time)
             releaseStart = time
         }
-        guard let from = releaseFrom else { return (0, 0, 0, 0, 20_000, 20) }
+        guard let from = releaseFrom else { return (0, 0, 0, 0, 20_000, 20, 0) }
         let u = max(0, min(1, (time - releaseStart) / active[Header.release]))
         let level = from.level + (0 - from.level) * u
         return (level, from.lowShelf * (1 - u), from.mid * (1 - u), from.highShelf * (1 - u),
-                from.lowPass * pow(20_000 / max(20, from.lowPass), u), from.highPass * pow(20 / max(20, from.highPass), u))
+                from.lowPass * pow(20_000 / max(20, from.lowPass), u), from.highPass * pow(20 / max(20, from.highPass), u),
+                from.echo * (1 - u))
     }
 
     /// Lane `index` at position `x`: its knots read straight from the program.
@@ -328,29 +372,65 @@ final class SegueStage: @unchecked Sendable {
         lastValues = (values.lowShelf, values.mid, values.highShelf, values.lowPass, values.highPass)
     }
 
-    private func run(_ buffers: UnsafeMutableAudioBufferListPointer, from start: Int, count: Int, gainFrom: Double, gainTo: Double) {
+    /// The filters, then the fader, on `count` frames from `start`; the echo's send taken after the
+    /// filters and ahead of the fader, its repeats added after it (they ring on once the fader is shut).
+    private func run(_ buffers: UnsafeMutableAudioBufferListPointer, from start: Int, count: Int, gainFrom: Double, gainTo: Double,
+                     sendFrom: Double, sendTo: Double) {
+        let delayFrames = Int(active[Header.echoDelay] * sampleRate)
+        let echoes = delayFrames > 0 && delayFrames < echoCapacity ? echoLine : nil
+        let blockStart = echoPosition
         var channel = 0
+        var advanced = 0
         for buffer in buffers {
             guard let data = buffer.mData?.assumingMemoryBound(to: Float.self) else { continue }
             let interleaved = max(1, Int(buffer.mNumberChannels))
             let frames = Int(buffer.mDataByteSize) / (MemoryLayout<Float>.size * interleaved)
             guard start < frames else { continue }
             let length = min(count, frames - start)
+            advanced = max(advanced, length)
             for offset in 0..<interleaved where channel < Self.maxChannels {
                 let samples = data + start * interleaved + offset
                 let state = memory + channel * filterCount * 2
                 for f in 0..<filterCount where !coefficients[f].isIdentity {
                     filter(samples, count: length, stride: interleaved, coefficients[f], state: state + f * 2)
                 }
-                var index = 0
                 let delta = (gainTo - gainFrom) / Double(max(1, length))
-                while index < length {
-                    samples[index * interleaved] *= Float(gainFrom + delta * Double(index + 1))
-                    index += 1
+                if let echoes {
+                    let line = echoes + channel * echoCapacity
+                    let cut = echoCut + channel * 2
+                    var lastIn = cut[0], lastOut = cut[1]
+                    let sendDelta = (sendTo - sendFrom) / Double(max(1, length))
+                    var index = 0
+                    var write = blockStart
+                    while index < length {
+                        let y = Double(samples[index * interleaved])
+                        let high = echoCutCoefficient * (lastOut + y - lastIn)
+                        lastIn = y
+                        lastOut = high
+                        var read = write - delayFrames
+                        if read < 0 { read += echoCapacity }
+                        let repeat_ = Double(line[read])
+                        let fed = high * (sendFrom + sendDelta * Double(index + 1)) + repeat_ * Self.echoFeedback
+                        line[write] = Float(fed.isFinite ? fed : 0)
+                        samples[index * interleaved] = Float(y * (gainFrom + delta * Double(index + 1)) + repeat_)
+                        write += 1
+                        if write == echoCapacity { write = 0 }
+                        index += 1
+                    }
+                    // Denormals never stay in the state.
+                    cut[0] = abs(lastIn) > 1e-20 ? lastIn : 0
+                    cut[1] = abs(lastOut) > 1e-20 && lastOut.isFinite ? lastOut : 0
+                } else {
+                    var index = 0
+                    while index < length {
+                        samples[index * interleaved] *= Float(gainFrom + delta * Double(index + 1))
+                        index += 1
+                    }
                 }
                 channel += 1
             }
         }
+        if echoes != nil { echoPosition = (blockStart + advanced) % max(1, echoCapacity) }
     }
 
     private func filter(_ samples: UnsafeMutablePointer<Float>, count: Int, stride: Int, _ c: FilterCoefficients,

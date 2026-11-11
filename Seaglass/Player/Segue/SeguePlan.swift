@@ -67,6 +67,10 @@ enum SegueShape: String, Codable, Sendable {
     case cut
     /// Simple fade.
     case fade
+    /// Locked: the bass swap, the outgoing song's fader closing early into an echo of its last beats.
+    case echoTail
+    /// Filtered: the outgoing song thrown into an echo of its beat late in the fade.
+    case echoOut
 }
 
 /// Why a level was left behind.
@@ -100,6 +104,9 @@ struct SegueLane: Equatable, Codable, Sendable {
         case lowPass
         /// A high-pass's cutoff, Hz; nil is open (20 Hz).
         case highPass
+        /// How much of the song goes into an echo of its beat (0…1; nil is none), ahead of its fader:
+        /// the repeats ring on after the fader has closed.
+        case echo
 
         var isFrequency: Bool { self == .lowPass || self == .highPass }
 
@@ -110,6 +117,7 @@ struct SegueLane: Equatable, Codable, Sendable {
             case .lowShelf, .mid, .highShelf: return 0
             case .lowPass: return 20_000
             case .highPass: return 20
+            case .echo: return 0
             }
         }
     }
@@ -195,11 +203,19 @@ struct SeguePlan: Equatable, Codable, Sendable {
     var swap: Double
     /// Seconds the incoming song takes after the window to return to its own speed.
     var restoreSeconds: Double
+    /// The echo's delay (seconds, on the outgoing song's beat), for the shapes that throw it into one.
+    var echoDelay: Double? = nil
     var score: Double?
     /// Why each level above this one wasn't used.
     var attempts: [SegueAttempt] = []
 
     var outgoingEnd: Double { outgoingStart + length }
+
+    /// The longest echo delay a deck holds (seconds), and how long the outgoing song plays on past the
+    /// window for its echo to ring out.
+    static let maxEchoDelay = 0.7
+    static let echoTail = 3.0
+    var hasEcho: Bool { lanes.contains { $0.target == .echo } }
     var incomingEnd: Double { incomingStart + length * rate }
 
     func lanes(_ side: SegueLane.Side) -> [SegueLane] { lanes.filter { $0.side == side } }
@@ -241,6 +257,13 @@ enum SegueValidator {
             if lane.target.isFrequency, lane.knots.contains(where: { ($0.value ?? 1) <= 0 }) {
                 found.append("\(lane.side.rawValue) \(lane.target.rawValue): frequency not positive")
             }
+            if lane.target == .echo, lane.knots.contains(where: { ($0.value ?? 0) < 0 || ($0.value ?? 0) > 1 }) {
+                found.append("\(lane.side.rawValue) echo: send out of 0…1")
+            }
+        }
+        if plan.lanes.contains(where: { $0.target == .echo }) {
+            if !((plan.echoDelay ?? 0) >= 0.05 && (plan.echoDelay ?? 1) <= SeguePlan.maxEchoDelay) { found.append("echo delay") }
+            if plan.outgoingEnd + SeguePlan.echoTail > outgoingDuration + 0.05 { found.append("no room for the echo's tail") }
         }
         let levels = Dictionary(grouping: plan.lanes.filter { $0.target == .level }, by: \.side)
         if levels[.outgoing]?.count != 1 || levels[.incoming]?.count != 1 { found.append("one level lane per side") }

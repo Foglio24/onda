@@ -774,3 +774,8 @@
 "mix dal vivo" = "实时混音";
 "Mix dal vivo" = "实时混音";
 "AutoMix suona il brano successivo su un secondo lettore, a tempo con quello in corso, con livelli, bassi e filtri automatici. Spento, usa i mix preparati in un file." = "AutoMix 会在第二个播放器上播放下一首歌，与当前歌曲节拍同步，并自动调节音量、低音和滤波。关闭时，使用预先生成在文件中的混音。";
+"Breve" = "短";
+"Lunga" = "长";
+"Durata del mix" = "混音长度";
+"Equalizzazione automatica" = "自动均衡";
+"Breve: fino a 8 battute. Normale: fino a 16. Lunga: fino a 32, quando i due brani tengono il tempo così a lungo. Con l'equalizzazione automatica bassi, medi, alti, filtri ed eco passano da un brano all'altro; spenta, cambiano solo i volumi." = "短：最多 8 小节。正常：最多 16 小节。长：最多 32 小节，前提是两首歌都能保持这么久的节拍。开启自动均衡时，低音、中音、高音、滤波和回声会从一首歌过渡到另一首；关闭时只改变音量。";

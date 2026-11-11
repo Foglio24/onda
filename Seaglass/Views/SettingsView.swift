@@ -227,6 +227,8 @@ private struct PlaybackSettingsView: View {
     @AppStorage(Preferences.crossfade) private var crossfade = Preferences.defaultCrossfade
     @AppStorage(Preferences.skipLongMixes) private var skipLongMixes = true
     @AppStorage(Preferences.liveMix) private var liveMix = true
+    @AppStorage(Preferences.mixLengthKey) private var mixLength = SegueLength.normal.rawValue
+    @AppStorage(Preferences.autoMixEqualiserKey) private var autoMixEqualiser = true
     @ObservedObject private var account = AccountService.shared
     @State private var paywall: PremiumFeature?
 
@@ -282,9 +284,28 @@ private struct PlaybackSettingsView: View {
                     Toggle(isOn: $liveMix) {
                         Label("Mix dal vivo", systemImage: "dial.medium")
                     }
+                    if liveMix {
+                        Picker(selection: $mixLength) {
+                            Text("Breve").tag(SegueLength.short.rawValue)
+                            Text("Normale").tag(SegueLength.normal.rawValue)
+                            Text("Lunga").tag(SegueLength.long.rawValue)
+                        } label: {
+                            Label("Durata del mix", systemImage: "ruler")
+                        }
+                        Toggle(isOn: $autoMixEqualiser) {
+                            Label("Equalizzazione automatica", systemImage: "slider.vertical.3")
+                        }
+                    }
                 } footer: {
-                    Text("AutoMix suona il brano successivo su un secondo lettore, a tempo con quello in corso, con livelli, bassi e filtri automatici. Spento, usa i mix preparati in un file.")
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("AutoMix suona il brano successivo su un secondo lettore, a tempo con quello in corso, con livelli, bassi e filtri automatici. Spento, usa i mix preparati in un file.")
+                        if liveMix {
+                            Text("Breve: fino a 8 battute. Normale: fino a 16. Lunga: fino a 32, quando i due brani tengono il tempo così a lungo. Con l'equalizzazione automatica bassi, medi, alti, filtri ed eco passano da un brano all'altro; spenta, cambiano solo i volumi.")
+                        }
+                    }
                 }
+                .onChange(of: mixLength) { _, _ in player.applyTransitionPreference() }
+                .onChange(of: autoMixEqualiser) { _, _ in player.applyTransitionPreference() }
             }
 
             Section {
