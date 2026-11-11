@@ -442,6 +442,28 @@ expect(rms(carryingHeard, from: 0, to: 1.9) < 0.001 && rms(ownHeard, from: 2.2, 
 expect(abs(rms(carryingHeard, from: 3, to: 3.5) - rms(plainHeard, from: 3, to: 3.5)) < 0.002,
        "and the carrying player then plays the plan's outgoing lanes")
 
+// The playing song's glide to the next one's tempo: its own deck crosses out at 2 s, a relay deck
+// (one step) crosses in there and out at 3 s, the carrying deck crosses in at 3 s (the window). On
+// the same music, a steady level through both crossovers.
+var glideSource = carriedSource
+glideSource.outgoingStart = 3
+let ownGlide = SegueStage(), relayGlide = SegueStage(), lastGlide = SegueStage()
+for deck in [ownGlide, relayGlide, lastGlide] { deck.prepare(sampleRate: deckRate, channels: 2, isFloat: true) }
+ownGlide.arm(SeguePlan.crossover(at: 2, length: 0.08), side: .outgoing)
+relayGlide.arm(SeguePlan.relay(from: 2, to: 3, crossover: 0.08), side: .outgoing)
+lastGlide.arm(glideSource.carried(crossover: 0.08), side: .outgoing)
+let ownGlideHeard = process(ownGlide, steady, start: 0, rate: deckRate, block: 64)
+let relayGlideHeard = process(relayGlide, steady, start: 0, rate: deckRate, block: 64)
+let lastGlideHeard = process(lastGlide, steady, start: 0, rate: deckRate, block: 64)
+var glideWorst: Float = 0
+for i in Int(1.5 * deckRate)..<Int(3.2 * deckRate) {
+    glideWorst = max(glideWorst, abs(ownGlideHeard[i] + relayGlideHeard[i] + lastGlideHeard[i] - 0.5) / 0.5)
+}
+expect(glideWorst < 0.08, "the glide's steps: own, relay and carrying decks steady through both crossovers within 8 % (\(format(Double(glideWorst) * 100, 1)) %)")
+expect(rms(relayGlideHeard, from: 0, to: 1.9) < 0.001 && abs(rms(relayGlideHeard, from: 2.2, to: 2.9) / 0.5 - 1) < 0.01
+       && rms(relayGlideHeard, from: 3.2, to: 3.9) < 0.001,
+       "a relay deck: silent before its step, at full level through it, silent after the next")
+
 // After its window the incoming song's deck is released (SegueSession): a seek back to before the
 // window, where its lanes hold it silent, must still play it. Two cases: released then sent back,
 // and sent back in the middle of the release (counted by the sound played, not the song's time).

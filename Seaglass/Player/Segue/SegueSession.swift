@@ -5,12 +5,14 @@ import AVFoundation
 /// corrected only while it is still quiet in the mix. The lanes themselves play inside each player's
 /// audio processing (`SegueStage`), by each song's own time.
 ///
-/// For a beat-matched window the playing song changes tempo, not the next one (`carried`): on the
-/// window's first downbeat it crosses over (80 ms) to a fresh player of its own file already at the
-/// next song's tempo, which carries it out of the mix; the next song plays at its own speed and with
-/// its own sound from its first note, so nothing changes once the mix is over. Without the playing
-/// song's file the next song is the one stretched, and goes back to its own speed on a fresh player
-/// after the window (`returnToOwnSpeed`).
+/// For a beat-matched window the playing song changes tempo, not the next one (`carriers`): over the
+/// bars before the window it glides to the next song's tempo, a step of at most half a percent a
+/// bar, each step a fresh player of its own file at the next speed that it crosses over to (80 ms) on
+/// the bar's downbeat; the last, at the next song's tempo from the window's first downbeat, carries
+/// it out of the mix. The next song plays at its own speed and with its own sound from its first
+/// note, so nothing changes once the mix is over. Without the playing song's file the next song is
+/// the one stretched, and goes back to its own speed on a fresh player after the window
+/// (`returnToOwnSpeed`).
 ///
 /// Why a heard player's speed never changes: a playing player renders its sound again whenever its
 /// rate changes, and its time jumps by 20–40 ms (CI's Mac: the deck's samples jumped, and the
@@ -56,14 +58,24 @@ final class SegueSession {
     /// next song is the one stretched).
     let outgoingFile: URL?
     let outgoingGain: Float
-    /// The playing song carried out of the mix on a fresh player at the next song's tempo, from the
-    /// window's first downbeat; its stage plays the plan's outgoing lanes. The player it took over
-    /// from goes silent there and is let go once its sound is out of the speakers.
-    private(set) var carried: AVPlayer?
-    private var carriedItem: AVPlayerItem?
-    private var carriedStage: SegueStage?
+    /// The players that carry the playing song to the next song's tempo, one a step: each starts at
+    /// a downbeat (`at`, the song's time) at its speed and crosses over from the one before; the
+    /// last, at the next song's tempo from the window's first downbeat, carries it out of the mix
+    /// (its stage plays the plan's outgoing lanes). Each one before is let go once its sound is out of
+    /// the speakers; the song's own player goes silent at the first step and is let go at the window.
+    private struct Carrier {
+        let player: AVPlayer
+        let item: AVPlayerItem
+        let stage: SegueStage
+        let rate: Float
+        let at: Double
+    }
+
+    private var carriers: [Carrier] = []
     private weak var original: AVPlayer?
-    /// The carried song's speed: its time against the next song's, the next one at its own speed.
+    /// The player that carries the playing song out of the mix (the last step).
+    var carried: AVPlayer? { carriers.last?.player }
+    /// The carried song's speed at the window: its time against the next song's, the next one at its own.
     private var carriedRate: Float { Float(1 / plan.rate) }
     /// The playing song's stage (in its item's audio processing), and the next song's.
     let outgoingStage: SegueStage
@@ -127,8 +139,34 @@ final class SegueSession {
         max(0, plan.incomingStart - (carried != nil ? Self.silentStart : Self.runUp) * playRate)
     }
 
-    /// Where the carrying player starts: a third of a second before the window, at its speed.
-    private var carriedStartTime: Double { max(0, plan.outgoingStart - Self.silentStart * Double(carriedRate)) }
+    /// The steps of the playing song's glide to the next song's tempo: at most half a percent each
+    /// (a change of tempo that small isn't heard), one a bar, eight at most and over 20 seconds at
+    /// most; none for a window that doesn't match beats.
+    static func glideSteps(_ plan: SeguePlan) -> Int {
+        guard plan.level.isLocked, plan.rate > 0 else { return 0 }
+        let change = abs(1 / plan.rate - 1)
+        guard change > 0.0005 else { return 0 }
+        let bars = max(1, Int(20 / bar(plan)))
+        return min(8, bars, max(1, Int((change / 0.005).rounded(.up))))
+    }
+
+    /// A bar of the playing song, in its time.
+    static func bar(_ plan: SeguePlan) -> Double { 4 * 60 / max(40, plan.tempo ?? 120) }
+
+    /// How long before the window a session for `plan` is armed: its glide and the time to prepare.
+    static func prepareLead(for plan: SeguePlan) -> TimeInterval {
+        max(prepareLead, Double(glideSteps(plan)) * bar(plan) + 12)
+    }
+
+    /// The most `prepareLead(for:)` gives (a glide of 20 seconds): planned windows leave room for it.
+    static let longestPrepareLead: TimeInterval = 32
+
+    /// How long before the window `start` is to be called: the glide's first step, a third of a
+    /// second before it, and a little more (the run-up when the next song is the one stretched).
+    var startLead: TimeInterval {
+        guard let first = carriers.first else { return Self.runUp }
+        return (plan.outgoingStart - first.at) + Self.silentStart + 0.8
+    }
 
     /// Loads the next song where its run-up starts, its lanes and effects on, prerolled at its speed.
     /// `pitch`: how the app changes songs' speed (Tempo's key lock: the pitch kept, or moving as on a
@@ -138,9 +176,9 @@ final class SegueSession {
         self.spatial = spatial
         // Not the time-domain algorithm: it is made for speech, and on music it stutters.
         self.pitch = pitch == .timeDomain ? .spectral : pitch
-        // A beat-matched window carries the playing song at the next one's tempo, when its file is here.
-        if plan.level.isLocked, abs(plan.rate - 1) > 0.0005, abs(outgoingRate - 1) <= 0.0005, let outgoingFile,
-           await prepareCarried(outgoingFile) {
+        // A beat-matched window carries the playing song to the next one's tempo, when its file is here.
+        let steps = Self.glideSteps(plan)
+        if steps > 0, abs(outgoingRate - 1) <= 0.0005, let outgoingFile, await prepareCarriers(outgoingFile, steps: steps) {
             rate = 1
         }
         guard phase == .preparing else { return false }
@@ -151,10 +189,10 @@ final class SegueSession {
         guard effects.segue != nil, phase == .preparing else { return false }
         item.audioMix = effects.mix
         incomingStage.arm(plan, side: .incoming)
-        if carried != nil {
-            // The playing song's own player only crosses over to the carrying one at the window.
-            outgoingStage.arm(SeguePlan.crossover(at: plan.outgoingStart, length: Self.crossover),
-                              side: .outgoing, offset: outgoingOffset)
+        if let first = carriers.first {
+            // The playing song's own player only crosses over to the first carrying one, a few bars
+            // before the window.
+            outgoingStage.arm(SeguePlan.crossover(at: first.at, length: Self.crossover), side: .outgoing, offset: outgoingOffset)
         } else {
             outgoingStage.arm(plan, side: .outgoing, offset: outgoingOffset)
         }
@@ -176,37 +214,53 @@ final class SegueSession {
         return true
     }
 
-    /// The playing song on a fresh player of its own file, at the next song's tempo, ready to take
-    /// over at the window: its stage plays the plan's outgoing lanes, their level crossing in from
-    /// silence over the first 80 ms. False when it can't be (no processing, not ready in time).
-    private func prepareCarried(_ url: URL) async -> Bool {
-        let player = AVPlayer()
-        player.automaticallyWaitsToMinimizeStalling = false
-        PlaybackVolume.shared.register(player)
-        let item = AVPlayerItem(url: url)
-        item.allowedAudioSpatializationFormats = spatial
-        item.audioTimePitchAlgorithm = pitch
-        let stage = SegueStage()
-        let effects = await AudioEffects.mix(for: item, gain: outgoingGain, segue: stage)
-        guard effects.segue != nil, phase == .preparing else { return false }
-        item.audioMix = effects.mix
-        stage.arm(plan.carried(crossover: Self.crossover), side: .outgoing)
-        player.replaceCurrentItem(with: item)
-        player.defaultRate = Float(1 / plan.rate)
-        _ = await player.seek(to: CMTime(seconds: max(0, plan.outgoingStart - Self.silentStart / plan.rate), preferredTimescale: 48_000),
-                              toleranceBefore: .zero, toleranceAfter: .zero)
-        var waited = 0
-        while item.status == .unknown, waited < 50, phase == .preparing {
-            try? await Task.sleep(for: .milliseconds(100))
-            waited += 1
+    /// The players that carry the playing song to the next song's tempo, `steps` bars of it before
+    /// the window: each on its own file at its step's speed, prerolled where it starts (a third of a
+    /// second before its downbeat), its stage crossing in there and out at the next step's downbeat;
+    /// the last crossing in at the window and playing the plan's outgoing lanes. False (none) when
+    /// one can't be (no processing, not ready in time).
+    private func prepareCarriers(_ url: URL, steps: Int) async -> Bool {
+        let bar = Self.bar(plan)
+        let target = 1 / plan.rate
+        var prepared: [Carrier] = []
+        func letGo() {
+            for carrier in prepared { carrier.player.replaceCurrentItem(with: nil) }
         }
-        guard item.status == .readyToPlay, phase == .preparing, await player.preroll(atRate: Float(1 / plan.rate)) else {
-            player.replaceCurrentItem(with: nil)
-            return false
+        for step in 1...steps {
+            let at = plan.outgoingStart - Double(steps - step) * bar
+            let rate = Float(1 + (target - 1) * Double(step) / Double(steps))
+            let player = AVPlayer()
+            player.automaticallyWaitsToMinimizeStalling = false
+            PlaybackVolume.shared.register(player)
+            let item = AVPlayerItem(url: url)
+            item.allowedAudioSpatializationFormats = spatial
+            item.audioTimePitchAlgorithm = pitch
+            let stage = SegueStage()
+            let effects = await AudioEffects.mix(for: item, gain: outgoingGain, segue: stage)
+            guard effects.segue != nil, phase == .preparing else {
+                letGo()
+                return false
+            }
+            item.audioMix = effects.mix
+            stage.arm(step == steps ? plan.carried(crossover: Self.crossover)
+                                    : SeguePlan.relay(from: at, to: at + bar, crossover: Self.crossover), side: .outgoing)
+            player.replaceCurrentItem(with: item)
+            player.defaultRate = rate
+            _ = await player.seek(to: CMTime(seconds: max(0, at - Self.silentStart * Double(rate)), preferredTimescale: 48_000),
+                                  toleranceBefore: .zero, toleranceAfter: .zero)
+            var waited = 0
+            while item.status == .unknown, waited < 50, phase == .preparing {
+                try? await Task.sleep(for: .milliseconds(100))
+                waited += 1
+            }
+            guard item.status == .readyToPlay, phase == .preparing, await player.preroll(atRate: rate) else {
+                player.replaceCurrentItem(with: nil)
+                letGo()
+                return false
+            }
+            prepared.append(Carrier(player: player, item: item, stage: stage, rate: rate, at: at))
         }
-        carried = player
-        carriedItem = item
-        carriedStage = stage
+        carriers = prepared
         return true
     }
 
@@ -217,16 +271,47 @@ final class SegueSession {
         guard phase == .ready, let item = outgoing.currentItem, let timebase = item.timebase else { return false }
         let outgoingRate = CMTimebaseGetRate(timebase)
         let now = CMTimebaseGetTime(timebase).seconds - offset
-        if let carried {
-            let delay = (plan.outgoingStart - now) / max(0.01, outgoingRate)
-            guard outgoingRate > 0, now.isFinite, delay > Self.silentStart + 0.15 else { return false }
-            let window = CMTimeAdd(CMClockGetTime(CMClockGetHostTimeClock()), CMTime(seconds: delay, preferredTimescale: 1_000_000_000))
-            let early = CMTimeSubtract(window, CMTime(seconds: Self.silentStart, preferredTimescale: 1_000_000_000))
-            startsAt = early.seconds
-            player.setRate(1, time: CMTime(seconds: incomingStartTime, preferredTimescale: 48_000), atHostTime: early)
-            carried.setRate(carriedRate, time: CMTime(seconds: carriedStartTime, preferredTimescale: 48_000), atHostTime: early)
+        if !carriers.isEmpty {
+            guard outgoingRate > 0, now.isFinite else { return false }
+            // Steps whose moment has passed (armed late) are left out: the glide starts at the first
+            // one still ahead, the playing song's own player crossing over to it there.
+            while carriers.count > 1, (carriers[0].at - now) / outgoingRate < Self.silentStart + 0.15 {
+                carriers.removeFirst().player.replaceCurrentItem(with: nil)
+            }
+            guard let first = carriers.first, (first.at - now) / outgoingRate > Self.silentStart + 0.15 else { return false }
+            outgoingStage.arm(SeguePlan.crossover(at: first.at, length: Self.crossover), side: .outgoing, offset: outgoingOffset)
+            // Each step on the system clock: the moment the player before reaches its downbeat.
+            let clock = CMClockGetTime(CMClockGetHostTimeClock()).seconds
+            var moment = clock + (first.at - now) / outgoingRate
+            var letGoAt: [(AVPlayer, Double)] = []
+            for (index, carrier) in carriers.enumerated() {
+                if index > 0 {
+                    let before = carriers[index - 1]
+                    moment += (carrier.at - before.at) / Double(before.rate)
+                    letGoAt.append((before.player, moment))
+                }
+                let start = CMTime(seconds: moment - Self.silentStart, preferredTimescale: 1_000_000_000)
+                carrier.player.setRate(carrier.rate, time: CMTime(seconds: max(0, carrier.at - Self.silentStart * Double(carrier.rate)),
+                                                                  preferredTimescale: 48_000), atHostTime: start)
+            }
+            // `moment` is now the window's: the next song starts a third of a second before it.
+            startsAt = moment - Self.silentStart
+            player.setRate(1, time: CMTime(seconds: incomingStartTime, preferredTimescale: 48_000),
+                           atHostTime: CMTime(seconds: startsAt, preferredTimescale: 1_000_000_000))
             original = outgoing
             phase = .running
+            // Each step's player, silent once the next has crossed in, let go once its sound is out.
+            let session = AVAudioSession.sharedInstance()
+            let latency = max(0, session.outputLatency) + max(0, session.ioBufferDuration)
+            for (released, at) in letGoAt {
+                Task { [weak self] in
+                    let wait = at + Self.crossover + latency + 0.3 - CMClockGetTime(CMClockGetHostTimeClock()).seconds
+                    try? await Task.sleep(for: .seconds(max(0, wait)))
+                    guard self?.phase != .abandoned else { return }
+                    released.pause()
+                    released.replaceCurrentItem(with: nil)
+                }
+            }
             return true
         }
         // The playing song's time at which the next one is at its run-up's start.
@@ -257,11 +342,12 @@ final class SegueSession {
         // pause stops nothing else).
         let carriedTime: () -> Double? = { [weak self] in
             guard let self else { return nil }
-            guard let carried = self.carried, let carriedItem = self.carriedItem else { return outgoingTime() }
-            if self.phase == .running, outgoingTime() == nil { return nil }
+            guard let last = self.carriers.last else { return outgoingTime() }
+            // Before the last step runs nothing is measured (the playing song's own player, silent
+            // from the glide's first step, keeps its own time, not the song's as heard).
             guard CMClockGetTime(CMClockGetHostTimeClock()).seconds >= self.startsAt + 0.1,
-                  carried.timeControlStatus == .playing else { return self.phase == .mixing ? nil : outgoingTime() }
-            return carriedItem.currentTime().seconds
+                  last.player.timeControlStatus == .playing else { return nil }
+            return last.item.currentTime().seconds
         }
         task = Task {
             var readings: [Double] = []
@@ -547,8 +633,10 @@ final class SegueSession {
         phase = .abandoned
         player.pause()
         player.replaceCurrentItem(with: nil)
-        carried?.pause()
-        carried?.replaceCurrentItem(with: nil)
+        for carrier in carriers {
+            carrier.player.pause()
+            carrier.player.replaceCurrentItem(with: nil)
+        }
         outgoingStage.disarm()
         incomingStage.disarm()
     }
@@ -557,7 +645,7 @@ final class SegueSession {
     var summary: String {
         String(format: "%@ %@, %.1f s from %.1f s, rate %.4f%@, phase %.0f/%.0f ms, worst %.0f ms",
                plan.level.rawValue, plan.shape.rawValue, plan.length, plan.outgoingStart, plan.rate,
-               carried != nil ? String(format: " (the playing song carried at %.4f)", Double(carriedRate)) : "",
+               carried != nil ? String(format: " (the playing song carried at %.4f in %d steps)", Double(carriedRate), carriers.count) : "",
                (plan.phaseMedian ?? 0) * 1000, (plan.phaseP95 ?? 0) * 1000, worstError * 1000)
     }
 }

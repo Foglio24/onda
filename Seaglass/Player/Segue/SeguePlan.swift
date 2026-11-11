@@ -255,6 +255,27 @@ struct SeguePlan: Equatable, Codable, Sendable {
         return carried
     }
 
+    /// One step of the playing song's glide to the next song's tempo (see `SegueSession.carriers`):
+    /// a player that crosses in from silence at `from` (the song's time) and out at `to`, each over
+    /// `crossover` seconds (equal gain against the players before and after it), at full level in
+    /// between.
+    static func relay(from: Double, to: Double, crossover: Double) -> SeguePlan {
+        let length = max(2 * crossover, to - from + crossover)
+        let edge = crossover / length
+        var knots: [SegueLane.Knot] = []
+        for step in 0...12 {
+            let gain = Double(step) / 12
+            knots.append(SegueLane.Knot(at: edge * gain, value: step == 0 ? nil : 20 * log10(gain)))
+        }
+        for step in 0...12 {
+            let gain = 1 - Double(step) / 12
+            knots.append(SegueLane.Knot(at: 1 - edge + edge * Double(step) / 12, value: step == 12 ? nil : 20 * log10(gain)))
+        }
+        return SeguePlan(level: .simpleFade, shape: .fade, outgoingStart: from, incomingStart: from, rate: 1, length: length,
+                         bars: nil, tempo: nil, phaseMedian: nil, phaseP95: nil,
+                         lanes: [SegueLane(side: .outgoing, target: .level, knots: knots)], swap: 0.5)
+    }
+
     /// One song crossing over to itself on another player, from `at` (its time on both) over
     /// `length` seconds: the outgoing side the player it leaves, the incoming side the one it goes to.
     static func crossover(at: Double, length: Double) -> SeguePlan {

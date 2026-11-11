@@ -42,6 +42,9 @@ grep -q "segue-scene: next song" "$work/live.log" || { echo "::error::The next s
 grep -q "segue: after the window" "$work/live.log" || { echo "::error::The live mix never finished after its window"; failed=1; }
 carried=$(grep -c "segue: window .*the playing song carried at" "$work/live.log")
 [ "$carried" -ge 2 ] || { echo "::error::The playing song was carried at the next one's tempo in $carried of 2 mixes"; failed=1; }
+# 126 to 124 BPM and 128 to 126 (1.6 %): the playing song glides there in steps of half a percent.
+glide=$(grep -o "the playing song carried at [0-9.]* in [0-9]* steps" "$work/live.log" | grep -o "in [0-9]* steps" | grep -o "[0-9]*" | sort -n | head -1)
+if [ -z "$glide" ] || [ "$glide" -lt 2 ]; then echo "::error::The playing song's glide to the next tempo took ${glide:-no} steps"; failed=1; fi
 own=$(grep -c "after the window: plays on at rate 1.0000" "$work/live.log")
 [ "$own" -ge 2 ] || { echo "::error::The song brought in played at its own speed after $own of 2 mixes"; failed=1; }
 mixes=$(grep -c "segue: mixed" "$work/live.log")

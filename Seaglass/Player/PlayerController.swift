@@ -2101,7 +2101,7 @@ final class PlayerController: ObservableObject {
             if design == nil, !albumOrder, self.segueRefusedPair != pair, let stage = self.segueStage(for: track) {
                 let request = SegueRequest(outgoing: SegueSong(outgoing, voices: outgoingVocals),
                                            incoming: SegueSong(incoming, voices: incomingVocals),
-                                           earliestExit: self.progress.currentTime + SegueSession.prepareLead + 5,
+                                           earliestExit: self.progress.currentTime + SegueSession.longestPrepareLead + 5,
                                            length: Preferences.mixLength, eq: Preferences.autoMixEqualiser,
                                            outgoingRate: speed)
                 let decision = await Task.detached(priority: .userInitiated) { SeguePolicy.decide(request) }.value
@@ -2332,7 +2332,8 @@ final class PlayerController: ObservableObject {
         let start = planned.plan.outgoingStart
         retireSegue()
         guard segueSession == nil else { return }
-        if seconds >= start - SegueSession.prepareLead, seconds < start - SegueSession.runUp - 1 {
+        // Armed in time for the playing song's glide to the next one's tempo (see `SegueSession`).
+        if seconds >= start - SegueSession.prepareLead(for: planned.plan), seconds < start - SegueSession.runUp - 1 {
             armSegue(planned)
         } else if seconds >= start - SegueSession.runUp - 1 {
             seguePlanned = nil
@@ -2372,7 +2373,7 @@ final class PlayerController: ObservableObject {
                     try? await Task.sleep(for: .milliseconds(250))
                     continue
                 }
-                let wait = (planned.plan.outgoingStart - SegueSession.runUp) - (time - offset)
+                let wait = (planned.plan.outgoingStart - session.startLead) - (time - offset)
                 if wait <= 1 { break }
                 try? await Task.sleep(for: .seconds(min(wait - 0.8, 2)))
             }

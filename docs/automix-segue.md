@@ -143,17 +143,23 @@ in under a lock the audio thread only tries.
    prerolled. It keeps the app's way of changing speed (Tempo's key lock: Apple's spectral
    algorithm, or resampling); never the time-domain one, which is made for speech and stutters on
    music.
-2. For a beat-matched window the **playing song** changes tempo, not the next one: a third player
-   is loaded with the playing song's own file (the one it was analysed from), at the next song's
-   tempo, its deck playing the plan's outgoing lanes with their level crossing in from silence over
-   the window's first 80 ms. The playing song's own deck crosses out over the same 80 ms (equal
-   gain: the same music on two players, in phase). So the next song plays at its own speed and with
-   its own sound from its first note, and nothing changes once the mix is over: on an iPhone,
-   bringing the stretched next song back to its own speed after the mix was always heard, the
-   stretched sound giving way to the song's own.
-3. A third of a second before the window, the next song and the carrying player start, silent, at
-   an exact moment of the system clock computed from the playing song's timebase (so whatever a
-   player does as it starts is never heard). Without the playing song's file (or for a window
+2. For a beat-matched window the **playing song** changes tempo, not the next one, and gently:
+   over the bars before the window it glides to the next song's tempo in steps of at most half a
+   percent, one a bar (eight at most, over 20 seconds at most: the 1.6 % from 126 to 124 BPM takes
+   four). Each step is a fresh player of the playing song's own file (the one it was analysed from)
+   at the step's speed, which crosses in on the bar's downbeat over 80 ms while the one before
+   crosses out (equal gain: the same music on two players, in phase); the last, at the next song's
+   tempo from the window's first downbeat, plays the plan's outgoing lanes and carries the song
+   out of the mix. A step at once (the whole change on the window's downbeat) was heard as the
+   beat jumping. So the next song plays at its own speed and with its own sound from its first
+   note, and nothing changes once the mix is over: on an iPhone, bringing the stretched next song
+   back to its own speed after the mix was always heard, the stretched sound giving way to the
+   song's own.
+3. Each step's player starts a third of a second before its downbeat, silent until it, at an exact
+   moment of the system clock computed from the playing song's timebase (so whatever a player does
+   as it starts is never heard), and the next song a third of a second before the window. The
+   steps are armed in time (`SegueSession.prepareLead(for:)`); armed late, the steps already past
+   are left out. Without the playing song's file (or for a window
    that doesn't match beats) the next song instead starts 2.5 seconds before the window at the
    plan's speed, and goes back to its own speed after the window on a fresh player (the same
    crossover, on a downbeat about two seconds on).
@@ -165,9 +171,10 @@ in under a lock the audio thread only tries.
    128 to 126) it was on its place when the window opened and stayed there through 8- and 16-bar
    mixes with no correction at all, by the players' clocks. They all play to the same output, so
    what is heard keeps that alignment; it hasn't been measured on the sound itself.
-5. When the window starts the next song's player becomes the main one (the queue moves on); the
-   playing song's own player, silent from its first 80 ms, is let go once its sound is out of the
-   speakers, and the carrying player once the window (and its echo) is over.
+5. When the window starts the next song's player becomes the main one (the queue moves on). Each
+   step's player is let go once its sound is out of the speakers after the next has crossed in;
+   the playing song's own player (silent from the glide's first step, its time still the one the
+   progress bar shows) at the window; the carrying player once the window (and its echo) is over.
 6. Why no playing player's speed ever changes: a playing player renders its sound again whenever
    its rate changes, and its time jumps by 20–40 ms (CI's Mac: the deck's samples jumped, and the
    measured distance with them). Brought back in steps every 250 ms (with the time-domain
