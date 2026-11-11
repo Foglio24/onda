@@ -25,6 +25,15 @@
       ],
       "versions": [
         {
+          "version": "1.34.0",
+          "buildVersion": "71",
+          "date": "2026-11-11T21:19:35Z",
+          "localizedDescription": "Changed\n- The playlists' Mix is a Premium feature of its own (iPhone, iPad and Mac). The transitions designed between the songs of a downloaded playlist (Mix delle playlist) now have their own line among what Premium unlocks, in the app and on the account page, and the explanation of Premium opens on it when the Mix is used without Premium. (It was locked together with AutoMix before, and still is where Premium can be bought and there is none.)\n- AutoMix and the playlists' Mix are marked as beta features. A Beta label stands beside their names: in Settings › Riproduzione (the choice of transitions and the AutoMix section), the queue's AutoMix switch, the playlist's Mix buttons and the Mix editor, and the list of what Premium unlocks; and on the account page, the README, the AltStore source and the documentation. On Android, Settings › Riproduzione names it \"AutoMix · Beta\" (0.4.3).\n\nFixed\n- Choosing a folder for the local files did nothing. In Files' picker, \"Apri\" didn't answer: the picker of SwiftUI stops working when another one is in the same page (the Library has one, for importing playlists). The folder is now chosen with Files' own picker, and a folder that can't be opened says so instead of staying silent.",
+          "downloadURL": "https://github.com/Foglio24/onda/releases/download/v1.34.0/Seaglass.ipa",
+          "size": 45562427,
+          "minOSVersion": "26.0"
+        },
+        {
           "version": "1.33.0",
           "buildVersion": "69",
           "date": "2026-11-11T19:23:41Z",
@@ -98,6 +107,17 @@
     }
   ],
   "news": [
+    {
+      "title": "Seaglass 1.34.0",
+      "identifier": "release-1.34.0",
+      "caption": "A new Seaglass update is available. Tap to see what's new.",
+      "date": "2026-11-11T21:19:35Z",
+      "tintColor": "#EC3F8E",
+      "imageURL": "https://raw.githubusercontent.com/Foglio24/onda/main/docs/images/seaglass-banner.jpg",
+      "notify": false,
+      "url": "https://github.com/Foglio24/onda/releases/tag/v1.34.0",
+      "appID": "com.onda.player"
+    },
     {
       "title": "Seaglass 1.33.0",
       "identifier": "release-1.33.0",
