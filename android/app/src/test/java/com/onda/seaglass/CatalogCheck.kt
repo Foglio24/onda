@@ -87,6 +87,8 @@ class CatalogCheck {
         val request = Request.Builder().url(url).header("User-Agent", Streams.USER_AGENT).header("Range", "bytes=0-1048575").build()
         val (code, bytes) = Http.send(request) { it.code to it.body.bytes().size }
         println("Range: HTTP $code, $bytes bytes")
+        // The same refusal, one step later: the link was given but the download isn't (reported, not failed).
+        assumeTrue("YouTube refused the audio download on this network (HTTP $code)", code != 403)
         assertEquals(206, code)
         assertTrue(bytes > 100_000)
     }

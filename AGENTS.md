@@ -70,6 +70,23 @@ Other folders:
   - `python3 Tools/check_localization.py` checks the translations against the strings the
     compiler found, and `python3 Tools/check_images.py` checks the images.
 
+## Publishing
+
+The owner has asked for finished work to be **published automatically**, without waiting for a
+confirmation, in every session. Once a change is done and its checks are green:
+
+1. Merge the working branch into `main` by fast-forward only (merge `origin/main` into the branch
+   first when the bots have moved it), never with a force push.
+2. Release what changed: iOS and Mac with a `build.yml` run on `main` and `release=true` (it becomes
+   "Latest"), then refresh the AltStore source; Android with `android.yml` and `release=true` (never
+   "Latest"); the account page and the website deploy from `main` by themselves.
+3. Check the result (release assets, "Latest", AltStore version) and tell the owner in Italian.
+
+The guardrails stay: no release while a check is red (a live-service check that skipped itself is not
+red), no skipped or disabled checks to get green, no force pushes, no secrets in the repository, and a
+version bump always comes with its changelog entry. A change that could lose a user's data is the one
+case to stop and ask first.
+
 ## Review guidelines
 
 Write review comments in Italian. Keep code, identifiers and quoted text as they are.
