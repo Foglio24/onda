@@ -567,6 +567,7 @@ private struct StorageSettingsView: View {
     @EnvironmentObject private var downloads: DownloadManager
     @EnvironmentObject private var library: Library
     @AppStorage(Preferences.recentSearches) private var recentSearches = ""
+    @AppStorage(Preferences.recentSearchItems) private var recentSearchItems = Data()
     @State private var confirmDeleteDownloads = false
     @State private var cacheCleared = false
     /// Bumped after deleting files, so sizes read from disk refresh.
@@ -600,8 +601,11 @@ private struct StorageSettingsView: View {
             }
 
             Section {
-                Button("Cancella ricerche recenti") { recentSearches = "" }
-                    .disabled(recentSearches.isEmpty)
+                Button("Cancella ricerche recenti") {
+                    recentSearches = ""
+                    recentSearchItems = Data()
+                }
+                .disabled(recentSearches.isEmpty && RecentSearch.decode(recentSearchItems).isEmpty)
                 Button("Cancella cronologia ascolti", role: .destructive) { library.clearHistory() }
                     .disabled(library.history.isEmpty)
             }

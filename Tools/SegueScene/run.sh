@@ -3,7 +3,7 @@
 # played from their files, each next one started on a second player in step with the one playing
 # and mixed in (LaunchScene "segue"). The player's log says the level chosen and why, the second
 # player's distance from its place when the window opened and the worst while both were heard, and
-# how the song came back to its own speed. Live, the second mix (into the third song) must come too.
+# the speed the song brought in plays on at. Live, the second mix (into the third song) must come too.
 # With "off" the live mix is turned off and the rendered mix must play instead; with "alac" the songs
 # are ALAC files.
 # Usage: bash Tools/SegueScene/run.sh <Seaglass.app>
@@ -36,16 +36,16 @@ grep -q "segue: locked" "$work/live.log" || { echo "::error::The two songs weren
 grep -q "segue: window" "$work/live.log" || { echo "::error::The live mix's window never opened"; failed=1; }
 grep -q "segue: mixed" "$work/live.log" || { echo "::error::The live mix didn't reach its end"; failed=1; }
 grep -q "segue-scene: next song" "$work/live.log" || { echo "::error::The next song didn't take over"; failed=1; }
-# The song a live mix brought in plays at its own speed after the window, and its own transition
-# into the next follows: a finished mix must not hold the next one back.
-grep -q "segue: back to its own speed" "$work/live.log" || { echo "::error::The live mix never finished after its window"; failed=1; }
+# The song a live mix brought in plays on at the speed it was matched at, and its own transition
+# into the next follows, matched to that speed: a finished mix must not hold the next one back.
+grep -q "segue: after the window" "$work/live.log" || { echo "::error::The live mix never finished after its window"; failed=1; }
 mixes=$(grep -c "segue: mixed" "$work/live.log")
 [ "$mixes" -ge 2 ] || { echo "::error::Only $mixes live mix(es) in three songs: the next transition didn't come after the first"; failed=1; }
 grep -q "segue-scene: next song Segue C" "$work/live.log" || { echo "::error::The third song didn't take over"; failed=1; }
 # How often the players rendered their sound again (each change of a player's rate does): the
-# speed changes while the next song was heard, and the jumps in each deck's samples. Informative:
-# the speakers aren't measured.
-grep -o "segue: back to its own speed.*" "$work/live.log" | sed "s/^/After the window: /"
+# speed changes while the next song was heard (only while it is still quiet), and the jumps in each
+# deck's samples. Informative: the speakers aren't measured.
+grep -o "segue: after the window.*" "$work/live.log" | sed "s/^segue: after the window: /After the window: /"
 heard=$(grep -o "heard with [0-9]* speed changes" "$work/live.log" | grep -o "[0-9]*" | sort -n | tail -1)
 if [ -n "$heard" ] && [ "$heard" -gt 4 ]; then echo "::warning::The next song's speed changed $heard times while heard"; fi
 if grep -q "segue: \(lost\|dropped\)" "$work/live.log"; then echo "::warning::The live mix was left or dropped (see the log)"; fi

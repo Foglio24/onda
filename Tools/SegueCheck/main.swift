@@ -111,9 +111,9 @@ guard let a = analyze(songA.samples, "124 BPM"), let b = analyze(songB.samples, 
 }
 
 func decide(_ x: TrackAnalysis, _ y: TrackAnalysis, voicesA: VocalActivity? = nil, voicesB: VocalActivity? = nil,
-            sameAlbum: Bool = false, length: SegueLength = .normal, eq: Bool = true) -> SegueDecision {
+            sameAlbum: Bool = false, length: SegueLength = .normal, eq: Bool = true, outgoingRate: Double = 1) -> SegueDecision {
     SeguePolicy.decide(SegueRequest(outgoing: SegueSong(x, voices: voicesA), incoming: SegueSong(y, voices: voicesB),
-                                    earliestExit: 0, sameAlbum: sameAlbum, length: length, eq: eq))
+                                    earliestExit: 0, sameAlbum: sameAlbum, length: length, eq: eq, outgoingRate: outgoingRate))
 }
 
 func checkPlan(_ plan: SeguePlan, _ x: TrackAnalysis, _ y: TrackAnalysis, _ name: String) {
@@ -148,6 +148,23 @@ if let plan = close.plan {
 }
 let again = decide(a, b)
 expect(again.plan == close.plan, "the same songs, the same plan")
+
+// A song a live mix brought in keeps the speed it was matched at, and the next one is matched to it:
+// the speed change counted is the incoming song's own (its time against the outgoing song's, times
+// that song's speed). The 124 BPM song played 3 % slower is at 120.3 BPM: the 126 BPM one plays at
+// 120.3 / 126, 4.5 % slower.
+let slower = decide(a, b, outgoingRate: 0.97)
+expect(slower.level.isLocked, "the outgoing song 3 % slower: still beat-matched (\(slower.level.rawValue))")
+if let plan = slower.plan {
+    expect(abs(plan.rate - 124.0 / 126.0) < 0.005, "its bars against the outgoing song's: the same ratio (rate \(format(plan.rate, 4)))")
+    let played = plan.rate * 0.97
+    expect(abs(played - 120.28 / 126.0) < 0.006, "the incoming song plays at the outgoing one's speed (\(format(played, 4)))")
+}
+// Played 12 % faster, the 124 BPM song is at 138.9 BPM: the 126 BPM one would have to go 10.2 % up,
+// out of reach.
+let tooFast = decide(a, b, outgoingRate: 1.12)
+expect(!tooFast.level.isLocked, "the outgoing song 12 % faster: the 126 BPM song out of reach, not beat-matched (\(tooFast.level.rawValue))")
+expect(tooFast.why.contains("tempo") || tooFast.why.contains("%"), "and why: the tempo out of reach (\(tooFast.why))")
 
 let far = decide(a, slow)
 print("124 → 90: \(far.level.rawValue) — \(far.why)")

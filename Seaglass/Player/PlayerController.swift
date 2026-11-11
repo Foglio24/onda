@@ -422,11 +422,13 @@ final class PlayerController: ObservableObject {
         let wasMixing = songTempo == 0
         songTempo = value
         UserDefaults.standard.set(value, forKey: Preferences.songTempo)
-        // A live mix still finishing (just after its window) gives way to the tempo set.
+        // A live mix still finishing (just after its window) gives way to the tempo set, and so does
+        // the speed a live mix brought the song in at.
         if let session = segueSession, session.phase == .restoring {
             session.settle()
             segueSession = nil
         }
+        liveSpeed = nil
         applyRate()
         // AutoMix and the crossfade pause while the tempo is changed, and come back at 0.
         if wasMixing != (value == 0) {
@@ -483,7 +485,29 @@ final class PlayerController: ObservableObject {
     }
 
     /// The current item's speed: podcasts at theirs, songs at the tempo set.
-    private var playbackRate: Float { current?.isPodcastEpisode == true ? episodeSpeed : PlaybackTempo.rate }
+    private var playbackRate: Float {
+        if current?.isPodcastEpisode == true { return episodeSpeed }
+        // A song a live mix brought in keeps the speed it was matched at (see `liveSpeed`).
+        if let live = liveSpeed, live.item === player.currentItem { return live.rate }
+        return PlaybackTempo.rate
+    }
+
+    /// The song a live mix brought in, on the item it plays from, and the speed it keeps to its end:
+    /// a playing player's rate can't change without being heard (see `SegueSession`), so it isn't
+    /// brought back to its own; the mix into the next song is matched to it.
+    private var liveSpeed: (item: AVPlayerItem, rate: Float)?
+
+    /// The speed the playing song plays at, for the next live mix (1 unless a live mix brought it in).
+    private var playingSpeed: Double {
+        guard let live = liveSpeed, live.item === player.currentItem, abs(live.rate - 1) > 0.0005 else { return 1 }
+        return Double(live.rate)
+    }
+
+    /// Notes the speed a live mix's song plays on at.
+    private func keepLiveSpeed(of session: SegueSession) {
+        guard let item = session.item, player.currentItem === item else { return }
+        liveSpeed = (item, session.rate)
+    }
 
     /// How the current item's tempo is changed: songs as the key lock says, podcasts always keeping
     /// the voice's pitch.
@@ -659,8 +683,64 @@ final class PlayerController: ObservableObject {
     /// Tells `PreparedPlayback` which song comes next, so "next" can start it at once, and AutoMix,
     /// so the transition into it is planned.
     private func offerUpcoming() {
+        resolveUpcoming()
         PreparedPlayback.shared.offerUpcoming(index + 1 < queue.count ? queue[index + 1] : nil)
         prepareAutoMix()
+    }
+
+    /// How many songs ahead a song known only by its title and artist is looked up.
+    private static let resolveAhead = 5
+    /// Songs being looked up ahead, and those YouTube Music didn't have (by their queue id).
+    private var upcomingLookups: Set<String> = []
+    private var upcomingNotFound: Set<String> = []
+
+    /// Songs known only by their title and artist (Last.fm's, recognized ones) are looked up on
+    /// YouTube Music a few places ahead, one after the other, not only when they play: the queue
+    /// shows their covers, and AutoMix can analyse the next one (without its audio it could only
+    /// fade). The lookup is the one `loadCurrent` makes when such a song starts.
+    private func resolveUpcoming() {
+        let end = min(queue.count, index + 1 + Self.resolveAhead)
+        guard index + 1 < end else { return }
+        let pending = queue[(index + 1)..<end].filter {
+            $0.videoId == nil && !upcomingLookups.contains($0.id) && !upcomingNotFound.contains($0.id)
+        }
+        guard !pending.isEmpty else { return }
+        upcomingLookups.formUnion(pending.map(\.id))
+        let generation = requests.queueGeneration
+        Task {
+            for track in pending {
+                guard self.requests.isCurrentQueue(generation) else { break }
+                var found = Library.shared.resolvedTrack(matching: track)
+                if found?.videoId == nil {
+                    do {
+                        found = try await InnerTube.shared.resolve(track)
+                    } catch {
+                        // Not there: not asked again. Unreachable: asked again with the queue's next change.
+                        if case InnerTubeError.notFound = error { self.upcomingNotFound.insert(track.id) }
+                    }
+                }
+                self.upcomingLookups.remove(track.id)
+                guard self.requests.isCurrentQueue(generation) else { break }
+                guard let found, found.videoId != nil else { continue }
+                self.noteResolved(track, as: Library.shared.reconcile(original: track, resolved: found))
+            }
+            for track in pending { self.upcomingLookups.remove(track.id) }
+        }
+    }
+
+    /// A song looked up ahead takes its place in the queue (and in the order shuffling goes back to);
+    /// next in line, it is offered again, now with its audio.
+    private func noteResolved(_ original: Track, as resolved: Track) {
+        guard index + 1 < queue.count,
+              let position = queue[(index + 1)...].firstIndex(where: { $0.id == original.id }) else { return }
+        queue[position] = resolved
+        for i in unshuffledUpcoming.indices where unshuffledUpcoming[i].id == original.id {
+            unshuffledUpcoming[i] = resolved
+        }
+        if position == index + 1 {
+            PreparedPlayback.shared.offerUpcoming(resolved)
+            prepareAutoMix()
+        }
     }
 
     // MARK: Transport
@@ -902,6 +982,9 @@ final class PlayerController: ObservableObject {
         updateKaraokeMix()
     }
 
+    /// The playing stems' volumes, which the voice slider moves while they play (see `StemVolume`).
+    private var karaokeVolumes: (item: AVPlayerItem, volumes: KaraokeVolumes)?
+
     private var isPlayingStems: Bool {
         karaokeTrackID != nil && karaokeTrackID == current?.id
             && player.currentItem?.asset is AVMutableComposition
@@ -943,11 +1026,14 @@ final class PlayerController: ObservableObject {
                     }
                 }
                 guard !Task.isCancelled, self.current?.id == track.id, self.karaokeMode != .off else { return }
-                let item = try await KaraokeMixer.makeItem(stems: stems, mode: self.karaokeMode,
+                let made = try await KaraokeMixer.makeItem(stems: stems, mode: self.karaokeMode,
                                                            amount: self.karaokeAmount)
                 guard !Task.isCancelled, self.current?.id == track.id, self.karaokeMode != .off else { return }
+                // Where the slider is now (it may have moved while the parts were made).
+                made.volumes.set(mode: self.karaokeMode, amount: self.karaokeAmount)
+                self.karaokeVolumes = (made.item, made.volumes)
                 self.karaokeTrackID = track.id
-                self.switchItem(to: item, label: String(localized: "Karaoke AI"), track: track)
+                self.switchItem(to: made.item, label: String(localized: "Karaoke AI"), track: track)
                 self.karaokeStatus = .ready
             } catch {
                 guard !Task.isCancelled else { return }
@@ -973,10 +1059,18 @@ final class PlayerController: ObservableObject {
         }
     }
 
+    /// The stems' volumes for the mode and amount set: moved where they play, or, when their
+    /// processing couldn't be set up, in a new audio mix.
     private func updateKaraokeMix() {
         guard isPlayingStems, let item = player.currentItem,
               let composition = item.asset as? AVMutableComposition else { return }
-        item.audioMix = KaraokeMixer.mix(for: composition, mode: karaokeMode, amount: karaokeAmount)
+        if let karaokeVolumes, karaokeVolumes.item === item, karaokeVolumes.volumes.smooth {
+            karaokeVolumes.volumes.set(mode: karaokeMode, amount: karaokeAmount)
+            return
+        }
+        let made = KaraokeMixer.mix(for: composition, mode: karaokeMode, amount: karaokeAmount)
+        item.audioMix = made.mix
+        karaokeVolumes = (item, made.volumes)
     }
 
     /// A local file to separate: the download, the cached copy, or a fresh AAC copy.
@@ -1324,6 +1418,9 @@ final class PlayerController: ObservableObject {
         let wasPlaying = player.timeControlStatus != .paused
         newItem.allowedAudioSpatializationFormats = Self.spatializationFormats
         newItem.audioTimePitchAlgorithm = pitchAlgorithm
+        // The same song from another file (its local copy, the karaoke's stems) keeps the speed a live
+        // mix brought it in at.
+        if let live = liveSpeed, live.item === player.currentItem { liveSpeed = (newItem, live.rate) }
         itemStatus = newItem.publisher(for: \.status)
             .receive(on: DispatchQueue.main)
             .sink { [weak newItem] status in
@@ -1860,7 +1957,10 @@ final class PlayerController: ObservableObject {
         guard let videoId = track.videoId, let nextVideoId = next.videoId,
               (track.duration ?? 0) <= AutoMixLibrary.lengthLimit, (next.duration ?? 0) <= AutoMixLibrary.lengthLimit,
               thermal != .serious, thermal != .critical else {
-            autoMixNote = String(localized: "Non disponibile per questi brani: dissolvenza semplice")
+            // The next song still being looked up on YouTube Music: planned once it is found.
+            autoMixNote = next.videoId == nil && upcomingLookups.contains(next.id)
+                ? String(localized: "Analisi dei brani in corso…")
+                : String(localized: "Non disponibile per questi brani: dissolvenza semplice")
             return
         }
         autoMixNote = String(localized: "Analisi dei brani in corso…")
@@ -1919,11 +2019,13 @@ final class PlayerController: ObservableObject {
             // The live transition (see `SeguePolicy`): planned from the analyses, played on two players
             // in step. The rendered mix below stays the fallback when it can't run here, and keeps an
             // album in order exactly as it is (its junction rendered sample for sample).
+            let speed = self.playingSpeed
             if design == nil, !albumOrder, self.segueRefusedPair != pair, let stage = self.segueStage(for: track) {
                 let request = SegueRequest(outgoing: SegueSong(outgoing, voices: outgoingVocals),
                                            incoming: SegueSong(incoming, voices: incomingVocals),
                                            earliestExit: self.progress.currentTime + SegueSession.prepareLead + 5,
-                                           length: Preferences.mixLength, eq: Preferences.autoMixEqualiser)
+                                           length: Preferences.mixLength, eq: Preferences.autoMixEqualiser,
+                                           outgoingRate: speed)
                 let decision = await Task.detached(priority: .userInitiated) { SeguePolicy.decide(request) }.value
                 guard !Task.isCancelled, self.requests.isCurrentLoad(generation), self.autoMixPair == pair else { return }
                 let why = decision.why.isEmpty ? "" : "\n" + decision.why
@@ -1942,12 +2044,20 @@ final class PlayerController: ObservableObject {
                 if let segue = decision.plan {
                     self.autoMixTask = nil
                     self.seguePlanned = SeguePlanned(trackID: track.id, nextID: next.id, plan: segue, file: incomingFile.url,
-                                                     label: incomingFile.label, incomingGain: incomingGain, outgoingStage: stage)
+                                                     label: incomingFile.label, incomingGain: incomingGain, outgoingStage: stage,
+                                                     outgoingRate: speed)
                     UserDefaults.standard.set("\(track.title) → \(next.title)\nSegue: \(Self.describe(segue))\(why)",
                                               forKey: Preferences.lastAutoMixChoice)
                     self.autoMixNote = Self.describe(segue)
                     return
                 }
+            }
+            // A rendered mix takes the playing song at its own speed: one a live mix brought in at another
+            // ends with a plain crossfade instead (its speed is never changed while it is heard).
+            if speed != 1 {
+                self.autoMixTask = nil
+                self.autoMixNote = String(localized: "Non disponibile per questi brani: dissolvenza semplice")
+                return
             }
             let plan: TransitionPlan
             // What Settings → Informazioni shows of this transition ("Ultima scelta AutoMix").
@@ -2158,7 +2268,7 @@ final class PlayerController: ObservableObject {
         let offset = itemOffset
         let session = SegueSession(plan: planned.plan, outgoingTrackID: track.id, next: queue[index + 1], file: planned.file,
                                    label: planned.label, incomingGain: planned.incomingGain, outgoingStage: planned.outgoingStage,
-                                   outgoingOffset: offset)
+                                   outgoingOffset: offset, outgoingRate: planned.outgoingRate)
         session.finished = { [weak self, weak session] in
             guard let self, let session else { return }
             self.segueFinished(session)
@@ -2219,6 +2329,7 @@ final class PlayerController: ObservableObject {
         player = session.player
         attach(session.player)
         index += 1
+        liveSpeed = (item, session.rate)
         loadCurrent(crossfading: true, reason: .automatic, adoptingLive: (item, session.label))
         itemEffects = (item, session.incomingGain, nil, session.incomingStage)
         if LaunchScene.isActive { print("segue: window \(session.summary), off by \(Int(session.lastError * 1000)) ms") }
@@ -2227,6 +2338,7 @@ final class PlayerController: ObservableObject {
     /// The window ends: the outgoing song's player stops once its last sound is out.
     private func endSegueWindow(_ session: SegueSession, outgoing: AVPlayer) {
         if current?.id == session.next.id { streamInfo = session.label }
+        keepLiveSpeed(of: session)
         noteHandover(String(localized: "mix dal vivo") + " · " + session.summary)
         if LaunchScene.isActive { print("segue: mixed \(session.summary)") }
         // An echo's repeats ring on in the outgoing song's audio processing: it plays on (silent but
@@ -2245,6 +2357,7 @@ final class PlayerController: ObservableObject {
         noteHandover(String(localized: "mix dal vivo") + " · " + reason)
         if LaunchScene.isActive { print("segue: lost (\(reason)) \(session.summary)") }
         session.releaseIncoming()
+        keepLiveSpeed(of: session)
         guard let outgoing = outgoingPlayer else { return }
         fadeOutTask?.cancel()
         fadeOutTask = Task {
@@ -2272,6 +2385,7 @@ final class PlayerController: ObservableObject {
     /// into the next one) starts.
     private func segueFinished(_ session: SegueSession) {
         guard segueSession === session else { return }
+        keepLiveSpeed(of: session)
         segueSession = nil
         guard current?.id == session.next.id else { return }
         startDeferredPreparation()
@@ -2286,7 +2400,12 @@ final class PlayerController: ObservableObject {
         case .finished, .abandoned:
             segueSession = nil
         case .restoring:
-            if session.next.id == current?.id { session.settle() } else { session.stop() }
+            if session.next.id == current?.id {
+                session.settle()
+                keepLiveSpeed(of: session)
+            } else {
+                session.stop()
+            }
             segueSession = nil
         case .preparing, .ready, .running, .mixing:
             break
@@ -3109,6 +3228,8 @@ private struct SeguePlanned {
     let incomingGain: Float
     /// The stage in the playing song's audio processing.
     let outgoingStage: SegueStage
+    /// The speed the playing song plays at (see `PlayerController.liveSpeed`).
+    let outgoingRate: Double
 }
 
 /// The mix's player, loaded and waiting for its moment.

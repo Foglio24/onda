@@ -201,25 +201,74 @@ final class EqualizerProcessor {
     }
 }
 
+/// A track's volume that moves while it plays (the karaoke's voice slider): set on the main thread,
+/// read by the audio thread under a lock it only tries (keeping the last value when it can't), and
+/// ramped over each buffer, so a slider dragged never clicks and the item's audio mix, which would
+/// set up its processing again, is never replaced for it.
+final class StemVolume: @unchecked Sendable {
+    private let lock = OSAllocatedUnfairLock()
+    /// Written under `lock` on the main thread.
+    private var target: Float
+    /// The audio thread's own: where the last buffer ended.
+    private var current: Float
+
+    init(_ gain: Float) {
+        target = max(0, min(1, gain))
+        current = target
+    }
+
+    func set(_ gain: Float) {
+        let value = max(0, min(1, gain))
+        lock.withLock { target = value }
+    }
+
+    /// Float samples only (the tap checks the format), interleaved or not.
+    func process(_ buffers: UnsafeMutableAudioBufferListPointer, frames: Int) {
+        let start = current
+        let goal = lock.withLockIfAvailable { target } ?? start
+        current = goal
+        guard frames > 0, start != 1 || goal != 1 else { return }
+        let step = (goal - start) / Float(frames)
+        for buffer in buffers {
+            guard let data = buffer.mData?.assumingMemoryBound(to: Float.self) else { continue }
+            let channels = max(1, Int(buffer.mNumberChannels))
+            let count = min(frames, Int(buffer.mDataByteSize) / (MemoryLayout<Float>.size * channels))
+            var frame = 0
+            while frame < count {
+                let gain = start + step * Float(frame + 1)
+                var channel = 0
+                while channel < channels {
+                    data[frame * channels + channel] *= gain
+                    channel += 1
+                }
+                frame += 1
+            }
+        }
+    }
+}
+
 /// An audio processing tap on a track of an AVPlayerItem: AutoMix's live transition first
 /// (`SegueStage`, the song's lanes at its own time), then the equalizer (`EqualizerProcessor`), then,
-/// on songs AutoMix may hand over from, the rendered mix's handover fade (`HandoverFader`).
+/// on songs AutoMix may hand over from, the rendered mix's handover fade (`HandoverFader`), and on
+/// the karaoke's stems their volume (`StemVolume`).
 enum EqualizerTap {
     private final class Context {
         let equalizer = EqualizerProcessor(parameters: .shared)
         let fader: HandoverFader?
         let segue: SegueStage?
+        let volume: StemVolume?
         /// The fade as last read, on the audio thread only.
         var fade = HandoverFader.Fade()
 
-        init(fader: HandoverFader?, segue: SegueStage?) {
+        init(fader: HandoverFader?, segue: SegueStage?, volume: StemVolume?) {
             self.fader = fader
             self.segue = segue
+            self.volume = volume
         }
     }
 
-    static func make(fader: HandoverFader? = nil, segue: SegueStage? = nil) -> MTAudioProcessingTap? {
-        let context = Unmanaged.passRetained(Context(fader: fader, segue: segue)).toOpaque()
+    static func make(fader: HandoverFader? = nil, segue: SegueStage? = nil, volume: StemVolume? = nil) -> MTAudioProcessingTap? {
+        let context = Unmanaged.passRetained(Context(fader: fader, segue: segue, volume: volume)).toOpaque()
         var callbacks = MTAudioProcessingTapCallbacks(
             version: kMTAudioProcessingTapCallbacksVersion_0,
             clientInfo: context,
@@ -251,6 +300,9 @@ enum EqualizerTap {
                 if let fader = context.fader, context.equalizer.isFloat, range.start.isNumeric {
                     fader.process(list, frames: count, time: range.start.seconds,
                                   sampleRate: context.equalizer.sampleRate, fade: &context.fade)
+                }
+                if let volume = context.volume, context.equalizer.isFloat {
+                    volume.process(list, frames: count)
                 }
             })
         var tap: MTAudioProcessingTap?

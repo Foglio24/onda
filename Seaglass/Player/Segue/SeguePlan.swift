@@ -186,8 +186,10 @@ struct SeguePlan: Equatable, Codable, Sendable {
     /// Where the window starts in each song's own time, seconds.
     var outgoingStart: Double
     var incomingStart: Double
-    /// The incoming song's speed during the window (1 = its own), so that its bars meet the outgoing
-    /// song's; the outgoing song keeps its own.
+    /// How fast the incoming song's time passes against the outgoing song's during the window, so
+    /// that its bars meet the outgoing song's: its speed, with the outgoing song at its own (1 = the
+    /// same). The outgoing song never changes speed; when it plays at another (a live mix brought it
+    /// in so), the incoming one plays at this times that.
     var rate: Double
     /// The window's length in the outgoing song's time (as heard).
     var length: Double

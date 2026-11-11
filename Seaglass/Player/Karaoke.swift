@@ -601,9 +601,25 @@ private final class StemWriter {
 
 /// Plays the two stems together, with the vocal / instrumental balance set by an audio mix
 /// that can change while the song plays.
+/// The stems' volumes while they play: the voice slider moves them without touching the item's
+/// audio mix. `smooth` is false when a stem's processing couldn't be set up (its volume is then
+/// fixed in the audio mix, which has to be made again to change it).
+struct KaraokeVolumes {
+    let vocals: StemVolume
+    let instrumental: StemVolume
+    let smooth: Bool
+
+    func set(mode: KaraokeMode, amount: Float) {
+        let gains = mode.gains(amount: amount)
+        vocals.set(gains.vocals)
+        instrumental.set(gains.instrumental)
+    }
+}
+
 enum KaraokeMixer {
     @MainActor
-    static func makeItem(stems: StemFiles, mode: KaraokeMode, amount: Float) async throws -> AVPlayerItem {
+    static func makeItem(stems: StemFiles, mode: KaraokeMode, amount: Float) async throws
+        -> (item: AVPlayerItem, volumes: KaraokeVolumes) {
         let composition = AVMutableComposition()
         for url in [stems.vocals, stems.instrumental] {
             let asset = AVURLAsset(url: url)
@@ -616,25 +632,32 @@ enum KaraokeMixer {
             try track.insertTimeRange(CMTimeRange(start: .zero, duration: duration), of: source, at: .zero)
         }
         let item = AVPlayerItem(asset: composition)
-        item.audioMix = mix(for: composition, mode: mode, amount: amount)
-        return item
+        let made = mix(for: composition, mode: mode, amount: amount)
+        item.audioMix = made.mix
+        return (item, made.volumes)
     }
 
-    /// Track 0 is the vocals, track 1 the instrumental.
-    static func mix(for composition: AVMutableComposition, mode: KaraokeMode, amount: Float) -> AVAudioMix {
+    /// Track 0 is the vocals, track 1 the instrumental. Each stem gets its own processing: its
+    /// volume, which the slider moves while it plays, and the equalizer (equalizing both and mixing
+    /// them sounds the same as equalizing the mix).
+    static func mix(for composition: AVMutableComposition, mode: KaraokeMode, amount: Float)
+        -> (mix: AVAudioMix, volumes: KaraokeVolumes) {
         let gains = mode.gains(amount: amount)
+        let vocals = StemVolume(gains.vocals), instrumental = StemVolume(gains.instrumental)
         var parameters: [AVMutableAudioMixInputParameters] = []
-        let equalizer = EqualizerParameters.shared.isOn
+        var smooth = true
         for (index, track) in composition.tracks.enumerated() {
             let parameter = AVMutableAudioMixInputParameters(track: track)
-            parameter.setVolume(index == 0 ? gains.vocals : gains.instrumental, at: .zero)
-            // Each stem gets its own equalizer: equalizing both and mixing them sounds the same
-            // as equalizing the mix.
-            if equalizer { parameter.audioTapProcessor = EqualizerTap.make() }
+            if let tap = EqualizerTap.make(volume: index == 0 ? vocals : instrumental) {
+                parameter.audioTapProcessor = tap
+            } else {
+                smooth = false
+                parameter.setVolume(index == 0 ? gains.vocals : gains.instrumental, at: .zero)
+            }
             parameters.append(parameter)
         }
         let mix = AVMutableAudioMix()
         mix.inputParameters = parameters
-        return mix
+        return (mix, KaraokeVolumes(vocals: vocals, instrumental: instrumental, smooth: smooth))
     }
 }

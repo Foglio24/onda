@@ -4,10 +4,13 @@ struct SearchView: View {
     private var player: PlayerController { .shared }
     @EnvironmentObject private var router: AppRouter
     @AppStorage(Preferences.recentSearches) private var recentRaw = ""
+    @AppStorage(Preferences.recentSearchItems) private var recentData = Data()
     @State private var query = ""
     @State private var results: [Track] = []
     @State private var catalog = CatalogResults()
     @State private var isSearching = false
+    /// The text the results shown are for (they stay while the next search runs).
+    @State private var searchedText = ""
     @State private var errorText: String?
     @State private var path: [MusicPage] = []
     @State private var showAllSongs = false
@@ -15,9 +18,13 @@ struct SearchView: View {
     /// Songs shown before "Mostra tutti i brani", so playlists and artists stay in sight.
     private static let songsPreview = 6
 
-    private var recent: [String] {
-        recentRaw.split(separator: "\n").map(String.init)
+    /// The search's history, newest first: what was picked, with its cover, and searches sent. Until
+    /// this version has saved one, the searches older versions kept.
+    private var recent: [RecentSearch] {
+        recentData.isEmpty ? recentRaw.split(separator: "\n").map { RecentSearch(query: String($0)) } : RecentSearch.decode(recentData)
     }
+
+    private static let recentLimit = 20
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -63,7 +70,7 @@ struct SearchView: View {
             Section {
                 ForEach(shown) { track in
                     TrackRow(track: track) {
-                        remember(query)
+                        remember(RecentSearch(track: track))
                         player.playRadio(from: track)
                     }
                     .listRowBackground(Color.clear)
@@ -118,7 +125,7 @@ struct SearchView: View {
     }
 
     private func open(_ item: MusicItem) {
-        remember(query)
+        remember(RecentSearch(item: item))
         if case .song(let track) = item.kind {
             player.playRadio(from: track)
         } else if let page = MusicPage(item) {
@@ -133,23 +140,35 @@ struct SearchView: View {
     }
 
     @ViewBuilder private var recentSection: some View {
-        if !recent.isEmpty {
+        let entries = recent
+        if !entries.isEmpty {
             Section {
-                ForEach(recent, id: \.self) { item in
-                    Button { query = item } label: {
-                        Label(item, systemImage: "clock.arrow.circlepath")
-                            .foregroundStyle(.primary)
-                    }
-                    .listRowBackground(Color.clear)
+                ForEach(entries) { entry in
+                    Button { openRecent(entry) } label: { RecentSearchRow(entry: entry) }
+                        .buttonStyle(.plain)
+                        .listRowBackground(Color.clear)
                 }
                 .onDelete { offsets in
-                    var items = recent
+                    var items = entries
                     items.remove(atOffsets: offsets)
-                    recentRaw = items.joined(separator: "\n")
+                    save(items)
                 }
             } header: {
                 Text("Ricerche recenti")
             }
+        }
+    }
+
+    /// A search sent searches again; a song plays (its radio), anything else opens its page.
+    private func openRecent(_ entry: RecentSearch) {
+        if let track = entry.track {
+            remember(entry)
+            player.playRadio(from: track)
+        } else if let item = entry.item, let page = MusicPage(item) {
+            remember(entry)
+            path.append(page)
+        } else {
+            query = entry.title
         }
     }
 
@@ -159,52 +178,186 @@ struct SearchView: View {
                 ContentUnavailableView("Cerca su YouTube Music", systemImage: "magnifyingglass",
                                        description: Text("Scegli un brano: parte una radio di canzoni simili."))
             }
-        } else if isSearching && results.isEmpty && catalog.isEmpty {
-            ProgressView()
-        } else if let errorText {
+        } else if let errorText, searchedText == query.trimmed {
             ContentUnavailableView("Ricerca non riuscita", systemImage: "wifi.exclamationmark",
                                    description: Text(errorText))
         } else if results.isEmpty && catalog.isEmpty {
-            ContentUnavailableView.search(text: query)
+            // Nothing found only once this very text has been searched; until then, it is on its way.
+            if isSearching || searchedText != query.trimmed {
+                ProgressView()
+            } else {
+                ContentUnavailableView.search(text: query)
+            }
         }
     }
 
+    /// Searches as the text is typed, without waiting for the return key: a short pause between
+    /// keys, then the songs as soon as they come (the results before stay until then), then the
+    /// playlists, artists and albums.
     private func search() async {
         let text = query.trimmed
         guard !text.isEmpty else {
             results = []
             catalog = CatalogResults()
+            searchedText = ""
             errorText = nil
+            isSearching = false
             return
         }
-        // Debounce typing.
-        try? await Task.sleep(for: .milliseconds(350))
+        // Debounce typing: long enough not to search at every key, short enough to feel immediate.
+        try? await Task.sleep(for: .milliseconds(200))
         guard !Task.isCancelled else { return }
         isSearching = true
+        // Playlists, artists and albums are a bonus: the songs still show if those searches fail.
+        async let foundCatalog = InnerTube.shared.searchCatalog(text)
+        async let foundPlaylists = InnerTube.shared.searchPlaylists(text)
         do {
-            // Playlists, artists and albums are a bonus: the songs still show if those searches fail.
-            async let foundCatalog = InnerTube.shared.searchCatalog(text)
-            async let foundPlaylists = InnerTube.shared.searchPlaylists(text)
             let found = try await InnerTube.shared.searchSongs(text)
-            var others = (try? await foundCatalog) ?? CatalogResults()
-            let playlists = (try? await foundPlaylists) ?? []
-            let known = Set(playlists.map(\.id))
-            others.playlists = playlists + others.playlists.filter { !known.contains($0.id) }
             guard !Task.isCancelled else { return }
+            if searchedText != text { catalog = CatalogResults() }
             results = found
-            catalog = others
+            searchedText = text
             showAllSongs = false
             errorText = nil
         } catch {
-            if !Task.isCancelled { errorText = error.localizedDescription }
+            guard !Task.isCancelled else { return }
+            searchedText = text
+            errorText = error.localizedDescription
         }
-        if !Task.isCancelled { isSearching = false }
+        var others = (try? await foundCatalog) ?? CatalogResults()
+        let playlists = (try? await foundPlaylists) ?? []
+        guard !Task.isCancelled else { return }
+        let known = Set(playlists.map(\.id))
+        others.playlists = playlists + others.playlists.filter { !known.contains($0.id) }
+        catalog = others
+        isSearching = false
     }
 
     private func remember(_ text: String) {
         let text = text.trimmed
         guard !text.isEmpty else { return }
-        recentRaw = ([text] + recent.filter { $0 != text }).prefix(12).joined(separator: "\n")
+        remember(RecentSearch(query: text))
+    }
+
+    private func remember(_ entry: RecentSearch) {
+        save([entry] + recent.filter { $0.id != entry.id })
+    }
+
+    private func save(_ entries: [RecentSearch]) {
+        let kept = Array(entries.prefix(Self.recentLimit))
+        recentData = (try? JSONEncoder().encode(kept)) ?? Data()
+        // Older versions read the searches sent from here.
+        recentRaw = kept.filter { $0.kind == .query }.map(\.title).joined(separator: "\n")
+    }
+}
+
+/// One entry of the search's history: what was picked from the results (a song, an artist, an
+/// album, a playlist or a podcast, with its cover), or a search sent without picking anything.
+struct RecentSearch: Codable, Hashable, Identifiable {
+    enum Kind: String, Codable {
+        case query, song, artist, album, playlist, podcast
+    }
+
+    var kind: Kind
+    /// The text searched, the song's video ID or the page's browse ID.
+    var key: String
+    var title: String
+    var subtitle: String
+    var artworkURL: URL?
+    var track: Track?
+
+    var id: String { "\(kind.rawValue):\(key)" }
+
+    private init(kind: Kind, key: String, title: String, subtitle: String, artworkURL: URL?, track: Track?) {
+        self.kind = kind
+        self.key = key
+        self.title = title
+        self.subtitle = subtitle
+        self.artworkURL = artworkURL
+        self.track = track
+    }
+
+    init(query: String) {
+        self.init(kind: .query, key: query, title: query, subtitle: "", artworkURL: nil, track: nil)
+    }
+
+    init(track: Track) {
+        self.init(kind: .song, key: track.id, title: track.title, subtitle: track.artist, artworkURL: track.artworkURL, track: track)
+    }
+
+    init(item: MusicItem) {
+        let kind: Kind
+        switch item.kind {
+        case .song(let track):
+            self.init(track: track)
+            return
+        case .artist: kind = .artist
+        case .album: kind = .album
+        case .playlist: kind = .playlist
+        case .podcast: kind = .podcast
+        }
+        self.init(kind: kind, key: item.id, title: item.title, subtitle: item.subtitle, artworkURL: item.artworkURL, track: nil)
+    }
+
+    /// The page it opens (artists, albums, playlists, podcasts).
+    var item: MusicItem? {
+        let kind: MusicItem.Kind
+        switch self.kind {
+        case .artist: kind = .artist
+        case .album: kind = .album
+        case .playlist: kind = .playlist
+        case .podcast: kind = .podcast
+        case .query, .song: return nil
+        }
+        return MusicItem(kind: kind, id: key, title: title, subtitle: subtitle, artworkURL: artworkURL)
+    }
+
+    /// The saved history; nothing when it can't be read.
+    static func decode(_ data: Data) -> [RecentSearch] {
+        guard !data.isEmpty else { return [] }
+        return (try? JSONDecoder().decode([RecentSearch].self, from: data)) ?? []
+    }
+}
+
+/// A row of the search's history: the cover (round for an artist) or, for a search sent, a
+/// magnifying glass, beside the title.
+private struct RecentSearchRow: View {
+    let entry: RecentSearch
+
+    var body: some View {
+        HStack(spacing: 12) {
+            cover
+                .frame(width: 48, height: 48)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(entry.title)
+                    .font(.body)
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                if !entry.subtitle.isEmpty {
+                    Text(entry.subtitle)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .contentShape(.rect)
+    }
+
+    @ViewBuilder private var cover: some View {
+        if let track = entry.track {
+            ArtworkView(track: track, size: 48, cornerRadius: 6)
+        } else if entry.kind == .query {
+            Image(systemName: "magnifyingglass")
+                .font(.title3)
+                .foregroundStyle(.secondary)
+                .frame(width: 48, height: 48)
+                .background(Color.primary.opacity(0.08), in: .rect(cornerRadius: 6))
+        } else {
+            CachedImage(url: entry.artworkURL, pixels: 144) { Rectangle().fill(.quaternary) }
+                .clipShape(entry.kind == .artist ? AnyShape(Circle()) : AnyShape(RoundedRectangle(cornerRadius: 6)))
+        }
     }
 }
 

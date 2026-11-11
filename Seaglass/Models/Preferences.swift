@@ -217,7 +217,11 @@ enum Preferences {
     static let dynamicColors = "theme.dynamicColors"
     static let lyricsStyle = "lyrics.style"
     static let lyricsSize = "lyrics.size"
+    /// Searches typed and sent, one per line (what versions before 1.32 kept; still written for them).
     static let recentSearches = "search.recent"
+    /// The search's history with what was picked from the results (songs, artists, albums...: with
+    /// their covers), as JSON (`RecentSearch`); read from `recentSearches` while it isn't there.
+    static let recentSearchItems = "search.recentItems"
 
     /// Radios and quick picks skip "songs" longer than this (hour-long compilations).
     static let longMixThreshold: TimeInterval = 15 * 60

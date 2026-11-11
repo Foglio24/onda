@@ -1,8 +1,9 @@
 import SwiftUI
 
 /// The karaoke as Apple Music's Sing, beside the lyrics on iPhone and iPad: a slider for the voice.
-/// Down takes the voice away, up brings it back; a tap turns it on (without the voice) or off, and
-/// holding it offers the voice alone. Where Premium is needed and missing, it explains Premium.
+/// Dragged down the voice gets softer all the way, gone at the bottom; up it comes back, the song as
+/// it is at the top. A tap turns it on (without the voice) or off, and holding it offers the voice
+/// alone. Where Premium is needed and missing, it explains Premium.
 struct SingControl: View {
     @EnvironmentObject private var player: PlayerController
     @ObservedObject private var account = AccountService.shared
@@ -13,9 +14,11 @@ struct SingControl: View {
     private static let height: CGFloat = 132
     private static let width: CGFloat = 48
 
-    /// The voice's level: 1 as the song is, 0 without it.
+    /// The slider's position: 1 the song as it is, 0 without the voice. The voice's volume is its
+    /// cube, a loudness taper: half way down it is 18 dB softer, so the whole travel is heard (a
+    /// straight volume would sound nearly the same down to the last quarter, then drop).
     private var level: Double {
-        player.karaokeMode == .noVocals ? 1 - Double(player.karaokeAmount) : 1
+        player.karaokeMode == .noVocals ? cbrt(max(0, 1 - Double(player.karaokeAmount))) : 1
     }
 
     private var unlocked: Bool { account.unlocks(.karaoke) }
@@ -37,7 +40,9 @@ struct SingControl: View {
             if !unlocked { PremiumLock().offset(x: 4, y: -4) }
         }
         .contentShape(.capsule)
-        .gesture(drag)
+        .onTapGesture { toggle() }
+        // Before the lyrics' scrolling and the player's own drags, which would take a vertical drag.
+        .highPriorityGesture(drag)
         .contextMenu {
             Picker("Karaoke", selection: Binding(get: { player.karaokeMode }, set: { choose($0) })) {
                 ForEach(KaraokeMode.allCases) { mode in
@@ -73,19 +78,18 @@ struct SingControl: View {
         }
     }
 
-    /// A tap (no movement) turns it on or off; a drag up or down sets the voice.
+    /// A drag up or down sets the voice (a tap turns it on or off).
     private var drag: some Gesture {
-        DragGesture(minimumDistance: 0)
+        DragGesture(minimumDistance: 4)
             .onChanged { value in
-                guard unlocked, abs(value.translation.height) > 3 else { return }
+                guard unlocked else {
+                    paywall = .karaoke
+                    return
+                }
                 if dragStart == nil { dragStart = level }
                 set(level: (dragStart ?? level) - Double(value.translation.height / Self.height))
             }
-            .onEnded { value in
-                defer { dragStart = nil }
-                guard abs(value.translation.height) <= 3 else { return }
-                toggle()
-            }
+            .onEnded { _ in dragStart = nil }
     }
 
     private func toggle() {
@@ -105,15 +109,13 @@ struct SingControl: View {
         player.setKaraoke(mode)
     }
 
-    /// Nearly all the voice is the song as it is; any less takes it away by that much.
+    /// The voice at this position, the karaoke staying on all the way (at the top the song plays as
+    /// it is from its parts): turning it off while dragging would change the song's file under the
+    /// finger. A tap turns it off.
     private func set(level newLevel: Double) {
         guard unlocked else { return }
         let level = min(1, max(0, newLevel))
-        if level > 0.96 {
-            if player.karaokeMode != .off { player.setKaraoke(.off) }
-            return
-        }
         if player.karaokeMode != .noVocals { player.setKaraoke(.noVocals) }
-        player.setKaraokeAmount(Float(1 - level))
+        player.setKaraokeAmount(Float(1 - level * level * level))
     }
 }

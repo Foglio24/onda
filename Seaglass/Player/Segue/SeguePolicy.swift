@@ -510,6 +510,10 @@ struct SegueRequest {
     /// The automatic equaliser: the bass, the bands, the filters and the echo change hands; off,
     /// only the levels move (and no beat-matched cut between two songs' basses is risked).
     var eq = true
+    /// The speed the outgoing song plays at: a song a live mix brought in keeps the speed it was
+    /// matched at, so the next one is matched to that. A beat-matched window's speed change is the
+    /// incoming song's own against it (`rate` × this).
+    var outgoingRate = 1.0
     var tuning = SegueTuning()
 }
 
@@ -845,7 +849,7 @@ enum SeguePolicy {
                     for (exit, sa) in outs {
                         for (entry, sb) in ins {
                             let rate = sb.length / sa.length
-                            let change = abs(rate - 1)
+                            let change = abs(rate * r.outgoingRate - 1)
                             closest = min(closest, change)
                             if change > t.maxRateChange { continue }
                             let pulse = min(sa.reliability, sb.reliability)

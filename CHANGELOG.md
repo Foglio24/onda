@@ -4,21 +4,25 @@
 
 ### Added
 - **AutoMix live** (iPhone, iPad and Mac). AutoMix can now mix the next song live, the way a DJ does with two decks, instead of preparing the transition as a file.
-  - The next song plays on a second player that is loaded 15 seconds early. It starts silently 2.5 seconds before the transition, in step with the playing song, at the playing song's tempo, and is corrected only if it drifts.
+  - The next song plays on a second player that is loaded 15 seconds early. It starts silently 2.5 seconds before the transition, in step with the playing song, at the playing song's tempo, and is corrected only while it is still quiet in the mix.
   - During the transition, each song's level, bass, middle, top and filters move as the plan says, by the time of the music itself, so the headphones' or speaker's delay doesn't matter.
   - Each transition is chosen from the two songs' analyses. AutoMix first tries a beat-matched mix over 16 bars on a phrase, then over 8, 4 or 2 bars. If none fits, it tries a filtered fade, then a cut on the beat, then a short fade, and otherwise plays one song after the other. A candidate that would need a speed change of more than 8 %, put beats more than 20 ms apart, sing two voices together, or leave out too much of the song is refused, whatever its score.
-  - When the transition ends, the song goes back to its own speed in one change, on a downbeat: each change of a player's speed makes it render its sound again, which can be heard, so it isn't brought back little by little. The next transition is prepared once the mix is over, so the analysis doesn't compete with the two players.
+  - The song brought in keeps the tempo it was matched at until it ends, as a DJ leaves the pitch fader (with the key lock its pitch stays its own), and the next mix is matched to it. Changing a playing song's speed can be heard (the sound jumps), so a heard song's speed never changes. The next transition is prepared once the mix is over, so the analysis doesn't compete with the two players.
   - If anything isn't ready in time, the transition becomes a plain fade or the mix prepared as a file, as before. If the next song stalls or drifts while both are heard, the effects ramp back out and the song carries on.
   - **Beats from a neural beat tracker.** The bars, phrases and stretches AutoMix mixes on come from Beat This! (JKU Linz, MIT licence), run on the device with Core ML when a song is analysed, as Myspoti's Segue does. Seaglass's own analysis found the tempo but rarely a stretch steady enough to beat-match on real songs, so mixes stopped at a filtered fade.
   - **Mix length:** Breve (up to 8 bars), Normale (up to 16) or Lunga (up to 32, when both songs hold their beat that long), with shorter or longer fades to match.
   - **Automatic equaliser:** bass, mids, highs, filters and an echo on the beat pass from one song to the other; turned off, only the volumes move.
   - **Echo:** in some mixes the outgoing song's last beats are thrown into an echo on its beat, which rings on over the next song.
   - Settings shows the last choice and why the more ambitious levels weren't used. **Settings › Riproduzione › Mix dal vivo** turns it off (back to the prepared mixes); its length and equaliser are under it.
+- **Recent searches with their covers** (iPhone, iPad and Mac). What you pick from the results (a song, an artist, an album, a playlist) is kept in the search's history with its cover, round for an artist; a tap plays the song or opens the page. Searches sent without picking anything stay, with a magnifying glass.
 
 ### Changed
 - **The "Massima" download quality is called "Opus 160 kbps (~5 MB/min)"** instead of "lossless da Opus": the file keeps YouTube's Opus as it was decoded, and was never lossless audio.
+- **The karaoke's voice slider works as Apple Music's Sing.** Dragged down, the voice gets softer all the way and is gone at the bottom; up, it comes back. Its volume follows a loudness curve (half way down is 18 dB softer), so the whole travel is heard, and it moves smoothly while the song plays, without clicks. The karaoke stays on while you drag (at the top the voice is whole); a tap turns it off. The drag no longer gets taken by the lyrics' scrolling.
+- **Search results while you type.** The songs show as soon as they arrive, a moment after you stop typing, without waiting for the playlists and artists or for the return key; the previous results stay until then, instead of "no results".
 
 ### Fixed
+- **Last.fm's lists in the queue** (Top Last.fm, Taste Mix, Riscopri, recognized songs): the next five songs are looked up on YouTube Music ahead, not only when they play, so the queue shows their covers and AutoMix can mix into them instead of saying "Non disponibile per questi brani".
 - **Tempo no longer freezes streamed songs.** With Tempo away from 0, a song that wasn't downloaded could stop loading for good, even after resetting Tempo: YouTube's stream comes in at about the song's own speed, slower than a sped-up song plays. Now the song's copy on the device takes over as soon as it is there. A song that stays stuck for 8 seconds gets a fresh stream, once, and then plays with what has arrived. Measuring the BPM no longer competes with playback.
 
 ### What still has to be checked
