@@ -24,6 +24,7 @@
 - **Search results while you type.** The songs show as soon as they arrive, a moment after you stop typing, without waiting for the playlists and artists or for the return key; the previous results stay until then, instead of "no results".
 
 ### Fixed
+- **The queue's AutoMix and Radio card** had broken corners: its glass was cut by the list's square edges. It is now a translucent card like the songs' rows.
 - **No more silence after going back in a song a live mix brought in.** Moved back to before where the mix began, or back to its start during the mix, the song went on without a sound: its mix was still holding it silent there. Its sound now goes back to plain once the mix is over, and a mix still to come starts over from where the song was moved to.
 - **Last.fm's lists in the queue** (Top Last.fm, Taste Mix, Riscopri, recognized songs): the next five songs are looked up on YouTube Music ahead, not only when they play, so the queue shows their covers and AutoMix can mix into them instead of saying "Non disponibile per questi brani".
 - **Tempo no longer freezes streamed songs.** With Tempo away from 0, a song that wasn't downloaded could stop loading for good, even after resetting Tempo: YouTube's stream comes in at about the song's own speed, slower than a sped-up song plays. Now the song's copy on the device takes over as soon as it is there. A song that stays stuck for 8 seconds gets a fresh stream, once, and then plays with what has arrived. Measuring the BPM no longer competes with playback.
