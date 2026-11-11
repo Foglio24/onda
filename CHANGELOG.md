@@ -4,7 +4,7 @@
 
 ### Added
 - **AutoMix live** (iPhone, iPad and Mac). AutoMix can now mix the next song live, the way a DJ does with two decks, instead of preparing the transition as a file.
-  - The next song plays on a second player that is loaded 15 seconds early. It starts silently just before the transition, in step with the playing song, and is corrected only while it is still quiet in the mix.
+  - The next song plays on a second player that is loaded well ahead (15 to 30 seconds before the transition). It starts silently just before the transition, in step with the playing song, and is corrected only while it is still quiet in the mix.
   - During the transition, each song's level, bass, middle, top and filters move as the plan says, by the time of the music itself, so the headphones' or speaker's delay doesn't matter.
   - Each transition is chosen from the two songs' analyses. AutoMix first tries a beat-matched mix over 16 bars on a phrase, then over 8, 4 or 2 bars. If none fits, it tries a filtered fade, then a cut on the beat, then a short fade, and otherwise plays one song after the other. A candidate that would need a speed change of more than 8 %, put beats more than 20 ms apart, sing two voices together, or leave out too much of the song is refused, whatever its score.
   - The next song plays at its own speed and with its own sound from its first note, so nothing changes once the mix is over: for a beat-matched mix it is the song that is ending which takes the new tempo, gliding there over the bars before the mix in steps of at most half a percent a bar, too small to hear. Each step is a fresh player of the song at the next speed, taking over on a downbeat (an 80 ms crossover between two copies of the same music); changing a playing song's speed can be heard (the sound jumps), so a heard player's speed never changes. The next transition is prepared once the mix is over, so the analysis doesn't compete with the two players.
@@ -20,7 +20,7 @@
 
 ### Changed
 - **The "Massima" download quality is called "Opus 160 kbps (~5 MB/min)"** instead of "lossless da Opus": the file keeps YouTube's Opus as it was decoded, and was never lossless audio.
-- **The karaoke's voice slider works as Apple Music's Sing.** Dragged down, the voice gets softer all the way and is gone at the bottom; up, it comes back. Its volume follows a loudness curve (half way down is 18 dB softer), so the whole travel is heard, and it moves smoothly while the song plays, without clicks. The karaoke stays on while you drag (at the top the voice is whole); a tap turns it off. The drag no longer gets taken by the lyrics' scrolling.
+- **The karaoke's voice slider works as Apple Music's Sing** (iPhone and iPad). Dragged down, the voice gets softer all the way and is gone at the bottom; up, it comes back. Its volume follows a loudness curve (half way down is 18 dB softer), so the whole travel is heard, and it moves smoothly while the song plays, without clicks. The karaoke stays on while you drag (at the top the voice is whole); a tap turns it off. The drag no longer gets taken by the lyrics' scrolling.
 - **Search results while you type.** The songs show as soon as they arrive, a moment after you stop typing, without waiting for the playlists and artists or for the return key; the previous results stay until then, instead of "no results".
 
 ### Fixed
@@ -30,7 +30,7 @@
 - **Tempo no longer freezes streamed songs.** With Tempo away from 0, a song that wasn't downloaded could stop loading for good, even after resetting Tempo: YouTube's stream comes in at about the song's own speed, slower than a sped-up song plays. Now the song's copy on the device takes over as soon as it is there. A song that stays stuck for 8 seconds gets a fresh stream, once, and then plays with what has arrived. Measuring the BPM no longer competes with playback.
 
 ### What still has to be checked
-- AutoMix live on devices, by listening: the timing with wired, Bluetooth and AirPlay outputs, and the tuning on different genres. The checks run on songs made for them and on the build Mac.
+- AutoMix live was listened to on an iPhone and on a Mac; AirPlay's timing and the tuning on more genres still need listening. The automatic checks run on songs made for them, on the build Mac.
 
 ## 1.31.4 (2026-11-10)
 
