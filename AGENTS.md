@@ -32,6 +32,11 @@ Other folders:
   page, deployed by `.github/workflows/account.yml` (see its README). As on Spotify, the account
   is managed on the page; the app (`Seaglass/Services/Account.swift`) signs in, shows it and syncs
   the library (`Seaglass/Services/LibrarySync.swift`).
+- `site/` holds the website: one animated page (English and Italian, no third-party requests) served
+  by a Cloudflare Worker, deployed from `main` by `.github/workflows/site.yml` (see its header for the
+  variables). Its text is in `site/i18n.js` and, in English, in `site/index.html`; `npm test` in `site/`
+  checks both and the page in Chromium (computer, phone, reduced motion, no JavaScript). The page must
+  keep saying that Seaglass is unofficial and unaffiliated.
 - `docs/` holds the README's screenshots.
 - `AutoMix-listening/` holds listening material for AutoMix, not code.
 
@@ -62,6 +67,8 @@ Other folders:
   - `./gradlew assembleRelease` builds the APKs, one per ABI.
 - **Account service** (Node 22), from `server/account/`: `npm ci`, then `npm test` runs the
   whole service end to end on a local copy.
+- **Website** (Node 22), from `site/`: `npm ci`, `npx playwright install chromium`, then `npm test`;
+  `npm run dev` serves it at http://127.0.0.1:8787 with the headers it is deployed with.
 - **iOS** (macOS with Xcode 27):
   - `xcodegen generate`, then build the `Seaglass` scheme (for the Mac:
     `-destination 'generic/platform=macOS,variant=Mac Catalyst'`).

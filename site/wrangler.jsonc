@@ -1,0 +1,15 @@
+// Seaglass's website: a Worker that serves the files in dist/ (the deploy workflow,
+// .github/workflows/site.yml, builds it with scripts/build.mjs, which also writes
+// wrangler.deploy.jsonc from this file with the real domain).
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "seaglass-site",
+  "compatibility_date": "2026-10-01",
+  "workers_dev": false,
+  "observability": { "enabled": true },
+  "assets": {
+    "directory": "./dist",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "404-page"
+  }
+}
