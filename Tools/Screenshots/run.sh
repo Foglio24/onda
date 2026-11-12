@@ -58,6 +58,7 @@ if [ "$kind" = "classic" ]; then
   shot classic-15-home-light en 10 home -theme.style classic -theme.mode light
   shot classic-16-library-light en 6 library-playlist -theme.style classic -theme.mode light
   shot classic-17-search-light en 5 search -theme.style classic -theme.mode light
+  shot classic-18-queue en 7 player-demo -SeaglassPanel queue -theme.style classic
   xcrun simctl shutdown "$device" || true
   exit 0
 fi
