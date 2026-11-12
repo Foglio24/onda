@@ -25,6 +25,15 @@
       ],
       "versions": [
         {
+          "version": "1.35.0",
+          "buildVersion": "75",
+          "date": "2026-11-12T15:27:13Z",
+          "localizedDescription": "Added\n- A second look for the whole app: Classico (iPhone and iPad). Settings › Aspetto › Stile dell'interfaccia now offers Seaglass (Liquid Glass, as it was) or Classico: black and flat, in green, laid out as the most common streaming apps. The same app, features and pages in both; only how they look changes, and it switches at once.\n  - Tabs along the bottom: Home, Cerca and La tua libreria, over a fade to black, with the mini player above them in the colours of the cover (song, artist, output, play, and a thin line for where the song is). The settings open from the round profile button at the top of the main pages.\n  - Pages on near-black with a faint wash of the cover's colour at the top; nearly square covers; flat grey cards and buttons instead of glass.\n  - Home: the shortcuts as flat grey tiles with the cover against the edge; the moods as solid coloured tiles.\n  - Cerca: Sfoglia tutto, twenty coloured tiles of genres and moods (Pop, Hip-Hop, Rock, Dance, Relax, Concentrazione…); one tap searches it.\n  - La tua libreria: edge to edge on black, with large square tiles for Preferiti, Download, Cronologia, File locali and Podcast and the number of songs under each name.\n  - Albums and playlists: the title, the artist and the details on the left under the cover, and the round green play button with shuffle beside it.\n  - The player: from the cover's colour down to black, a white play button, shuffle and repeat in green with a dot, the favourite as a green tick.\n- On the Mac the classic style makes the app dark and green and flattens the pages; the sidebar and the player bar stay as they are.",
+          "downloadURL": "https://github.com/Foglio24/onda/releases/download/v1.35.0/Seaglass.ipa",
+          "size": 45764478,
+          "minOSVersion": "26.0"
+        },
+        {
           "version": "1.34.3",
           "buildVersion": "74",
           "date": "2026-11-12T13:08:40Z",
@@ -125,6 +134,17 @@
     }
   ],
   "news": [
+    {
+      "title": "Seaglass 1.35.0",
+      "identifier": "release-1.35.0",
+      "caption": "A new Seaglass update is available. Tap to see what's new.",
+      "date": "2026-11-12T15:27:13Z",
+      "tintColor": "#EC3F8E",
+      "imageURL": "https://raw.githubusercontent.com/Foglio24/onda/main/docs/images/seaglass-banner.jpg",
+      "notify": false,
+      "url": "https://github.com/Foglio24/onda/releases/tag/v1.35.0",
+      "appID": "com.onda.player"
+    },
     {
       "title": "Seaglass 1.34.3",
       "identifier": "release-1.34.3",
