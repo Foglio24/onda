@@ -233,6 +233,42 @@ enum LaunchScene {
                 }
                 print(arrived == songs.count ? "segue-scene: done" : "segue-scene: the next song never came")
             }
+        case "local":
+            // CI (Tools/LocalScene/run.sh): the songs the script put in Documents/Musica, as a person copies
+            // them there with Files. What the app finds in them, then each played for a few seconds: the log
+            // says, song by song, whether it played and, if not, the player's error.
+            select(.library)
+            Task {
+                let local = LocalMusic.shared
+                local.rescan()
+                for _ in 0..<120 {
+                    try? await Task.sleep(for: .milliseconds(500))
+                    if !local.scanning, !local.tracks.isEmpty { break }
+                }
+                print("local-scene: folders \(local.folders.map(\.name)), unreachable \(local.unreachable.count), scanning \(local.scanning)")
+                print("local-scene: found \(local.tracks.count) songs")
+                for track in local.tracks {
+                    let file = Storage.localAudio(for: track)
+                    print("local-scene: song \(track.title) | \(track.artist) | \(track.videoId ?? "-") | "
+                          + "file \(file?.lastPathComponent ?? "MISSING") | cover \(Storage.localArtwork(for: track) != nil) | "
+                          + "\(Int(track.duration ?? 0)) s")
+                }
+                let player = PlayerController.shared
+                for (position, track) in local.tracks.enumerated() {
+                    player.play(local.tracks, startAt: position, source: "File locali")
+                    if position == 0 { router.openPlayer() }
+                    var heard = 0.0
+                    for _ in 0..<30 {
+                        try? await Task.sleep(for: .milliseconds(500))
+                        heard = player.progress.currentTime
+                        if heard > 2 || player.errorMessage != nil { break }
+                    }
+                    print("local-scene: \(heard > 2 ? "PLAYS" : "FAILS") \(track.title): \(String(format: "%.1f", heard)) s, "
+                          + "playing \(player.isPlaying), \(player.streamInfo ?? "-"), error \(player.errorMessage ?? "none")")
+                }
+                player.pause()
+                print("local-scene: done")
+            }
         case "tempo-live":
             // A real song played from its stream (`value`, a video id): the tempo panel's BPM, as
             // people get it (the log says each step). Live: YouTube may refuse CI's machines.

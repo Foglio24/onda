@@ -1,0 +1,69 @@
+# The user's own songs on an iPhone (simulator): files of every kind put in Documents/Musica, found by the
+# app and each played (Tools/LocalScene/run.sh, LaunchScene "local"). On demand and on changes to the
+# local music code, apart from build.yml so it can be tried on a working branch in one go.
+name: Local songs in the simulator
+
+on:
+  push:
+    branches: ["claude/**", "feature/**"]
+    paths:
+      - "Seaglass/Services/LocalMusic.swift"
+      - "Seaglass/Services/LocalPlayable.swift"
+      - "Seaglass/Models/LocalMusicIndex.swift"
+      - "Seaglass/Views/LocalMusicViews.swift"
+      - "Seaglass/App/LaunchScene.swift"
+      - "Tools/LocalScene/**"
+      - ".github/workflows/local-scene.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: local-scene-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scene:
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest
+      - name: Install XcodeGen and LAME
+        run: brew install xcodegen lame
+      - name: Karaoke model
+        uses: ./.github/actions/karaoke-model
+      - name: Beat model
+        uses: ./.github/actions/beat-model
+      - name: Generate Xcode project
+        run: |
+          mkdir -p Support
+          xcodegen generate
+      - name: Build for the simulator
+        run: |
+          xcodebuild \
+            -project Seaglass.xcodeproj \
+            -scheme Seaglass \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build-sim \
+            -skipPackagePluginValidation \
+            -skipMacroValidation \
+            -quiet \
+            ARCHS=arm64 \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+      - name: Find and play the songs
+        run: bash Tools/LocalScene/run.sh build-sim/Build/Products/Debug-iphonesimulator/Seaglass.app local-scene
+      - name: The log and the screenshot
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: local-scene
+          path: local-scene
+          retention-days: 14
+          if-no-files-found: ignore
