@@ -70,6 +70,7 @@ jobs:
           bash Tools/AutoMixCheck/run.sh
           bash Tools/AutoMixRenderCheck/run.sh
           bash Tools/SegueCheck/run.sh
+          bash Tools/DeckCheck/run.sh
           bash Tools/AutoMixPlaybackProbe/run.sh
           bash Tools/OpusStreamCheck/run.sh
           bash Tools/AutoMixLevels/run.sh

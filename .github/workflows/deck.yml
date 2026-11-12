@@ -1,0 +1,30 @@
+# The mix engine's core (Seaglass/Player/Deck), checked on its own on a Mac in a few minutes, so a
+# change to it can be tried on every push to a working branch. The same check runs in build.yml.
+name: Mix engine check
+
+on:
+  push:
+    branches: ["claude/**", "feature/**"]
+    paths:
+      - "Seaglass/Player/Deck/**"
+      - "Seaglass/Player/Segue/SegueStage.swift"
+      - "Seaglass/Player/Segue/SeguePlan.swift"
+      - "Tools/DeckCheck/**"
+      - ".github/workflows/deck.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: macos-26
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      # "latest" includes release candidates, as in build.yml.
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest
+      - name: Check the mix engine's core
+        run: bash Tools/DeckCheck/run.sh
