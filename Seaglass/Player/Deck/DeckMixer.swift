@@ -223,11 +223,11 @@ final class DeckMixer: @unchecked Sendable {
     }
 
     private func post(_ load: Load, to deck: Int) {
-        var load = load
         lock.withLock {
-            load.version = nextVersion
+            var posted = load
+            posted.version = nextVersion
             nextVersion += 1
-            loads[deck] = load
+            loads[deck] = posted
         }
     }
 
@@ -304,13 +304,14 @@ final class DeckMixer: @unchecked Sendable {
         chunkFrame = first + Int64(Self.chunk)
     }
 
-    /// Unity up to 0.8, then a smooth knee to 1: two songs at full level can't clip.
+    /// Untouched up to 0.95, then a smooth knee that never passes 1: two songs at full level can't
+    /// clip, and one song's own peaks (a loud master reaches 0.95 and a little over) are left as they are.
     @inline(__always)
     private static func soften(_ x: Float) -> Float {
         let magnitude = abs(x)
-        if magnitude <= 0.8 { return x }
-        let over = (magnitude - 0.8) / 0.2
-        let shaped = 0.8 + 0.2 * Float(tanh(Double(over)))
+        if magnitude <= 0.95 { return x }
+        let over = (magnitude - 0.95) / 0.05
+        let shaped = 0.95 + 0.05 * Float(tanh(Double(over)))
         return x < 0 ? -shaped : shaped
     }
 

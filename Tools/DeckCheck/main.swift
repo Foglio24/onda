@@ -98,11 +98,25 @@ func rmsDB(_ x: [Float], from: Double, to: Double) -> Double {
 for start in [1, 63, 64, 1000, 1024, 5000] {
     let mixer = DeckMixer(sampleRate: sr)
     var impulse = [Float](repeating: 0, count: 2000)
-    impulse[0] = 1
+    impulse[0] = 0.5
     mixer.load(deck: 0, pcm: pcm(impulse), songTime: 0, startFrame: Int64(start))
     let heard = render(mixer, frames: start + 600, block: 97)
     let first = heard.firstIndex { abs($0) > 1e-6 } ?? -1
-    expect(first == start && abs(heard[start] - 1) < 1e-6, "a deck given frame \(start) starts on frame \(first)")
+    expect(first == start && abs(heard[start] - 0.5) < 1e-6, "a deck given frame \(start) starts on frame \(first), at its own level (\(heard[start]))")
+}
+
+// One song's own peaks are left alone; two at full level can't pass 1.
+do {
+    let loud = (0..<4000).map { Float(0.93 * sin(2 * Double.pi * 300 * Double($0) / sr)) }
+    let single = DeckMixer(sampleRate: sr)
+    single.load(deck: 0, pcm: pcm(loud), songTime: 0, startFrame: 0)
+    let heard = render(single, frames: 4000, block: 256)
+    expect(zip(heard, loud).allSatisfy { $0 == $1 }, "a song with peaks at 0.93 plays as it is")
+    let both = DeckMixer(sampleRate: sr)
+    both.load(deck: 0, pcm: pcm(loud), songTime: 0, startFrame: 0)
+    both.load(deck: 1, pcm: pcm(loud), songTime: 0, startFrame: 0)
+    let summed = render(both, frames: 4000, block: 256)
+    expect(summed.allSatisfy { abs($0) <= 1.0 } && (summed.map { abs($0) }.max() ?? 0) > 0.98, "two at 0.93 together stay within 1 (peak \(format(Double(summed.map { abs($0) }.max() ?? 0), 4)))")
 }
 
 // MARK: A glide to another tempo, and a song started on the shared beat
