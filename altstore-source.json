@@ -25,6 +25,15 @@
       ],
       "versions": [
         {
+          "version": "1.35.2",
+          "buildVersion": "77",
+          "date": "2026-11-12T18:09:14Z",
+          "localizedDescription": "1.35.2 (2026-11-12)\n\nFixed\n- The iPhone and Mac builds of 1.35.1 failed to compile. The classic full player's layout and the Seaglass one were two different opaque view types in the same if; both apps now build again.\n- The classic daily-mix caption had no English (or other) translation, so packaging the IPA stopped after a successful compile. Mix %lld · %@ is in every language now.\n\nChanged\n- Classico on the Mac (sidebar and player bar). Choosing Classico now restyles the floating sidebar (flat black, green selection, La tua libreria / Brani che ti piacciono) and the bottom player bar (flat elevated capsule, white play button, green shuffle/repeat and progress), instead of leaving Apple Music's glass chrome. The Home's shelf arrows and hover play badges follow the same look.\n\n1.35.1 (2026-11-12)\n\nChanged\n- Classico closer to the common streaming apps (iPhone and iPad). Pure black pages; Home opens with Tutti / Musica / Podcast pills, an eight-tile quick-access grid with no title, Continua ad ascoltare and Recenti (with Mostra tutto); Cerca has a white Cosa vuoi ascoltare? field, Musica / Podcast cards above Sfoglia tutto, and recent searches with × to clear; La tua libreria has Playlist / Podcast / File locali pills, Recenti + list/grid, and dense rows (Brani che ti piacciono pinned in purple); playlist pages put download / share / ··· beside shuffle and the green play; song ··· opens a bottom sheet of actions instead of the system menu.\n- The profile button opens a classic menu (name, Profilo, Recenti, Impostazioni e privacy) — not friends' listening or messages, which Seaglass doesn't have.\n- The classic full player: source in the header, the current lyric under the cover, green check, scrubber with a thumb and remaining time, AirPlay / share / queue, and an Anteprima del testo card that opens the lyrics.",
+          "downloadURL": "https://github.com/Foglio24/onda/releases/download/v1.35.2/Seaglass.ipa",
+          "size": 46093165,
+          "minOSVersion": "26.0"
+        },
+        {
           "version": "1.35.0",
           "buildVersion": "75",
           "date": "2026-11-12T15:27:13Z",
@@ -134,6 +143,17 @@
     }
   ],
   "news": [
+    {
+      "title": "Seaglass 1.35.2",
+      "identifier": "release-1.35.2",
+      "caption": "A new Seaglass update is available. Tap to see what's new.",
+      "date": "2026-11-12T18:09:14Z",
+      "tintColor": "#EC3F8E",
+      "imageURL": "https://raw.githubusercontent.com/Foglio24/onda/main/docs/images/seaglass-banner.jpg",
+      "notify": false,
+      "url": "https://github.com/Foglio24/onda/releases/tag/v1.35.2",
+      "appID": "com.onda.player"
+    },
     {
       "title": "Seaglass 1.35.0",
       "identifier": "release-1.35.0",
