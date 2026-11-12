@@ -808,3 +808,6 @@
 "Scura" = "深色";
 "Automatica segue il dispositivo, chiara o scura. Il player resta scuro, sui colori della copertina." = "“自动”跟随设备的浅色或深色外观。播放器保持深色，采用封面的颜色。";
 "Apri la coda" = "打开队列";
+"In riproduzione: **%@**" = "正在播放：**%@**";
+"Riproduzione casuale" = "随机播放";
+"Timer" = "定时";

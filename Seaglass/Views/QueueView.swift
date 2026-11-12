@@ -49,8 +49,9 @@ struct QueueView: View {
                 }) { player.jump(to: entry.index) }
                     .padding(.horizontal, classic ? 0 : 10)
                     .listRowBackground(rowBackground)
-                    .listRowSeparator(classic ? .visible : .hidden)
-                    .listRowSeparatorTint(classic ? Color.white.opacity(0.12) : nil)
+                    .listRowSeparator(.hidden)
+                    // Classic: the handles only, no red delete buttons, as the common streaming apps.
+                    .deleteDisabled(classic)
                     .listRowInsets(EdgeInsets(top: classic ? 4 : 6, leading: classic ? 12 : 0,
                                               bottom: classic ? 4 : 6, trailing: classic ? 4 : 0))
             }
@@ -95,9 +96,15 @@ struct QueueView: View {
                         .lineLimit(1)
                 }
                 Spacer(minLength: 0)
-                Image(systemName: player.isPlaying ? "pause.circle" : "play.circle")
-                    .font(.title2)
-                    .foregroundStyle(ClassicPalette.secondaryText)
+                Button { player.togglePlayPause() } label: {
+                    Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
+                        .font(.body)
+                        .foregroundStyle(.black)
+                        .frame(width: 40, height: 40)
+                        .background(Color.white, in: .circle)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(player.isPlaying ? Text("Pausa") : Text("Riproduci"))
             }
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
@@ -108,7 +115,11 @@ struct QueueView: View {
     }
 
     private var classicSectionHeader: some View {
-        Text(player.shuffleEnabled ? "Riproduzione casuale da:" : "Prossimi brani")
+        Label {
+            Text(player.shuffleEnabled ? "Riproduzione casuale da:" : "Prossimi brani")
+        } icon: {
+            if player.shuffleEnabled { Image(systemName: "shuffle") }
+        }
             .font(.subheadline.weight(.semibold))
             .foregroundStyle(ClassicPalette.secondaryText)
             .frame(maxWidth: .infinity, alignment: .leading)

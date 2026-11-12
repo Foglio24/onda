@@ -808,3 +808,6 @@
 "Scura" = "Dunkel";
 "Automatica segue il dispositivo, chiara o scura. Il player resta scuro, sui colori della copertina." = "Automatisch folgt dem Gerät, hell oder dunkel. Der Player bleibt dunkel, in den Farben des Covers.";
 "Apri la coda" = "Warteschlange öffnen";
+"In riproduzione: **%@**" = "Wiedergabe: **%@**";
+"Riproduzione casuale" = "Zufallswiedergabe";
+"Timer" = "Timer";

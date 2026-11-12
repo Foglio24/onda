@@ -808,3 +808,6 @@
 "Scura" = "Тёмный";
 "Automatica segue il dispositivo, chiara o scura. Il player resta scuro, sui colori della copertina." = "«Автоматически» следует устройству — светлый или тёмный. Плеер остаётся тёмным, в цветах обложки.";
 "Apri la coda" = "Открыть очередь";
+"In riproduzione: **%@**" = "Сейчас играет: **%@**";
+"Riproduzione casuale" = "Перемешать";
+"Timer" = "Таймер";

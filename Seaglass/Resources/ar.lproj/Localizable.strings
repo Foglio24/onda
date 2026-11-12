@@ -808,3 +808,6 @@
 "Scura" = "داكن";
 "Automatica segue il dispositivo, chiara o scura. Il player resta scuro, sui colori della copertina." = "«تلقائي» يتبع الجهاز، فاتحًا أو داكنًا. يبقى المشغّل داكنًا بألوان الغلاف.";
 "Apri la coda" = "فتح قائمة الانتظار";
+"In riproduzione: **%@**" = "قيد التشغيل: **%@**";
+"Riproduzione casuale" = "تشغيل عشوائي";
+"Timer" = "المؤقت";

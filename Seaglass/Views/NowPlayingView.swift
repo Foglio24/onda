@@ -1,3 +1,4 @@
+import AVFoundation
 import SwiftUI
 import UIKit
 
@@ -25,6 +26,9 @@ struct NowPlayingView: View {
     @State private var panel: Panel = .artwork
     /// How far the classic player is scrolled (negative when pulled down past its top).
     @State private var classicPull: CGFloat = 0
+    /// The classic style's queue, a sheet over the player as the common streaming apps'.
+    @State private var showClassicQueue = false
+    @AppStorage(Preferences.lyricsTranslate) private var translateLyrics = false
     /// A drag down is under way (the card follows it).
     @State private var draggingDown = false
     @State private var showEqualizer = false
@@ -55,6 +59,9 @@ struct NowPlayingView: View {
         }
         .sheet(item: router.pageBinding(fromPlayer: true)) { page in
             MusicPageSheet(page: page).appEnvironment()
+        }
+        .sheet(isPresented: $showClassicQueue) {
+            classicQueueSheet.appEnvironment()
         }
         .sheet(isPresented: $showEqualizer) {
             NavigationStack {
@@ -90,7 +97,7 @@ struct NowPlayingView: View {
                 switch open {
                 case "tempo": showTempo = true
                 case "below": break // the classic player, scrolled to what's under it
-                case "queue": panel = .queue
+                case "queue": if style == .classic && !Self.isMac { showClassicQueue = true } else { panel = .queue }
                 default: panel = .lyrics
                 }
             }
@@ -166,9 +173,7 @@ struct NowPlayingView: View {
         switch panel {
         case .lyrics:
             classicLyricsScreen
-        case .queue:
-            classicQueueScreen
-        case .artwork:
+        case .artwork, .queue:
             GeometryReader { geometry in
                 ScrollView(.vertical) {
                     VStack(spacing: 18) {
@@ -231,17 +236,6 @@ struct NowPlayingView: View {
         }
     }
 
-    /// The queue on its own page: the header, the list, and the controls under it.
-    private var classicQueueScreen: some View {
-        VStack(spacing: 12) {
-            classicPanelHeader(title: String(localized: "Coda"), subtitle: player.source)
-            QueueView()
-                .frame(maxHeight: .infinity)
-            PlayerScrubber(classic: true)
-            controls
-        }
-    }
-
     /// A panel's header in the classic player: back to the player on the left, two centred lines.
     private func classicPanelHeader(title: String, subtitle: String) -> some View {
         HStack {
@@ -277,7 +271,7 @@ struct NowPlayingView: View {
                     Text("Prossimi brani")
                         .font(.headline.weight(.bold))
                     Spacer(minLength: 8)
-                    Button { withAnimation { panel = .queue } } label: {
+                    Button { showClassicQueue = true } label: {
                         Text("Apri la coda")
                             .font(.subheadline.weight(.bold))
                             .foregroundStyle(Color.white.opacity(0.85))
@@ -300,7 +294,7 @@ struct NowPlayingView: View {
                         Spacer(minLength: 0)
                     }
                     .contentShape(.rect)
-                    .onTapGesture { withAnimation { panel = .queue } }
+                    .onTapGesture { showClassicQueue = true }
                 }
             }
             .padding(16)
@@ -529,9 +523,11 @@ struct NowPlayingView: View {
         }
     }
 
+    /// Under the controls: where the sound goes (its name in green when it isn't the iPhone), share,
+    /// and the queue.
     private var classicBottomBar: some View {
         HStack(spacing: 4) {
-            AirPlayButton(activeTint: ClassicPalette.accent).frame(width: 44, height: 44)
+            ClassicOutputLabel()
             Spacer()
             if let url = player.current?.shareURL {
                 ShareLink(item: url) {
@@ -541,43 +537,113 @@ struct NowPlayingView: View {
                 }
                 .buttonStyle(.plain)
             }
-            panelButton(.queue, symbol: "list.bullet")
+            Button { showClassicQueue = true } label: {
+                Image(systemName: "list.bullet")
+                    .font(.title3)
+                    .frame(width: 44, height: 44)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(Text("Coda"))
         }
     }
 
-    /// Rich lyrics card under the player (and under the queue): peek lines + "Mostra testo".
+    /// The lyrics' preview under the classic player, as the common streaming apps': on the cover's
+    /// colour, the lines around the one being sung (sung ones white, the next ones dark), the
+    /// translation's switch, and "Mostra testo", which opens them full screen (as a tap on the card).
     private var classicLyricsCard: some View {
-        Button {
-            withAnimation { panel = .lyrics }
-        } label: {
-            VStack(alignment: .leading, spacing: 14) {
-                HStack {
-                    Text("Anteprima del testo")
-                        .font(.headline.weight(.bold))
-                    Spacer(minLength: 8)
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text("Anteprima del testo")
+                    .font(.headline.weight(.bold))
+                Spacer(minLength: 8)
+                Button {
+                    guard account.unlocks(.lyricsTranslation) else {
+                        paywall = .lyricsTranslation
+                        return
+                    }
+                    translateLyrics.toggle()
+                } label: {
                     Image(systemName: "translate")
                         .font(.body.weight(.semibold))
+                        .frame(width: 40, height: 40)
+                        .background(Color.black.opacity(translateLyrics ? 0.45 : 0.22), in: .circle)
                 }
-                // The CI's demo song has its lyrics from `LaunchScene`, as the lyrics page does.
-                ClassicLyricsPeek(lyrics: LaunchScene.playerPreviewLyrics.map { .synced($0) } ?? player.lyrics)
+                .buttonStyle(.plain)
+                .accessibilityLabel(translateLyrics ? "Nascondi traduzione" : "Mostra traduzione")
+            }
+            // The CI's demo song has its lyrics from `LaunchScene`, as the lyrics page does.
+            ClassicLyricsPeek(lyrics: LaunchScene.playerPreviewLyrics.map { .synced($0) } ?? player.lyrics,
+                              translates: translateLyrics && account.unlocks(.lyricsTranslation))
+            Button { withAnimation { panel = .lyrics } } label: {
                 Text("Mostra testo")
                     .font(.subheadline.weight(.bold))
                     .foregroundStyle(.black)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 8)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 9)
                     .background(.white, in: .capsule)
             }
-            .foregroundStyle(.white)
-            .padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                player.artworkColor.mix(with: .black, by: 0.28),
-                in: .rect(cornerRadius: 12)
-            )
+            .buttonStyle(.plain)
         }
-        .buttonStyle(.plain)
-        .padding(.top, 4)
-        .accessibilityLabel(Text("Anteprima del testo"))
+        .foregroundStyle(.white)
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(player.artworkColor.mix(with: .white, by: 0.08), in: .rect(cornerRadius: 12))
+        .contentShape(.rect(cornerRadius: 12))
+        .onTapGesture { withAnimation { panel = .lyrics } }
+    }
+
+    /// The classic queue's sheet: the title and what plays, the song playing, the next ones with their
+    /// handles, and shuffle and the sleep timer at the bottom.
+    private var classicQueueSheet: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Coda")
+                    .font(.title.bold())
+                Text("In riproduzione: **\(player.source)**")
+                    .font(.subheadline)
+                    .foregroundStyle(Color.white.opacity(0.75))
+                    .lineLimit(1)
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 28)
+            .padding(.bottom, 4)
+            QueueView()
+                .frame(maxHeight: .infinity)
+            HStack(spacing: 12) {
+                Button { player.toggleShuffle() } label: {
+                    classicQueueAction("Riproduzione casuale", symbol: "shuffle", on: player.shuffleEnabled)
+                }
+                .buttonStyle(.plain)
+                Menu {
+                    sleepTimerOptions
+                } label: {
+                    classicQueueAction("Timer", symbol: "timer", on: player.sleepTimer != .off)
+                }
+                .buttonStyle(.plain)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+        }
+        .foregroundStyle(.white)
+        .environment(\.colorScheme, .dark)
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+        .presentationBackground(Color(white: 0.13))
+    }
+
+    private func classicQueueAction(_ title: LocalizedStringKey, symbol: String, on: Bool) -> some View {
+        VStack(spacing: 6) {
+            Image(systemName: symbol)
+                .font(.title2)
+            Text(title)
+                .font(.footnote.weight(.semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+        }
+        .foregroundStyle(on ? ClassicPalette.accent : Color.white)
+        .frame(width: 130, height: 72)
+        .background(Color.white.opacity(0.08), in: .rect(cornerRadius: 10))
+        .contentShape(.rect(cornerRadius: 10))
     }
 
     /// The song's actions, the sleep timer and the equalizer.
@@ -592,15 +658,19 @@ struct NowPlayingView: View {
 
     private var sleepTimerMenu: some View {
         Menu {
-            ForEach([15, 30, 45, 60], id: \.self) { minutes in
-                Button("\(minutes) minuti") { player.setSleepTimer(minutes: minutes) }
-            }
-            Button("Fine del brano") { player.stopAtEndOfTrack() }
-            if player.sleepTimer != .off {
-                Button("Disattiva timer", role: .destructive) { player.cancelSleepTimer() }
-            }
+            sleepTimerOptions
         } label: {
             Label("Timer di spegnimento", systemImage: "moon.zzz")
+        }
+    }
+
+    @ViewBuilder private var sleepTimerOptions: some View {
+        ForEach([15, 30, 45, 60], id: \.self) { minutes in
+            Button("\(minutes) minuti") { player.setSleepTimer(minutes: minutes) }
+        }
+        Button("Fine del brano") { player.stopAtEndOfTrack() }
+        if player.sleepTimer != .off {
+            Button("Disattiva timer", role: .destructive) { player.cancelSleepTimer() }
         }
     }
 
@@ -1210,31 +1280,44 @@ private struct PlayerScrubber: View {
     private static let markLead: TimeInterval = 60
 }
 
-/// A few lines inside the classic "Anteprima del testo" card; ticks with the song when synced.
+/// Four lines inside the classic lyrics' preview, from the one before the line being sung: sung
+/// lines white, the next ones dark, as the common streaming apps; with their translation under them
+/// when it's on and ready. It ticks with the song (its own view, so the player around it doesn't).
 private struct ClassicLyricsPeek: View {
     let lyrics: LyricsState
+    let translates: Bool
     @EnvironmentObject private var progress: PlaybackProgress
+    @EnvironmentObject private var translator: LyricsTranslator
 
     var body: some View {
         switch lyrics {
         case .synced(let lines):
-            let current = lines.lastIndex(where: { $0.time <= progress.currentTime + 0.25 }) ?? 0
-            let start = max(0, current - 1)
+            let current = lines.lastIndex(where: { $0.time <= progress.currentTime + 0.25 })
+            let start = max(0, (current ?? 0) - 1)
             let end = min(lines.count, start + 4)
-            VStack(alignment: .leading, spacing: 6) {
+            let translations = translates && translator.lines == lines ? translator.translations : [:]
+            VStack(alignment: .leading, spacing: 10) {
                 ForEach(lines[start..<end]) { line in
-                    Text(line.text)
-                        .font(.title3.weight(.bold))
-                        .foregroundStyle(line.id == lines[safe: current]?.id ? Color.white : Color.white.opacity(0.45))
-                        .lineLimit(2)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    let sung = current.map { line.id <= lines[$0].id } ?? false
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(line.text.isEmpty ? "♪" : line.text)
+                            .font(.title2.weight(.bold))
+                        if let translated = translations[line.id] {
+                            Text(translated)
+                                .font(.body.weight(.semibold))
+                                .opacity(0.8)
+                        }
+                    }
+                    .foregroundStyle(sung ? Color.white : Color.black.opacity(0.8))
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
-            .frame(minHeight: 96, alignment: .topLeading)
+            .animation(.easeInOut(duration: 0.3), value: current)
         case .plain(let text):
             Text(text)
-                .font(.title3.weight(.bold))
-                .lineLimit(4)
+                .font(.title2.weight(.bold))
+                .lineLimit(5)
                 .frame(maxWidth: .infinity, alignment: .leading)
         case .loading, .idle:
             ProgressView()
@@ -1246,6 +1329,37 @@ private struct ClassicLyricsPeek: View {
                 .foregroundStyle(Color.white.opacity(0.7))
                 .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
         }
+    }
+}
+
+/// Where the sound goes, under the classic player's controls: the output button and, beside it in
+/// green, the name of the headphones or speaker it plays on (nothing when it's the iPhone's own).
+private struct ClassicOutputLabel: View {
+    @State private var name: String? = ClassicOutputLabel.currentName()
+
+    var body: some View {
+        HStack(spacing: 0) {
+            AirPlayButton(activeTint: ClassicPalette.accent)
+                .frame(width: 44, height: 44)
+            if let name {
+                Text(name)
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(ClassicPalette.accent)
+                    .lineLimit(1)
+            }
+        }
+        // iOS posts route changes on its own thread.
+        .onReceive(NotificationCenter.default.publisher(for: AVAudioSession.routeChangeNotification)
+            .receive(on: RunLoop.main)) { _ in
+            name = Self.currentName()
+        }
+    }
+
+    /// The output the sound goes to, unless it's the iPhone's speaker or earpiece.
+    private static func currentName() -> String? {
+        guard let port = AVAudioSession.sharedInstance().currentRoute.outputs.first,
+              port.portType != .builtInSpeaker, port.portType != .builtInReceiver else { return nil }
+        return port.portName
     }
 }
 

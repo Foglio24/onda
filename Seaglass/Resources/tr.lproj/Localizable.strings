@@ -808,3 +808,6 @@
 "Scura" = "Koyu";
 "Automatica segue il dispositivo, chiara o scura. Il player resta scuro, sui colori della copertina." = "Otomatik, cihazı izler: açık ya da koyu. Oynatıcı, kapağın renkleriyle koyu kalır.";
 "Apri la coda" = "Sırayı aç";
+"In riproduzione: **%@**" = "Çalınıyor: **%@**";
+"Riproduzione casuale" = "Karışık çal";
+"Timer" = "Zamanlayıcı";

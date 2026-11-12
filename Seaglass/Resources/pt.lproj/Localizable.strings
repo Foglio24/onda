@@ -808,3 +808,6 @@
 "Scura" = "Escuro";
 "Automatica segue il dispositivo, chiara o scura. Il player resta scuro, sui colori della copertina." = "Automático segue o dispositivo, claro ou escuro. O player continua escuro, nas cores da capa.";
 "Apri la coda" = "Abrir a fila";
+"In riproduzione: **%@**" = "Tocando: **%@**";
+"Riproduzione casuale" = "Aleatório";
+"Timer" = "Timer";

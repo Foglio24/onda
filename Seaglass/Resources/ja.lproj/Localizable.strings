@@ -808,3 +808,6 @@
 "Scura" = "ダーク";
 "Automatica segue il dispositivo, chiara o scura. Il player resta scuro, sui colori della copertina." = "「自動」はデバイスのライト／ダークに合わせます。プレーヤーはカバーの色を使ったダークのままです。";
 "Apri la coda" = "キューを開く";
+"In riproduzione: **%@**" = "再生中：**%@**";
+"Riproduzione casuale" = "シャッフル";
+"Timer" = "タイマー";

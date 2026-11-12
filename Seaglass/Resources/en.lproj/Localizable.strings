@@ -887,3 +887,6 @@
 "Scura" = "Dark";
 "Automatica segue il dispositivo, chiara o scura. Il player resta scuro, sui colori della copertina." = "Automatic follows the device, light or dark. The player stays dark, on the cover's colours.";
 "Apri la coda" = "Open queue";
+"In riproduzione: **%@**" = "Playing: **%@**";
+"Riproduzione casuale" = "Shuffle";
+"Timer" = "Timer";

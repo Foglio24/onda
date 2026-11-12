@@ -808,3 +808,6 @@
 "Scura" = "Sombre";
 "Automatica segue il dispositivo, chiara o scura. Il player resta scuro, sui colori della copertina." = "Automatique suit l'appareil, clair ou sombre. Le lecteur reste sombre, sur les couleurs de la pochette.";
 "Apri la coda" = "Ouvrir la file d'attente";
+"In riproduzione: **%@**" = "Lecture en cours : **%@**";
+"Riproduzione casuale" = "Lecture aléatoire";
+"Timer" = "Minuteur";
