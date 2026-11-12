@@ -49,6 +49,8 @@ if [ "$kind" = "classic" ]; then
   shot classic-6-artist en 10 "artist:UCRr1xG_2WIDs18a6cIiCxeA" -theme.style classic
   shot classic-7-settings en 5 settings -theme.style classic
   shot classic-8-home-italian it 10 home -theme.style classic
+  shot classic-9-browse en 5 search -theme.style classic
+  shot classic-10-library-playlist en 6 library-playlist -theme.style classic
   xcrun simctl shutdown "$device" || true
   exit 0
 fi

@@ -18,6 +18,12 @@ enum InterfaceStyle: String, CaseIterable, Identifiable {
         }
     }
 
+    /// A cover's corner radius: as asked in Seaglass's style; nearly square (6 points at most) in the
+    /// classic one, as covers are in the common streaming apps.
+    func coverRadius(_ radius: CGFloat) -> CGFloat {
+        self == .classic ? min(radius, 6) : radius
+    }
+
     /// The style chosen, read where no view's environment is at hand (a colour worked out in a model).
     static var current: InterfaceStyle {
         UserDefaults.standard.string(forKey: Preferences.interfaceStyle).flatMap(InterfaceStyle.init(rawValue:)) ?? .seaglass
@@ -49,9 +55,36 @@ struct InterfaceStyleModifier: ViewModifier {
 }
 
 extension View {
-    /// Liquid Glass in Seaglass's style; in the classic one, a flat surface a little lighter than the page.
-    func styledSurface<S: Shape>(in shape: S, interactive: Bool = false) -> some View {
-        modifier(StyledSurface(shape: shape, interactive: interactive))
+    /// Liquid Glass in Seaglass's style (tinted, when a tint is given); in the classic one, a flat surface
+    /// a little lighter than the page, or the tint itself.
+    func styledSurface<S: Shape>(in shape: S, interactive: Bool = false, tint: Color? = nil) -> some View {
+        modifier(StyledSurface(shape: shape, interactive: interactive, tint: tint))
+    }
+}
+
+extension View {
+    /// A Liquid Glass button in Seaglass's style; in the classic one, a flat capsule (grey, or in the
+    /// theme's green when prominent).
+    func styledButton(prominent: Bool = false) -> some View {
+        modifier(StyledButton(prominent: prominent))
+    }
+}
+
+private struct StyledButton: ViewModifier {
+    @Environment(\.interfaceStyle) private var style
+    let prominent: Bool
+
+    func body(content: Content) -> some View {
+        switch (style, prominent) {
+        case (.classic, true):
+            content.buttonStyle(.borderedProminent).buttonBorderShape(.capsule)
+        case (.classic, false):
+            content.buttonStyle(.bordered).buttonBorderShape(.capsule).tint(.white)
+        case (.seaglass, true):
+            content.buttonStyle(.glassProminent)
+        case (.seaglass, false):
+            content.buttonStyle(.glass)
+        }
     }
 }
 
@@ -59,12 +92,14 @@ private struct StyledSurface<S: Shape>: ViewModifier {
     @Environment(\.interfaceStyle) private var style
     let shape: S
     let interactive: Bool
+    let tint: Color?
 
     func body(content: Content) -> some View {
         if style == .classic {
-            content.background(ClassicPalette.elevated, in: shape)
+            content.background(tint ?? ClassicPalette.elevated, in: shape)
         } else {
-            content.glassEffect(interactive ? .regular.interactive() : .regular, in: shape)
+            let glass: Glass = tint.map { Glass.regular.tint($0) } ?? .regular
+            content.glassEffect(interactive ? glass.interactive() : glass, in: shape)
         }
     }
 }
@@ -210,5 +245,28 @@ extension View {
     func classicTabPage(reserving height: CGFloat) -> some View {
         toolbar(.hidden, for: .tabBar)
             .safeAreaPadding(.bottom, height)
+    }
+}
+
+/// A list in the classic style: plain, edge to edge on the page's black. Its rows lose the system's
+/// backgrounds and separators with `classicRows`. Unchanged in Seaglass's style.
+struct ClassicList: ViewModifier {
+    let classic: Bool
+
+    func body(content: Content) -> some View {
+        if classic {
+            content.listStyle(.plain)
+        } else {
+            content
+        }
+    }
+}
+
+extension View {
+    /// The rows of a section or a `ForEach` in the classic style's lists: on the page, without separators.
+    func classicRows(_ classic: Bool) -> some View {
+        listRowBackground(classic ? Color.clear : nil)
+            .listRowSeparator(classic ? .hidden : .automatic)
+            .listSectionSeparator(classic ? .hidden : .automatic)
     }
 }

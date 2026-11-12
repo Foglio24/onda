@@ -8,6 +8,7 @@ struct ArtworkView: View {
     var size: CGFloat? = nil
     var cornerRadius: CGFloat = 8
     var highRes = false
+    @Environment(\.interfaceStyle) private var style
 
     var body: some View {
         Rectangle()
@@ -15,7 +16,7 @@ struct ArtworkView: View {
             .overlay { image }
             .aspectRatio(1, contentMode: .fit)
             .frame(width: size, height: size)
-            .clipShape(.rect(cornerRadius: cornerRadius))
+            .clipShape(.rect(cornerRadius: style.coverRadius(cornerRadius)))
     }
 
     private var url: URL? {
@@ -47,6 +48,7 @@ struct PlaylistArtwork: View {
     let playlist: Playlist
     var size: CGFloat? = nil
     var cornerRadius: CGFloat = 12
+    @Environment(\.interfaceStyle) private var style
 
     var body: some View {
         let covers = Array(playlist.tracks.prefix(4))
@@ -76,7 +78,7 @@ struct PlaylistArtwork: View {
             }
             .aspectRatio(1, contentMode: .fit)
             .frame(width: size, height: size)
-            .clipShape(.rect(cornerRadius: cornerRadius))
+            .clipShape(.rect(cornerRadius: style.coverRadius(cornerRadius)))
     }
 }
 
@@ -351,8 +353,45 @@ struct PlayShuffleButtons: View {
     var playlist: UUID? = nil
     private var player: PlayerController { .shared }
     @AppStorage(Preferences.accent) private var accent: AccentChoice = .pink
+    @Environment(\.interfaceStyle) private var style
 
     var body: some View {
+        if style == .classic { classic } else { seaglass }
+    }
+
+    /// As in the common streaming apps: on the right, shuffle as an icon and play as a big green circle.
+    private var classic: some View {
+        HStack(spacing: 18) {
+            Spacer(minLength: 0)
+            Button {
+                player.play(tracks, startAt: Int.random(in: tracks.indices), source: source, shuffled: true,
+                            playlist: playlist)
+            } label: {
+                Image(systemName: "shuffle")
+                    .font(.title2.weight(.semibold))
+                    .foregroundStyle(ClassicPalette.secondaryText)
+                    .frame(width: 44, height: 44)
+                    .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(Text("Casuale"))
+            Button {
+                player.play(tracks, source: source, shuffled: false, playlist: playlist)
+            } label: {
+                Image(systemName: "play.fill")
+                    .font(.title2)
+                    .foregroundStyle(.black)
+                    .frame(width: 56, height: 56)
+                    .background(ClassicPalette.accent, in: .circle)
+                    .contentShape(.circle)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(Text("Riproduci"))
+        }
+        .disabled(tracks.isEmpty)
+    }
+
+    private var seaglass: some View {
         HStack(spacing: 12) {
             Button {
                 player.play(tracks, source: source, shuffled: false, playlist: playlist)
@@ -630,7 +669,7 @@ private struct TrackToastView: View {
             .contentShape(.rect(cornerRadius: 20))
         }
         .buttonStyle(.plain)
-        .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 20))
+        .styledSurface(in: .rect(cornerRadius: 20), interactive: true)
     }
 }
 

@@ -36,6 +36,7 @@ struct SearchView: View {
             List {
                 if query.trimmed.isEmpty {
                     recentSection
+                    if style == .classic { browseSection }
                 } else {
                     resultSections
                 }
@@ -215,9 +216,32 @@ struct SearchView: View {
         }
     }
 
+    /// The classic style's "browse all": genres and moods as coloured tiles, two by two; one searches it.
+    private var browseSection: some View {
+        Section {
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
+                ForEach(BrowseTile.all) { tile in
+                    Button {
+                        // Not kept in the history: the search is the tile's, not one the user typed.
+                        query = tile.query
+                    } label: {
+                        BrowseTileView(tile: tile)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 16)
+            .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 16, trailing: 0))
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+        } header: {
+            Text("Sfoglia tutto")
+        }
+    }
+
     @ViewBuilder private var overlay: some View {
         if query.trimmed.isEmpty {
-            if recent.isEmpty {
+            if recent.isEmpty, style != .classic {
                 ContentUnavailableView("Cerca su YouTube Music", systemImage: "magnifyingglass",
                                        description: Text("Scegli un brano: parte una radio di canzoni simili."))
             }
@@ -430,5 +454,63 @@ private struct SearchLayout {
         artists = withTop(catalog.artists) { $0.isArtist }
         albums = withTop(catalog.albums) { $0.kind == .album }
         podcasts = withTop(catalog.podcasts) { $0.kind == .podcast }
+    }
+}
+
+/// A tile of the classic style's "browse all": a genre or a mood, the YouTube Music search it starts.
+private struct BrowseTile: Identifiable {
+    let title: LocalizedStringKey
+    let query: String
+    let symbol: String
+    let tint: Color
+    var id: String { query }
+
+    static var all: [BrowseTile] { [
+        BrowseTile(title: "Pop", query: "pop hits", symbol: "star.fill", tint: Color(red: 0.86, green: 0.15, blue: 0.47)),
+        BrowseTile(title: "Hip-Hop", query: "hip hop hits", symbol: "music.mic", tint: Color(red: 0.73, green: 0.36, blue: 0.10)),
+        BrowseTile(title: "Rock", query: "rock classics", symbol: "guitars.fill", tint: Color(red: 0.91, green: 0.07, blue: 0.16)),
+        BrowseTile(title: "Dance", query: "dance hits", symbol: "figure.dance", tint: Color(red: 0.55, green: 0.10, blue: 0.80)),
+        BrowseTile(title: "Elettronica", query: "electronic music", symbol: "waveform", tint: Color(red: 0.05, green: 0.45, blue: 0.93)),
+        BrowseTile(title: "R&B", query: "r&b hits", symbol: "heart.fill", tint: Color(red: 0.73, green: 0.36, blue: 0.62)),
+        BrowseTile(title: "Latino", query: "latin hits", symbol: "sun.max.fill", tint: Color(red: 0.88, green: 0.52, blue: 0.10)),
+        BrowseTile(title: "Italiana", query: "hit italiane", symbol: "music.note", tint: Color(red: 0.12, green: 0.55, blue: 0.30)),
+        BrowseTile(title: "Jazz", query: "jazz classics", symbol: "music.quarternote.3", tint: Color(red: 0.47, green: 0.36, blue: 0.24)),
+        BrowseTile(title: "Classica", query: "classical music", symbol: "pianokeys", tint: Color(red: 0.30, green: 0.40, blue: 0.53)),
+        BrowseTile(title: "Acustica", query: "acoustic songs", symbol: "guitars", tint: Color(red: 0.55, green: 0.45, blue: 0.20)),
+        BrowseTile(title: "Pianoforte", query: "piano music", symbol: "pianokeys.inverse", tint: Color(red: 0.28, green: 0.28, blue: 0.36)),
+        BrowseTile(title: "Anni '80", query: "80s hits", symbol: "radio.fill", tint: Color(red: 0.45, green: 0.20, blue: 0.75)),
+        BrowseTile(title: "Relax", query: "chill relax songs", symbol: "leaf.fill", tint: Color(red: 0.15, green: 0.55, blue: 0.50)),
+        BrowseTile(title: "Concentrazione", query: "lofi focus study", symbol: "brain.head.profile", tint: Color(red: 0.31, green: 0.27, blue: 0.70)),
+        BrowseTile(title: "Allenamento", query: "workout gym motivation songs", symbol: "figure.run", tint: Color(red: 0.80, green: 0.33, blue: 0.05)),
+        BrowseTile(title: "Festa", query: "party dance hits", symbol: "party.popper.fill", tint: Color(red: 0.83, green: 0.10, blue: 0.40)),
+        BrowseTile(title: "Malinconia", query: "sad songs", symbol: "cloud.rain.fill", tint: Color(red: 0.16, green: 0.30, blue: 0.55)),
+        BrowseTile(title: "Energia", query: "upbeat energetic songs", symbol: "bolt.fill", tint: Color(red: 0.75, green: 0.60, blue: 0.0)),
+        BrowseTile(title: "Lounge", query: "lounge music", symbol: "wineglass.fill", tint: Color(red: 0.40, green: 0.25, blue: 0.35)),
+    ] }
+}
+
+/// The tile: its colour, the name in bold at the top, a large symbol tilted in the bottom corner.
+private struct BrowseTileView: View {
+    let tile: BrowseTile
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            tile.tint
+            Image(systemName: tile.symbol)
+                .font(.system(size: 46, weight: .bold))
+                .foregroundStyle(.white.opacity(0.85))
+                .rotationEffect(.degrees(25))
+                .shadow(color: .black.opacity(0.25), radius: 6, y: 2)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                .offset(x: 10, y: 6)
+            Text(tile.title)
+                .font(.headline.weight(.bold))
+                .foregroundStyle(.white)
+                .lineLimit(2)
+                .padding(12)
+        }
+        .frame(height: 96)
+        .clipShape(.rect(cornerRadius: 6))
+        .contentShape(.rect(cornerRadius: 6))
     }
 }

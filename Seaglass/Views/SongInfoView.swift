@@ -131,7 +131,7 @@ struct SongInfoView: View {
             Spacer(minLength: 0)
         }
         .padding(14)
-        .glassEffect(.regular, in: .rect(cornerRadius: 22))
+        .styledSurface(in: .rect(cornerRadius: 22))
     }
 
     private func albumRow(_ album: String) -> some View {

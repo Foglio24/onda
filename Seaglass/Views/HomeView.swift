@@ -268,8 +268,7 @@ struct HomeView: View {
                     .padding(12)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .contentShape(.rect(cornerRadius: 18))
-                    .glassEffect(.regular.tint(mood.tint.opacity(0.3)).interactive(),
-                                 in: .rect(cornerRadius: 18))
+                    .modifier(MoodTileLook(tint: mood.tint, classic: style == .classic))
                 }
                 .buttonStyle(.plain)
             }
@@ -483,5 +482,21 @@ struct HomeView: View {
             return
         }
         topTracks = (try? await lastfm.topTracks(period: "1month", limit: 20)) ?? []
+    }
+}
+
+/// A mood's tile: glass tinted with its colour (Seaglass), or filled with it (classic).
+private struct MoodTileLook: ViewModifier {
+    let tint: Color
+    let classic: Bool
+
+    func body(content: Content) -> some View {
+        if classic {
+            content
+                .foregroundStyle(.white)
+                .background(tint.mix(with: .black, by: 0.25), in: .rect(cornerRadius: 6))
+        } else {
+            content.glassEffect(.regular.tint(tint.opacity(0.3)).interactive(), in: .rect(cornerRadius: 18))
+        }
     }
 }

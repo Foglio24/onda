@@ -63,7 +63,7 @@ struct UpdateSheet: View {
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 4)
                     }
-                    .buttonStyle(.glassProminent)
+                    .styledButton(prominent: true)
                 }
             } else if let file = updater.downloadedFile {
                 Label("Scaricata in File › Sul mio iPhone › Seaglass › \(Storage.updatesFolderName)",
@@ -74,7 +74,7 @@ struct UpdateSheet: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 4)
                 }
-                .buttonStyle(.glassProminent)
+                .styledButton(prominent: true)
             } else if updater.isDownloading {
                 HStack(spacing: 10) {
                     ProgressView()
@@ -91,7 +91,7 @@ struct UpdateSheet: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 4)
                 }
-                .buttonStyle(.glassProminent)
+                .styledButton(prominent: true)
             }
             if !ProcessInfo.processInfo.isMacCatalystApp, let error = updater.downloadError {
                 Text(error)
@@ -103,7 +103,7 @@ struct UpdateSheet: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 4)
             }
-            .buttonStyle(.glass)
+            .styledButton()
         }
     }
 }

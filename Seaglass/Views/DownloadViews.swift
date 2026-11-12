@@ -252,7 +252,7 @@ struct DownloadsView: View {
             Spacer(minLength: 0)
         }
         .padding(14)
-        .glassEffect(.regular, in: .rect(cornerRadius: 22))
+        .styledSurface(in: .rect(cornerRadius: 22))
     }
 
     private func details(_ songs: [Track]) -> String {
@@ -476,7 +476,7 @@ private struct StorageBar: View {
             }
         }
         .padding(16)
-        .glassEffect(.regular, in: .rect(cornerRadius: 20))
+        .styledSurface(in: .rect(cornerRadius: 20))
     }
 
     private func legend(_ title: LocalizedStringKey, value: Int64, style: AnyShapeStyle) -> some View {

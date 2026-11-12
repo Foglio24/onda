@@ -56,6 +56,7 @@ struct LibraryView: View {
                         shortcut("Podcast", symbol: "mic.fill", tint: .purple, count: podcasts.followed.count)
                     }
                 }
+                .classicRows(style == .classic)
 
                 Section {
                     Button {
@@ -110,7 +111,9 @@ struct LibraryView: View {
                         Text("Per playlist Spotify oltre 100 brani puoi importare un CSV o il file Playlist1.json dei tuoi dati Spotify.")
                     }
                 }
+                .classicRows(style == .classic)
             }
+            .modifier(ClassicList(classic: style == .classic))
             .scrollContentBackground(.hidden)
             .background { AmbientBackground() }
             .navigationTitle(style == .classic ? String(localized: "La tua libreria") : String(localized: "Libreria"))
@@ -191,17 +194,38 @@ struct LibraryView: View {
         }
     }
 
+    @ViewBuilder
     private func shortcut<Detail: View>(_ title: LocalizedStringKey, symbol: String, tint: Color,
                                         @ViewBuilder detail: () -> Detail) -> some View {
-        HStack(spacing: 14) {
-            Image(systemName: symbol)
-                .font(.title3)
-                .foregroundStyle(.white)
-                .frame(width: 40, height: 40)
-                .background(tint.gradient, in: .rect(cornerRadius: 10))
-            Text(title).font(.body.weight(.medium))
-            Spacer()
-            detail().foregroundStyle(.secondary)
+        if style == .classic {
+            // As the common streaming apps' library: a square tile as large as a cover, the count below.
+            HStack(spacing: 12) {
+                Image(systemName: symbol)
+                    .font(.title2)
+                    .foregroundStyle(.white)
+                    .frame(width: 56, height: 56)
+                    .background(LinearGradient(colors: [tint.mix(with: .white, by: 0.15), tint.mix(with: .black, by: 0.45)],
+                                               startPoint: .topLeading, endPoint: .bottomTrailing),
+                                in: .rect(cornerRadius: 4))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title).font(.body.weight(.semibold))
+                    detail()
+                        .font(.subheadline)
+                        .foregroundStyle(ClassicPalette.secondaryText)
+                }
+                Spacer(minLength: 0)
+            }
+        } else {
+            HStack(spacing: 14) {
+                Image(systemName: symbol)
+                    .font(.title3)
+                    .foregroundStyle(.white)
+                    .frame(width: 40, height: 40)
+                    .background(tint.gradient, in: .rect(cornerRadius: 10))
+                Text(title).font(.body.weight(.medium))
+                Spacer()
+                detail().foregroundStyle(.secondary)
+            }
         }
     }
 

@@ -45,6 +45,7 @@ struct PlaylistDetailView: View {
     /// played, swiped or long-pressed meanwhile.
     @State private var editMode: EditMode = .inactive
     @AppStorage(Preferences.accent) private var accent: AccentChoice = .pink
+    @Environment(\.interfaceStyle) private var style
 
     private var isEditing: Bool { editMode.isEditing }
 
@@ -189,28 +190,31 @@ struct PlaylistDetailView: View {
     }
 
     private func header(_ playlist: Playlist) -> some View {
-        VStack(spacing: 14) {
+        let classic = style == .classic
+        return VStack(spacing: 14) {
             Button { showPhotoPicker = true } label: {
                 PlaylistArtwork(playlist: playlist, size: 220, cornerRadius: 22)
                     .overlay(alignment: .bottomTrailing) {
                         Image(systemName: "camera.fill")
                             .font(.footnote.weight(.semibold))
                             .padding(9)
-                            .glassEffect(.regular, in: .circle)
+                            .styledSurface(in: .circle)
                             .padding(10)
                     }
                     .shadow(color: .black.opacity(0.35), radius: 24, y: 12)
             }
             .buttonStyle(.plain)
 
-            VStack(spacing: 4) {
+            // The classic style has the name and the summary on the left, under the cover.
+            VStack(alignment: classic ? .leading : .center, spacing: 4) {
                 Text(playlist.name)
-                    .font(.title2.bold())
-                    .multilineTextAlignment(.center)
+                    .font(classic ? .title.bold() : .title2.bold())
+                    .multilineTextAlignment(classic ? .leading : .center)
                 Text(summary(playlist))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
+            .frame(maxWidth: .infinity, alignment: classic ? .leading : .center)
             if !playlist.tracks.isEmpty {
                 PlayShuffleButtons(tracks: playlist.tracks, source: playlist.name, playlist: playlist.id)
                 if playlist.tracks.count >= 2 { mixRow(playlist) }
@@ -226,7 +230,6 @@ struct PlaylistDetailView: View {
     /// choice for the others, whatever "Transizioni tra brani" says.
     private func mixRow(_ playlist: Playlist) -> some View {
         let isOn = (playlist.mix?.enabled ?? false) && account.unlocks(.playlistMix)
-        let glass: Glass = isOn ? .regular.tint(accent.color.opacity(0.55)).interactive() : .regular.interactive()
         return VStack(spacing: 6) {
             HStack(spacing: 12) {
                 Button {
@@ -250,7 +253,7 @@ struct PlaylistDetailView: View {
                         .contentShape(.capsule)
                 }
                 .buttonStyle(.plain)
-                .glassEffect(glass, in: .capsule)
+                .styledSurface(in: .capsule, interactive: true, tint: isOn ? accent.color.opacity(0.55) : nil)
                 .accessibilityAddTraits(isOn ? .isSelected : [])
 
                 Button { openMix() } label: {
@@ -266,7 +269,7 @@ struct PlaylistDetailView: View {
                         .contentShape(.capsule)
                 }
                 .buttonStyle(.plain)
-                .glassEffect(.regular.interactive(), in: .capsule)
+                .styledSurface(in: .capsule, interactive: true)
             }
             Text(isOn
                  ? "Quando ascolti questa playlist i brani sono mixati: con le transizioni che hai creato, e con AutoMix dove non ne hai create."
@@ -284,7 +287,7 @@ struct PlaylistDetailView: View {
                                  downloadTitle: String(localized: "Scarica tutta la playlist"),
                                  doneTitle: String(localized: "Playlist scaricata"), verticalPadding: 11)
             .buttonStyle(.plain)
-            .glassEffect(.regular.interactive(), in: .capsule)
+            .styledSurface(in: .capsule, interactive: true)
     }
 
     private func summary(_ playlist: Playlist) -> String {

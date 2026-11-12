@@ -77,6 +77,7 @@ struct MusicLink<Label: View>: View {
 struct MusicItemCard: View {
     let item: MusicItem
     var size: CGFloat = 140
+    @Environment(\.interfaceStyle) private var style
 
     var body: some View {
         VStack(alignment: item.isArtist ? .center : .leading, spacing: 6) {
@@ -84,7 +85,7 @@ struct MusicItemCard: View {
                 Rectangle().fill(.quaternary)
             }
             .frame(width: size, height: size)
-            .clipShape(item.isArtist ? AnyShape(Circle()) : AnyShape(RoundedRectangle(cornerRadius: 14)))
+            .clipShape(item.isArtist ? AnyShape(Circle()) : AnyShape(RoundedRectangle(cornerRadius: style.coverRadius(14))))
             Text(item.title)
                 .font(.subheadline.weight(.semibold))
                 .lineLimit(1)
@@ -103,12 +104,13 @@ struct MusicItemCard: View {
 /// A list row for an artist, album or playlist (search's top result). The list adds the chevron.
 struct MusicItemRow: View {
     let item: MusicItem
+    @Environment(\.interfaceStyle) private var style
 
     var body: some View {
         HStack(spacing: 12) {
             CachedImage(url: item.artworkURL, pixels: 192) { Rectangle().fill(.quaternary) }
                 .frame(width: 64, height: 64)
-                .clipShape(item.isArtist ? AnyShape(Circle()) : AnyShape(RoundedRectangle(cornerRadius: 10)))
+                .clipShape(item.isArtist ? AnyShape(Circle()) : AnyShape(RoundedRectangle(cornerRadius: style.coverRadius(10))))
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.title)
                     .font(.headline)
@@ -229,7 +231,7 @@ struct ArtistView: View {
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 4)
                     }
-                    .buttonStyle(.glass)
+                    .styledButton()
                 }
             }
             .frame(maxWidth: .infinity)
@@ -286,6 +288,7 @@ struct AlbumView: View {
     @State private var page: AlbumPage?
     @State private var failure: String?
     @State private var saved = false
+    @Environment(\.interfaceStyle) private var style
 
     var body: some View {
         ScrollView {
@@ -307,21 +310,25 @@ struct AlbumView: View {
     }
 
     private func content(_ page: AlbumPage) -> some View {
-        VStack(alignment: .leading, spacing: 24) {
-            VStack(spacing: 10) {
+        // The classic style lays the title, the artist and the details out on the left, under the cover.
+        let classic = style == .classic
+        return VStack(alignment: .leading, spacing: 24) {
+            VStack(alignment: classic ? .leading : .center, spacing: 10) {
                 CachedImage(url: page.artworkURL, pixels: 720) { Rectangle().fill(.quaternary) }
                     .frame(width: 230, height: 230)
-                    .clipShape(.rect(cornerRadius: 22))
+                    .clipShape(.rect(cornerRadius: style.coverRadius(22)))
                     .shadow(color: .black.opacity(0.35), radius: 24, y: 12)
+                    .frame(maxWidth: .infinity)
+                    .padding(.bottom, classic ? 6 : 0)
                 Text(page.title)
-                    .font(.title2.bold())
-                    .multilineTextAlignment(.center)
+                    .font(classic ? .title.bold() : .title2.bold())
+                    .multilineTextAlignment(classic ? .leading : .center)
                 NavigationLink {
                     ArtistView(id: page.artistID, name: page.artist)
                 } label: {
                     Text(page.artist)
-                        .font(.title3)
-                        .foregroundStyle(.tint)
+                        .font(classic ? .subheadline.weight(.bold) : .title3)
+                        .foregroundStyle(classic ? AnyShapeStyle(Color.primary) : AnyShapeStyle(.tint))
                 }
                 .buttonStyle(.plain)
                 Text([page.kindAndYear, page.details].filter { !$0.isEmpty }.joined(separator: " · "))
@@ -330,7 +337,7 @@ struct AlbumView: View {
                 PlayShuffleButtons(tracks: page.tracks, source: page.title)
                 HStack(spacing: 10) {
                     CollectionDownloadButton(tracks: page.tracks, compact: true)
-                        .buttonStyle(.glass)
+                        .styledButton()
                     Button {
                         library.createPlaylist(named: page.title, tracks: page.tracks)
                         saved = true
@@ -343,7 +350,7 @@ struct AlbumView: View {
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 4)
                     }
-                    .buttonStyle(.glass)
+                    .styledButton()
                     .disabled(saved)
                 }
             }
@@ -421,7 +428,7 @@ struct RemotePlaylistView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 4)
             }
-            .buttonStyle(.glass)
+            .styledButton()
             .disabled(saved)
             ForEach(Array(tracks.enumerated()), id: \.offset) { position, track in
                 TrackRow(track: track, swipe: .drag) {

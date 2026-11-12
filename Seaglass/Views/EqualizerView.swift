@@ -104,7 +104,7 @@ private struct EqualizerCurve: View {
                         .font(.caption.weight(.bold).monospacedDigit())
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
-                        .glassEffect(.regular, in: .capsule)
+                        .styledSurface(in: .capsule)
                         .position(x: points[activeBand].x, y: max(12, points[activeBand].y - 26))
                 }
             }

@@ -88,7 +88,7 @@ struct PodcastsView: View {
                                     .padding(.horizontal, 14)
                                     .padding(.vertical, 8)
                             }
-                            .buttonStyle(.glass)
+                            .styledButton()
                             .tint(topic == name ? .accentColor : nil)
                         }
                     }
@@ -282,7 +282,7 @@ struct PodcastShowView: View {
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 4)
                     }
-                    .buttonStyle(.glassProminent)
+                    .styledButton(prominent: true)
                 }
                 let following = podcasts.isFollowing(page.show.id)
                 Button { podcasts.toggleFollow(page.show) } label: {
@@ -291,7 +291,7 @@ struct PodcastShowView: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 4)
                 }
-                .buttonStyle(.glass)
+                .styledButton()
             }
             .padding(.top, 4)
             if let about = page.about, !about.isEmpty {

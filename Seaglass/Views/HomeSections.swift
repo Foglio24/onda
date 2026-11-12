@@ -45,8 +45,31 @@ struct ShortcutTile<Artwork: View>: View {
     let title: String
     var busy = false
     @ViewBuilder let artwork: Artwork
+    @Environment(\.interfaceStyle) private var style
 
     var body: some View {
+        if style == .classic { classic } else { seaglass }
+    }
+
+    /// Flat and grey, the cover against the left edge, the name in bold: the common streaming apps' shortcut.
+    private var classic: some View {
+        HStack(spacing: 10) {
+            artwork
+                .frame(width: 56, height: 56)
+            Text(title)
+                .font(.footnote.weight(.bold))
+                .lineLimit(2)
+                .multilineTextAlignment(.leading)
+            Spacer(minLength: 0)
+            if busy { ProgressView().controlSize(.small).padding(.trailing, 8) }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(ClassicPalette.elevated)
+        .clipShape(.rect(cornerRadius: 4))
+        .contentShape(.rect(cornerRadius: 4))
+    }
+
+    private var seaglass: some View {
         HStack(spacing: 10) {
             artwork
                 .frame(width: 50, height: 50)
@@ -87,8 +110,10 @@ struct ResumeCard: View {
     let point: PlayerController.ResumePoint
     let accent: Color
     let action: () -> Void
+    @Environment(\.interfaceStyle) private var style
 
     var body: some View {
+        let radius: CGFloat = style == .classic ? 8 : 22
         Button(action: action) {
             HStack(spacing: 14) {
                 ArtworkView(track: point.track, size: 68, cornerRadius: 12)
@@ -114,8 +139,8 @@ struct ResumeCard: View {
                     .background(accent.gradient, in: .circle)
             }
             .padding(12)
-            .contentShape(.rect(cornerRadius: 22))
-            .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 22))
+            .contentShape(.rect(cornerRadius: radius))
+            .styledSurface(in: .rect(cornerRadius: radius), interactive: true)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text("Riprendi \(point.track.title)"))

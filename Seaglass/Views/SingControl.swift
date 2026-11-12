@@ -35,7 +35,7 @@ struct SingControl: View {
         }
         .frame(width: Self.width, height: Self.height)
         .clipShape(.capsule)
-        .glassEffect(.regular, in: .capsule)
+        .styledSurface(in: .capsule)
         .overlay(alignment: .topTrailing) {
             if !unlocked { PremiumLock().offset(x: 4, y: -4) }
         }
