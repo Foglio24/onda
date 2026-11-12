@@ -32,6 +32,12 @@ final class LocalMusic: ObservableObject {
 
     private static let storeURL = Storage.support.appending(path: "LocalMusic.json")
 
+    /// The app's own folder in Files (Sul mio iPhone › Seaglass › Musica): the songs put there are read
+    /// with no picker and no permission, since it is inside the app. It is always in the list, can't be
+    /// removed and is not kept with the bookmarks.
+    static let appFolderID = "seaglass-musica"
+    static var appFolder: URL { Storage.documents.appending(path: "Musica", directoryHint: .isDirectory) }
+
     private init() {
         // The user's songs have their own cache names for AutoMix (their file names repeat).
         AutoMixLibrary.customKey = { LocalFiles.analysisKey(for: $0) }
@@ -66,6 +72,7 @@ final class LocalMusic: ObservableObject {
 
     /// Takes a folder out of the app: its files stay where they are, untouched.
     func remove(_ folder: LocalFolder) {
+        guard folder.id != Self.appFolderID else { return }
         // A scan under way would bring its files back.
         scan?.cancel()
         scanning = false
@@ -75,6 +82,34 @@ final class LocalMusic: ObservableObject {
         publish()
         save()
         removeUnusedCovers()
+    }
+
+    /// Songs picked with "Aggiungi file…", which the system copied for the app: moved into the app's own
+    /// folder (a name already there gets a number), then read. How many went in.
+    @discardableResult
+    func importCopies(_ urls: [URL]) -> Int {
+        let manager = FileManager.default
+        try? manager.createDirectory(at: Self.appFolder, withIntermediateDirectories: true)
+        var moved = 0
+        for url in urls where LocalMusicIndex.isAudio(url.lastPathComponent) {
+            let name = url.lastPathComponent as NSString
+            var target = Self.appFolder.appending(path: name as String)
+            var number = 2
+            while manager.fileExists(atPath: target.path) {
+                target = Self.appFolder.appending(path: "\(name.deletingPathExtension) \(number).\(name.pathExtension)")
+                number += 1
+            }
+            if (try? manager.moveItem(at: url, to: target)) != nil || (try? manager.copyItem(at: url, to: target)) != nil {
+                moved += 1
+            }
+        }
+        if moved > 0 { rescan() }
+        return moved
+    }
+
+    /// How many songs of `folder` are in the list (read so far).
+    func songCount(in folder: LocalFolder) -> Int {
+        files.reduce(0) { $0 + ($1.folder == folder.id ? 1 : 0) }
     }
 
     /// Reads the folders again when the page is opened for the first time since the app started.
@@ -98,16 +133,25 @@ final class LocalMusic: ObservableObject {
     // MARK: Opening
 
     private func load() {
-        guard let data = try? Data(contentsOf: Self.storeURL),
-              let stored = try? JSONDecoder().decode(LocalMusicStore.self, from: data) else { return }
-        folders = stored.folders
-        files = stored.files
+        if let data = try? Data(contentsOf: Self.storeURL),
+           let stored = try? JSONDecoder().decode(LocalMusicStore.self, from: data) {
+            folders = stored.folders
+            files = stored.files
+        }
+        addAppFolder()
         openFolders()
         publish()
     }
 
+    /// Makes the app's own folder (so Files shows it) and puts it first in the list.
+    private func addAppFolder() {
+        try? FileManager.default.createDirectory(at: Self.appFolder, withIntermediateDirectories: true)
+        folders.removeAll { $0.id == Self.appFolderID }
+        folders.insert(LocalFolder(id: Self.appFolderID, name: "Musica", bookmark: Data()), at: 0)
+    }
+
     private func save() {
-        let store = LocalMusicStore(folders: folders, files: files)
+        let store = LocalMusicStore(folders: folders.filter { $0.id != Self.appFolderID }, files: files)
         let url = Self.storeURL
         Task.detached(priority: .utility) {
             guard let data = try? JSONEncoder().encode(store) else { return }
@@ -123,6 +167,11 @@ final class LocalMusic: ObservableObject {
         var closed = Set<String>()
         var refreshed = false
         for index in folders.indices {
+            // The app's own folder needs no bookmark and no scope.
+            if folders[index].id == Self.appFolderID {
+                access[Self.appFolderID] = Self.appFolder
+                continue
+            }
             var stale = false
             let resolved = try? URL(resolvingBookmarkData: folders[index].bookmark, options: [], relativeTo: nil,
                                     bookmarkDataIsStale: &stale)
