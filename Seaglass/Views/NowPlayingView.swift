@@ -30,6 +30,9 @@ struct NowPlayingView: View {
     /// The classic style's queue, a sheet over the player as the common streaming apps'.
     @State private var showClassicQueue = false
     @AppStorage(Preferences.lyricsTranslate) private var translateLyrics = false
+    @AppStorage(Preferences.songTransition) private var transition: SongTransition = Preferences.songTransitionSetting
+    /// Premium explained from the classic queue's sheet (a sheet can't show the player's own).
+    @State private var queuePaywall: PremiumFeature?
     /// A drag down is under way (the card follows it).
     @State private var draggingDown = false
     @State private var showEqualizer = false
@@ -62,7 +65,8 @@ struct NowPlayingView: View {
             MusicPageSheet(page: page).appEnvironment()
         }
         .sheet(isPresented: $showClassicQueue) {
-            classicQueueSheet.appEnvironment()
+            // Dark glass in the light mode too: the queue is part of the player, which stays dark.
+            classicQueueSheet.appEnvironment().preferredColorScheme(.dark)
         }
         .sheet(isPresented: $showEqualizer) {
             NavigationStack {
@@ -629,11 +633,17 @@ struct NowPlayingView: View {
             .padding(.bottom, 4)
             QueueView()
                 .frame(maxHeight: .infinity)
-            HStack(spacing: 12) {
+            HStack(spacing: 10) {
                 Button { player.toggleShuffle() } label: {
                     classicQueueAction("Riproduzione casuale", symbol: "shuffle", on: player.shuffleEnabled)
                 }
                 .buttonStyle(.plain)
+                // AutoMix on or off, as in the queue of Seaglass's style.
+                Button { setAutoMix(!autoMixOn) } label: {
+                    classicQueueAction("AutoMix", symbol: "waveform.path", on: autoMixOn)
+                }
+                .buttonStyle(.plain)
+                .accessibilityValue(autoMixOn ? Text("Attivo") : Text("Disattivo"))
                 Menu {
                     sleepTimerOptions
                 } label: {
@@ -648,7 +658,25 @@ struct NowPlayingView: View {
         .environment(\.colorScheme, .dark)
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
-        .presentationBackground(Color(white: 0.13))
+        // No background of its own: half open, the system's sheet is Liquid Glass over the player;
+        // extended, it turns opaque.
+        .premiumPaywall($queuePaywall)
+    }
+
+    /// AutoMix is on (and unlocked, where it needs Premium).
+    private var autoMixOn: Bool {
+        transition == .autoMix && account.unlocks(.autoMix)
+    }
+
+    /// Turns AutoMix on or off (off means no transitions, as the queue of Seaglass's style); without
+    /// Premium where it's needed, turning it on explains Premium.
+    private func setAutoMix(_ isOn: Bool) {
+        if isOn, !account.unlocks(.autoMix) {
+            queuePaywall = .autoMix
+            return
+        }
+        transition = isOn ? .autoMix : .off
+        player.applyTransitionPreference()
     }
 
     private func classicQueueAction(_ title: LocalizedStringKey, symbol: String, on: Bool) -> some View {
@@ -661,7 +689,7 @@ struct NowPlayingView: View {
                 .minimumScaleFactor(0.8)
         }
         .foregroundStyle(on ? ClassicPalette.accent : Color.white)
-        .frame(width: 130, height: 72)
+        .frame(width: 112, height: 72)
         .background(Color.white.opacity(0.08), in: .rect(cornerRadius: 10))
         .contentShape(.rect(cornerRadius: 10))
     }
@@ -1244,6 +1272,9 @@ private struct PlayerScrubber: View {
                     }
                 }
                 .frame(height: isScrubbing ? 12 : (classic ? 4 : 6))
+                // The position comes four times a second: the bar glides between those at the
+                // screen's own rate (120 Hz on ProMotion) instead of stepping.
+                .animation(isScrubbing ? nil : .linear(duration: 0.25), value: shown)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .contentShape(.rect)
                 .highPriorityGesture(

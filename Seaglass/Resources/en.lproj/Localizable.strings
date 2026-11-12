@@ -890,3 +890,5 @@
 "In riproduzione: **%@**" = "Playing: **%@**";
 "Riproduzione casuale" = "Shuffle";
 "Timer" = "Timer";
+"Attivo" = "On";
+"Disattivo" = "Off";

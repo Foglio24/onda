@@ -811,3 +811,5 @@
 "In riproduzione: **%@**" = "Wiedergabe: **%@**";
 "Riproduzione casuale" = "Zufallswiedergabe";
 "Timer" = "Timer";
+"Attivo" = "Ein";
+"Disattivo" = "Aus";

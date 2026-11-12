@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Opens Seaglass for Mac at a few screens (see Seaglass/App/LaunchScene.swift) and saves a picture
 # of its window each time, as run.sh does on the simulators. In English, in dark mode.
-# Usage: bash Tools/Screenshots/mac.sh <Seaglass.app built for Mac> <output folder>
+# Usage: bash Tools/Screenshots/mac.sh <Seaglass.app built for Mac> <output folder> [classic]
 set -uo pipefail
 app="$1"
 out="$2"
@@ -81,6 +81,22 @@ shot() {
     screencapture -x "$out/$name.png" && echo "Saved $name (whole screen: no window found)"
   fi
 }
+
+# The classic interface style only (the Interface preview workflow): its pages, its player, light mode.
+if [ "${3:-}" = "classic" ]; then
+  shot mac-classic-1-home 16 home -theme.style classic
+  shot mac-classic-2-player 8 player-demo -theme.style classic -SeaglassWindowSize 1440x900
+  shot mac-classic-3-lyrics 8 player-demo -SeaglassPanel lyrics -theme.style classic -SeaglassWindowSize 1440x900
+  shot mac-classic-4-queue 8 player-demo -SeaglassPanel queue -theme.style classic -SeaglassWindowSize 1440x900
+  shot mac-classic-5-search 14 "search:daft punk" -theme.style classic
+  shot mac-classic-6-library 8 library-playlist -theme.style classic
+  shot mac-classic-7-sidebar 6 sidebar-demo -theme.style classic
+  shot mac-classic-8-settings 6 settings -theme.style classic
+  shot mac-classic-9-home-light 16 home -theme.style classic -theme.mode light
+  shot mac-classic-10-library-light 8 library-playlist -theme.style classic -theme.mode light
+  pkill -x Seaglass 2>/dev/null
+  exit 0
+fi
 
 shot mac-1-home 16 home
 # The whole screen too: Seaglass's note in the menu bar (the AppKit plug-in), on the right.

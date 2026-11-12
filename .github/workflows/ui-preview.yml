@@ -11,11 +11,16 @@ on:
       - "Seaglass/App/RootView.swift"
       - "Tools/Screenshots/**"
       - ".github/workflows/ui-preview.yml"
+      - "Mac/**"
   workflow_dispatch:
     inputs:
       kind:
         description: "Screenshots to take (iphone, ipad, classic)"
         default: classic
+      mac:
+        description: "Also the Mac's classic screenshots"
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -65,5 +70,60 @@ jobs:
         with:
           name: interface-preview
           path: preview
+          retention-days: 14
+          if-no-files-found: ignore
+
+  # The Mac app in the classic style, built and opened on the runner (see Tools/Screenshots/mac.sh).
+  mac:
+    if: ${{ github.event_name == 'push' || inputs.mac }}
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Karaoke model
+        uses: ./.github/actions/karaoke-model
+      - name: Beat model
+        uses: ./.github/actions/beat-model
+      - name: Generate Xcode project
+        run: |
+          mkdir -p Support
+          xcodegen generate
+          /usr/libexec/PlistBuddy -c "Set :UIApplicationSceneManifest:UIApplicationSupportsMultipleScenes true" Support/Info.plist
+      - name: Build for Mac
+        run: |
+          xcodebuild \
+            -project Seaglass.xcodeproj \
+            -scheme Seaglass \
+            -configuration Debug \
+            -destination 'generic/platform=macOS,variant=Mac Catalyst' \
+            -derivedDataPath build-mac \
+            -skipPackagePluginValidation \
+            -skipMacroValidation \
+            -quiet \
+            ARCHS=arm64 \
+            ONLY_ACTIVE_ARCH=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+      # Ad hoc, as build.yml signs it, so it opens on the runner.
+      - name: Sign
+        run: |
+          app=build-mac/Build/Products/Debug-maccatalyst/Seaglass.app
+          find "$app/Contents" -depth \( -name "*.framework" -o -name "*.dylib" -o -name "*.appex" -o -name "*.xpc" -o -name "*.bundle" \) \
+            -exec codesign --force --sign - --timestamp=none {} \;
+          codesign --force --sign - --timestamp=none "$app"
+      - name: Take the screenshots
+        run: bash Tools/Screenshots/mac.sh build-mac/Build/Products/Debug-maccatalyst/Seaglass.app preview-mac classic
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          name: interface-preview-mac
+          path: preview-mac
           retention-days: 14
           if-no-files-found: ignore

@@ -267,6 +267,8 @@ private struct ClassicMiniProgress: View {
                 Capsule().fill(Color.white.opacity(0.25))
                 Capsule().fill(Color.white).frame(width: geometry.size.width * share)
             }
+            // Gliding between the player's four ticks a second, at the screen's rate.
+            .animation(.linear(duration: 0.25), value: share)
         }
         .frame(height: 2)
     }
