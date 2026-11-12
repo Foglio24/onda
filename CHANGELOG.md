@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.36.1 (2026-11-12)
+
+### Fixed
+- **A song picked in Cerca no longer empties the queue** (Classico). It plays at once, and what was playing carries on after it: the songs you added to the queue, then the rest of the playlist, album or radio. (Before, it started the song's radio in place of the whole queue.) In Seaglass's style a song picked in Cerca still starts its radio.
+- **Tempo is back in the classic player**, beside share and the queue (an episode's speed there for podcasts).
+- **The classic player closes when dragged down again.** Its header (the arrow, what plays, ···) stays at the top and follows the finger down as before; pulling the cover down past its top closes the player when you let go. (Since 1.36.0 the drag only scrolled the page.)
+
 ## 1.36.0 (2026-11-12)
 
 ### Added

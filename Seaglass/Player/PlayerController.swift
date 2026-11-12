@@ -660,6 +660,16 @@ final class PlayerController: ObservableObject {
         try? data.write(to: Self.queueFile, options: .atomic)
     }
 
+    /// Plays a song now without losing the queue: it goes right after the song playing and plays,
+    /// and the rest follows it as before (the songs added to the queue, then the album, playlist or
+    /// radio). With nothing in the queue it starts the song's radio. The classic style's search plays
+    /// its songs so, as the common streaming apps keep what was queued when a song is picked there.
+    func playNow(_ track: Track) {
+        guard current != nil else { return playRadio(from: track) }
+        playNext(track)
+        jump(to: index + 1)
+    }
+
     /// Right after the song playing, before the songs added earlier.
     func playNext(_ track: Track) {
         guard current != nil else { return play([track], source: String(localized: "Coda")) }

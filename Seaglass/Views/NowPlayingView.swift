@@ -24,7 +24,8 @@ struct NowPlayingView: View {
     private enum Panel { case artwork, lyrics, queue }
 
     @State private var panel: Panel = .artwork
-    /// How far the classic player is scrolled (negative when pulled down past its top).
+    /// How far the classic player is scrolled down from its top at rest (0 at rest, negative when
+    /// pulled down past it).
     @State private var classicPull: CGFloat = 0
     /// The classic style's queue, a sheet over the player as the common streaming apps'.
     @State private var showClassicQueue = false
@@ -166,55 +167,58 @@ struct NowPlayingView: View {
         }
     }
 
-    /// Classic full player, laid out as the common streaming apps': the player fills the screen and
-    /// scrolls down to the lyrics' preview and the next songs; the lyrics open full screen on the
-    /// cover's colour, the queue on its own page. Pulling the player down past its top closes it.
+    /// Classic full player, laid out as the common streaming apps': the header stays at the top and
+    /// the player under it fills the screen, scrolling down to the lyrics' preview and the next songs;
+    /// the lyrics open full screen on the cover's colour, the queue in a sheet. Dragged down by its
+    /// header the player follows the finger and closes; pulled down past its top, it closes on release.
     @ViewBuilder private var classicStackedLayout: some View {
         switch panel {
         case .lyrics:
             classicLyricsScreen
         case .artwork, .queue:
-            GeometryReader { geometry in
-                ScrollView(.vertical) {
-                    VStack(spacing: 18) {
-                        classicPlayerPage
-                            .frame(height: geometry.size.height)
-                        if !isEpisode { classicLyricsCard }
-                        classicUpNextCard
+            VStack(spacing: 0) {
+                // Outside the scroll view, so the drag that closes the player never fights the scrolling.
+                classicTopBar
+                    .contentShape(.rect)
+                    .simultaneousGesture(dismissDrag)
+                GeometryReader { geometry in
+                    ScrollView(.vertical) {
+                        VStack(spacing: 18) {
+                            classicPlayerPage
+                                .frame(height: geometry.size.height)
+                            if !isEpisode { classicLyricsCard }
+                            classicUpNextCard
+                        }
+                        .padding(.bottom, 24)
                     }
-                    .padding(.bottom, 24)
-                }
-                .scrollIndicators(.hidden)
-                // Scrolled, the player fades out at its top instead of running into the clock (the fade
-                // grows with the scroll, so the header is untouched at rest).
-                .mask {
-                    let scrolled = min(24, max(0, classicPull))
-                    VStack(spacing: 0) {
-                        // Nothing under the status bar once scrolled, whether or not the scroll view reaches it.
-                        Color.clear.frame(height: scrolled > 0 ? geometry.safeAreaInsets.top : 0)
-                        LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom)
-                            .frame(height: scrolled)
-                        Color.black
+                    .scrollIndicators(.hidden)
+                    .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.y + $0.contentInsets.top } action: { _, offset in
+                        classicPull = offset
                     }
-                }
-                // The CI screenshots can open it scrolled to the cards under the player.
-                .defaultScrollAnchor(LaunchScene.playerPanel == "below" ? .bottom : .top)
-                .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.y + $0.contentInsets.top } action: { _, offset in
-                    classicPull = offset
-                }
-                .onScrollPhaseChange { old, new in
-                    // Let go well past the top: the player closes, as when it's dragged down.
-                    if old == .interacting, new != .interacting, classicPull < -90 { close() }
+                    .onScrollPhaseChange { old, new in
+                        // Let go after pulling the cover down past the top: the player closes.
+                        if old == .interacting, new != .interacting, classicPull < -60 { close() }
+                    }
+                    // Scrolled, the page fades out under the header (the fade grows with the scroll, so
+                    // nothing is faded at rest).
+                    .mask {
+                        VStack(spacing: 0) {
+                            LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom)
+                                .frame(height: min(24, max(0, classicPull)))
+                            Color.black
+                        }
+                    }
+                    // The CI screenshots can open it scrolled to the cards under the player.
+                    .defaultScrollAnchor(LaunchScene.playerPanel == "below" ? .bottom : .top)
                 }
             }
         }
     }
 
-    /// What the classic player shows without scrolling: header, cover, song, scrubber, controls.
+    /// What the classic player shows under its header without scrolling: cover, song, scrubber, controls.
     private var classicPlayerPage: some View {
         VStack(spacing: 0) {
-            classicTopBar
-            Spacer(minLength: 16)
+            Spacer(minLength: 12)
             artwork
             Spacer(minLength: 16)
             classicTitleRow
@@ -385,6 +389,8 @@ struct NowPlayingView: View {
             }
             .onEnded { value in
                 guard draggingDown else {
+                    // In the classic player a drag up scrolls to the lyrics and the next songs.
+                    guard style != .classic || Self.isMac else { return }
                     let up = -value.translation.height
                     if up > abs(value.translation.width), up > 60 || value.predictedEndTranslation.height < -200,
                        let track = player.current {
@@ -541,6 +547,8 @@ struct NowPlayingView: View {
         HStack(spacing: 4) {
             ClassicOutputLabel()
             Spacer()
+            // Tempo (a song's speed with its key kept), or an episode's speed.
+            if isEpisode { speedMenu } else { tempoButton }
             if let url = player.current?.shareURL {
                 ShareLink(item: url) {
                     Image(systemName: "square.and.arrow.up")

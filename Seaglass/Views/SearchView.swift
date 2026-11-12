@@ -181,7 +181,7 @@ struct SearchView: View {
                 ForEach(shown) { track in
                     TrackRow(track: track, swipe: style == .classic ? .drag : .list) {
                         remember(RecentSearch(track: track))
-                        player.playRadio(from: track)
+                        playFromSearch(track)
                     }
                     .listRowBackground(Color.clear)
                 }
@@ -234,10 +234,16 @@ struct SearchView: View {
         }
     }
 
+    /// A song picked here: in the classic style it plays without losing the queue (see `playNow`);
+    /// in Seaglass's it starts its radio, as before.
+    private func playFromSearch(_ track: Track) {
+        if classicPhone { player.playNow(track) } else { player.playRadio(from: track) }
+    }
+
     private func open(_ item: MusicItem) {
         remember(RecentSearch(item: item))
         if case .song(let track) = item.kind {
-            player.playRadio(from: track)
+            playFromSearch(track)
         } else if let page = MusicPage(item) {
             path.append(page)
         }
@@ -313,12 +319,11 @@ struct SearchView: View {
         save(recent.filter { $0.id != entry.id })
     }
 
-    /// A search sent searches again; a song plays (its radio), anything else opens its page.
+    /// A search sent searches again; a song plays (see `playFromSearch`), anything else opens its page.
     private func openRecent(_ entry: RecentSearch) {
         if let track = entry.track {
             remember(entry)
-            // (`playRadio` plays a song of the user's own on its own.)
-            player.playRadio(from: track)
+            playFromSearch(track)
         } else if let item = entry.item, let page = MusicPage(item) {
             remember(entry)
             path.append(page)
