@@ -234,31 +234,30 @@ private struct ClassicMiniProgress: View {
     }
 }
 
-/// The classic style's way to the settings: a round letter (or symbol) at the top of the main pages,
-/// as the common streaming apps put the profile.
+/// The classic style's way to the profile menu: a round letter at the top of the main pages.
 struct ProfileButton: View {
     @EnvironmentObject private var router: AppRouter
     @ObservedObject private var account = AccountService.shared
 
     var body: some View {
-        Button { router.showSettings = true } label: {
-            Text(letter)
+        Button { router.showProfileMenu = true } label: {
+            Text(Self.letter(for: account))
                 .font(.system(size: 14, weight: .bold))
                 .foregroundStyle(.black)
                 .frame(width: 32, height: 32)
-                .background(avatarTint, in: .circle)
+                .background(Self.avatarTint(for: Self.letter(for: account)), in: .circle)
         }
-        .accessibilityLabel(Text("Impostazioni"))
+        .accessibilityLabel(Text("Profilo"))
     }
 
     /// First letter of the signed-in name, or "S" when there is none.
-    private var letter: String {
+    static func letter(for account: AccountService) -> String {
         let name = account.details?.name.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         if let first = name.first { return String(first).uppercased() }
         return "S"
     }
 
-    private var avatarTint: Color {
+    static func avatarTint(for letter: String) -> Color {
         // Stable colour from the letter, so it doesn't jump between launches.
         let hues: [Color] = [
             Color(red: 0.91, green: 0.40, blue: 0.55),
@@ -270,6 +269,91 @@ struct ProfileButton: View {
         ]
         let index = abs(letter.unicodeScalars.first.map { Int($0.value) } ?? 0) % hues.count
         return hues[index]
+    }
+}
+
+/// Classic profile menu: name, Recenti, Impostazioni. No friends activity and no messages —
+/// Seaglass has neither (those stay out on purpose).
+struct ClassicProfileSheet: View {
+    @EnvironmentObject private var router: AppRouter
+    @ObservedObject private var account = AccountService.shared
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    profileHeader
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                        .listRowInsets(EdgeInsets(top: 8, leading: 20, bottom: 12, trailing: 20))
+                }
+                Section {
+                    if account.isAvailable {
+                        NavigationLink {
+                            AccountSettingsView()
+                        } label: {
+                            Label("Profilo", systemImage: "person")
+                        }
+                    }
+                    NavigationLink {
+                        TrackCollectionView(collection: .history)
+                    } label: {
+                        Label("Recenti", systemImage: "clock.arrow.circlepath")
+                    }
+                    Button {
+                        dismiss()
+                        // Settings has its own stack: open it as its own sheet after this one closes.
+                        Task { @MainActor in
+                            try? await Task.sleep(for: .milliseconds(350))
+                            router.showSettings = true
+                        }
+                    } label: {
+                        Label("Impostazioni e privacy", systemImage: "gearshape")
+                    }
+                    .foregroundStyle(.primary)
+                }
+                .listRowBackground(ClassicPalette.surface)
+            }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .background(ClassicPalette.background.ignoresSafeArea())
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Chiudi") { dismiss() }
+                }
+            }
+            .navigationBarTitleDisplayMode(.inline)
+        }
+        .preferredColorScheme(.dark)
+        .presentationDetents([.medium, .large])
+        .onDisappear {
+            // Keep the flag in sync if the sheet is dismissed by a swipe.
+            router.showProfileMenu = false
+        }
+    }
+
+    private var profileHeader: some View {
+        let letter = ProfileButton.letter(for: account)
+        let name = account.details?.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return HStack(alignment: .center, spacing: 14) {
+            Text(letter)
+                .font(.system(size: 28, weight: .bold))
+                .foregroundStyle(.black)
+                .frame(width: 64, height: 64)
+                .background(ProfileButton.avatarTint(for: letter), in: .circle)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(name?.isEmpty == false ? name! : String(localized: "Seaglass"))
+                    .font(.title2.bold())
+                    .foregroundStyle(.white)
+                if account.isAvailable {
+                    Text("Visualizza profilo")
+                        .font(.subheadline)
+                        .foregroundStyle(ClassicPalette.secondaryText)
+                }
+            }
+            Spacer(minLength: 0)
+        }
     }
 }
 

@@ -113,6 +113,14 @@ struct NowPlayingView: View {
     /// The player as on an iPhone: the cover (or, with them open, the lyrics or the queue) above
     /// the controls.
     private var stackedLayout: some View {
+        if style == .classic {
+            classicStackedLayout
+        } else {
+            seaglassStackedLayout
+        }
+    }
+
+    private var seaglassStackedLayout: some View {
         VStack(spacing: 16) {
             // Dragging down here closes the player, like the Music app, and dragging up opens the
             // song's details. With the lyrics or the queue open only the header does, so their
@@ -141,6 +149,43 @@ struct NowPlayingView: View {
             controls
             if playerVolumeBar { PlayerVolumeBar() }
             bottomBar
+        }
+    }
+
+    /// Classic full player: source in the header, lyric line under the cover, green check, white
+    /// play, AirPlay / share / queue, and a lyrics preview card (no friends or messages — those
+    /// stay out of Seaglass).
+    private var classicStackedLayout: some View {
+        VStack(spacing: 14) {
+            VStack(spacing: 14) {
+                classicTopBar
+                if panel == .artwork {
+                    Spacer(minLength: 0)
+                    artwork
+                    classicLyricLine
+                    Spacer(minLength: 4)
+                    classicTitleRow
+                } else {
+                    compactHeader
+                }
+            }
+            .contentShape(.rect)
+            .simultaneousGesture(dismissDrag)
+            if panel != .artwork {
+                panelContent
+                    .frame(maxHeight: .infinity)
+                    .overlay(alignment: .bottomTrailing) { singControl }
+            }
+            errorLabel
+            PlayerScrubber(classic: true)
+            if panel == .artwork {
+                controls
+                classicBottomBar
+                if !isEpisode { classicLyricsCard }
+            } else {
+                controls
+                classicBottomBar
+            }
         }
     }
 
@@ -308,6 +353,101 @@ struct NowPlayingView: View {
             }
         }
         .buttonStyle(.plain)
+    }
+
+    /// Classic header: just the source between chevron and ···, as the common streaming apps.
+    private var classicTopBar: some View {
+        HStack {
+            Button { close() } label: {
+                Image(systemName: "chevron.down")
+                    .font(.title3.weight(.semibold))
+                    .frame(width: 44, height: 44)
+            }
+            Spacer(minLength: 8)
+            Text(player.source)
+                .font(.footnote.weight(.bold))
+                .lineLimit(1)
+            Spacer(minLength: 8)
+            Menu {
+                moreMenu
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.title3.weight(.semibold))
+                    .frame(width: 44, height: 44)
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// The current lyric under the cover, when the song has synced lyrics.
+    @ViewBuilder private var classicLyricLine: some View {
+        if case .synced(let lines) = player.lyrics {
+            ClassicCurrentLyric(lines: lines)
+                .padding(.top, 4)
+        }
+    }
+
+    private var classicTitleRow: some View {
+        HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(player.current?.title ?? "—")
+                    .font(.title.bold())
+                    .lineLimit(1)
+                Button {
+                    if let track = player.current, track.isPodcastEpisode {
+                        if let show = track.podcastID, !show.isEmpty { router.page = .podcast(id: show) }
+                    } else if let track = player.current, !track.primaryArtist.isEmpty {
+                        router.page = .artist(id: track.artistID, name: track.primaryArtist)
+                    }
+                } label: {
+                    Text(player.current?.artist ?? "")
+                        .font(.body)
+                        .foregroundStyle(Color.white.opacity(0.7))
+                        .lineLimit(1)
+                }
+                .buttonStyle(.plain)
+            }
+            Spacer(minLength: 8)
+            if !isEpisode { likeButton }
+        }
+    }
+
+    private var classicBottomBar: some View {
+        HStack(spacing: 4) {
+            AirPlayButton(activeTint: ClassicPalette.accent).frame(width: 44, height: 44)
+            Spacer()
+            if let url = player.current?.shareURL {
+                ShareLink(item: url) {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.title3)
+                        .frame(width: 44, height: 44)
+                }
+                .buttonStyle(.plain)
+            }
+            panelButton(.queue, symbol: "list.bullet")
+        }
+    }
+
+    /// Peeking lyrics card under the controls; opens the lyrics panel.
+    private var classicLyricsCard: some View {
+        Button {
+            withAnimation { panel = .lyrics }
+        } label: {
+            HStack {
+                Text("Anteprima del testo")
+                    .font(.headline.weight(.bold))
+                Spacer()
+                Image(systemName: "translate")
+                    .font(.body.weight(.semibold))
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 18)
+            .background(player.artworkColor.mix(with: .black, by: 0.25), in: .rect(cornerRadius: 12))
+        }
+        .buttonStyle(.plain)
+        .padding(.top, 4)
+        .accessibilityLabel(Text("Anteprima del testo"))
     }
 
     /// The song's actions, the sleep timer and the equalizer.
@@ -859,6 +999,7 @@ private struct MacPlayerCloseButton: UIViewRepresentable {
 /// A high-priority drag gesture always wins and seeks to wherever the finger lifts.
 /// It is the only part of the player that follows the position, four times a second.
 private struct PlayerScrubber: View {
+    var classic = false
     @EnvironmentObject private var progress: PlaybackProgress
     @State private var isScrubbing = false
     @State private var scrubTime: TimeInterval = 0
@@ -872,11 +1013,17 @@ private struct PlayerScrubber: View {
                 let width = max(geometry.size.width, 1)
                 let fraction = min(max(shown / duration, 0), 1)
                 ZStack(alignment: .leading) {
-                    Capsule().fill(Color.white.opacity(0.25))
+                    Capsule().fill(Color.white.opacity(classic ? 0.3 : 0.25))
                     transitionMarkView(width: width, duration: duration, shown: shown)
-                    Capsule().fill(Color.white).frame(width: width * CGFloat(fraction))
+                    Capsule().fill(Color.white).frame(width: max(classic ? 8 : 0, width * CGFloat(fraction)))
+                    if classic {
+                        Circle()
+                            .fill(Color.white)
+                            .frame(width: isScrubbing ? 16 : 12, height: isScrubbing ? 16 : 12)
+                            .offset(x: max(0, width * CGFloat(fraction) - (isScrubbing ? 8 : 6)))
+                    }
                 }
-                .frame(height: isScrubbing ? 12 : 6)
+                .frame(height: isScrubbing ? 12 : (classic ? 4 : 6))
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .contentShape(.rect)
                 .highPriorityGesture(
@@ -931,6 +1078,25 @@ private struct PlayerScrubber: View {
 
     /// How long before the transition its mark appears.
     private static let markLead: TimeInterval = 60
+}
+
+/// The current synced lyric under the classic player's cover (its own view: it ticks with time).
+private struct ClassicCurrentLyric: View {
+    let lines: [LyricLine]
+    @EnvironmentObject private var progress: PlaybackProgress
+
+    var body: some View {
+        let text = lines.last(where: { $0.time <= progress.currentTime + 0.25 })?.text
+            ?? lines.first?.text
+        if let text, !text.isEmpty {
+            Text(text)
+                .font(.title3.weight(.bold))
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+                .frame(maxWidth: .infinity)
+                .foregroundStyle(.white)
+        }
+    }
 }
 
 /// The play button: a glass disc in Seaglass's style; white with a black symbol in the classic one.

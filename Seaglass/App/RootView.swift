@@ -49,6 +49,9 @@ struct RootView: View {
         .sheet(isPresented: $router.showSettings) {
             SettingsView().appEnvironment()
         }
+        .sheet(isPresented: $router.showProfileMenu) {
+            ClassicProfileSheet().appEnvironment()
+        }
         .sheet(item: $router.trackActions) { track in
             TrackActionSheet(track: track).appEnvironment()
         }
