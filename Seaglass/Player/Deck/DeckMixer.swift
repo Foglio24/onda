@@ -435,10 +435,13 @@ final class DeckMixer: @unchecked Sendable {
     @inline(__always)
     private static func read(_ samples: UnsafeMutablePointer<Float>, frames: Int, at x: Double) -> Float {
         guard x.isFinite, x > -4, x < Double(frames) + 4 else { return 0 }
+        @inline(__always) func at(_ i: Int) -> Float { i >= 0 && i < frames ? samples[i] : 0 }
+        // A position within a millionth of a frame of a whole one reads that frame: at the song's own
+        // speed the time adds up with a rounding error, and the song must still come out as it is.
+        let nearest = x.rounded()
+        if abs(x - nearest) < 1e-6 { return at(Int(nearest)) }
         let base = Int(x.rounded(.down))
         let fraction = Float(x - Double(base))
-        @inline(__always) func at(_ i: Int) -> Float { i >= 0 && i < frames ? samples[i] : 0 }
-        if fraction < 1e-6 { return at(base) }
         let y0 = at(base - 1), y1 = at(base), y2 = at(base + 1), y3 = at(base + 2)
         let c1 = 0.5 * (y2 - y0)
         let c2 = y0 - 2.5 * y1 + 2 * y2 - 0.5 * y3
