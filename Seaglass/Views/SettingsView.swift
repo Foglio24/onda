@@ -83,7 +83,7 @@ struct SettingsView: View {
                 }
                 .classicSettingsSection(classic)
             }
-            .listStyle(classic ? .insetGrouped : .automatic)
+            .modifier(SettingsListStyle(classic: classic))
             .scrollContentBackground(.hidden)
             .background {
                 if classic {
@@ -187,6 +187,20 @@ private struct SettingsPageChrome: ViewModifier {
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
             .preferredColorScheme(classic ? .dark : nil)
+    }
+}
+
+/// Inset grouped cards in Classico; leave the system default in Seaglass (the two ListStyle
+/// types can't share a ternary).
+private struct SettingsListStyle: ViewModifier {
+    let classic: Bool
+
+    @ViewBuilder func body(content: Content) -> some View {
+        if classic {
+            content.listStyle(.insetGrouped)
+        } else {
+            content
+        }
     }
 }
 

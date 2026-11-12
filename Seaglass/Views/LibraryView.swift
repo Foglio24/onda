@@ -576,7 +576,11 @@ struct TrackCollectionView: View {
                 .listRowBackground(Color.clear)
             }
             .onDelete(perform: delete)
-            .onMove(perform: moveAction)
+            .onMove { source, destination in
+                // Only favourites keep a custom order; downloads and history are sorted by date.
+                guard collection == .liked else { return }
+                library.moveLiked(fromOffsets: source, toOffset: destination)
+            }
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
@@ -586,24 +590,32 @@ struct TrackCollectionView: View {
             if tracks.isEmpty { emptyState }
         }
         .navigationTitle(collection.title)
-        .toolbar {
-            if editMode.isEditing {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Fine") { withAnimation { editMode = .inactive } }
-                }
-            } else if canReorder {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        withAnimation { editMode = .active }
-                    } label: {
-                        Label("Riordina i brani", systemImage: "line.3.horizontal")
-                    }
+        .toolbar { collectionToolbar }
+    }
+
+    @ToolbarContentBuilder private var collectionToolbar: some ToolbarContent {
+        if editMode.isEditing {
+            ToolbarItem(placement: .confirmationAction) {
+                Button("Fine") { withAnimation { editMode = .inactive } }
+            }
+        } else if canReorder {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    withAnimation { editMode = .active }
+                } label: {
+                    Label("Riordina i brani", systemImage: "line.3.horizontal")
                 }
             }
-            if collection == .history && !tracks.isEmpty && !editMode.isEditing {
+        }
+        if collection == .history && !tracks.isEmpty && !editMode.isEditing {
+            ToolbarItem(placement: .topBarTrailing) {
                 Button("Svuota") { library.clearHistory() }
             }
         }
+    }
+
+    private func moveLiked(from source: IndexSet, to destination: Int) {
+        library.moveLiked(fromOffsets: source, toOffset: destination)
     }
 
     @ViewBuilder private var emptyState: some View {
@@ -618,12 +630,6 @@ struct TrackCollectionView: View {
             ContentUnavailableView("Cronologia vuota", systemImage: "clock",
                                    description: Text("I brani che ascolti appariranno qui."))
         }
-    }
-
-    /// Only favourites keep a custom order; downloads and history are sorted by date.
-    private var moveAction: ((IndexSet, Int) -> Void)? {
-        guard collection == .liked else { return nil }
-        return { source, destination in library.moveLiked(fromOffsets: source, toOffset: destination) }
     }
 
     private func delete(_ offsets: IndexSet) {
