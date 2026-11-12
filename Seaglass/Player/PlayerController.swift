@@ -1781,6 +1781,29 @@ final class PlayerController: ObservableObject {
             if opusPlayback?.item === item { return playAAC(insteadOf: item, track: track) }
             let message = player.currentItem?.error?.localizedDescription
                 ?? PlayerError.unavailable.localizedDescription
+            if track.isLocal {
+                // The user's own song that AVPlayer won't open: decode it here, in this app, which holds the
+                // access to the file, and play the copy. Audio only: no video, no cover is needed.
+                let detail = Self.describe(item.error)
+                guard !retriedCurrentItem, let file = Storage.localAudio(for: track), let id = track.videoId else {
+                    return fail(detail.isEmpty ? message : "\(message) [\(detail)]")
+                }
+                retriedCurrentItem = true
+                let generation = requests.loadGeneration
+                retryTask?.cancel()
+                retryTask = Task {
+                    let copy = await LocalPlayable.copy(of: file, key: id, in: Storage.localPlayable)
+                    guard !Task.isCancelled, self.requests.isCurrentLoad(generation),
+                          self.player.currentItem === item else { return }
+                    if let copy {
+                        self.streamInfo = "PCM · offline"
+                        self.start(url: copy, track: track, isRetry: true)
+                    } else {
+                        self.fail(detail.isEmpty ? message : "\(message) [\(detail)]")
+                    }
+                }
+                return
+            }
             guard !retriedCurrentItem, let videoId = track.videoId, Storage.localAudio(for: track) == nil else {
                 return fail(message)
             }
@@ -1805,6 +1828,16 @@ final class PlayerController: ObservableObject {
         default:
             break
         }
+    }
+
+    /// An error as a few technical numbers ("AVFoundationErrorDomain -11828 › NSOSStatusErrorDomain -12847"),
+    /// for a message that says why a file wouldn't open (not translated: it is for a report).
+    private static func describe(_ error: Error?) -> String {
+        guard let error else { return "" }
+        let ns = error as NSError
+        var parts = ["\(ns.domain) \(ns.code)"]
+        if let underlying = ns.userInfo[NSUnderlyingErrorKey] as? NSError { parts.append("\(underlying.domain) \(underlying.code)") }
+        return parts.joined(separator: " › ")
     }
 
     private func fail(_ message: String) {

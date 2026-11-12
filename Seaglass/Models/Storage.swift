@@ -85,6 +85,9 @@ enum Storage {
         caches.appending(path: "KaraokeStems", directoryHint: .isDirectory))
     /// The covers read from the user's own songs (see `LocalMusic`); the songs themselves stay where they are.
     static let localCovers: URL = makeDirectory(support.appending(path: "LocalCovers", directoryHint: .isDirectory))
+    /// Copies the app decoded of the user's own songs that AVPlayer wouldn't open (see `LocalPlayable`); the
+    /// system may clear them, and they are made again when needed.
+    static let localPlayable: URL = makeDirectory(caches.appending(path: "LocalPlayable", directoryHint: .isDirectory))
 
     static func audioFile(for videoId: String) -> URL { downloads.appending(path: "\(videoId).m4a") }
     static func artworkFile(for videoId: String) -> URL { downloads.appending(path: "\(videoId).jpg") }

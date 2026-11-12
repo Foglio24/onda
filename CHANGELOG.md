@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.34.2 (2026-11-12)
+
+### Fixed
+- **A song of your own that AVPlayer wouldn't open ("Video non disponibile") now plays.** iOS reads a file through a system service of its own, which refuses some files that the app itself can read: with no video, no cover, or an unusual container. When that happens, Seaglass decodes the song itself (audio only, in this app, which holds the access to your folder) into a PCM copy in its cache, and plays the copy. If the file can't be decoded either, the message now ends with the numbers of the error (for example `AVFoundationErrorDomain -11828`), so the cause can be told.
+
 ## 1.34.1 (2026-11-12)
 
 ### Added
