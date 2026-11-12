@@ -34,13 +34,15 @@ extension EnvironmentValues {
     @Entry var interfaceStyle: InterfaceStyle = .seaglass
 }
 
-/// The classic style's colours: near-black pages, slightly lighter cards, grey secondary text, green.
+/// The classic style's colours: black pages, slightly lighter cards, grey secondary text, green.
 enum ClassicPalette {
-    static let background = Color(red: 0.071, green: 0.071, blue: 0.071)
-    static let surface = Color(red: 0.118, green: 0.118, blue: 0.118)
-    static let elevated = Color(red: 0.165, green: 0.165, blue: 0.165)
+    /// Pure black, as the common streaming apps' home and library.
+    static let background = Color.black
+    static let surface = Color(red: 0.12, green: 0.12, blue: 0.12)
+    static let elevated = Color(red: 0.18, green: 0.18, blue: 0.18)
+    static let pill = Color(red: 0.20, green: 0.20, blue: 0.20)
     static let secondaryText = Color(red: 0.70, green: 0.70, blue: 0.70)
-    static let accent = Color(red: 0.11, green: 0.80, blue: 0.37)
+    static let accent = Color(red: 0.114, green: 0.725, blue: 0.329)
 }
 
 /// The style for every view below: in the environment, and dark throughout in the classic one.
@@ -232,18 +234,231 @@ private struct ClassicMiniProgress: View {
     }
 }
 
-/// The classic style's way to the settings: a round profile button at the top of the main pages.
+/// The classic style's way to the settings: a round letter (or symbol) at the top of the main pages,
+/// as the common streaming apps put the profile.
 struct ProfileButton: View {
     @EnvironmentObject private var router: AppRouter
+    @ObservedObject private var account = AccountService.shared
 
     var body: some View {
         Button { router.showSettings = true } label: {
-            Image(systemName: "person.crop.circle.fill")
-                .font(.title2)
-                .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(ClassicPalette.accent)
+            Text(letter)
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(.black)
+                .frame(width: 32, height: 32)
+                .background(avatarTint, in: .circle)
         }
         .accessibilityLabel(Text("Impostazioni"))
+    }
+
+    /// First letter of the signed-in name, or "S" when there is none.
+    private var letter: String {
+        let name = account.details?.name.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if let first = name.first { return String(first).uppercased() }
+        return "S"
+    }
+
+    private var avatarTint: Color {
+        // Stable colour from the letter, so it doesn't jump between launches.
+        let hues: [Color] = [
+            Color(red: 0.91, green: 0.40, blue: 0.55),
+            Color(red: 0.35, green: 0.65, blue: 0.95),
+            Color(red: 0.95, green: 0.55, blue: 0.25),
+            Color(red: 0.55, green: 0.45, blue: 0.95),
+            Color(red: 0.30, green: 0.75, blue: 0.55),
+            Color(red: 0.90, green: 0.35, blue: 0.35),
+        ]
+        let index = abs(letter.unicodeScalars.first.map { Int($0.value) } ?? 0) % hues.count
+        return hues[index]
+    }
+}
+
+/// A filter chip of the classic style (Home, Libreria): green when on, dark grey when off.
+struct ClassicPill: View {
+    let title: LocalizedStringKey
+    let selected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(selected ? Color.black : Color.white)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .background(selected ? ClassicPalette.accent : ClassicPalette.pill, in: .capsule)
+                .contentShape(.capsule)
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+}
+
+/// A horizontal row of classic filter pills.
+struct ClassicPillBar<Item: Hashable>: View {
+    let items: [(Item, LocalizedStringKey)]
+    @Binding var selection: Item?
+
+    var body: some View {
+        ScrollView(.horizontal) {
+            HStack(spacing: 8) {
+                ForEach(items, id: \.0) { item, title in
+                    ClassicPill(title: title, selected: selection == item) {
+                        withAnimation(.easeInOut(duration: 0.15)) {
+                            selection = selection == item ? nil : item
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+        }
+        .scrollIndicators(.hidden)
+    }
+}
+
+/// Section title of the classic Home: bold on the left, optional "Mostra tutto" on the right.
+struct ClassicSectionHeader: View {
+    let title: LocalizedStringKey
+    var showAll: (() -> Void)? = nil
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(title)
+                .font(.title2.bold())
+                .foregroundStyle(.white)
+            Spacer(minLength: 8)
+            if let showAll {
+                Button(action: showAll) {
+                    Text("Mostra tutto")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(ClassicPalette.secondaryText)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 16)
+    }
+}
+
+/// The classic style's song actions as a bottom sheet (cover, name, list of actions), not a system menu.
+struct TrackActionSheet: View {
+    let track: Track
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var library: Library
+    @EnvironmentObject private var downloads: DownloadManager
+    private var player: PlayerController { .shared }
+    private var router: AppRouter { .shared }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Capsule()
+                .fill(Color.white.opacity(0.35))
+                .frame(width: 36, height: 4)
+                .padding(.top, 10)
+                .padding(.bottom, 14)
+            HStack(spacing: 12) {
+                ArtworkView(track: track, size: 52, cornerRadius: 4)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(track.title)
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                    Text(track.artist)
+                        .font(.subheadline)
+                        .foregroundStyle(ClassicPalette.secondaryText)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 12)
+            Divider().overlay(Color.white.opacity(0.12))
+            ScrollView {
+                VStack(spacing: 0) {
+                    if let url = track.shareURL {
+                        ShareLink(item: url) {
+                            sheetRow("Condividi", symbol: "square.and.arrow.up")
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    sheetButton("Aggiungi a playlist…", symbol: "plus.circle") {
+                        dismiss(); router.trackToAdd = track
+                    }
+                    sheetButton(library.isLiked(track) ? "Togli dai preferiti" : "Aggiungi ai preferiti",
+                                symbol: library.isLiked(track) ? "heart.slash" : "heart") {
+                        library.toggleLike(track); dismiss()
+                    }
+                    sheetButton("Aggiungi in coda", symbol: "text.line.last.and.arrowtriangle.forward") {
+                        player.addToQueue(track); dismiss()
+                    }
+                    sheetButton("Riproduci dopo", symbol: "text.line.first.and.arrowtriangle.forward") {
+                        player.playNext(track); dismiss()
+                    }
+                    if !track.isLocal {
+                        sheetButton("Avvia radio", symbol: "dot.radiowaves.left.and.right") {
+                            dismiss(); player.playRadio(from: track)
+                        }
+                    }
+                    if !track.primaryArtist.isEmpty {
+                        sheetButton("Vai all'artista", symbol: "music.mic") {
+                            dismiss(); router.page = .artist(id: track.artistID, name: track.primaryArtist)
+                        }
+                    }
+                    if let albumID = track.albumID {
+                        sheetButton("Vai all'album", symbol: "square.stack") {
+                            dismiss(); router.page = .album(id: albumID)
+                        }
+                    }
+                    if !track.isLocal {
+                        sheetButton("Informazioni sul brano", symbol: "info.circle") {
+                            dismiss(); router.page = .song(track)
+                        }
+                        if downloads.isDownloaded(track) {
+                            sheetButton("Rimuovi download", symbol: "trash") {
+                                downloads.remove(track); dismiss()
+                            }
+                        } else if downloads.isQueued(track) {
+                            sheetButton("Annulla download", symbol: "xmark.circle") {
+                                downloads.cancel([track]); dismiss()
+                            }
+                        } else {
+                            sheetButton("Scarica", symbol: "arrow.down.circle") {
+                                downloads.download(track); dismiss()
+                            }
+                        }
+                    }
+                }
+                .padding(.vertical, 6)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .background(ClassicPalette.surface.ignoresSafeArea())
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.hidden)
+        .preferredColorScheme(.dark)
+    }
+
+    private func sheetButton(_ title: LocalizedStringKey, symbol: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            sheetRow(title, symbol: symbol)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func sheetRow(_ title: LocalizedStringKey, symbol: String) -> some View {
+        HStack(spacing: 16) {
+            Image(systemName: symbol)
+                .font(.title3)
+                .foregroundStyle(.white)
+                .frame(width: 28)
+            Text(title)
+                .font(.body)
+                .foregroundStyle(.white)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 14)
+        .contentShape(.rect)
     }
 }
 

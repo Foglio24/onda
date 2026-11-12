@@ -113,60 +113,95 @@ struct ResumeCard: View {
     @Environment(\.interfaceStyle) private var style
 
     var body: some View {
-        let radius: CGFloat = style == .classic ? 8 : 22
-        Button(action: action) {
-            HStack(spacing: 14) {
-                ArtworkView(track: point.track, size: 68, cornerRadius: 12)
-                VStack(alignment: .leading, spacing: 4) {
+        if style == .classic {
+            // Flat square cover card with the song under it, as "Continua ad ascoltare".
+            Button(action: action) {
+                VStack(alignment: .leading, spacing: 8) {
+                    ArtworkView(track: point.track, size: 152, cornerRadius: 4)
+                        .overlay {
+                            Image(systemName: "play.fill")
+                                .font(.title3)
+                                .foregroundStyle(.black)
+                                .frame(width: 40, height: 40)
+                                .background(ClassicPalette.accent, in: .circle)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                                .padding(10)
+                        }
                     Text(point.track.title)
-                        .font(.headline)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .lineLimit(2)
+                    Text(point.track.artist)
+                        .font(.caption)
+                        .foregroundStyle(ClassicPalette.secondaryText)
                         .lineLimit(1)
-                    Text("\(point.track.artist) · fermo a \(point.time.formattedTime)")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                    if let length = point.track.duration, length > 0 {
-                        ProgressView(value: min(max(point.time / length, 0), 1))
-                            .tint(accent)
-                            .padding(.top, 4)
-                    }
                 }
-                Spacer(minLength: 0)
-                Image(systemName: "play.fill")
-                    .font(.title3)
-                    .foregroundStyle(.white)
-                    .frame(width: 46, height: 46)
-                    .background(accent.gradient, in: .circle)
+                .frame(width: 152, alignment: .leading)
+                .contentShape(.rect)
             }
-            .padding(12)
-            .contentShape(.rect(cornerRadius: radius))
-            .styledSurface(in: .rect(cornerRadius: radius), interactive: true)
+            .buttonStyle(.plain)
+            .accessibilityLabel(Text("Riprendi \(point.track.title)"))
+        } else {
+            let radius: CGFloat = 22
+            Button(action: action) {
+                HStack(spacing: 14) {
+                    ArtworkView(track: point.track, size: 68, cornerRadius: 12)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(point.track.title)
+                            .font(.headline)
+                            .lineLimit(1)
+                        Text("\(point.track.artist) · fermo a \(point.time.formattedTime)")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                        if let length = point.track.duration, length > 0 {
+                            ProgressView(value: min(max(point.time / length, 0), 1))
+                                .tint(accent)
+                                .padding(.top, 4)
+                        }
+                    }
+                    Spacer(minLength: 0)
+                    Image(systemName: "play.fill")
+                        .font(.title3)
+                        .foregroundStyle(.white)
+                        .frame(width: 46, height: 46)
+                        .background(accent.gradient, in: .circle)
+                }
+                .padding(12)
+                .contentShape(.rect(cornerRadius: radius))
+                .styledSurface(in: .rect(cornerRadius: radius), interactive: true)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(Text("Riprendi \(point.track.title)"))
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(Text("Riprendi \(point.track.title)"))
     }
 }
 
-/// A daily mix: the mosaic of the artist's songs with a glass "Mix N" badge.
+/// A daily mix: the mosaic of the artist's songs with a glass "Mix N" badge (Seaglass), or a flat
+/// square cover and a "Playlist" line under the name (classic).
 struct DailyMixCard: View {
     let mix: DailyMix
     let busy: Bool
+    @Environment(\.interfaceStyle) private var style
 
     private var cover: Playlist {
         Playlist(id: UUID(), name: mix.artist, tracks: mix.covers, createdAt: .distantPast)
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            PlaylistArtwork(playlist: cover, size: 150, cornerRadius: 18)
+        let size: CGFloat = style == .classic ? 152 : 150
+        VStack(alignment: .leading, spacing: style == .classic ? 8 : 6) {
+            PlaylistArtwork(playlist: cover, size: size, cornerRadius: style == .classic ? 4 : 18)
                 .overlay(alignment: .bottomLeading) {
-                    Text("Mix \(mix.number)")
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                        .glassEffect(.regular.tint(.black.opacity(0.25)), in: .capsule)
-                        .padding(8)
+                    if style != .classic {
+                        Text("Mix \(mix.number)")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
+                            .glassEffect(.regular.tint(.black.opacity(0.25)), in: .capsule)
+                            .padding(8)
+                    }
                 }
                 .overlay {
                     if busy {
@@ -174,14 +209,25 @@ struct DailyMixCard: View {
                             .controlSize(.large)
                             .tint(.white)
                             .frame(width: 56, height: 56)
-                            .glassEffect(.regular, in: .circle)
+                            .background(Color.black.opacity(0.35), in: .circle)
                     }
                 }
-            Text("\(mix.artist) e simili")
-                .font(.subheadline.weight(.semibold))
-                .lineLimit(1)
+            if style == .classic {
+                Text("Mix \(mix.number) · \(mix.artist)")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .lineLimit(2)
+                Text("Playlist")
+                    .font(.caption)
+                    .foregroundStyle(ClassicPalette.secondaryText)
+                    .lineLimit(1)
+            } else {
+                Text("\(mix.artist) e simili")
+                    .font(.subheadline.weight(.semibold))
+                    .lineLimit(1)
+            }
         }
-        .frame(width: 150, alignment: .leading)
+        .frame(width: size, alignment: .leading)
         .contentShape(.rect)
     }
 }

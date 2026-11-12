@@ -49,6 +49,9 @@ struct RootView: View {
         .sheet(isPresented: $router.showSettings) {
             SettingsView().appEnvironment()
         }
+        .sheet(item: $router.trackActions) { track in
+            TrackActionSheet(track: track).appEnvironment()
+        }
         .sheet(item: $router.mixTarget) { target in
             PlaylistMixView(playlistID: target.playlistID, opensFirst: target.opensFirst, opensOptions: target.options,
                             opensEditing: target.editing)
@@ -339,6 +342,7 @@ extension View {
 /// the bottom, the mini player above it, the settings behind the profile button (see `InterfaceStyle`).
 private struct ClassicTabs: View {
     @EnvironmentObject private var player: PlayerController
+    @EnvironmentObject private var router: AppRouter
     @Binding var selection: AppTab
 
     var body: some View {
@@ -359,5 +363,10 @@ private struct ClassicTabs: View {
         }
         .overlay(alignment: .bottom) { ClassicBottomBar(selection: $selection) }
         .background(ClassicPalette.background.ignoresSafeArea())
+        .onChange(of: router.pendingTab) { _, tab in
+            guard let tab else { return }
+            selection = tab
+            router.pendingTab = nil
+        }
     }
 }

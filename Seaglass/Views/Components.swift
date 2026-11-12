@@ -139,6 +139,7 @@ struct TrackRow: View {
     @EnvironmentObject private var downloads: DownloadManager
     @Environment(\.layoutDirection) private var layoutDirection
     @Environment(\.playerTextScale) private var playerTextScale
+    @Environment(\.interfaceStyle) private var style
     @State private var dragOffset: CGFloat = 0
     // Only for actions. Observing them would redraw every row on screen for each player change
     // (loading, karaoke progress, lyrics…); `NowPlayingState` says just which song plays.
@@ -262,14 +263,26 @@ struct TrackRow: View {
             .buttonStyle(.plain)
 
             if showsMenu {
-                Menu {
-                    TrackMenu(track: track)
-                } label: {
-                    Image(systemName: "ellipsis")
-                        .font(.body.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 34, height: 44)
-                        .contentShape(.rect)
+                // Classic: a bottom sheet like the common streaming apps; Seaglass: the system menu.
+                if style == .classic {
+                    Button { router.trackActions = track } label: {
+                        Image(systemName: "ellipsis")
+                            .font(.body.weight(.semibold))
+                            .foregroundStyle(ClassicPalette.secondaryText)
+                            .frame(width: 34, height: 44)
+                            .contentShape(.rect)
+                    }
+                    .buttonStyle(.plain)
+                } else {
+                    Menu {
+                        TrackMenu(track: track)
+                    } label: {
+                        Image(systemName: "ellipsis")
+                            .font(.body.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 34, height: 44)
+                            .contentShape(.rect)
+                    }
                 }
             }
         }
@@ -291,11 +304,12 @@ struct TrackRow: View {
             }
     }
 
-    /// The download mark (waiting, a filling ring, or the arrow of a saved song), then the length.
+    /// The download mark (waiting, a filling ring, or the arrow of a saved song), then the length
+    /// (hidden in the classic style: those lists keep only the cover, the name and ···).
     private var trailing: some View {
         HStack(spacing: 8) {
             DownloadIndicator(state: downloads.state(of: track))
-            if let duration = track.duration {
+            if style != .classic, let duration = track.duration {
                 Text(duration.formattedTime)
                     .font(textScale == 1 ? .caption.monospacedDigit() : .system(size: 12 * textScale).monospacedDigit())
                     .foregroundStyle(.secondary)
@@ -309,15 +323,17 @@ struct TrackCard: View {
     let track: Track
     var size: CGFloat = 150
 
+    @Environment(\.interfaceStyle) private var style
+
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            ArtworkView(track: track, size: size, cornerRadius: 14)
+            ArtworkView(track: track, size: size, cornerRadius: style == .classic ? 4 : 14)
             Text(track.title)
                 .font(.subheadline.weight(.semibold))
                 .lineLimit(1)
             Text(track.artist)
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(style == .classic ? ClassicPalette.secondaryText : Color.secondary)
                 .lineLimit(1)
         }
         .frame(width: size, alignment: .leading)
@@ -351,6 +367,8 @@ struct PlayShuffleButtons: View {
     let source: String
     /// The playlist they come from, whose Mix then plays.
     var playlist: UUID? = nil
+    /// Classic: when false, only the shuffle + play pair (for a row that already has a Spacer).
+    var fillsWidth = true
     private var player: PlayerController { .shared }
     @AppStorage(Preferences.accent) private var accent: AccentChoice = .pink
     @Environment(\.interfaceStyle) private var style
@@ -359,10 +377,10 @@ struct PlayShuffleButtons: View {
         if style == .classic { classic } else { seaglass }
     }
 
-    /// As in the common streaming apps: on the right, shuffle as an icon and play as a big green circle.
+    /// As in the common streaming apps: shuffle as an icon and play as a big green circle.
     private var classic: some View {
         HStack(spacing: 18) {
-            Spacer(minLength: 0)
+            if fillsWidth { Spacer(minLength: 0) }
             Button {
                 player.play(tracks, startAt: Int.random(in: tracks.indices), source: source, shuffled: true,
                             playlist: playlist)

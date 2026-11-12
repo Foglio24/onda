@@ -782,3 +782,15 @@
 "Classico è nero e piatto, in verde, con le schede Home, Cerca e La tua libreria e il mini player nei colori della copertina, come le app di streaming più diffuse." = "Klassisch ist schwarz und flach, in Grün, mit den Tabs Start, Suchen und Deine Bibliothek und dem Miniplayer in den Farben des Covers, wie die verbreitetsten Streaming-Apps.";
 "Nello stile Classico il colore è il verde." = "Im Stil Klassisch ist die Farbe Grün.";
 "Sfoglia tutto" = "Alle durchsuchen";
+"Tutti" = "Alle";
+"Musica" = "Musik";
+"Recenti" = "Zuletzt";
+"Cosa vuoi ascoltare?" = "Wonach suchst du?";
+"Brani che ti piacciono" = "Lieblingssongs";
+"Playlist · %lld brani" = "Playlist · %lld Songs";
+"%lld seguiti" = "%lld gefolgt";
+"Nessun podcast" = "Keine Podcasts";
+"Segui un podcast dalla ricerca: apparirà qui." = "Folge einem Podcast über die Suche – er erscheint hier.";
+"Elenco" = "Liste";
+"Griglia" = "Raster";
+"Brano · %@" = "Song · %@";

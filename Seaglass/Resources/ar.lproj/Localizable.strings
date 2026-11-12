@@ -782,3 +782,15 @@
 "Classico è nero e piatto, in verde, con le schede Home, Cerca e La tua libreria e il mini player nei colori della copertina, come le app di streaming più diffuse." = "النمط الكلاسيكي أسود ومسطّح باللون الأخضر، مع علامات التبويب الرئيسية وبحث ومكتبتك والمشغّل المصغّر بألوان الغلاف، مثل تطبيقات البث الأكثر شيوعًا.";
 "Nello stile Classico il colore è il verde." = "في النمط الكلاسيكي يكون اللون أخضر.";
 "Sfoglia tutto" = "تصفّح الكل";
+"Tutti" = "الكل";
+"Musica" = "الموسيقى";
+"Recenti" = "الأخيرة";
+"Cosa vuoi ascoltare?" = "ماذا تريد أن تسمع؟";
+"Brani che ti piacciono" = "الأغاني التي أعجبتك";
+"Playlist · %lld brani" = "قائمة تشغيل · %lld مقاطع";
+"%lld seguiti" = "%lld متابَع";
+"Nessun podcast" = "لا بودكاست";
+"Segui un podcast dalla ricerca: apparirà qui." = "تابع بودكاستًا من البحث ليظهر هنا.";
+"Elenco" = "قائمة";
+"Griglia" = "شبكة";
+"Brano · %@" = "مقطع · %@";

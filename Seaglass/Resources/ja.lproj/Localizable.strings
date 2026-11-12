@@ -782,3 +782,15 @@
 "Classico è nero e piatto, in verde, con le schede Home, Cerca e La tua libreria e il mini player nei colori della copertina, come le app di streaming più diffuse." = "クラシックは黒くフラットで緑を基調とし、ホーム・検索・マイライブラリのタブと、カバーの色をまとったミニプレーヤーを備えた、一般的なストリーミングアプリのようなスタイルです。";
 "Nello stile Classico il colore è il verde." = "クラシックスタイルでは色は緑になります。";
 "Sfoglia tutto" = "すべてを見る";
+"Tutti" = "すべて";
+"Musica" = "音楽";
+"Recenti" = "最近";
+"Cosa vuoi ascoltare?" = "何を聴きますか？";
+"Brani che ti piacciono" = "お気に入りの曲";
+"Playlist · %lld brani" = "プレイリスト · %lld曲";
+"%lld seguiti" = "%lld フォロー中";
+"Nessun podcast" = "ポッドキャストはありません";
+"Segui un podcast dalla ricerca: apparirà qui." = "検索からポッドキャストをフォローすると、ここに表示されます。";
+"Elenco" = "リスト";
+"Griglia" = "グリッド";
+"Brano · %@" = "曲 · %@";

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.35.1 (2026-11-12)
+
+### Changed
+- **Classico closer to the common streaming apps** (iPhone and iPad). Pure black pages; Home opens with Tutti / Musica / Podcast pills, an eight-tile quick-access grid with no title, **Continua ad ascoltare** and **Recenti** (with Mostra tutto); Cerca has a white **Cosa vuoi ascoltare?** field, Musica / Podcast cards above Sfoglia tutto, and recent searches with × to clear; La tua libreria has Playlist / Podcast / File locali pills, Recenti + list/grid, and dense rows (Brani che ti piacciono pinned in purple); playlist pages put download / share / ··· beside shuffle and the green play; song ··· opens a bottom sheet of actions instead of the system menu.
+
 ## 1.35.0 (2026-11-12)
 
 ### Added

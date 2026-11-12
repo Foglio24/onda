@@ -782,3 +782,15 @@
 "Classico è nero e piatto, in verde, con le schede Home, Cerca e La tua libreria e il mini player nei colori della copertina, come le app di streaming più diffuse." = "经典风格为黑色扁平设计，以绿色为主色，底部有主页、搜索和你的资料库标签，迷你播放器采用封面的颜色，就像最常见的流媒体应用。";
 "Nello stile Classico il colore è il verde." = "在经典风格中，主色为绿色。";
 "Sfoglia tutto" = "浏览全部";
+"Tutti" = "全部";
+"Musica" = "音乐";
+"Recenti" = "最近";
+"Cosa vuoi ascoltare?" = "想听什么？";
+"Brani che ti piacciono" = "已点赞的歌曲";
+"Playlist · %lld brani" = "播放列表 · %lld 首歌曲";
+"%lld seguiti" = "已关注 %lld";
+"Nessun podcast" = "暂无播客";
+"Segui un podcast dalla ricerca: apparirà qui." = "在搜索中关注播客后，会显示在这里。";
+"Elenco" = "列表";
+"Griglia" = "网格";
+"Brano · %@" = "歌曲 · %@";

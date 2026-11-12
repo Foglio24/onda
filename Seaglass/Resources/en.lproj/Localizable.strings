@@ -861,3 +861,15 @@
 "Classico è nero e piatto, in verde, con le schede Home, Cerca e La tua libreria e il mini player nei colori della copertina, come le app di streaming più diffuse." = "Classic is black and flat, in green, with the Home, Search and Your Library tabs and the mini player in the cover's colours, like the most popular streaming apps.";
 "Nello stile Classico il colore è il verde." = "In the Classic style the colour is green.";
 "Sfoglia tutto" = "Browse all";
+"Tutti" = "All";
+"Musica" = "Music";
+"Recenti" = "Recents";
+"Cosa vuoi ascoltare?" = "What do you want to listen to?";
+"Brani che ti piacciono" = "Liked Songs";
+"Playlist · %lld brani" = "Playlist · %lld songs";
+"%lld seguiti" = "%lld followed";
+"Nessun podcast" = "No podcasts";
+"Segui un podcast dalla ricerca: apparirà qui." = "Follow a podcast from Search and it will show up here.";
+"Elenco" = "List";
+"Griglia" = "Grid";
+"Brano · %@" = "Song · %@";

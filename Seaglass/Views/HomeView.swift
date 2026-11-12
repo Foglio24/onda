@@ -14,6 +14,13 @@ struct HomeView: View {
     @State private var topTracks: [Track] = []
     @State private var busyItem: String?
     @State private var errorText: String?
+    /// Classic Home filter: Tutti / Musica / Podcast (nil = Tutti selected via the first pill).
+    @State private var homeFilter: HomeFilter = .all
+    @State private var showAllRecent = false
+
+    private enum HomeFilter: Hashable {
+        case all, music, podcasts
+    }
 
     private struct Mood: Identifiable {
         let title: String
@@ -62,18 +69,23 @@ struct HomeView: View {
             ScrollView {
                 if Self.isMac {
                     macSections
+                } else if style == .classic {
+                    classicSections
                 } else {
                     phoneSections
                 }
             }
             // In the colours of the song playing, as the other pages (on a Mac too).
             .background { AmbientBackground() }
-            .navigationTitle(Self.isMac ? String(localized: "Home") : greeting)
+            .navigationTitle(classicPhone ? "" : (Self.isMac ? String(localized: "Home") : greeting))
+            .navigationBarTitleDisplayMode(classicPhone ? .inline : .large)
             .toolbar {
-                if style == .classic, !Self.isMac {
+                if classicPhone {
                     ToolbarItem(placement: .topBarLeading) { ProfileButton() }
                 }
-                ToolbarItem(placement: .topBarTrailing) { RecognitionButton() }
+                if !classicPhone {
+                    ToolbarItem(placement: .topBarTrailing) { RecognitionButton() }
+                }
             }
             // Once a day, and as soon as there is a first song to go on.
             .task(id: "\(Recommendations.today)|\(library.history.isEmpty)") {
@@ -90,8 +102,13 @@ struct HomeView: View {
             } message: {
                 Text(errorText ?? "")
             }
+            .navigationDestination(isPresented: $showAllRecent) {
+                TrackCollectionView(collection: .history)
+            }
         }
     }
+
+    private var classicPhone: Bool { style == .classic && !Self.isMac }
 
     private var phoneSections: some View {
         VStack(alignment: .leading, spacing: 30) {
@@ -112,6 +129,152 @@ struct HomeView: View {
         .padding(.vertical, 8)
     }
 
+    /// Classic Home: profile + filter pills, quick-access grid with no title, then Continua /
+    /// Recenti as on the common streaming apps.
+    private var classicSections: some View {
+        VStack(alignment: .leading, spacing: 22) {
+            classicFilterPills
+            if homeFilter != .podcasts {
+                // Tutti and Musica share the music home; Podcast is its own page of followed shows.
+                let shortcuts = Array(self.shortcuts.prefix(8))
+                if !shortcuts.isEmpty {
+                    tileGrid(shortcuts, columns: sizeClass == .regular ? 3 : 2) { shortcutTile($0) }
+                        .padding(.horizontal, 16)
+                }
+                if nowPlaying.isIdle, let point = player.resumePoint {
+                    VStack(alignment: .leading, spacing: 12) {
+                        ClassicSectionHeader(title: "Continua ad ascoltare")
+                        ScrollView(.horizontal) {
+                            HStack(spacing: 14) {
+                                ResumeCard(point: point, accent: accent.color) { player.continueListening(point) }
+                                ForEach(Recommendations.dailyMixes().prefix(6)) { mix in
+                                    Button { playMix(mix) } label: {
+                                        DailyMixCard(mix: mix, busy: busyItem == mix.id)
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                            .padding(.horizontal, 16)
+                        }
+                        .scrollIndicators(.hidden)
+                    }
+                } else {
+                    let mixes = Recommendations.dailyMixes()
+                    if !mixes.isEmpty {
+                        VStack(alignment: .leading, spacing: 12) {
+                            ClassicSectionHeader(title: "Continua ad ascoltare")
+                            ScrollView(.horizontal) {
+                                LazyHStack(spacing: 14) {
+                                    ForEach(mixes) { mix in
+                                        Button { playMix(mix) } label: {
+                                            DailyMixCard(mix: mix, busy: busyItem == mix.id)
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                }
+                                .padding(.horizontal, 16)
+                            }
+                            .scrollIndicators(.hidden)
+                        }
+                    }
+                }
+                if !quickPicks.isEmpty { classicQuickPicks }
+                if !library.history.isEmpty {
+                    VStack(alignment: .leading, spacing: 12) {
+                        ClassicSectionHeader(title: "Recenti") { showAllRecent = true }
+                        ScrollView(.horizontal) {
+                            LazyHStack(spacing: 12) {
+                                ForEach(library.history.prefix(20)) { track in
+                                    Button { player.playRadio(from: track) } label: {
+                                        ArtworkView(track: track, size: 112, cornerRadius: 4)
+                                            .contextMenu { TrackMenu(track: track) }
+                                    }
+                                    .buttonStyle(.plain)
+                                    .accessibilityLabel(Text(track.title))
+                                }
+                            }
+                            .padding(.horizontal, 16)
+                        }
+                        .scrollIndicators(.hidden)
+                    }
+                }
+                moodsSection
+            } else {
+                classicPodcasts
+            }
+        }
+        .padding(.top, 4)
+        .padding(.bottom, 16)
+    }
+
+    private var classicFilterPills: some View {
+        ScrollView(.horizontal) {
+            HStack(spacing: 8) {
+                // One selected at a time (Tutti by default), as the common streaming apps.
+                ClassicPill(title: "Tutti", selected: homeFilter == .all) { homeFilter = .all }
+                ClassicPill(title: "Musica", selected: homeFilter == .music) { homeFilter = .music }
+                ClassicPill(title: "Podcast", selected: homeFilter == .podcasts) { homeFilter = .podcasts }
+            }
+            .padding(.horizontal, 16)
+        }
+        .scrollIndicators(.hidden)
+    }
+
+    private var classicQuickPicks: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            ClassicSectionHeader(title: "Scelti per te")
+            ScrollView(.horizontal) {
+                LazyHGrid(rows: Array(repeating: GridItem(.fixed(58), spacing: 8), count: 4), spacing: 20) {
+                    ForEach(Array(quickPicks.enumerated()), id: \.element.id) { position, track in
+                        TrackRow(track: track, swipe: .none) {
+                            player.play(quickPicks, startAt: position, source: String(localized: "Scelti per te"))
+                        }
+                        .frame(width: 320)
+                    }
+                }
+                .scrollTargetLayout()
+                .padding(.horizontal, 16)
+            }
+            .scrollTargetBehavior(.viewAligned)
+            .scrollIndicators(.hidden)
+        }
+    }
+
+    private var classicPodcasts: some View {
+        let shows = PodcastLibrary.shared.followed
+        return VStack(alignment: .leading, spacing: 12) {
+            if shows.isEmpty {
+                ContentUnavailableView("Nessun podcast", systemImage: "mic",
+                                       description: Text("Segui un podcast dalla ricerca: apparirà qui."))
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 40)
+            } else {
+                ClassicSectionHeader(title: "Podcast")
+                LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 14) {
+                    ForEach(shows) { show in
+                        NavigationLink {
+                            MusicPageView(page: .podcast(id: show.id))
+                        } label: {
+                            VStack(alignment: .leading, spacing: 8) {
+                                CachedImage(url: show.artworkURL, pixels: 360) {
+                                    Rectangle().fill(ClassicPalette.elevated)
+                                }
+                                .aspectRatio(1, contentMode: .fit)
+                                .clipShape(.rect(cornerRadius: 4))
+                                Text(show.title)
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(.white)
+                                    .lineLimit(2)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 16)
+            }
+        }
+    }
+
     // MARK: Sections
 
     private func section<Content: View>(_ title: LocalizedStringKey,
@@ -124,7 +287,7 @@ struct HomeView: View {
         }
     }
 
-    /// Favourites, mixes, the playlists in use and downloads, up to six.
+    /// Favourites, mixes, the playlists in use and downloads (up to eight in classic, six otherwise).
     private var shortcuts: [HomeShortcut] {
         let playlists = PlaylistUsage.sorted(library.playlists).map(HomeShortcut.playlist)
         var items: [HomeShortcut] = []
@@ -135,7 +298,7 @@ struct HomeView: View {
         if !topTracks.isEmpty { items.append(.topMonth) }
         if !library.downloads.isEmpty { items.append(.downloads) }
         items += playlists.dropFirst(2)
-        return Array(items.prefix(6))
+        return Array(items.prefix(classicPhone ? 8 : 6))
     }
 
     private func shortcutsSection(_ shortcuts: [HomeShortcut]) -> some View {
@@ -173,7 +336,8 @@ struct HomeView: View {
 
     private func title(of shortcut: HomeShortcut) -> String {
         switch shortcut {
-        case .liked: return String(localized: "Preferiti")
+        case .liked:
+            return classicPhone ? String(localized: "Brani che ti piacciono") : String(localized: "Preferiti")
         case .downloads: return String(localized: "Download")
         case .playlist(let playlist): return playlist.name
         case .tasteMix: return "Taste Mix"
@@ -184,7 +348,9 @@ struct HomeView: View {
 
     @ViewBuilder private func artwork(of shortcut: HomeShortcut) -> some View {
         switch shortcut {
-        case .liked: SymbolArtwork(symbol: "heart.fill", tint: .pink)
+        // Purple heart tile in classic, as the common streaming apps' liked songs.
+        case .liked: SymbolArtwork(symbol: "heart.fill",
+                                   tint: style == .classic ? Color(red: 0.45, green: 0.20, blue: 0.85) : .pink)
         case .downloads: SymbolArtwork(symbol: "arrow.down.circle.fill", tint: .blue)
         case .playlist(let playlist): PlaylistArtwork(playlist: playlist, cornerRadius: 0)
         case .tasteMix: SymbolArtwork(symbol: "sparkles", tint: .purple)

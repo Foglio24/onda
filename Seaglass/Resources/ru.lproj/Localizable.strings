@@ -782,3 +782,15 @@
 "Classico è nero e piatto, in verde, con le schede Home, Cerca e La tua libreria e il mini player nei colori della copertina, come le app di streaming più diffuse." = "Классический — чёрный и плоский, в зелёном цвете, с вкладками «Главная», «Поиск» и «Ваша медиатека» и мини-плеером в цветах обложки, как в самых популярных стриминговых приложениях.";
 "Nello stile Classico il colore è il verde." = "В стиле «Классический» цвет — зелёный.";
 "Sfoglia tutto" = "Все категории";
+"Tutti" = "Все";
+"Musica" = "Музыка";
+"Recenti" = "Недавние";
+"Cosa vuoi ascoltare?" = "Что хотите послушать?";
+"Brani che ti piacciono" = "Любимые треки";
+"Playlist · %lld brani" = "Плейлист · %lld треков";
+"%lld seguiti" = "%lld в подписках";
+"Nessun podcast" = "Нет подкастов";
+"Segui un podcast dalla ricerca: apparirà qui." = "Подпишитесь на подкаст в поиске — он появится здесь.";
+"Elenco" = "Список";
+"Griglia" = "Сетка";
+"Brano · %@" = "Трек · %@";

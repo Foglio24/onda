@@ -191,38 +191,100 @@ struct PlaylistDetailView: View {
 
     private func header(_ playlist: Playlist) -> some View {
         let classic = style == .classic
-        return VStack(spacing: 14) {
+        return VStack(spacing: classic ? 16 : 14) {
             Button { showPhotoPicker = true } label: {
-                PlaylistArtwork(playlist: playlist, size: 220, cornerRadius: 22)
+                PlaylistArtwork(playlist: playlist, size: classic ? 232 : 220, cornerRadius: classic ? 4 : 22)
                     .overlay(alignment: .bottomTrailing) {
-                        Image(systemName: "camera.fill")
-                            .font(.footnote.weight(.semibold))
-                            .padding(9)
-                            .styledSurface(in: .circle)
-                            .padding(10)
+                        if !classic {
+                            Image(systemName: "camera.fill")
+                                .font(.footnote.weight(.semibold))
+                                .padding(9)
+                                .styledSurface(in: .circle)
+                                .padding(10)
+                        }
                     }
-                    .shadow(color: .black.opacity(0.35), radius: 24, y: 12)
+                    .shadow(color: .black.opacity(classic ? 0.45 : 0.35), radius: classic ? 18 : 24, y: classic ? 8 : 12)
             }
             .buttonStyle(.plain)
 
             // The classic style has the name and the summary on the left, under the cover.
-            VStack(alignment: classic ? .leading : .center, spacing: 4) {
+            VStack(alignment: classic ? .leading : .center, spacing: classic ? 6 : 4) {
                 Text(playlist.name)
-                    .font(classic ? .title.bold() : .title2.bold())
+                    .font(classic ? .largeTitle.bold() : .title2.bold())
                     .multilineTextAlignment(classic ? .leading : .center)
                 Text(summary(playlist))
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(classic ? ClassicPalette.secondaryText : Color.secondary)
             }
             .frame(maxWidth: .infinity, alignment: classic ? .leading : .center)
             if !playlist.tracks.isEmpty {
-                PlayShuffleButtons(tracks: playlist.tracks, source: playlist.name, playlist: playlist.id)
-                if playlist.tracks.count >= 2 { mixRow(playlist) }
-                downloadButton(playlist)
+                if classic {
+                    classicActionRow(playlist)
+                } else {
+                    PlayShuffleButtons(tracks: playlist.tracks, source: playlist.name, playlist: playlist.id)
+                    if playlist.tracks.count >= 2 { mixRow(playlist) }
+                    downloadButton(playlist)
+                }
             }
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
+    }
+
+    /// Classic playlist chrome: download / share / menu on the left, shuffle + green play on the right.
+    private func classicActionRow(_ playlist: Playlist) -> some View {
+        let status = downloads.status(of: playlist.tracks)
+        let isComplete = status.total > 0 && status.saved == status.total
+        return HStack(spacing: 16) {
+            Button {
+                if status.inProgress > 0 { downloads.cancel(playlist.tracks) }
+                else if !isComplete { downloads.downloadAll(playlist.tracks) }
+            } label: {
+                Group {
+                    if status.inProgress > 0 {
+                        ProgressRing(value: status.fraction, size: 22)
+                    } else {
+                        Image(systemName: isComplete ? "arrow.down.circle.fill" : "arrow.down.circle")
+                            .font(.title2)
+                            .foregroundStyle(isComplete ? ClassicPalette.accent : ClassicPalette.secondaryText)
+                    }
+                }
+                .frame(width: 36, height: 36)
+            }
+            .buttonStyle(.plain)
+            .disabled(playlist.tracks.isEmpty || (isComplete && status.inProgress == 0))
+            .accessibilityLabel(Text(isComplete ? "Playlist scaricata" : "Scarica tutta la playlist"))
+
+            ShareLink(item: playlistShareText(playlist)) {
+                Image(systemName: "square.and.arrow.up")
+                    .font(.title2)
+                    .foregroundStyle(ClassicPalette.secondaryText)
+                    .frame(width: 36, height: 36)
+            }
+
+            toolbarMenu(playlist)
+                .font(.title2)
+                .foregroundStyle(ClassicPalette.secondaryText)
+
+            Spacer(minLength: 0)
+
+            if playlist.tracks.count >= 2 {
+                Button { openMix() } label: {
+                    Image(systemName: "slider.horizontal.3")
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(ClassicPalette.secondaryText)
+                        .frame(width: 36, height: 36)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(Text("Mix"))
+            }
+            PlayShuffleButtons(tracks: playlist.tracks, source: playlist.name, playlist: playlist.id,
+                               fillsWidth: false)
+        }
+    }
+
+    private func playlistShareText(_ playlist: Playlist) -> String {
+        "\(playlist.name) · \(playlist.countLabel)"
     }
 
     /// The playlist's Mix on or off in one tap, and its transitions (the Mix sheet). On, every

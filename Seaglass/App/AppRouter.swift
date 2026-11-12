@@ -47,6 +47,8 @@ final class AppRouter: ObservableObject {
     @Published var showPlayer = false
     /// The settings as a sheet: the classic style's profile button (it has no Settings tab).
     @Published var showSettings = false
+    /// The classic style's song actions as a bottom sheet (see `TrackActionSheet`).
+    @Published var trackActions: Track?
     /// Where the mini player is on screen, for the player card to grow out of (see `PlayerCard`).
     /// Not published: it changes with every layout and nothing needs to redraw for it.
     var miniPlayerFrame: CGRect = .zero
@@ -54,6 +56,8 @@ final class AppRouter: ObservableObject {
     @Published var page: MusicPage?
     /// A search to run when the Search tab appears (used by `LaunchScene`).
     @Published var pendingSearch: String?
+    /// Switch the classic bottom tabs (Library's search icon → Cerca).
+    @Published var pendingTab: AppTab?
     /// A playlist's Mix opened from outside its page (used by `LaunchScene`).
     @Published var mixTarget: MixTarget?
     /// The note after a swipe on a song (see `TrackRow`), for a few seconds.

@@ -17,6 +17,8 @@ struct SearchView: View {
     @State private var errorText: String?
     @State private var path: [MusicPage] = []
     @State private var showAllSongs = false
+    /// Classic search field focused: shows recent searches over the browse tiles.
+    @FocusState private var classicSearchFocused: Bool
 
     /// Songs shown before "Mostra tutti i brani", so playlists and artists stay in sight.
     private static let songsPreview = 6
@@ -30,38 +32,130 @@ struct SearchView: View {
     }
 
     private static let recentLimit = 20
+    private var classicPhone: Bool { style == .classic && !ProcessInfo.processInfo.isMacCatalystApp }
 
     var body: some View {
         NavigationStack(path: $path) {
+            Group {
+                if classicPhone {
+                    classicBody
+                } else {
+                    seaglassBody
+                }
+            }
+            .background { AmbientBackground() }
+            .navigationDestination(for: MusicPage.self) { MusicPageView(page: $0) }
+            .task(id: query) { await search() }
+            .onAppear(perform: takePendingSearch)
+            .onChange(of: router.pendingSearch) { _, _ in takePendingSearch() }
+        }
+    }
+
+    private var seaglassBody: some View {
+        List {
+            Group {
+                if query.trimmed.isEmpty {
+                    recentSection
+                } else {
+                    resultSections
+                }
+            }
+        }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .overlay { overlay }
+        .navigationTitle("Cerca")
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) { RecognitionButton() }
+        }
+        .searchable(text: $query, prompt: "Brani, playlist e artisti")
+        .onSubmit(of: .search) { remember(query) }
+    }
+
+    /// Classic: white search field, category tiles, browse-all genres, recent when typing or focused.
+    private var classicBody: some View {
+        VStack(spacing: 0) {
+            classicSearchChrome
             List {
-                // No lines between the rows in the classic style.
                 Group {
                     if query.trimmed.isEmpty {
-                        recentSection
-                        if style == .classic { browseSection }
+                        // Focused: recent searches (as the common streaming apps). Idle: browse tiles.
+                        if classicSearchFocused {
+                            recentSection
+                        } else {
+                            classicCategorySection
+                            browseSection
+                        }
                     } else {
                         resultSections
                     }
                 }
-                .listRowSeparator(style == .classic ? .hidden : .automatic)
+                .listRowSeparator(.hidden)
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
-            .background { AmbientBackground() }
             .overlay { overlay }
-            .navigationTitle("Cerca")
-            .toolbar {
-                if style == .classic, !ProcessInfo.processInfo.isMacCatalystApp {
-                    ToolbarItem(placement: .topBarLeading) { ProfileButton() }
+        }
+        .navigationTitle("")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                HStack(spacing: 10) {
+                    ProfileButton()
+                    Text("Cerca")
+                        .font(.title.bold())
+                        .foregroundStyle(.white)
                 }
-                ToolbarItem(placement: .topBarTrailing) { RecognitionButton() }
             }
-            .navigationDestination(for: MusicPage.self) { MusicPageView(page: $0) }
-            .searchable(text: $query, prompt: "Brani, playlist e artisti")
-            .onSubmit(of: .search) { remember(query) }
-            .task(id: query) { await search() }
-            .onAppear(perform: takePendingSearch)
-            .onChange(of: router.pendingSearch) { _, _ in takePendingSearch() }
+            ToolbarItem(placement: .topBarTrailing) { RecognitionButton() }
+        }
+    }
+
+    private var classicSearchChrome: some View {
+        HStack(spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundStyle(.black.opacity(0.7))
+                TextField("Cosa vuoi ascoltare?", text: $query)
+                    .focused($classicSearchFocused)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .submitLabel(.search)
+                    .foregroundStyle(.black)
+                    .tint(ClassicPalette.accent)
+                    .onSubmit { remember(query) }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 11)
+            .background(Color.white, in: .rect(cornerRadius: 8))
+            .environment(\.colorScheme, .light)
+            if classicSearchFocused || !query.isEmpty {
+                Button("Annulla") {
+                    query = ""
+                    classicSearchFocused = false
+                }
+                .font(.body.weight(.semibold))
+                .foregroundStyle(.white)
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.bottom, 10)
+    }
+
+    /// Musica / Podcast as the first browse row (tapping starts that search).
+    private var classicCategorySection: some View {
+        Section {
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
+                ForEach(BrowseTile.categories) { tile in
+                    Button { query = tile.query } label: { BrowseTileView(tile: tile) }
+                        .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 16)
+            .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 8, trailing: 0))
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
         }
     }
 
@@ -182,7 +276,28 @@ struct SearchView: View {
     /// it goes to the favourites or leaves the history, held it opens its menu. The rest (a search, an
     /// artist, an album, a playlist) opens when tapped and leaves the history by a swipe left or held.
     @ViewBuilder private func recentRow(_ entry: RecentSearch) -> some View {
-        if let track = entry.track {
+        if classicPhone {
+            Button { openRecent(entry) } label: {
+                RecentSearchRow(entry: entry, trailing: AnyView(
+                    HStack(spacing: 14) {
+                        if entry.track.map({ Library.shared.isLiked($0) }) == true {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(ClassicPalette.accent)
+                        }
+                        Button { forget(entry) } label: {
+                            Image(systemName: "xmark")
+                                .font(.footnote.weight(.bold))
+                                .foregroundStyle(ClassicPalette.secondaryText)
+                                .frame(width: 28, height: 28)
+                                .contentShape(.rect)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                ))
+            }
+            .buttonStyle(.plain)
+            .listRowBackground(Color.clear)
+        } else if let track = entry.track {
             TrackRow(track: track, remove: { forget(entry) }) { openRecent(entry) }
                 .listRowBackground(Color.clear)
         } else {
@@ -393,9 +508,10 @@ struct RecentSearch: Codable, Hashable, Identifiable {
 }
 
 /// A row of the search's history: the cover (round for an artist) or, for a search sent, a
-/// magnifying glass, beside the title.
+/// magnifying glass, beside the title. Optional trailing content (classic: the green tick and ×).
 private struct RecentSearchRow: View {
     let entry: RecentSearch
+    var trailing: AnyView? = nil
 
     var body: some View {
         HStack(spacing: 12) {
@@ -403,17 +519,24 @@ private struct RecentSearchRow: View {
                 .frame(width: 48, height: 48)
             VStack(alignment: .leading, spacing: 2) {
                 Text(entry.title)
-                    .font(.body)
+                    .font(.body.weight(.semibold))
                     .foregroundStyle(.primary)
                     .lineLimit(1)
                 if !entry.subtitle.isEmpty {
-                    Text(entry.subtitle)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                    Group {
+                        if entry.kind == .song {
+                            Text("Brano · \(entry.subtitle)")
+                        } else {
+                            Text(entry.subtitle)
+                        }
+                    }
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
                 }
             }
             Spacer(minLength: 0)
+            if let trailing { trailing }
         }
         .contentShape(.rect)
     }
@@ -468,6 +591,12 @@ private struct BrowseTile: Identifiable {
     let symbol: String
     let tint: Color
     var id: String { query }
+
+    /// The two leading category cards above "Sfoglia tutto".
+    static var categories: [BrowseTile] { [
+        BrowseTile(title: "Musica", query: "top songs", symbol: "music.note", tint: Color(red: 0.86, green: 0.15, blue: 0.47)),
+        BrowseTile(title: "Podcast", query: "podcasts", symbol: "mic.fill", tint: Color(red: 0.05, green: 0.40, blue: 0.28)),
+    ] }
 
     static var all: [BrowseTile] { [
         BrowseTile(title: "Pop", query: "pop hits", symbol: "star.fill", tint: Color(red: 0.86, green: 0.15, blue: 0.47)),
