@@ -89,13 +89,10 @@ struct AmbientBackground: View {
 
     var body: some View {
         if style == .classic {
-            ZStack(alignment: .top) {
-                ClassicPalette.background
-                LinearGradient(colors: [player.artworkColor.opacity(0.32), .clear], startPoint: .top, endPoint: .bottom)
-                    .frame(height: 300)
-            }
-            .ignoresSafeArea()
-            .animation(.easeInOut(duration: 0.8), value: player.artworkColor)
+            // Plain, as the common streaming apps' pages: a wash of the cover's colour showed as a band
+            // under the pinned header, in the light mode above all.
+            ClassicPalette.background
+                .ignoresSafeArea()
         } else {
             seaglass
         }

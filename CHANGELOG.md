@@ -3,10 +3,13 @@
 ## 1.36.0 (2026-11-12)
 
 ### Added
-- **Light and dark mode** (iPhone, iPad and Mac). **Settings › Aspetto › Modalità**: **Automatica** (as the device, the default), **Chiara** or **Scura**, for the whole app in both styles. In the light mode Classico has white pages, light grey cards and black text; the player stays dark on the cover's colours, as in the common streaming apps.
+- **Light and dark mode** (iPhone, iPad and Mac). **Settings › Aspetto › Modalità**: **Automatica** (as the device, the default), **Chiara** or **Scura**, for the whole app in both styles. In the light mode Classico has white pages, light grey cards and black text; the player stays dark on the cover's colours, as in the common streaming apps. The classic pages are plain (no wash of the cover's colour under their header).
 
 ### Changed
 - **The classic player, as the common streaming apps'.** It fills the screen with the cover as wide as the screen, and scrolls down to **Anteprima del testo** and **Prossimi brani** (the next three songs, **Apri la coda**); pulling it down past its top closes it.
+- **The queue opens as a sheet over the classic player**, as the common streaming apps': half or full height, with Coda and what plays, the song playing in green with play, the next songs with their handles only (no red delete buttons), and **Riproduzione casuale** and **Timer** at the bottom. It no longer squeezes into the player between the controls and the lyrics.
+- **The lyrics' preview under the classic player**: four lines from the one before the line being sung, wrapped in full (the button no longer covers them), sung ones white and the next ones dark, on the cover's colour; its translation button works and shows the translation under each line.
+- Under the classic player's controls, **the name of the headphones or speaker** the sound goes to, in green.
 - **The lyrics open in the classic style**, full screen on the cover's colour: the lines large on the left, the ones already sung white and the ones to come dark, the line being sung a third of the way down; the scrubber and play under them, and the karaoke. They no longer open in Seaglass's lyrics view. The queue opens on its own page.
 - **The profile menu slides in from the left** over the page, with your profile at the top, then Recenti and Impostazioni e privacy; a tap beside it or a swipe to the left closes it.
 

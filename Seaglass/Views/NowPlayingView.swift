@@ -185,6 +185,18 @@ struct NowPlayingView: View {
                     .padding(.bottom, 24)
                 }
                 .scrollIndicators(.hidden)
+                // Scrolled, the player fades out at its top instead of running into the clock (the fade
+                // grows with the scroll, so the header is untouched at rest).
+                .mask {
+                    let scrolled = min(24, max(0, classicPull))
+                    VStack(spacing: 0) {
+                        // Nothing under the status bar once scrolled, whether or not the scroll view reaches it.
+                        Color.clear.frame(height: scrolled > 0 ? geometry.safeAreaInsets.top : 0)
+                        LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom)
+                            .frame(height: scrolled)
+                        Color.black
+                    }
+                }
                 // The CI screenshots can open it scrolled to the cards under the player.
                 .defaultScrollAnchor(LaunchScene.playerPanel == "below" ? .bottom : .top)
                 .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.y + $0.contentInsets.top } action: { _, offset in
