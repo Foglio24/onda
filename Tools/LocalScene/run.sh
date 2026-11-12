@@ -54,12 +54,18 @@ if command -v lame >/dev/null; then
 else
   echo "::warning::lame isn't installed: no MP3 files"
 fi
-expected=$(find "$songs" -type f | wc -l | tr -d ' ')
-ls -lR "$songs"
+# A folder "chosen with the picker" (the scene adds it as a bookmark), beside the app's own Musica.
+picked="$work/Picked"
+mkdir -p "$picked"
+afconvert -f m4af -d aac "$work/tune.wav" "$picked/P1 Picked.m4a"
+cp "$work/tune.wav" "$picked/P2 Picked.wav"
+expected=$(( $(find "$songs" -type f | wc -l) + $(find "$picked" -type f | wc -l) ))
+ls -lR "$songs" "$picked"
 
 container=$(xcrun simctl get_app_container "$device" com.onda.player data)
-mkdir -p "$container/Documents/Musica"
+mkdir -p "$container/Documents/Musica" "$container/Documents/Picked"
 cp -R "$songs/." "$container/Documents/Musica/"
+cp -R "$picked/." "$container/Documents/Picked/"
 
 xcrun simctl launch --terminate-running-process --console-pty "$device" com.onda.player \
   -AppleLanguages "(it)" -SeaglassScene local >"$work/app.log" 2>&1 &
@@ -80,5 +86,10 @@ echo "Files: $expected, found: ${found:-none}, played: $plays, failed: $fails"
 grep -q "local-scene: done" "$work/app.log" || { echo "::error::The scene never finished (see app.log)"; failed=1; }
 [ "${found:-0}" -eq "$expected" ] || { echo "::error::The app found ${found:-no} of the $expected files in Documents/Musica"; failed=1; }
 [ "$fails" -eq 0 ] || { echo "::error::$fails of the songs didn't play"; failed=1; }
+# A song whose file has gone says so, in the app's words, and isn't looked for on YouTube.
+gone=$(grep -o "local-scene: gone .*" "$work/app.log" | tail -1)
+echo "${gone:-no line for the song whose file has gone}"
+if echo "$gone" | grep -qi "video"; then echo "::error::A song of the user's own was looked for on YouTube ($gone)"; failed=1; fi
+echo "$gone" | grep -q "non si apre" || { echo "::error::A song whose file has gone doesn't say so ($gone)"; failed=1; }
 xcrun simctl shutdown "$device" >/dev/null 2>&1 || true
 exit $failed

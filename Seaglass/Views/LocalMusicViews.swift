@@ -32,7 +32,7 @@ struct LocalMusicView: View {
         .scrollContentBackground(.hidden)
         .background { AmbientBackground() }
         .navigationTitle("File locali")
-        .task { local.refreshOnce() }
+        .task { local.refresh() }
         .alert("Cartella non raggiungibile", isPresented: $failed) {
             Button("OK", role: .cancel) {}
         }
@@ -76,6 +76,11 @@ struct LocalMusicView: View {
                 Label("Aggiungi file…", systemImage: "music.note.list")
             }
             .listRowBackground(Color.clear)
+            if local.downloading > 0 {
+                Label("Download da iCloud: \(local.downloading)", systemImage: "icloud.and.arrow.down")
+                    .foregroundStyle(.secondary)
+                    .listRowBackground(Color.clear)
+            }
             Button { local.rescan() } label: {
                 if local.scanning {
                     HStack(spacing: 10) {
@@ -103,7 +108,7 @@ struct LocalMusicView: View {
     private func folderRow(_ folder: LocalFolder) -> some View {
         let closed = local.unreachable.contains(folder.id)
         let own = folder.id == LocalMusic.appFolderID
-        let empty = !closed && !local.scanning && local.songCount(in: folder) == 0
+        let empty = !closed && !local.scanning && local.downloading == 0 && local.songCount(in: folder) == 0
         return HStack(spacing: 12) {
             Image(systemName: closed ? "exclamationmark.triangle.fill" : (own ? "iphone" : "folder.fill"))
                 .foregroundStyle(closed ? Color.orange : Color.accentColor)

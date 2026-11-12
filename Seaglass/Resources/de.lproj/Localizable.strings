@@ -773,3 +773,5 @@
 "Aggiungi file…" = "Dateien hinzufügen…";
 "Nessun brano trovato" = "Keine Titel gefunden";
 "Puoi anche mettere la musica in File › Sul mio iPhone › Seaglass › Musica: Seaglass la legge da lì, senza permessi." = "Du kannst deine Musik auch in Dateien › Auf meinem iPhone › Seaglass › Musica ablegen: Seaglass liest sie von dort, ganz ohne Berechtigungen.";
+"Download da iCloud: %lld" = "Wird aus iCloud geladen: %lld";
+"Il file %@ non si apre: controlla che sia ancora nella cartella." = "Die Datei %@ lässt sich nicht öffnen: Prüfe, ob sie noch im Ordner ist.";

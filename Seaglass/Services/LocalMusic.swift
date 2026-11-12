@@ -2,6 +2,21 @@ import AVFoundation
 import Foundation
 import ImageIO
 
+/// Why one of the user's own songs can't play.
+enum LocalSongError: LocalizedError {
+    /// Its folder can't be opened (moved, deleted, a drive that isn't there).
+    case folderClosed
+    /// The file isn't there or can't be read.
+    case unreadable(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .folderClosed: return String(localized: "Cartella non raggiungibile")
+        case .unreadable(let name): return String(localized: "Il file \(name) non si apre: controlla che sia ancora nella cartella.")
+        }
+    }
+}
+
 /// The user's own songs: audio files in folders chosen on the device (Files, iCloud Drive, a USB
 /// drive), played from where they are. A folder is kept as a bookmark that keeps the access the picker
 /// gave, its files are listed and their tags and covers read once (again only when a file is new or
@@ -20,13 +35,19 @@ final class LocalMusic: ObservableObject {
     @Published private(set) var scanned = 0
     /// Folders that can't be opened now (moved, deleted, a drive that isn't there).
     @Published private(set) var unreachable: Set<String> = []
+    /// Songs still in iCloud (or another cloud) and not on the device yet: asked for, and read once they
+    /// arrive.
+    @Published private(set) var downloading = 0
 
     private var files: [LocalFile] = []
     /// The folders being read, each with the URL its access was opened on.
     private var access: [String: URL] = [:]
     private var scopedURLs: [URL] = []
     private var scan: Task<Void, Never>?
-    private var scannedOnce = false
+    private var lastScan: Date?
+    /// Reads again while songs are still arriving from the cloud (a few times, then on the next visit).
+    private var waitTask: Task<Void, Never>?
+    private var waitRounds = 0
     /// `LocalMusicIndex.haystack` of each of `tracks`, same order, for the search.
     private var haystacks: [String] = []
 
@@ -112,9 +133,12 @@ final class LocalMusic: ObservableObject {
         files.reduce(0) { $0 + ($1.folder == folder.id ? 1 : 0) }
     }
 
-    /// Reads the folders again when the page is opened for the first time since the app started.
-    func refreshOnce() {
-        guard !scannedOnce else { return }
+    /// Reads the folders again (only what is new or changed is read again): when the page opens and when
+    /// the app comes back, so the songs copied in with Files meanwhile appear. Not more often than every
+    /// `minimumInterval` seconds.
+    func refresh(minimumInterval: TimeInterval = 2) {
+        guard !scanning else { return }
+        if let lastScan, Date().timeIntervalSince(lastScan) < minimumInterval { return }
         rescan()
     }
 
@@ -230,7 +254,7 @@ final class LocalMusic: ObservableObject {
             scanning = false
             return
         }
-        scannedOnce = true
+        lastScan = Date()
         scanning = true
         scanned = 0
         let previous = files
@@ -239,10 +263,13 @@ final class LocalMusic: ObservableObject {
             // What belongs to folders not read now (one that can't be opened) stays as it was.
             var result = previous.filter { !scanIDs.contains($0.folder) }
             var lastShown = 0
+            var waiting = 0
             for target in targets {
                 let base = target.base
-                let found = await Task.detached(priority: .utility) { Self.list(base) }.value
+                let listing = await Task.detached(priority: .utility) { Self.list(base) }.value
                 if Task.isCancelled { return }
+                waiting += listing.waiting
+                let found = listing.found
                 let folderID = target.id
                 let known = previous.filter { $0.folder == folderID }
                 let plan = LocalMusicIndex.plan(previous: known, found: found)
@@ -267,28 +294,119 @@ final class LocalMusic: ObservableObject {
             self.publish()
             self.save()
             self.scanning = false
+            self.downloading = waiting
             self.removeUnusedCovers()
+            self.waitForDownloads(waiting)
         }
     }
 
-    /// The audio files of a folder and its subfolders.
-    nonisolated private static func list(_ base: URL) -> [LocalMusicIndex.Found] {
-        let keys: [URLResourceKey] = [.isRegularFileKey, .fileSizeKey, .contentModificationDateKey]
-        guard let walker = FileManager.default.enumerator(at: base, includingPropertiesForKeys: keys,
-                                                          options: [.skipsHiddenFiles, .skipsPackageDescendants]) else { return [] }
-        // The names between the root and the file ("/" is only the root, or a trailing slash).
-        let baseCount = base.pathComponents.filter { $0 != "/" }.count
+    /// While songs are on their way from the cloud, the folders are read again every few seconds (up to
+    /// two minutes), so they appear once they arrive.
+    private func waitForDownloads(_ waiting: Int) {
+        waitTask?.cancel()
+        guard waiting > 0, waitRounds < 15 else {
+            if waiting == 0 { waitRounds = 0 }
+            return
+        }
+        waitRounds += 1
+        waitTask = Task {
+            try? await Task.sleep(for: .seconds(8))
+            guard !Task.isCancelled else { return }
+            self.rescan()
+        }
+    }
+
+    /// What a folder holds: its songs on the device, and how many are still in the cloud (asked for).
+    struct Listing: Sendable {
         var found: [LocalMusicIndex.Found] = []
+        var waiting = 0
+    }
+
+    /// The audio files of a folder and its subfolders, read as Apple asks for a folder from the Files
+    /// picker: through a file coordinator, so iCloud Drive and the cloud apps (Google Drive, OneDrive…)
+    /// hand over their contents. A song that isn't on the device yet (in iCloud it is a hidden
+    /// ".name.mp3.icloud" file) is asked for and counted as waiting; other hidden files, such as the
+    /// "._name.mp3" a Mac leaves on drives (which look like songs but aren't), are left out.
+    nonisolated private static func list(_ base: URL) -> Listing {
+        var listing = Listing()
+        var coordinationError: NSError?
+        NSFileCoordinator().coordinate(readingItemAt: base, options: [], error: &coordinationError) { folder in
+            listing = walk(folder)
+        }
+        // A folder the coordinator wouldn't hand over is read as it is.
+        if coordinationError != nil { listing = walk(base) }
+        return listing
+    }
+
+    nonisolated private static func walk(_ folder: URL) -> Listing {
+        let keys: [URLResourceKey] = [.isRegularFileKey, .fileSizeKey, .contentModificationDateKey,
+                                      .ubiquitousItemDownloadingStatusKey]
+        var listing = Listing()
+        guard let walker = FileManager.default.enumerator(at: folder, includingPropertiesForKeys: keys,
+                                                          options: [.skipsPackageDescendants]) else { return listing }
+        // The names between the root and the file ("/" is only the root, or a trailing slash).
+        let baseCount = folder.pathComponents.filter { $0 != "/" }.count
         for case let url as URL in walker {
-            guard LocalMusicIndex.isAudio(url.lastPathComponent),
+            let name = url.lastPathComponent
+            if name.hasPrefix(".") {
+                // iCloud's stand-in for a file still in the cloud: ".Song.mp3.icloud".
+                if name.hasSuffix(".icloud"), name.count > 8 {
+                    let real = String(name.dropFirst().dropLast(7))
+                    if LocalMusicIndex.isAudio(real) {
+                        try? FileManager.default.startDownloadingUbiquitousItem(at: url.deletingLastPathComponent().appending(path: real))
+                        listing.waiting += 1
+                    }
+                }
+                // Hidden folders aren't gone into either.
+                if (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true { walker.skipDescendants() }
+                continue
+            }
+            guard LocalMusicIndex.isAudio(name),
                   let values = try? url.resourceValues(forKeys: Set(keys)), values.isRegularFile == true else { continue }
+            // In iCloud but not (or not all) on the device yet: asked for, read next time.
+            if let status = values.ubiquitousItemDownloadingStatus, status == .notDownloaded {
+                try? FileManager.default.startDownloadingUbiquitousItem(at: url)
+                listing.waiting += 1
+                continue
+            }
             let parts = url.pathComponents.filter { $0 != "/" }
             guard parts.count > baseCount else { continue }
             let path = parts[baseCount...].joined(separator: "/")
             let modified = values.contentModificationDate?.timeIntervalSince1970 ?? 0
-            found.append(LocalMusicIndex.Found(path: path, size: Int64(values.fileSize ?? 0), modified: modified))
+            listing.found.append(LocalMusicIndex.Found(path: path, size: Int64(values.fileSize ?? 0), modified: modified))
         }
-        return found
+        return listing
+    }
+
+    /// The file of one of the user's songs, ready to play: its folder opened again when it had closed, and
+    /// the file brought onto the device (from iCloud or a cloud app) by a coordinated read. Throws with
+    /// what is wrong when it can't be read.
+    func playableFile(for track: Track) async throws -> URL {
+        if LocalFiles.entry(forID: track.videoId) == nil {
+            // Its folder closed since it was listed (or the app was just opened): open the folders again.
+            openFolders()
+            publish()
+        }
+        guard let entry = LocalFiles.entry(forID: track.videoId) else {
+            throw LocalSongError.folderClosed
+        }
+        guard await Self.prepareForReading(entry.url) else {
+            throw LocalSongError.unreadable(entry.url.lastPathComponent)
+        }
+        return entry.url
+    }
+
+    /// Makes sure a song's file is on the device and readable before it plays: a coordinated read, which
+    /// brings a file in iCloud or a cloud app down (waiting for it). True when it can be read.
+    nonisolated static func prepareForReading(_ url: URL) async -> Bool {
+        await Task.detached(priority: .userInitiated) { () -> Bool in
+            var error: NSError?
+            var readable = false
+            NSFileCoordinator().coordinate(readingItemAt: url, options: [.withoutChanges], error: &error) { file in
+                readable = FileManager.default.isReadableFile(atPath: file.path)
+            }
+            return readable || FileManager.default.isReadableFile(atPath: url.path)
+        }.value
     }
 
     nonisolated private static func readBatch(base: URL, folder: String, slice: [LocalMusicIndex.Found]) async -> [LocalFile] {

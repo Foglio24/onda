@@ -42,7 +42,10 @@ struct SeaglassApp: App {
                 // The account's library and preferences: brought in on opening, sent on leaving.
                 .onChange(of: scenePhase, initial: true) { _, phase in
                     switch phase {
-                    case .active: account.appBecameActive()
+                    case .active:
+                        account.appBecameActive()
+                        // Songs copied into the folders with Files while Seaglass was away.
+                        LocalMusic.shared.refresh(minimumInterval: 30)
                     case .background: account.appEnteredBackground()
                     default: break
                     }

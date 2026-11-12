@@ -21,7 +21,7 @@ permissions:
 
 concurrency:
   group: local-scene-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   scene:

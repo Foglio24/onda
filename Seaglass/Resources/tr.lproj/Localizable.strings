@@ -773,3 +773,5 @@
 "Aggiungi file…" = "Dosya ekle…";
 "Nessun brano trovato" = "Şarkı bulunamadı";
 "Puoi anche mettere la musica in File › Sul mio iPhone › Seaglass › Musica: Seaglass la legge da lì, senza permessi." = "Müziğini Dosyalar › iPhone'umda › Seaglass › Musica içine de koyabilirsin: Seaglass onu oradan, hiçbir izin gerekmeden okur.";
+"Download da iCloud: %lld" = "iCloud'dan indiriliyor: %lld";
+"Il file %@ non si apre: controlla che sia ancora nella cartella." = "%@ dosyası açılmıyor: hâlâ klasörde olup olmadığını kontrol et.";

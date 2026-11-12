@@ -773,3 +773,5 @@
 "Aggiungi file…" = "Añadir archivos…";
 "Nessun brano trovato" = "No se han encontrado canciones";
 "Puoi anche mettere la musica in File › Sul mio iPhone › Seaglass › Musica: Seaglass la legge da lì, senza permessi." = "También puedes poner tu música en Archivos › En mi iPhone › Seaglass › Musica: Seaglass la lee desde ahí, sin necesidad de permisos.";
+"Download da iCloud: %lld" = "Descargando de iCloud: %lld";
+"Il file %@ non si apre: controlla che sia ancora nella cartella." = "El archivo %@ no se abre: comprueba que siga en la carpeta.";

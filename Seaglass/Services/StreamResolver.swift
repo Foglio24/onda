@@ -20,6 +20,8 @@ actor StreamResolver {
     private var avoidDirect: Set<String> = []
 
     func stream(for videoId: String, quality: AudioQuality) async throws -> ResolvedStream {
+        // The user's own songs aren't on YouTube: asking for one would only come back "Video non disponibile".
+        guard !Track.isLocalID(videoId) else { throw StreamError.noPlayableStream }
         try Task.checkCancellation()
         let entry = try await renditions(for: videoId)
         try Task.checkCancellation()

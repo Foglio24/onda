@@ -1338,7 +1338,7 @@ final class PlayerController: ObservableObject {
     /// big), or Low Power Mode or a hot iPhone; the reason is kept for Settings.
     private func opusStart(for track: Track) async throws -> OpusStart {
         let quality = Preferences.streamingQuality
-        guard quality.usesOpus, Preferences.playsOpusFromStart, let videoId = track.videoId,
+        guard quality.usesOpus, Preferences.playsOpusFromStart, let videoId = track.videoId, !track.isLocal,
               Storage.localAudio(for: track) == nil else { return .none }
         // Decoded Opus from an earlier listen plays as a file.
         if let cached = OpusPipeline.cachedFile(videoId: videoId), cached.label.hasPrefix("Opus") { return .none }
@@ -1396,12 +1396,16 @@ final class PlayerController: ObservableObject {
     /// which starts at once and plays to the end. The local copy (and Opus) made meanwhile serve
     /// seeks and the next listen.
     private func stream(for track: Track) async throws -> (url: URL, label: String) {
+        if track.isLocal {
+            // The user's own song: its file, on the device and readable (its folder opened again if it had
+            // closed, a file in iCloud or a cloud app brought down). Never YouTube: it isn't a YouTube song.
+            let file = try await LocalMusic.shared.playableFile(for: track)
+            let kind = file.pathExtension.uppercased()
+            return (file, "\(kind.isEmpty ? "Audio" : kind) · offline")
+        }
         if let local = Storage.localAudio(for: track) {
             return (local, "\(DownloadManager.formatLabel(for: track) ?? "AAC") · offline")
         }
-        // The user's own song whose file can't be opened (its folder moved, a drive unplugged): there
-        // is no stream to fall back to.
-        if track.isLocal { throw PlayerError.unavailable }
         guard let videoId = track.videoId else { throw PlayerError.unavailable }
         if let cached = OpusPipeline.cachedFile(videoId: videoId) { return cached }
         // Usually already resolved by StreamPrewarmer while the song was on screen.
@@ -1707,7 +1711,7 @@ final class PlayerController: ObservableObject {
     /// Prepare the requested song only. Upcoming songs never run the Opus decoder.
     private func prepareCurrentAudio(for track: Track) {
         upgradeTask?.cancel()
-        guard playWhenReady, !isPlayingStems, Storage.localAudio(for: track) == nil,
+        guard playWhenReady, !isPlayingStems, !track.isLocal, Storage.localAudio(for: track) == nil,
               let videoId = track.videoId, let asset = player.currentItem?.asset as? AVURLAsset else { return }
         // An Opus stream becomes the song's decoded file by itself.
         guard asset.url.scheme != OpusStream.scheme else { return }

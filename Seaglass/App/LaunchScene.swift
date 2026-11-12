@@ -240,6 +240,11 @@ enum LaunchScene {
             select(.library)
             Task {
                 let local = LocalMusic.shared
+                // A folder chosen as with the Files picker (kept as a bookmark), beside the app's own Musica.
+                let picked = Storage.documents.appending(path: "Picked", directoryHint: .isDirectory)
+                if FileManager.default.fileExists(atPath: picked.path) {
+                    print("local-scene: picked folder added \(local.add(folder: picked))")
+                }
                 local.rescan()
                 for _ in 0..<120 {
                     try? await Task.sleep(for: .milliseconds(500))
@@ -265,6 +270,16 @@ enum LaunchScene {
                     }
                     print("local-scene: \(heard > 2 ? "PLAYS" : "FAILS") \(track.title): \(String(format: "%.1f", heard)) s, "
                           + "playing \(player.isPlaying), \(player.streamInfo ?? "-"), error \(player.errorMessage ?? "none")")
+                }
+                // A song whose file has gone: it says so, and nothing is asked of YouTube.
+                if let gone = local.tracks.first, let file = Storage.localAudio(for: gone) {
+                    try? FileManager.default.removeItem(at: file)
+                    player.play([gone], source: "File locali")
+                    for _ in 0..<30 {
+                        try? await Task.sleep(for: .milliseconds(500))
+                        if player.errorMessage != nil { break }
+                    }
+                    print("local-scene: gone \(gone.title): error \(player.errorMessage ?? "none")")
                 }
                 player.pause()
                 print("local-scene: done")
