@@ -25,6 +25,15 @@
       ],
       "versions": [
         {
+          "version": "1.36.0",
+          "buildVersion": "79",
+          "date": "2026-11-12T22:05:13Z",
+          "localizedDescription": "Added\n- Light and dark mode (iPhone, iPad and Mac). Settings › Aspetto › Modalità: Automatica (as the device, the default), Chiara or Scura, for the whole app in both styles. In the light mode Classico has white pages, light grey cards and black text; the player stays dark on the cover's colours, as in the common streaming apps. The classic pages are plain (no wash of the cover's colour under their header).\n\nChanged\n- The classic player, as the common streaming apps'. It fills the screen with the cover as wide as the screen, and scrolls down to Anteprima del testo and Prossimi brani (the next three songs, Apri la coda); pulling it down past its top closes it.\n- The queue opens as a sheet over the classic player, as the common streaming apps': half or full height, with Coda and what plays, the song playing in green with play, the next songs with their handles only (no red delete buttons), and Riproduzione casuale and Timer at the bottom. It no longer squeezes into the player between the controls and the lyrics.\n- The lyrics' preview under the classic player: four lines from the one before the line being sung, wrapped in full (the button no longer covers them), sung ones white and the next ones dark, on the cover's colour; its translation button works and shows the translation under each line.\n- Under the classic player's controls, the name of the headphones or speaker the sound goes to, in green.\n- The lyrics open in the classic style, full screen on the cover's colour: the lines large on the left, the ones already sung white and the ones to come dark, the line being sung a third of the way down; the scrubber and play under them, and the karaoke. They no longer open in Seaglass's lyrics view. The queue opens on its own page.\n- The profile menu slides in from the left over the page, with your profile at the top, then Recenti and Impostazioni e privacy; a tap beside it or a swipe to the left closes it.\n\nFixed\n- The profile button and the pages' titles sat off-centre. The system's toolbar wrapped the profile in a wider glass capsule and cut \"Cerca\" and \"La tua libreria\" off: the main pages now have their own header row (the profile, the title or the Home's filters, the page's buttons).",
+          "downloadURL": "https://github.com/Foglio24/onda/releases/download/v1.36.0/Seaglass.ipa",
+          "size": 46222616,
+          "minOSVersion": "26.0"
+        },
+        {
           "version": "1.35.3",
           "buildVersion": "78",
           "date": "2026-11-12T20:40:17Z",
@@ -152,6 +161,17 @@
     }
   ],
   "news": [
+    {
+      "title": "Seaglass 1.36.0",
+      "identifier": "release-1.36.0",
+      "caption": "A new Seaglass update is available. Tap to see what's new.",
+      "date": "2026-11-12T22:05:13Z",
+      "tintColor": "#EC3F8E",
+      "imageURL": "https://raw.githubusercontent.com/Foglio24/onda/main/docs/images/seaglass-banner.jpg",
+      "notify": false,
+      "url": "https://github.com/Foglio24/onda/releases/tag/v1.36.0",
+      "appID": "com.onda.player"
+    },
     {
       "title": "Seaglass 1.35.3",
       "identifier": "release-1.35.3",
