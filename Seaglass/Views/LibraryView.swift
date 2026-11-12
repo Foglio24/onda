@@ -614,10 +614,6 @@ struct TrackCollectionView: View {
         }
     }
 
-    private func moveLiked(from source: IndexSet, to destination: Int) {
-        library.moveLiked(fromOffsets: source, toOffset: destination)
-    }
-
     @ViewBuilder private var emptyState: some View {
         switch collection {
         case .liked:
