@@ -15,6 +15,7 @@ struct MacShelf<Card: View>: View {
     @State private var first: Int? = 0
     @State private var width: CGFloat = 0
     @State private var hovering = false
+    @Environment(\.interfaceStyle) private var style
 
     /// How many cards fit across.
     private var perPage: Int {
@@ -68,9 +69,10 @@ struct MacShelf<Card: View>: View {
         Button(action: action) {
             Image(systemName: symbol)
                 .font(.headline.weight(.semibold))
+                .foregroundStyle(style == .classic ? Color.white : Color.primary)
                 .frame(width: 34, height: 34)
                 .contentShape(.circle)
-                .glassEffect(.regular.interactive(), in: .circle)
+                .modifier(MacShelfArrowLook(classic: style == .classic))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)
@@ -90,6 +92,7 @@ struct MacPickCard<Artwork: View>: View {
     var busy = false
     @ViewBuilder let artwork: Artwork
     @State private var hovering = false
+    @Environment(\.interfaceStyle) private var style
 
     private let width: CGFloat = 230
     private let band: CGFloat = 68
@@ -124,7 +127,7 @@ struct MacPickCard<Artwork: View>: View {
                             .overlay(Color.black.opacity(0.3))
                     }
             }
-            .clipShape(.rect(cornerRadius: 12))
+            .clipShape(.rect(cornerRadius: style.coverRadius(12)))
             .shadow(color: .black.opacity(hovering ? 0.28 : 0.14), radius: hovering ? 12 : 5, y: 4)
         }
         .frame(width: width, alignment: .leading)
@@ -143,6 +146,7 @@ struct MacCoverCard<Artwork: View>: View {
     var plays = true
     @ViewBuilder let artwork: Artwork
     @State private var hovering = false
+    @Environment(\.interfaceStyle) private var style
 
     private let size: CGFloat = 180
 
@@ -150,7 +154,7 @@ struct MacCoverCard<Artwork: View>: View {
         VStack(alignment: .leading, spacing: 6) {
             artwork
                 .frame(width: size, height: size)
-                .clipShape(.rect(cornerRadius: 8))
+                .clipShape(.rect(cornerRadius: style.coverRadius(8)))
                 .overlay(alignment: .bottomLeading) {
                     if busy || (plays && hovering) { HoverPlayBadge(busy: busy).padding(8) }
                 }
@@ -161,7 +165,7 @@ struct MacCoverCard<Artwork: View>: View {
             if let subtitle {
                 Text(subtitle)
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(style == .classic ? ClassicPalette.secondaryText : Color.secondary)
                     .lineLimit(1)
             }
         }
@@ -216,21 +220,45 @@ struct MacMoodCard: View {
 /// The round play button on a cover under the pointer (a spinner while it starts).
 struct HoverPlayBadge: View {
     var busy = false
+    @Environment(\.interfaceStyle) private var style
 
     var body: some View {
         Group {
             if busy {
                 ProgressView()
                     .controlSize(.small)
-                    .tint(.white)
+                    .tint(style == .classic ? .black : .white)
             } else {
                 Image(systemName: "play.fill")
                     .font(.callout.weight(.bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(style == .classic ? Color.black : Color.white)
             }
         }
         .frame(width: 36, height: 36)
-        .glassEffect(.regular.tint(.black.opacity(0.3)), in: .circle)
+        .background {
+            if style == .classic {
+                Circle().fill(ClassicPalette.accent)
+            }
+        }
+        .modifier(HoverPlayBadgeGlass(classic: style == .classic))
         .transition(.opacity)
+    }
+}
+
+private struct HoverPlayBadgeGlass: ViewModifier {
+    let classic: Bool
+    func body(content: Content) -> some View {
+        if classic { content } else { content.glassEffect(.regular.tint(.black.opacity(0.3)), in: .circle) }
+    }
+}
+
+private struct MacShelfArrowLook: ViewModifier {
+    let classic: Bool
+    func body(content: Content) -> some View {
+        if classic {
+            content.background(ClassicPalette.elevated, in: .circle)
+        } else {
+            content.glassEffect(.regular.interactive(), in: .circle)
+        }
     }
 }

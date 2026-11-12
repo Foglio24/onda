@@ -3,8 +3,8 @@ import UIKit
 
 /// How the whole app looks, chosen in Settings › Aspetto. Seaglass: Liquid Glass, the theme's colour and
 /// the cover's colours behind every page. Classico: black and flat, in green, laid out as the most common
-/// streaming apps are (the tabs Home, Cerca and La tua libreria along the bottom, the mini player in the
-/// cover's colour above them, the profile button for the settings at the top). The same app, features and
+/// streaming apps are (on the phone: Home, Cerca and La tua libreria along the bottom with the mini player
+/// above them; on the Mac: the same look for the sidebar and the player bar). The same app, features and
 /// pages in both; only how they look changes.
 enum InterfaceStyle: String, CaseIterable, Identifiable {
     case seaglass, classic

@@ -115,17 +115,19 @@ extension RootView {
     /// On a Mac, Apple Music's layout on macOS 26: a sidebar floating in Liquid Glass along the
     /// window's left (search, the Home, the library, the playlists, Settings), with the window's
     /// buttons on it, and the player bar floating in glass along the bottom, the page scrolling
-    /// under it. The sidebar is the app's own: the system's (TabView, NavigationSplitView) is opaque
-    /// in an iPad app on a Mac. The pages start beside it: their lists and navigation bars don't
-    /// take a sideways safe area on a Mac, so they would run under it.
+    /// under it. In the classic style the same chrome is black and flat, in green. The sidebar is
+    /// the app's own: the system's (TabView, NavigationSplitView) is opaque in an iPad app on a Mac.
     private var macTabs: some View {
-        macPages
+        let classic = style == .classic
+        return macPages
             .safeAreaPadding(.bottom, MacPlayerBar.height + 24)
             .padding(.leading, MacSidebar.width + 2 * MacSidebar.inset)
-            .background { Color(.systemBackground).ignoresSafeArea() }
+            .background {
+                (classic ? ClassicPalette.background : Color(.systemBackground)).ignoresSafeArea()
+            }
             .overlay(alignment: .bottom) {
                 MacPlayerBar()
-                    .glassEffect(.regular, in: .capsule)
+                    .modifier(MacPlayerBarChrome(classic: classic))
                     .padding(.leading, MacSidebar.width + 2 * MacSidebar.inset + 8)
                     .padding(.trailing, 18)
                     .padding(.bottom, 14)
@@ -185,8 +187,8 @@ extension RootView {
 }
 
 /// The Mac's sidebar, as Apple Music's on macOS 26: a panel of Liquid Glass floating inside the
-/// window, the window's buttons at its top, the library's parts and the playlists (with their
-/// covers) in sections that fold, and Settings at its foot.
+/// window (or flat black in the classic style), the window's buttons at its top, the library's
+/// parts and the playlists (with their covers) in sections that fold, and Settings at its foot.
 private struct MacSidebar: View {
     /// Wider than the system's, for bigger names, symbols and covers, easier to see.
     static let width: CGFloat = 290
@@ -196,20 +198,26 @@ private struct MacSidebar: View {
     /// The window's title bar (its buttons), which the panel runs under.
     let top: CGFloat
     @EnvironmentObject private var library: Library
+    @Environment(\.interfaceStyle) private var style
     @AppStorage(Preferences.accent) private var accent: AccentChoice = .pink
     @AppStorage("mac.sidebar.libraryOpen") private var libraryOpen = true
     @AppStorage("mac.sidebar.playlistsOpen") private var playlistsOpen = true
+
+    private var classic: Bool { style == .classic }
+    private var tint: Color { classic ? ClassicPalette.accent : accent.color }
 
     var body: some View {
         VStack(spacing: 0) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 4) {
+                    item("Home", symbol: classic ? "house.fill" : "house", section: .home)
                     item("Cerca", symbol: "magnifyingglass", section: .search)
-                    item("Home", symbol: "house", section: .home)
-                    header("Libreria", open: $libraryOpen)
+                    header(classic ? "La tua libreria" : "Libreria", open: $libraryOpen)
                     if libraryOpen {
-                        item("Libreria", symbol: "square.stack", section: .library)
-                        item("Preferiti", symbol: "heart", section: .liked)
+                        item(classic ? "La tua libreria" : "Libreria",
+                             symbol: classic ? "books.vertical" : "square.stack", section: .library)
+                        item(classic ? "Brani che ti piacciono" : "Preferiti",
+                             symbol: classic ? "heart.fill" : "heart", section: .liked)
                         item("Cronologia", symbol: "clock", section: .history)
                         item("Download", symbol: "arrow.down.circle", section: .downloads)
                         item("Podcast", symbol: "mic", section: .podcasts)
@@ -218,10 +226,12 @@ private struct MacSidebar: View {
                         header("Playlist", open: $playlistsOpen)
                         if playlistsOpen {
                             ForEach(library.playlists) { playlist in
-                                MacSidebarRow(selected: selection == .playlist(playlist.id), accent: accent.color) {
+                                MacSidebarRow(selected: selection == .playlist(playlist.id),
+                                              accent: tint, classic: classic) {
                                     selection = .playlist(playlist.id)
                                 } icon: {
-                                    PlaylistArtwork(playlist: playlist, size: 44, cornerRadius: 8)
+                                    PlaylistArtwork(playlist: playlist, size: classic ? 40 : 44,
+                                                    cornerRadius: classic ? 4 : 8)
                                         .accessibilityHidden(true)
                                 } title: {
                                     Text(verbatim: playlist.name)
@@ -237,23 +247,26 @@ private struct MacSidebar: View {
             .scrollIndicators(.never)
             // Below the window's buttons, which sit on the glass: the list never scrolls under them.
             .padding(.top, max(top, 28) + 4)
-            Divider().opacity(0.5).padding(.horizontal, 16)
+            Divider()
+                .overlay(classic ? Color.white.opacity(0.12) : Color.primary.opacity(0.2))
+                .padding(.horizontal, 16)
             item("Impostazioni", symbol: "gearshape", section: .settings)
                 .padding(10)
         }
         .frame(width: Self.width)
         .frame(maxHeight: .infinity)
-        // Faintly in the theme's colour, so the glass reads as glass over the window's plain background.
-        .glassEffect(.regular.tint(accent.color.opacity(0.12)), in: .rect(cornerRadius: 24))
+        .foregroundStyle(classic ? Color.white : Color.primary)
+        .modifier(MacSidebarChrome(classic: classic, accent: tint))
     }
 
     private func item(_ title: LocalizedStringKey, symbol: String, section: MacSection) -> some View {
-        MacSidebarRow(selected: selection == section, accent: accent.color) {
+        MacSidebarRow(selected: selection == section, accent: tint, classic: classic) {
             selection = section
         } icon: {
             Image(systemName: symbol)
                 .font(.title2)
-                .foregroundStyle(accent.color)
+                .foregroundStyle(classic ? (selection == section ? ClassicPalette.accent : Color.white)
+                                 : accent.color)
         } title: {
             Text(title)
         }
@@ -272,7 +285,7 @@ private struct MacSidebar: View {
                     .font(.caption.weight(.semibold))
             }
             .font(.headline)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(classic ? ClassicPalette.secondaryText : Color.secondary)
             .padding(.horizontal, 10)
             .padding(.top, 18)
             .padding(.bottom, 4)
@@ -283,10 +296,46 @@ private struct MacSidebar: View {
     }
 }
 
+/// Glass in Seaglass's style; flat near-black in the classic one.
+private struct MacSidebarChrome: ViewModifier {
+    let classic: Bool
+    let accent: Color
+
+    func body(content: Content) -> some View {
+        if classic {
+            content
+                .background(ClassicPalette.surface, in: .rect(cornerRadius: 16))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .strokeBorder(Color.white.opacity(0.06), lineWidth: 1)
+                }
+        } else {
+            // Faintly in the theme's colour, so the glass reads as glass over the window's plain background.
+            content.glassEffect(.regular.tint(accent.opacity(0.12)), in: .rect(cornerRadius: 24))
+        }
+    }
+}
+
+/// Glass capsule in Seaglass's style; flat elevated bar in the classic one.
+private struct MacPlayerBarChrome: ViewModifier {
+    let classic: Bool
+
+    func body(content: Content) -> some View {
+        if classic {
+            content
+                .background(ClassicPalette.elevated, in: .capsule)
+                .overlay { Capsule().strokeBorder(Color.white.opacity(0.08), lineWidth: 1) }
+        } else {
+            content.glassEffect(.regular, in: .capsule)
+        }
+    }
+}
+
 /// A line of the Mac's sidebar: lit while its page is open, a lighter fill under the pointer.
 private struct MacSidebarRow<Icon: View, Title: View>: View {
     let selected: Bool
     let accent: Color
+    var classic = false
     let action: () -> Void
     @ViewBuilder let icon: Icon
     @ViewBuilder let title: Title
@@ -295,26 +344,33 @@ private struct MacSidebarRow<Icon: View, Title: View>: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 12) {
-                icon.frame(width: 44, height: 44)
+                icon.frame(width: classic ? 40 : 44, height: classic ? 40 : 44)
                 title
                     .font(.title3)
                     .lineLimit(1)
-                    .foregroundStyle(selected ? accent : Color.primary)
+                    .foregroundStyle(selected ? accent : (classic ? Color.white : Color.primary))
                     .fontWeight(selected ? .semibold : .regular)
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 4)
-            .frame(minHeight: 52)
+            .frame(minHeight: classic ? 48 : 52)
             .background {
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(Color.primary.opacity(selected ? 0.1 : hovering ? 0.05 : 0))
+                RoundedRectangle(cornerRadius: classic ? 8 : 14, style: .continuous)
+                    .fill(fill)
             }
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
         .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
+    private var fill: Color {
+        if classic {
+            return selected ? Color.white.opacity(0.12) : (hovering ? Color.white.opacity(0.06) : .clear)
+        }
+        return Color.primary.opacity(selected ? 0.1 : hovering ? 0.05 : 0)
     }
 }
 

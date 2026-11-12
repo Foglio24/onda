@@ -445,7 +445,7 @@ private struct AppearanceSettingsView: View {
             } header: {
                 Text("Stile dell'interfaccia")
             } footer: {
-                Text("Classico è nero e piatto, in verde, con le schede Home, Cerca e La tua libreria e il mini player nei colori della copertina, come le app di streaming più diffuse.")
+                Text("Classico è nero e piatto, in verde, come le app di streaming più diffuse: sull'iPhone con Home, Cerca e La tua libreria e il mini player; sul Mac con la barra laterale e il player in basso.")
             }
             Section {
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 6), spacing: 12) {
