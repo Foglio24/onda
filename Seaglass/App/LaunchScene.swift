@@ -102,6 +102,10 @@ enum LaunchScene {
         switch parts.first ?? "" {
         case "library", "storage":
             select(.library)
+        case "profile":
+            // The classic style's profile menu, open over the Home.
+            select(.home)
+            router.showProfileMenu = true
         case "downloads":
             select(.library)
             Task {

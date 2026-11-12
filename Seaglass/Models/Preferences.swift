@@ -176,6 +176,8 @@ enum Preferences {
     static let accent = "theme.accent"
     /// The interface style (see `InterfaceStyle`): "seaglass" or "classic".
     static let interfaceStyle = "theme.style"
+    /// Light, dark, or as the device (see `AppearanceMode`).
+    static let appearanceMode = "theme.mode"
     /// The Mac's zoom in percent (see `MacZoom`).
     static let macZoom = "mac.zoom"
     /// -1 unknown, 0 refused by iOS, 1 accepted.

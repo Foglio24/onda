@@ -34,7 +34,7 @@ struct MacPlayerBar: View {
         }
         .padding(.horizontal, 22)
         .frame(height: Self.height)
-        .foregroundStyle(classic ? Color.white : Color.primary)
+        .foregroundStyle(classic ? ClassicPalette.primaryText : Color.primary)
         .buttonStyle(.plain)
     }
 
@@ -54,11 +54,12 @@ struct MacPlayerBar: View {
                     }
                 }
                 .font(.title)
-                .foregroundStyle(classic ? Color.black : Color.primary)
+                .foregroundStyle(classic ? ClassicPalette.background : Color.primary)
                 .frame(width: 44, height: 44)
                 .background {
                     if classic {
-                        Circle().fill(Color.white)
+                        // White on the dark bar, black on the light one.
+                        Circle().fill(ClassicPalette.primaryText)
                     }
                 }
                 .contentShape(.rect)
@@ -110,10 +111,10 @@ struct MacPlayerBar: View {
         Button(action: action) {
             Image(systemName: symbol)
                 .font(.title3.weight(.medium))
-                .foregroundStyle(on ? AnyShapeStyle(tint) : AnyShapeStyle(classic ? Color.white : Color.primary))
+                .foregroundStyle(on ? AnyShapeStyle(tint) : AnyShapeStyle(classic ? ClassicPalette.primaryText : Color.primary))
                 .frame(width: 38, height: 38)
                 .background(
-                    (classic ? Color.white : Color.primary).opacity(on ? (classic ? 0.16 : 0.12) : 0),
+                    (classic ? ClassicPalette.primaryText : Color.primary).opacity(on ? (classic ? 0.16 : 0.12) : 0),
                     in: .circle
                 )
                 .contentShape(.rect)

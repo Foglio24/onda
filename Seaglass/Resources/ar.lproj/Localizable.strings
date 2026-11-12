@@ -780,7 +780,7 @@
 "Classico" = "كلاسيكي";
 "La tua libreria" = "مكتبتك";
 "Stile dell'interfaccia" = "نمط الواجهة";
-"Classico è nero e piatto, in verde, come le app di streaming più diffuse: sull'iPhone con Home, Cerca e La tua libreria e il mini player; sul Mac con la barra laterale e il player in basso." = "النمط الكلاسيكي أسود ومسطّح باللون الأخضر، مثل تطبيقات البث الأكثر شيوعًا: على الآيفون مع الرئيسية وبحث ومكتبتك والمشغّل المصغّر؛ وعلى الماك مع الشريط الجانبي وشريط المشغّل في الأسفل.";
+"Classico è piatto, in verde, come le app di streaming più diffuse: sull'iPhone con Home, Cerca e La tua libreria e il mini player; sul Mac con la barra laterale e il player in basso." = "النمط الكلاسيكي مسطّح باللون الأخضر، مثل تطبيقات البث الأكثر شيوعًا: على الآيفون مع الرئيسية وبحث ومكتبتك والمشغّل المصغّر؛ وعلى الماك مع الشريط الجانبي وشريط المشغّل في الأسفل.";
 "Nello stile Classico il colore è il verde." = "في النمط الكلاسيكي يكون اللون أخضر.";
 "Sfoglia tutto" = "تصفّح الكل";
 "Tutti" = "الكل";
@@ -802,3 +802,9 @@
 "Mostra testo" = "إظهار الكلمات";
 "Riproduzione casuale da:" = "تشغيل عشوائي من:";
 "Chiudi" = "إغلاق";
+"Modalità" = "الوضع";
+"Automatica" = "تلقائي";
+"Chiara" = "فاتح";
+"Scura" = "داكن";
+"Automatica segue il dispositivo, chiara o scura. Il player resta scuro, sui colori della copertina." = "«تلقائي» يتبع الجهاز، فاتحًا أو داكنًا. يبقى المشغّل داكنًا بألوان الغلاف.";
+"Apri la coda" = "فتح قائمة الانتظار";

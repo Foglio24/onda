@@ -18,7 +18,7 @@ struct HomeView: View {
     @State private var homeFilter: HomeFilter = .all
     @State private var showAllRecent = false
 
-    private enum HomeFilter: Hashable {
+    fileprivate enum HomeFilter: Hashable {
         case all, music, podcasts
     }
 
@@ -80,13 +80,11 @@ struct HomeView: View {
             .navigationTitle(classicPhone ? "" : (Self.isMac ? String(localized: "Home") : greeting))
             .navigationBarTitleDisplayMode(classicPhone ? .inline : .large)
             .toolbar {
-                if classicPhone {
-                    ToolbarItem(placement: .topBarLeading) { ProfileButton() }
-                }
                 if !classicPhone {
                     ToolbarItem(placement: .topBarTrailing) { RecognitionButton() }
                 }
             }
+            .modifier(ClassicHomeHeader(enabled: classicPhone, filter: $homeFilter))
             // Once a day, and as soon as there is a first song to go on.
             .task(id: "\(Recommendations.today)|\(library.history.isEmpty)") {
                 quickPicks = await Recommendations.quickPicks(refresh: false)
@@ -133,7 +131,6 @@ struct HomeView: View {
     /// Recenti as on the common streaming apps.
     private var classicSections: some View {
         VStack(alignment: .leading, spacing: 22) {
-            classicFilterPills
             if homeFilter != .podcasts {
                 // Tutti and Musica share the music home; Podcast is its own page of followed shows.
                 let shortcuts = Array(self.shortcuts.prefix(8))
@@ -207,19 +204,6 @@ struct HomeView: View {
         .padding(.bottom, 16)
     }
 
-    private var classicFilterPills: some View {
-        ScrollView(.horizontal) {
-            HStack(spacing: 8) {
-                // One selected at a time (Tutti by default), as the common streaming apps.
-                ClassicPill(title: "Tutti", selected: homeFilter == .all) { homeFilter = .all }
-                ClassicPill(title: "Musica", selected: homeFilter == .music) { homeFilter = .music }
-                ClassicPill(title: "Podcast", selected: homeFilter == .podcasts) { homeFilter = .podcasts }
-            }
-            .padding(.horizontal, 16)
-        }
-        .scrollIndicators(.hidden)
-    }
-
     private var classicQuickPicks: some View {
         VStack(alignment: .leading, spacing: 12) {
             ClassicSectionHeader(title: "Scelti per te")
@@ -263,7 +247,7 @@ struct HomeView: View {
                                 .clipShape(.rect(cornerRadius: 4))
                                 Text(show.title)
                                     .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(.white)
+                                    .foregroundStyle(ClassicPalette.primaryText)
                                     .lineLimit(2)
                             }
                         }
@@ -663,6 +647,32 @@ private struct MoodTileLook: ViewModifier {
                 .background(tint.mix(with: .black, by: 0.25), in: .rect(cornerRadius: 6))
         } else {
             content.glassEffect(.regular.tint(tint.opacity(0.3)).interactive(), in: .rect(cornerRadius: 18))
+        }
+    }
+}
+
+/// The classic Home's header: the profile with the Tutti / Musica / Podcast filters beside it, in one
+/// row, as the common streaming apps. Seaglass's Home and the Mac's keep the navigation bar.
+private struct ClassicHomeHeader: ViewModifier {
+    let enabled: Bool
+    @Binding var filter: HomeView.HomeFilter
+
+    func body(content: Content) -> some View {
+        if enabled {
+            content.classicHeader {
+                ClassicHeader(title: nil) {
+                    HStack(spacing: 8) {
+                        // One selected at a time (Tutti by default).
+                        ClassicPill(title: "Tutti", selected: filter == .all) { filter = .all }
+                        ClassicPill(title: "Musica", selected: filter == .music) { filter = .music }
+                        ClassicPill(title: "Podcast", selected: filter == .podcasts) { filter = .podcasts }
+                    }
+                } trailing: {
+                    EmptyView()
+                }
+            }
+        } else {
+            content
         }
     }
 }

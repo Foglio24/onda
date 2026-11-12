@@ -52,8 +52,21 @@ struct RootView: View {
                 .classicPageSheet()
                 .presentationBackground(ClassicPalette.background)
         }
-        .sheet(isPresented: $router.showProfileMenu) {
-            ClassicProfileSheet().appEnvironment()
+        .sheet(item: $router.profilePage) { page in
+            NavigationStack {
+                Group {
+                    switch page {
+                    case .account: AccountSettingsView()
+                    case .recents: TrackCollectionView(collection: .history)
+                    }
+                }
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Fine") { router.profilePage = nil }
+                    }
+                }
+            }
+            .appEnvironment()
         }
         .sheet(item: $router.trackActions) { track in
             TrackActionSheet(track: track).appEnvironment()
@@ -251,14 +264,14 @@ private struct MacSidebar: View {
             // Below the window's buttons, which sit on the glass: the list never scrolls under them.
             .padding(.top, max(top, 28) + 4)
             Divider()
-                .overlay(classic ? Color.white.opacity(0.12) : Color.primary.opacity(0.2))
+                .overlay(classic ? ClassicPalette.separator : Color.primary.opacity(0.2))
                 .padding(.horizontal, 16)
             item("Impostazioni", symbol: "gearshape", section: .settings)
                 .padding(10)
         }
         .frame(width: Self.width)
         .frame(maxHeight: .infinity)
-        .foregroundStyle(classic ? Color.white : Color.primary)
+        .foregroundStyle(classic ? ClassicPalette.primaryText : Color.primary)
         .modifier(MacSidebarChrome(classic: classic, accent: tint))
     }
 
@@ -268,7 +281,7 @@ private struct MacSidebar: View {
         } icon: {
             Image(systemName: symbol)
                 .font(.title2)
-                .foregroundStyle(classic ? (selection == section ? ClassicPalette.accent : Color.white)
+                .foregroundStyle(classic ? (selection == section ? ClassicPalette.accent : ClassicPalette.primaryText)
                                  : accent.color)
         } title: {
             Text(title)
@@ -299,7 +312,7 @@ private struct MacSidebar: View {
     }
 }
 
-/// Glass in Seaglass's style; flat near-black in the classic one.
+/// Glass in Seaglass's style; flat in the classic one (dark grey, or light grey in the light mode).
 private struct MacSidebarChrome: ViewModifier {
     let classic: Bool
     let accent: Color
@@ -310,7 +323,7 @@ private struct MacSidebarChrome: ViewModifier {
                 .background(ClassicPalette.surface, in: .rect(cornerRadius: 16))
                 .overlay {
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .strokeBorder(Color.white.opacity(0.06), lineWidth: 1)
+                        .strokeBorder(ClassicPalette.separator.opacity(0.5), lineWidth: 1)
                 }
         } else {
             // Faintly in the theme's colour, so the glass reads as glass over the window's plain background.
@@ -327,7 +340,7 @@ private struct MacPlayerBarChrome: ViewModifier {
         if classic {
             content
                 .background(ClassicPalette.elevated, in: .capsule)
-                .overlay { Capsule().strokeBorder(Color.white.opacity(0.08), lineWidth: 1) }
+                .overlay { Capsule().strokeBorder(ClassicPalette.separator.opacity(0.7), lineWidth: 1) }
         } else {
             content.glassEffect(.regular, in: .capsule)
         }
@@ -351,7 +364,7 @@ private struct MacSidebarRow<Icon: View, Title: View>: View {
                 title
                     .font(.title3)
                     .lineLimit(1)
-                    .foregroundStyle(selected ? accent : (classic ? Color.white : Color.primary))
+                    .foregroundStyle(selected ? accent : (classic ? ClassicPalette.primaryText : Color.primary))
                     .fontWeight(selected ? .semibold : .regular)
                 Spacer(minLength: 0)
             }
@@ -371,7 +384,7 @@ private struct MacSidebarRow<Icon: View, Title: View>: View {
 
     private var fill: Color {
         if classic {
-            return selected ? Color.white.opacity(0.12) : (hovering ? Color.white.opacity(0.06) : .clear)
+            return selected ? ClassicPalette.primaryText.opacity(0.12) : (hovering ? ClassicPalette.primaryText.opacity(0.06) : .clear)
         }
         return Color.primary.opacity(selected ? 0.1 : hovering ? 0.05 : 0)
     }
@@ -424,6 +437,8 @@ private struct ClassicTabs: View {
             }
         }
         .overlay(alignment: .bottom) { ClassicBottomBar(selection: $selection) }
+        // Over the tabs and the mini player too, as the common streaming apps' profile menu.
+        .overlay { ClassicProfileDrawer() }
         .background(ClassicPalette.background.ignoresSafeArea())
         .onChange(of: router.pendingTab) { _, tab in
             guard let tab else { return }

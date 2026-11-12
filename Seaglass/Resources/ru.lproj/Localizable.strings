@@ -780,7 +780,7 @@
 "Classico" = "Классический";
 "La tua libreria" = "Ваша медиатека";
 "Stile dell'interfaccia" = "Стиль интерфейса";
-"Classico è nero e piatto, in verde, come le app di streaming più diffuse: sull'iPhone con Home, Cerca e La tua libreria e il mini player; sul Mac con la barra laterale e il player in basso." = "Классический — чёрный и плоский, в зелёном, как в самых популярных стриминговых приложениях: на iPhone с «Главной», «Поиском» и «Вашей медиатекой» и мини-плеером; на Mac — с боковой панелью и нижней панелью плеера.";
+"Classico è piatto, in verde, come le app di streaming più diffuse: sull'iPhone con Home, Cerca e La tua libreria e il mini player; sul Mac con la barra laterale e il player in basso." = "Классический — плоский, в зелёном, как в самых популярных стриминговых приложениях: на iPhone с «Главной», «Поиском» и «Вашей медиатекой» и мини-плеером; на Mac — с боковой панелью и нижней панелью плеера.";
 "Nello stile Classico il colore è il verde." = "В стиле «Классический» цвет — зелёный.";
 "Sfoglia tutto" = "Все категории";
 "Tutti" = "Все";
@@ -802,3 +802,9 @@
 "Mostra testo" = "Показать текст";
 "Riproduzione casuale da:" = "Случайное из:";
 "Chiudi" = "Закрыть";
+"Modalità" = "Режим";
+"Automatica" = "Автоматически";
+"Chiara" = "Светлый";
+"Scura" = "Тёмный";
+"Automatica segue il dispositivo, chiara o scura. Il player resta scuro, sui colori della copertina." = "«Автоматически» следует устройству — светлый или тёмный. Плеер остаётся тёмным, в цветах обложки.";
+"Apri la coda" = "Открыть очередь";

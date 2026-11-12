@@ -69,7 +69,7 @@ struct MacShelf<Card: View>: View {
         Button(action: action) {
             Image(systemName: symbol)
                 .font(.headline.weight(.semibold))
-                .foregroundStyle(style == .classic ? Color.white : Color.primary)
+                .foregroundStyle(style == .classic ? ClassicPalette.primaryText : Color.primary)
                 .frame(width: 34, height: 34)
                 .contentShape(.circle)
                 .modifier(MacShelfArrowLook(classic: style == .classic))

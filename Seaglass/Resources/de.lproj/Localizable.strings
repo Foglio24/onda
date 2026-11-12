@@ -780,7 +780,7 @@
 "Classico" = "Klassisch";
 "La tua libreria" = "Deine Bibliothek";
 "Stile dell'interfaccia" = "Stil der Oberfläche";
-"Classico è nero e piatto, in verde, come le app di streaming più diffuse: sull'iPhone con Home, Cerca e La tua libreria e il mini player; sul Mac con la barra laterale e il player in basso." = "Klassisch ist schwarz und flach, in Grün, wie die verbreitetsten Streaming-Apps: auf dem iPhone mit Start, Suchen und Deine Bibliothek und dem Miniplayer; auf dem Mac mit der Seitenleiste und der Playerleiste.";
+"Classico è piatto, in verde, come le app di streaming più diffuse: sull'iPhone con Home, Cerca e La tua libreria e il mini player; sul Mac con la barra laterale e il player in basso." = "Klassisch ist flach, in Grün, wie die verbreitetsten Streaming-Apps: auf dem iPhone mit Start, Suchen und Deine Bibliothek und dem Miniplayer; auf dem Mac mit der Seitenleiste und der Playerleiste.";
 "Nello stile Classico il colore è il verde." = "Im Stil Klassisch ist die Farbe Grün.";
 "Sfoglia tutto" = "Alle durchsuchen";
 "Tutti" = "Alle";
@@ -802,3 +802,9 @@
 "Mostra testo" = "Text anzeigen";
 "Riproduzione casuale da:" = "Zufallswiedergabe aus:";
 "Chiudi" = "Schließen";
+"Modalità" = "Modus";
+"Automatica" = "Automatisch";
+"Chiara" = "Hell";
+"Scura" = "Dunkel";
+"Automatica segue il dispositivo, chiara o scura. Il player resta scuro, sui colori della copertina." = "Automatisch folgt dem Gerät, hell oder dunkel. Der Player bleibt dunkel, in den Farben des Covers.";
+"Apri la coda" = "Warteschlange öffnen";

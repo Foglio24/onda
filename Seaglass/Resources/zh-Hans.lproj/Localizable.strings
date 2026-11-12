@@ -780,7 +780,7 @@
 "Classico" = "经典";
 "La tua libreria" = "你的资料库";
 "Stile dell'interfaccia" = "界面风格";
-"Classico è nero e piatto, in verde, come le app di streaming più diffuse: sull'iPhone con Home, Cerca e La tua libreria e il mini player; sul Mac con la barra laterale e il player in basso." = "经典风格为黑色扁平设计，以绿色为主色，就像最常见的流媒体应用：在 iPhone 上有主页、搜索和你的资料库以及迷你播放器；在 Mac 上有侧边栏和底部播放器。";
+"Classico è piatto, in verde, come le app di streaming più diffuse: sull'iPhone con Home, Cerca e La tua libreria e il mini player; sul Mac con la barra laterale e il player in basso." = "经典风格为扁平设计，以绿色为主色，就像最常见的流媒体应用：在 iPhone 上有主页、搜索和你的资料库以及迷你播放器；在 Mac 上有侧边栏和底部播放器。";
 "Nello stile Classico il colore è il verde." = "在经典风格中，主色为绿色。";
 "Sfoglia tutto" = "浏览全部";
 "Tutti" = "全部";
@@ -802,3 +802,9 @@
 "Mostra testo" = "显示歌词";
 "Riproduzione casuale da:" = "随机播放来自：";
 "Chiudi" = "关闭";
+"Modalità" = "模式";
+"Automatica" = "自动";
+"Chiara" = "浅色";
+"Scura" = "深色";
+"Automatica segue il dispositivo, chiara o scura. Il player resta scuro, sui colori della copertina." = "“自动”跟随设备的浅色或深色外观。播放器保持深色，采用封面的颜色。";
+"Apri la coda" = "打开队列";

@@ -129,7 +129,7 @@ struct ResumeCard: View {
                         }
                     Text(point.track.title)
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(ClassicPalette.primaryText)
                         .lineLimit(2)
                     Text(point.track.artist)
                         .font(.caption)
@@ -215,7 +215,7 @@ struct DailyMixCard: View {
             if style == .classic {
                 Text("Mix \(mix.number) · \(mix.artist)")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(ClassicPalette.primaryText)
                     .lineLimit(2)
                 Text("Playlist")
                     .font(.caption)

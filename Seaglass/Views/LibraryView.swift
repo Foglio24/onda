@@ -39,6 +39,7 @@ struct LibraryView: View {
             Group {
                 if classicPhone {
                     classicBody
+                        .classicHeader { classicHeaderView }
                 } else {
                     seaglassBody
                 }
@@ -47,7 +48,6 @@ struct LibraryView: View {
             .background { AmbientBackground() }
             .navigationTitle(classicPhone ? "" : (style == .classic ? String(localized: "La tua libreria") : String(localized: "Libreria")))
             .navigationBarTitleDisplayMode(classicPhone ? .inline : .large)
-            .toolbar { toolbarContent }
             // Opened directly only by the CI screenshots (see `LaunchScene`).
             .navigationDestination(isPresented: $showDownloads) { DownloadsView() }
             .task {
@@ -114,43 +114,30 @@ struct LibraryView: View {
         }
     }
 
-    @ToolbarContentBuilder private var toolbarContent: some ToolbarContent {
-        if classicPhone {
-            // Profile + title on the left, as the common streaming apps' library.
-            ToolbarItem(placement: .topBarLeading) {
-                HStack(spacing: 10) {
-                    ProfileButton()
-                    Text("La tua libreria")
-                        .font(.title2.bold())
-                        .foregroundStyle(.white)
-                }
-                .accessibilityElement(children: .combine)
+    /// The classic library's header: profile and title on the left, search and new playlist on the right.
+    private var classicHeaderView: some View {
+        ClassicHeader(title: "La tua libreria") {
+            Button { router.pendingTab = .search } label: {
+                Image(systemName: "magnifyingglass")
             }
-            ToolbarItem(placement: .topBarTrailing) {
-                Button { router.pendingTab = .search } label: {
-                    Image(systemName: "magnifyingglass")
+            .accessibilityLabel(Text("Cerca"))
+            Menu {
+                Button { newName = ""; showNewPlaylist = true } label: {
+                    Label("Nuova playlist", systemImage: "plus")
                 }
-                .accessibilityLabel(Text("Cerca"))
-            }
-            ToolbarItem(placement: .topBarTrailing) {
-                Menu {
-                    Button { newName = ""; showNewPlaylist = true } label: {
-                        Label("Nuova playlist", systemImage: "plus")
-                    }
-                    Button {
-                        guard account.unlocks(.playlistLinks) else { paywall = .playlistLinks; return }
-                        importLink = ""; showImport = true
-                    } label: {
-                        Label("Importa da Spotify, Apple Music o YouTube", systemImage: "square.and.arrow.down")
-                    }
-                    Button { showImportFile = true } label: {
-                        Label("Importa playlist da file", systemImage: "doc.badge.plus")
-                    }
+                Button {
+                    guard account.unlocks(.playlistLinks) else { paywall = .playlistLinks; return }
+                    importLink = ""; showImport = true
                 } label: {
-                    Image(systemName: "plus")
+                    Label("Importa da Spotify, Apple Music o YouTube", systemImage: "square.and.arrow.down")
                 }
-                .accessibilityLabel(Text("Nuova playlist"))
+                Button { showImportFile = true } label: {
+                    Label("Importa playlist da file", systemImage: "doc.badge.plus")
+                }
+            } label: {
+                Image(systemName: "plus")
             }
+            .accessibilityLabel(Text("Nuova playlist"))
         }
     }
 
@@ -353,7 +340,7 @@ struct LibraryView: View {
                 .clipShape(.rect(cornerRadius: 4))
             Text(title)
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(ClassicPalette.primaryText)
                 .lineLimit(2)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -383,14 +370,14 @@ struct LibraryView: View {
         HStack {
             Label("Recenti", systemImage: "arrow.up.arrow.down")
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(ClassicPalette.primaryText)
             Spacer()
             Button {
                 gridView.toggle()
             } label: {
                 Image(systemName: gridView ? "list.bullet" : "square.grid.2x2")
                     .font(.body.weight(.semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(ClassicPalette.primaryText)
             }
             .buttonStyle(.plain)
             .accessibilityLabel(Text(gridView ? "Elenco" : "Griglia"))
@@ -416,7 +403,7 @@ struct LibraryView: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
                     .font(.body.weight(.semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(ClassicPalette.primaryText)
                     .lineLimit(1)
                 HStack(spacing: 4) {
                     if pinned {

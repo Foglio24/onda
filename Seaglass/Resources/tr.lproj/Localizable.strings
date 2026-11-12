@@ -780,7 +780,7 @@
 "Classico" = "Klasik";
 "La tua libreria" = "Kitaplığın";
 "Stile dell'interfaccia" = "Arayüz stili";
-"Classico è nero e piatto, in verde, come le app di streaming più diffuse: sull'iPhone con Home, Cerca e La tua libreria e il mini player; sul Mac con la barra laterale e il player in basso." = "Klasik; siyah ve düz, yeşil renkte, en yaygın müzik yayın uygulamaları gibidir: iPhone'da Ana Sayfa, Ara ve Kitaplığın ile mini oynatıcı; Mac'te kenar çubuğu ve alttaki oynatıcı çubuğu.";
+"Classico è piatto, in verde, come le app di streaming più diffuse: sull'iPhone con Home, Cerca e La tua libreria e il mini player; sul Mac con la barra laterale e il player in basso." = "Klasik; düz ve yeşil renktedir, en yaygın müzik yayın uygulamaları gibidir: iPhone'da Ana Sayfa, Ara ve Kitaplığın ile mini oynatıcı; Mac'te kenar çubuğu ve alttaki oynatıcı çubuğu.";
 "Nello stile Classico il colore è il verde." = "Klasik stilde renk yeşildir.";
 "Sfoglia tutto" = "Hepsine göz at";
 "Tutti" = "Tümü";
@@ -802,3 +802,9 @@
 "Mostra testo" = "Şarkı sözlerini göster";
 "Riproduzione casuale da:" = "Karışık çalma kaynağı:";
 "Chiudi" = "Kapat";
+"Modalità" = "Mod";
+"Automatica" = "Otomatik";
+"Chiara" = "Açık";
+"Scura" = "Koyu";
+"Automatica segue il dispositivo, chiara o scura. Il player resta scuro, sui colori della copertina." = "Otomatik, cihazı izler: açık ya da koyu. Oynatıcı, kapağın renkleriyle koyu kalır.";
+"Apri la coda" = "Sırayı aç";

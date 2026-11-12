@@ -34,25 +34,62 @@ extension EnvironmentValues {
     @Entry var interfaceStyle: InterfaceStyle = .seaglass
 }
 
-/// The classic style's colours: black pages, slightly lighter cards, grey secondary text, green.
-enum ClassicPalette {
-    /// Pure black, as the common streaming apps' home and library.
-    static let background = Color.black
-    static let surface = Color(red: 0.12, green: 0.12, blue: 0.12)
-    static let elevated = Color(red: 0.18, green: 0.18, blue: 0.18)
-    static let pill = Color(red: 0.20, green: 0.20, blue: 0.20)
-    static let secondaryText = Color(red: 0.70, green: 0.70, blue: 0.70)
-    static let accent = Color(red: 0.114, green: 0.725, blue: 0.329)
+/// Light or dark, for the whole app: as the device (the default), or always one of the two. The
+/// player keeps its own dark look on the cover's colours in both, as the common streaming apps.
+enum AppearanceMode: String, CaseIterable, Identifiable {
+    case automatic, light, dark
+
+    var id: Self { self }
+
+    var title: String {
+        switch self {
+        case .automatic: return String(localized: "Automatica")
+        case .light: return String(localized: "Chiara")
+        case .dark: return String(localized: "Scura")
+        }
+    }
+
+    var colorScheme: ColorScheme? {
+        switch self {
+        case .automatic: return nil
+        case .light: return .light
+        case .dark: return .dark
+        }
+    }
 }
 
-/// The style for every view below: in the environment, and dark throughout in the classic one.
+/// The classic style's colours, for the dark mode and the light one: black (or white) pages,
+/// cards a little lighter (or darker), grey secondary text, green.
+enum ClassicPalette {
+    static let background = adaptive(dark: .black, light: .white)
+    static let surface = adaptive(dark: gray(0.12), light: gray(0.96))
+    static let elevated = adaptive(dark: gray(0.18), light: gray(0.92))
+    static let pill = adaptive(dark: gray(0.20), light: gray(0.90))
+    /// The text on the pages: white in the dark, black in the light.
+    static let primaryText = adaptive(dark: .white, light: .black)
+    static let secondaryText = adaptive(dark: gray(0.70), light: gray(0.40))
+    /// The search field: white on the dark pages, light grey on the light ones (its text is black in both).
+    static let field = adaptive(dark: .white, light: gray(0.92))
+    /// Lines between rows.
+    static let separator = adaptive(dark: UIColor(white: 1, alpha: 0.12), light: UIColor(white: 0, alpha: 0.10))
+    static let accent = Color(red: 0.114, green: 0.725, blue: 0.329)
+
+    private static func gray(_ white: CGFloat) -> UIColor { UIColor(white: white, alpha: 1) }
+
+    private static func adaptive(dark: UIColor, light: UIColor) -> Color {
+        Color(UIColor { $0.userInterfaceStyle == .dark ? dark : light })
+    }
+}
+
+/// The style for every view below, in the environment, and the light or dark mode chosen.
 struct InterfaceStyleModifier: ViewModifier {
     @AppStorage(Preferences.interfaceStyle) private var style: InterfaceStyle = .seaglass
+    @AppStorage(Preferences.appearanceMode) private var mode: AppearanceMode = .automatic
 
     func body(content: Content) -> some View {
         content
             .environment(\.interfaceStyle, style)
-            .preferredColorScheme(style == .classic ? .dark : nil)
+            .preferredColorScheme(mode.colorScheme)
     }
 }
 
@@ -81,7 +118,7 @@ private struct StyledButton: ViewModifier {
         case (.classic, true):
             content.buttonStyle(.borderedProminent).buttonBorderShape(.capsule)
         case (.classic, false):
-            content.buttonStyle(.bordered).buttonBorderShape(.capsule).tint(.white)
+            content.buttonStyle(.bordered).buttonBorderShape(.capsule).tint(ClassicPalette.primaryText)
         case (.seaglass, true):
             content.buttonStyle(.glassProminent)
         case (.seaglass, false):
@@ -135,14 +172,15 @@ struct ClassicBottomBar: View {
             // Nearly opaque behind the tabs (down to the screen's edge), so the page doesn't show through
             // their names; the fade is above them, behind the mini player.
             .background {
-                Color.black.opacity(0.94)
+                ClassicPalette.background.opacity(0.94)
                     .padding(.top, player.current != nil ? -8 : 0)
                     .ignoresSafeArea(edges: .bottom)
                     .allowsHitTesting(false)
             }
         }
         .background {
-            LinearGradient(colors: [.black.opacity(0), .black.opacity(0.85), .black], startPoint: .top, endPoint: .bottom)
+            LinearGradient(colors: [ClassicPalette.background.opacity(0), ClassicPalette.background.opacity(0.85), ClassicPalette.background],
+                           startPoint: .top, endPoint: .bottom)
                 .padding(.top, player.current != nil ? 30 : -20)
                 .ignoresSafeArea(edges: .bottom)
                 .allowsHitTesting(false)
@@ -163,7 +201,7 @@ struct ClassicBottomBar: View {
                     .lineLimit(1)
             }
             .frame(maxWidth: .infinity)
-            .foregroundStyle(on ? Color.white : ClassicPalette.secondaryText)
+            .foregroundStyle(on ? ClassicPalette.primaryText : ClassicPalette.secondaryText)
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
@@ -272,84 +310,129 @@ struct ProfileButton: View {
     }
 }
 
-/// Classic profile menu: name, Recenti, Impostazioni. No friends activity and no messages —
-/// Seaglass has neither (those stay out on purpose).
-struct ClassicProfileSheet: View {
-    @EnvironmentObject private var router: AppRouter
-    @ObservedObject private var account = AccountService.shared
-    @Environment(\.dismiss) private var dismiss
+/// The top of the classic style's main pages, as the common streaming apps: the profile on the left,
+/// the page's title (or its filters) beside it, the page's buttons on the right. A row of its own,
+/// pinned over the page, rather than the system's toolbar, which wrapped the profile in a wider glass
+/// capsule and cut the title off.
+struct ClassicHeader<Middle: View, Trailing: View>: View {
+    var title: LocalizedStringKey?
+    @ViewBuilder var middle: Middle
+    @ViewBuilder var trailing: Trailing
 
     var body: some View {
-        NavigationStack {
-            List {
-                Section {
-                    profileHeader
-                        .listRowBackground(Color.clear)
-                        .listRowSeparator(.hidden)
-                        .listRowInsets(EdgeInsets(top: 8, leading: 20, bottom: 12, trailing: 20))
-                }
-                Section {
-                    if account.isAvailable {
-                        NavigationLink {
-                            AccountSettingsView()
-                        } label: {
-                            Label("Profilo", systemImage: "person")
-                        }
-                    }
-                    NavigationLink {
-                        TrackCollectionView(collection: .history)
-                    } label: {
-                        Label("Recenti", systemImage: "clock.arrow.circlepath")
-                    }
-                    Button {
-                        dismiss()
-                        // Settings has its own stack: open it as its own sheet after this one closes.
-                        Task { @MainActor in
-                            try? await Task.sleep(for: .milliseconds(350))
-                            router.showSettings = true
-                        }
-                    } label: {
-                        Label("Impostazioni e privacy", systemImage: "gearshape")
-                    }
-                    .foregroundStyle(.primary)
-                }
-                .listRowBackground(ClassicPalette.surface)
+        HStack(spacing: 12) {
+            ProfileButton()
+            if let title {
+                Text(title)
+                    .font(.title2.bold())
+                    .foregroundStyle(ClassicPalette.primaryText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
             }
-            .listStyle(.plain)
-            .scrollContentBackground(.hidden)
-            .background(ClassicPalette.background.ignoresSafeArea())
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Chiudi") { dismiss() }
+            middle
+            Spacer(minLength: 0)
+            HStack(spacing: 18) { trailing }
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(ClassicPalette.primaryText)
+                .buttonStyle(.plain)
+                .labelStyle(.iconOnly)
+        }
+        .frame(height: 48)
+        .padding(.horizontal, 16)
+        .background(ClassicPalette.background)
+    }
+}
+
+extension ClassicHeader where Middle == EmptyView {
+    init(title: LocalizedStringKey, @ViewBuilder trailing: () -> Trailing) {
+        self.init(title: title, middle: { EmptyView() }, trailing: trailing)
+    }
+}
+
+extension View {
+    /// A classic main page: its own header pinned at the top instead of the navigation bar (pages
+    /// pushed from it keep theirs, with the back button).
+    func classicHeader<Header: View>(@ViewBuilder _ header: () -> Header) -> some View {
+        let header = header()
+        return toolbar(.hidden, for: .navigationBar)
+            .safeAreaInset(edge: .top, spacing: 0) { header }
+    }
+}
+
+/// What the classic profile menu opens in a sheet of its own.
+enum ProfilePage: String, Identifiable {
+    case account, recents
+    var id: Self { self }
+}
+
+/// The classic profile menu, as the common streaming apps': a panel that slides in from the left
+/// over the page (which dims), with the profile at the top and the menu's rows under it. A tap on
+/// the dimmed page or a swipe to the left closes it. No friends' activity or messages: Seaglass has
+/// neither.
+struct ClassicProfileDrawer: View {
+    @EnvironmentObject private var router: AppRouter
+    @ObservedObject private var account = AccountService.shared
+
+    var body: some View {
+        ZStack(alignment: .leading) {
+            if router.showProfileMenu {
+                Color.black.opacity(0.55)
+                    .ignoresSafeArea()
+                    .onTapGesture { close() }
+                    .transition(.opacity)
+                    .accessibilityHidden(true)
+                panel
+                    .containerRelativeFrame(.horizontal) { width, _ in min(340, width * 0.84) }
+                    .frame(maxHeight: .infinity, alignment: .top)
+                    .background(ClassicPalette.surface.ignoresSafeArea())
+                    .gesture(DragGesture(minimumDistance: 20).onEnded { value in
+                        if value.translation.width < -60 { close() }
+                    })
+                    .transition(.move(edge: .leading))
+                    .accessibilityAddTraits(.isModal)
+            }
+        }
+        .animation(.snappy(duration: 0.3), value: router.showProfileMenu)
+    }
+
+    private var panel: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Button { open(account.isAvailable ? .account : nil) } label: {
+                profileHeader
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 20)
+            .padding(.top, 12)
+            .padding(.bottom, 18)
+            Rectangle()
+                .fill(ClassicPalette.separator)
+                .frame(height: 1)
+            VStack(alignment: .leading, spacing: 0) {
+                row("Recenti", symbol: "clock.arrow.circlepath") { open(.recents) }
+                row("Impostazioni e privacy", symbol: "gearshape") {
+                    close()
+                    router.showSettings = true
                 }
             }
-            .navigationBarTitleDisplayMode(.inline)
+            .padding(.top, 8)
+            Spacer(minLength: 0)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .preferredColorScheme(.dark)
-        .presentationDetents([.medium, .large])
-        .presentationBackground(ClassicPalette.background)
-        // Full width on iPad/Mac: without this the sheet sits off-centre with a gap on the right.
-        .classicPageSheet()
-        .onDisappear {
-            // Keep the flag in sync if the sheet is dismissed by a swipe.
-            router.showProfileMenu = false
-        }
+        .foregroundStyle(ClassicPalette.primaryText)
     }
 
     private var profileHeader: some View {
         let letter = ProfileButton.letter(for: account)
-        let name = account.details?.name.trimmingCharacters(in: .whitespacesAndNewlines)
-        return HStack(alignment: .center, spacing: 14) {
+        let name = account.details?.name.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return HStack(spacing: 14) {
             Text(letter)
-                .font(.system(size: 28, weight: .bold))
+                .font(.system(size: 22, weight: .bold))
                 .foregroundStyle(.black)
-                .frame(width: 64, height: 64)
+                .frame(width: 52, height: 52)
                 .background(ProfileButton.avatarTint(for: letter), in: .circle)
-            VStack(alignment: .leading, spacing: 4) {
-                Text(name?.isEmpty == false ? name! : String(localized: "Seaglass"))
-                    .font(.title2.bold())
-                    .foregroundStyle(.white)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(name.isEmpty ? String(localized: "Seaglass") : name)
+                    .font(.title3.bold())
+                    .lineLimit(1)
                 if account.isAvailable {
                     Text("Visualizza profilo")
                         .font(.subheadline)
@@ -358,6 +441,34 @@ struct ClassicProfileSheet: View {
             }
             Spacer(minLength: 0)
         }
+        .contentShape(.rect)
+    }
+
+    private func row(_ title: LocalizedStringKey, symbol: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 16) {
+                Image(systemName: symbol)
+                    .font(.title3)
+                    .frame(width: 28)
+                Text(title)
+                    .font(.body.weight(.medium))
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 14)
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func close() {
+        router.showProfileMenu = false
+    }
+
+    private func open(_ page: ProfilePage?) {
+        close()
+        guard let page else { return }
+        router.profilePage = page
     }
 }
 
@@ -371,7 +482,7 @@ struct ClassicPill: View {
         Button(action: action) {
             Text(title)
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(selected ? Color.black : Color.white)
+                .foregroundStyle(selected ? Color.black : ClassicPalette.primaryText)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
                 .background(selected ? ClassicPalette.accent : ClassicPalette.pill, in: .capsule)
@@ -413,7 +524,7 @@ struct ClassicSectionHeader: View {
         HStack(alignment: .firstTextBaseline) {
             Text(title)
                 .font(.title2.bold())
-                .foregroundStyle(.white)
+                .foregroundStyle(ClassicPalette.primaryText)
             Spacer(minLength: 8)
             if let showAll {
                 Button(action: showAll) {
@@ -440,7 +551,7 @@ struct TrackActionSheet: View {
     var body: some View {
         VStack(spacing: 0) {
             Capsule()
-                .fill(Color.white.opacity(0.35))
+                .fill(ClassicPalette.secondaryText.opacity(0.5))
                 .frame(width: 36, height: 4)
                 .padding(.top, 10)
                 .padding(.bottom, 14)
@@ -449,7 +560,7 @@ struct TrackActionSheet: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(track.title)
                         .font(.body.weight(.semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(ClassicPalette.primaryText)
                         .lineLimit(1)
                     Text(track.artist)
                         .font(.subheadline)
@@ -460,7 +571,7 @@ struct TrackActionSheet: View {
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 12)
-            Divider().overlay(Color.white.opacity(0.12))
+            Divider().overlay(ClassicPalette.separator)
             ScrollView {
                 VStack(spacing: 0) {
                     if let url = track.shareURL {
@@ -525,7 +636,6 @@ struct TrackActionSheet: View {
         .presentationDragIndicator(.hidden)
         .presentationBackground(ClassicPalette.surface)
         .classicPageSheet()
-        .preferredColorScheme(.dark)
     }
 
     private func sheetButton(_ title: LocalizedStringKey, symbol: String, action: @escaping () -> Void) -> some View {
@@ -539,11 +649,11 @@ struct TrackActionSheet: View {
         HStack(spacing: 16) {
             Image(systemName: symbol)
                 .font(.title3)
-                .foregroundStyle(.white)
+                .foregroundStyle(ClassicPalette.primaryText)
                 .frame(width: 28)
             Text(title)
                 .font(.body)
-                .foregroundStyle(.white)
+                .foregroundStyle(ClassicPalette.primaryText)
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 20)

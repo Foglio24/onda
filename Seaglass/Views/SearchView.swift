@@ -96,18 +96,8 @@ struct SearchView: View {
             .scrollContentBackground(.hidden)
             .overlay { overlay }
         }
-        .navigationTitle("")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                HStack(spacing: 10) {
-                    ProfileButton()
-                    Text("Cerca")
-                        .font(.title.bold())
-                        .foregroundStyle(.white)
-                }
-            }
-            ToolbarItem(placement: .topBarTrailing) { RecognitionButton() }
+        .classicHeader {
+            ClassicHeader(title: "Cerca") { RecognitionButton() }
         }
     }
 
@@ -127,7 +117,7 @@ struct SearchView: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 11)
-            .background(Color.white, in: .rect(cornerRadius: 8))
+            .background(ClassicPalette.field, in: .rect(cornerRadius: 8))
             .environment(\.colorScheme, .light)
             if classicSearchFocused || !query.isEmpty {
                 Button("Annulla") {
@@ -135,7 +125,7 @@ struct SearchView: View {
                     classicSearchFocused = false
                 }
                 .font(.body.weight(.semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(ClassicPalette.primaryText)
                 .buttonStyle(.plain)
             }
         }

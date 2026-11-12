@@ -780,7 +780,7 @@
 "Classico" = "クラシック";
 "La tua libreria" = "マイライブラリ";
 "Stile dell'interfaccia" = "インターフェイスのスタイル";
-"Classico è nero e piatto, in verde, come le app di streaming più diffuse: sull'iPhone con Home, Cerca e La tua libreria e il mini player; sul Mac con la barra laterale e il player in basso." = "クラシックは黒くフラットで緑を基調とし、一般的なストリーミングアプリのようなスタイルです。iPhoneではホーム・検索・マイライブラリとミニプレーヤー、Macではサイドバーと下部のプレーヤーバーになります。";
+"Classico è piatto, in verde, come le app di streaming più diffuse: sull'iPhone con Home, Cerca e La tua libreria e il mini player; sul Mac con la barra laterale e il player in basso." = "クラシックはフラットで緑を基調とし、一般的なストリーミングアプリのようなスタイルです。iPhoneではホーム・検索・マイライブラリとミニプレーヤー、Macではサイドバーと下部のプレーヤーバーになります。";
 "Nello stile Classico il colore è il verde." = "クラシックスタイルでは色は緑になります。";
 "Sfoglia tutto" = "すべてを見る";
 "Tutti" = "すべて";
@@ -802,3 +802,9 @@
 "Mostra testo" = "歌詞を表示";
 "Riproduzione casuale da:" = "シャッフル元:";
 "Chiudi" = "閉じる";
+"Modalità" = "モード";
+"Automatica" = "自動";
+"Chiara" = "ライト";
+"Scura" = "ダーク";
+"Automatica segue il dispositivo, chiara o scura. Il player resta scuro, sui colori della copertina." = "「自動」はデバイスのライト／ダークに合わせます。プレーヤーはカバーの色を使ったダークのままです。";
+"Apri la coda" = "キューを開く";

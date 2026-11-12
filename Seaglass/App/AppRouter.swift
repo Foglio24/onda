@@ -49,6 +49,8 @@ final class AppRouter: ObservableObject {
     @Published var showSettings = false
     /// The classic style's profile menu (Recenti, Impostazioni…); not friends or messages.
     @Published var showProfileMenu = false
+    /// A page of the classic profile menu, opened in a sheet (see `ClassicProfileDrawer`).
+    @Published var profilePage: ProfilePage?
     /// The classic style's song actions as a bottom sheet (see `TrackActionSheet`).
     @Published var trackActions: Track?
     /// Where the mini player is on screen, for the player card to grow out of (see `PlayerCard`).

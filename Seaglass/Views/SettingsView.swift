@@ -102,7 +102,6 @@ struct SettingsView: View {
                 if LaunchScene.opensAccount { showAccount = true }
             }
         }
-        .preferredColorScheme(classic ? .dark : nil)
     }
 
     /// The app's language (the iPhone's, or the one chosen for Seaglass in iOS's settings).
@@ -140,7 +139,7 @@ struct SettingsRow: View {
                     in: .rect(cornerRadius: 7)
                 )
             Text(title)
-                .foregroundStyle(interfaceStyle == .classic ? Color.white : Color.primary)
+                .foregroundStyle(interfaceStyle == .classic ? ClassicPalette.primaryText : Color.primary)
             Spacer(minLength: 8)
             if let value {
                 Text(value)
@@ -161,7 +160,7 @@ private extension View {
     @ViewBuilder func classicSettingsSection(_ classic: Bool) -> some View {
         if classic {
             listRowBackground(ClassicPalette.surface)
-                .listRowSeparatorTint(Color.white.opacity(0.12))
+                .listRowSeparatorTint(ClassicPalette.separator)
         } else {
             self
         }
@@ -186,7 +185,6 @@ private struct SettingsPageChrome: ViewModifier {
             .toolbarBackground(classic ? ClassicPalette.background : Color.clear, for: .navigationBar)
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
-            .preferredColorScheme(classic ? .dark : nil)
     }
 }
 
@@ -479,6 +477,7 @@ private struct AppearanceSettingsView: View {
     @EnvironmentObject private var player: PlayerController
     @AppStorage(Preferences.accent) private var accent: AccentChoice = .pink
     @AppStorage(Preferences.interfaceStyle) private var style: InterfaceStyle = .seaglass
+    @AppStorage(Preferences.appearanceMode) private var mode: AppearanceMode = .automatic
     @AppStorage(Preferences.interactiveArtwork) private var interactiveArtwork = true
     @AppStorage(Preferences.dynamicColors) private var dynamicColors = true
     @AppStorage(Preferences.macZoom) private var zoom = 100
@@ -511,7 +510,21 @@ private struct AppearanceSettingsView: View {
             } header: {
                 Text("Stile dell'interfaccia")
             } footer: {
-                Text("Classico è nero e piatto, in verde, come le app di streaming più diffuse: sull'iPhone con Home, Cerca e La tua libreria e il mini player; sul Mac con la barra laterale e il player in basso.")
+                Text("Classico è piatto, in verde, come le app di streaming più diffuse: sull'iPhone con Home, Cerca e La tua libreria e il mini player; sul Mac con la barra laterale e il player in basso.")
+            }
+            Section {
+                Picker(selection: $mode) {
+                    ForEach(AppearanceMode.allCases) { choice in
+                        Text(choice.title).tag(choice)
+                    }
+                } label: {
+                    Label("Modalità", systemImage: "circle.lefthalf.filled")
+                }
+                .pickerStyle(.segmented)
+            } header: {
+                Text("Modalità")
+            } footer: {
+                Text("Automatica segue il dispositivo, chiara o scura. Il player resta scuro, sui colori della copertina.")
             }
             Section {
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 6), spacing: 12) {

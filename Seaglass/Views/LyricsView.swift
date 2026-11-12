@@ -77,6 +77,7 @@ private struct SyncedLyrics: View, Equatable {
     @AppStorage(Preferences.lyricsTranslationTarget) private var targetIdentifier = Preferences.defaultTranslationTarget
     @ObservedObject private var account = AccountService.shared
     @State private var paywall: PremiumFeature?
+    @Environment(\.interfaceStyle) private var interfaceStyle
 
     /// Translation is a Premium feature where Premium can be bought.
     private var translateEnabled: Bool { translateSetting && account.unlocks(.lyricsTranslation) }
@@ -128,20 +129,26 @@ private struct SyncedLyrics: View, Equatable {
                 VStack(alignment: .leading, spacing: 26 * textScale) {
                     ForEach(lines) { line in
                         let active = line.id == currentID
+                        // The classic style: sung lines white, the ones to come dark, all sharp and
+                        // the same size, as the common streaming apps.
+                        let sung = currentID.map { line.id <= $0 } ?? false
+                        let classic = interfaceStyle == .classic
                         VStack(alignment: .leading, spacing: 6) {
                             Text(line.text.isEmpty ? "♪" : line.text)
-                                .font(.system(size: size.points * textScale, weight: .bold, design: .rounded))
-                                .foregroundStyle(Color.white.opacity(active ? 1 : inactiveOpacity))
+                                .font(.system(size: size.points * textScale, weight: .bold, design: classic ? .default : .rounded))
+                                .foregroundStyle(classic ? (sung ? Color.white : Color.black.opacity(0.55))
+                                                         : Color.white.opacity(active ? 1 : inactiveOpacity))
                             if let translated = translations[line.id] {
                                 Text(translated)
-                                    .font(.system(size: size.points * textScale * 0.6, weight: .semibold, design: .rounded))
-                                    .foregroundStyle(Color.white.opacity(active ? 0.7 : inactiveOpacity * 0.8))
+                                    .font(.system(size: size.points * textScale * 0.6, weight: .semibold, design: classic ? .default : .rounded))
+                                    .foregroundStyle(classic ? (sung ? Color.white.opacity(0.8) : Color.black.opacity(0.45))
+                                                             : Color.white.opacity(active ? 0.7 : inactiveOpacity * 0.8))
                             }
                         }
-                        .blur(radius: style == .focus && !active ? 0.8 : 0)
-                        .scaleEffect(style == .fade || active ? 1 : 0.94, anchor: .leading)
-                        .shadow(color: Color.white.opacity(style == .glow && active ? 0.75 : 0),
-                                radius: style == .glow && active ? 14 : 0)
+                        .blur(radius: !classic && style == .focus && !active ? 0.8 : 0)
+                        .scaleEffect(classic || style == .fade || active ? 1 : 0.94, anchor: .leading)
+                        .shadow(color: Color.white.opacity(!classic && style == .glow && active ? 0.75 : 0),
+                                radius: !classic && style == .glow && active ? 14 : 0)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .contentShape(.rect)
                         .onTapGesture { PlayerController.shared.seek(to: line.time) }
@@ -154,7 +161,8 @@ private struct SyncedLyrics: View, Equatable {
             .scrollIndicators(.hidden)
             .onChange(of: currentID) { _, id in
                 guard let id else { return }
-                withAnimation(.spring(duration: 0.6)) { proxy.scrollTo(id, anchor: .center) }
+                // The classic style keeps the line sung a third of the way down, with what comes next under it.
+                withAnimation(.spring(duration: 0.6)) { proxy.scrollTo(id, anchor: interfaceStyle == .classic ? UnitPoint(x: 0.5, y: 0.3) : .center) }
             }
             .onChange(of: textScale) { _, _ in
                 if let currentID { proxy.scrollTo(currentID, anchor: .center) }

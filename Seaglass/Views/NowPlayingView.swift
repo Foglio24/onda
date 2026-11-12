@@ -23,6 +23,8 @@ struct NowPlayingView: View {
     private enum Panel { case artwork, lyrics, queue }
 
     @State private var panel: Panel = .artwork
+    /// How far the classic player is scrolled (negative when pulled down past its top).
+    @State private var classicPull: CGFloat = 0
     /// A drag down is under way (the card follows it).
     @State private var draggingDown = false
     @State private var showEqualizer = false
@@ -85,7 +87,12 @@ struct NowPlayingView: View {
         .onAppear {
             // The CI screenshots can open a panel (see `LaunchScene`).
             if let open = LaunchScene.playerPanel {
-                if open == "tempo" { showTempo = true } else { panel = open == "queue" ? .queue : .lyrics }
+                switch open {
+                case "tempo": showTempo = true
+                case "below": break // the classic player, scrolled to what's under it
+                case "queue": panel = .queue
+                default: panel = .lyrics
+                }
             }
             // The Mac's player bar opens the player on the lyrics or the queue.
             if let open = router.playerPanel {
@@ -152,50 +159,153 @@ struct NowPlayingView: View {
         }
     }
 
-    /// Classic full player: source in the header, lyric line under the cover, green check, white
-    /// play, AirPlay / share / queue. The lyrics card stays under the player chrome — and under
-    /// the queue when that panel is open (no friends or messages — those stay out of Seaglass).
-    private var classicStackedLayout: some View {
-        VStack(spacing: 14) {
-            VStack(spacing: 14) {
-                classicTopBar
-                switch panel {
-                case .artwork:
-                    Spacer(minLength: 0)
-                    artwork
-                    classicLyricLine
-                    Spacer(minLength: 4)
-                    classicTitleRow
-                case .queue:
-                    // Compact header so the queue list and the lyrics card fit underneath.
-                    classicTitleRow
-                case .lyrics:
-                    compactHeader
+    /// Classic full player, laid out as the common streaming apps': the player fills the screen and
+    /// scrolls down to the lyrics' preview and the next songs; the lyrics open full screen on the
+    /// cover's colour, the queue on its own page. Pulling the player down past its top closes it.
+    @ViewBuilder private var classicStackedLayout: some View {
+        switch panel {
+        case .lyrics:
+            classicLyricsScreen
+        case .queue:
+            classicQueueScreen
+        case .artwork:
+            GeometryReader { geometry in
+                ScrollView(.vertical) {
+                    VStack(spacing: 18) {
+                        classicPlayerPage
+                            .frame(height: geometry.size.height)
+                        if !isEpisode { classicLyricsCard }
+                        classicUpNextCard
+                    }
+                    .padding(.bottom, 24)
+                }
+                .scrollIndicators(.hidden)
+                // The CI screenshots can open it scrolled to the cards under the player.
+                .defaultScrollAnchor(LaunchScene.playerPanel == "below" ? .bottom : .top)
+                .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.y + $0.contentInsets.top } action: { _, offset in
+                    classicPull = offset
+                }
+                .onScrollPhaseChange { old, new in
+                    // Let go well past the top: the player closes, as when it's dragged down.
+                    if old == .interacting, new != .interacting, classicPull < -90 { close() }
                 }
             }
-            .contentShape(.rect)
-            .simultaneousGesture(dismissDrag)
+        }
+    }
 
-            if panel == .lyrics {
-                panelContent
-                    .frame(maxHeight: .infinity)
-                    .overlay(alignment: .bottomTrailing) { singControl }
-                errorLabel
-                PlayerScrubber(classic: true)
-                controls
-                classicBottomBar
-            } else {
-                errorLabel
-                PlayerScrubber(classic: true)
-                controls
-                classicBottomBar
-                if panel == .queue {
-                    QueueView()
-                        .frame(maxHeight: .infinity)
-                }
-                // Always under the player; when the queue is open, under that too.
-                if !isEpisode { classicLyricsCard }
+    /// What the classic player shows without scrolling: header, cover, song, scrubber, controls.
+    private var classicPlayerPage: some View {
+        VStack(spacing: 0) {
+            classicTopBar
+            Spacer(minLength: 16)
+            artwork
+            Spacer(minLength: 16)
+            classicTitleRow
+            errorLabel
+                .padding(.top, 6)
+            PlayerScrubber(classic: true)
+                .padding(.top, 14)
+            controls
+                .padding(.top, 6)
+            classicBottomBar
+                .padding(.top, 6)
+        }
+    }
+
+    /// The lyrics full screen, as the common streaming apps show them: the cover's colour behind,
+    /// the song at the top, the lines large on the left, the scrubber and play at the bottom.
+    private var classicLyricsScreen: some View {
+        VStack(spacing: 12) {
+            classicPanelHeader(title: player.current?.title ?? "", subtitle: player.current?.artist ?? "")
+            Group {
+                if isEpisode { EpisodeNotesView() } else { LyricsView() }
             }
+            .frame(maxHeight: .infinity)
+            .overlay(alignment: .bottomTrailing) { singControl }
+            PlayerScrubber(classic: true)
+            HStack {
+                Spacer()
+                playButton
+                Spacer()
+            }
+        }
+    }
+
+    /// The queue on its own page: the header, the list, and the controls under it.
+    private var classicQueueScreen: some View {
+        VStack(spacing: 12) {
+            classicPanelHeader(title: String(localized: "Coda"), subtitle: player.source)
+            QueueView()
+                .frame(maxHeight: .infinity)
+            PlayerScrubber(classic: true)
+            controls
+        }
+    }
+
+    /// A panel's header in the classic player: back to the player on the left, two centred lines.
+    private func classicPanelHeader(title: String, subtitle: String) -> some View {
+        HStack {
+            Button { withAnimation { panel = .artwork } } label: {
+                Image(systemName: "chevron.down")
+                    .font(.title3.weight(.semibold))
+                    .frame(width: 44, height: 44)
+            }
+            .accessibilityLabel(Text("Chiudi"))
+            Spacer(minLength: 8)
+            VStack(spacing: 2) {
+                Text(title)
+                    .font(.subheadline.weight(.bold))
+                    .lineLimit(1)
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundStyle(Color.white.opacity(0.75))
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 8)
+            // As wide as the chevron, so the two lines stay centred.
+            Color.clear.frame(width: 44, height: 44)
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// Under the classic player: the next three songs, and the whole queue a tap away.
+    @ViewBuilder private var classicUpNextCard: some View {
+        let next = Array(player.upcoming.prefix(3))
+        if !next.isEmpty {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text("Prossimi brani")
+                        .font(.headline.weight(.bold))
+                    Spacer(minLength: 8)
+                    Button { withAnimation { panel = .queue } } label: {
+                        Text("Apri la coda")
+                            .font(.subheadline.weight(.bold))
+                            .foregroundStyle(Color.white.opacity(0.85))
+                    }
+                    .buttonStyle(.plain)
+                }
+                ForEach(next) { entry in
+                    let track = entry.track
+                    HStack(spacing: 12) {
+                        ArtworkView(track: track, size: 44, cornerRadius: 4)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(track.title)
+                                .font(.subheadline.weight(.semibold))
+                                .lineLimit(1)
+                            Text(track.artist)
+                                .font(.caption)
+                                .foregroundStyle(Color.white.opacity(0.7))
+                                .lineLimit(1)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .contentShape(.rect)
+                    .onTapGesture { withAnimation { panel = .queue } }
+                }
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.white.opacity(0.1), in: .rect(cornerRadius: 12))
         }
     }
 
@@ -309,9 +419,14 @@ struct NowPlayingView: View {
             // From the cover's colour at the top down to the page's black, with nothing blurred behind.
             ZStack {
                 ClassicPalette.background
-                LinearGradient(colors: [player.artworkColor.mix(with: .black, by: 0.15), player.artworkColor.mix(with: .black, by: 0.6),
-                                        ClassicPalette.background],
-                               startPoint: .top, endPoint: .bottom)
+                if panel == .lyrics {
+                    // The lyrics sit on the cover's colour itself.
+                    player.artworkColor.mix(with: .black, by: 0.2)
+                } else {
+                    LinearGradient(colors: [player.artworkColor.mix(with: .black, by: 0.15), player.artworkColor.mix(with: .black, by: 0.6),
+                                            ClassicPalette.background],
+                                   startPoint: .top, endPoint: .bottom)
+                }
             }
             .ignoresSafeArea()
             .animation(.easeInOut(duration: 0.8), value: player.artworkColor)
@@ -389,14 +504,6 @@ struct NowPlayingView: View {
         .buttonStyle(.plain)
     }
 
-    /// The current lyric under the cover, when the song has synced lyrics.
-    @ViewBuilder private var classicLyricLine: some View {
-        if case .synced(let lines) = player.lyrics {
-            ClassicCurrentLyric(lines: lines)
-                .padding(.top, 4)
-        }
-    }
-
     private var classicTitleRow: some View {
         HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
@@ -451,7 +558,8 @@ struct NowPlayingView: View {
                     Image(systemName: "translate")
                         .font(.body.weight(.semibold))
                 }
-                ClassicLyricsPeek(lyrics: player.lyrics)
+                // The CI's demo song has its lyrics from `LaunchScene`, as the lyrics page does.
+                ClassicLyricsPeek(lyrics: LaunchScene.playerPreviewLyrics.map { .synced($0) } ?? player.lyrics)
                 Text("Mostra testo")
                     .font(.subheadline.weight(.bold))
                     .foregroundStyle(.black)
@@ -1100,25 +1208,6 @@ private struct PlayerScrubber: View {
 
     /// How long before the transition its mark appears.
     private static let markLead: TimeInterval = 60
-}
-
-/// The current synced lyric under the classic player's cover (its own view: it ticks with time).
-private struct ClassicCurrentLyric: View {
-    let lines: [LyricLine]
-    @EnvironmentObject private var progress: PlaybackProgress
-
-    var body: some View {
-        let text = lines.last(where: { $0.time <= progress.currentTime + 0.25 })?.text
-            ?? lines.first?.text
-        if let text, !text.isEmpty {
-            Text(text)
-                .font(.title3.weight(.bold))
-                .multilineTextAlignment(.center)
-                .lineLimit(2)
-                .frame(maxWidth: .infinity)
-                .foregroundStyle(.white)
-        }
-    }
 }
 
 /// A few lines inside the classic "Anteprima del testo" card; ticks with the song when synced.
