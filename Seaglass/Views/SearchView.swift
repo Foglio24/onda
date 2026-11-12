@@ -175,7 +175,7 @@ struct SearchView: View {
         if !localResults.isEmpty {
             Section {
                 ForEach(Array(localResults.prefix(Self.localPreview).enumerated()), id: \.element.id) { position, track in
-                    TrackRow(track: track) {
+                    TrackRow(track: track, swipe: style == .classic ? .drag : .list) {
                         remember(RecentSearch(track: track))
                         player.play(localResults, startAt: position, source: String(localized: "File locali"))
                     }
@@ -189,7 +189,7 @@ struct SearchView: View {
             let shown = showAllSongs ? layout.songs : Array(layout.songs.prefix(Self.songsPreview))
             Section {
                 ForEach(shown) { track in
-                    TrackRow(track: track) {
+                    TrackRow(track: track, swipe: style == .classic ? .drag : .list) {
                         remember(RecentSearch(track: track))
                         player.playRadio(from: track)
                     }
@@ -298,7 +298,9 @@ struct SearchView: View {
             .buttonStyle(.plain)
             .listRowBackground(Color.clear)
         } else if let track = entry.track {
-            TrackRow(track: track, remove: { forget(entry) }) { openRecent(entry) }
+            TrackRow(track: track, swipe: style == .classic ? .drag : .list, remove: { forget(entry) }) {
+                openRecent(entry)
+            }
                 .listRowBackground(Color.clear)
         } else {
             Button { openRecent(entry) } label: { RecentSearchRow(entry: entry) }

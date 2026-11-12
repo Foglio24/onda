@@ -266,6 +266,19 @@ struct PlaylistDetailView: View {
                 .font(.title2)
                 .foregroundStyle(ClassicPalette.secondaryText)
 
+            if playlist.tracks.count >= 2 {
+                Button {
+                    withAnimation { editMode = isEditing ? .inactive : .active }
+                } label: {
+                    Image(systemName: "line.3.horizontal")
+                        .font(.title2.weight(.semibold))
+                        .foregroundStyle(isEditing ? ClassicPalette.accent : ClassicPalette.secondaryText)
+                        .frame(width: 36, height: 36)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(Text("Riordina i brani"))
+            }
+
             Spacer(minLength: 0)
 
             if playlist.tracks.count >= 2 {

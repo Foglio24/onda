@@ -549,6 +549,7 @@ struct TrackCollectionView: View {
     @EnvironmentObject private var library: Library
     private var player: PlayerController { .shared }
     @EnvironmentObject private var downloads: DownloadManager
+    @State private var editMode: EditMode = .inactive
 
     private var tracks: [Track] {
         switch collection {
@@ -557,6 +558,8 @@ struct TrackCollectionView: View {
         case .history: return library.history
         }
     }
+
+    private var canReorder: Bool { collection == .liked && tracks.count >= 2 }
 
     var body: some View {
         List {
@@ -569,6 +572,7 @@ struct TrackCollectionView: View {
                 TrackRow(track: track, remove: { delete(IndexSet(integer: position)) }) {
                     player.play(tracks, startAt: position, source: collection.title)
                 }
+                .allowsHitTesting(!editMode.isEditing)
                 .listRowBackground(Color.clear)
             }
             .onDelete(perform: delete)
@@ -577,12 +581,26 @@ struct TrackCollectionView: View {
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
         .background { AmbientBackground() }
+        .environment(\.editMode, $editMode)
         .overlay {
             if tracks.isEmpty { emptyState }
         }
         .navigationTitle(collection.title)
         .toolbar {
-            if collection == .history && !tracks.isEmpty {
+            if editMode.isEditing {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Fine") { withAnimation { editMode = .inactive } }
+                }
+            } else if canReorder {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        withAnimation { editMode = .active }
+                    } label: {
+                        Label("Riordina i brani", systemImage: "line.3.horizontal")
+                    }
+                }
+            }
+            if collection == .history && !tracks.isEmpty && !editMode.isEditing {
                 Button("Svuota") { library.clearHistory() }
             }
         }

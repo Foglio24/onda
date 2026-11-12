@@ -47,7 +47,10 @@ struct RootView: View {
             MusicPageSheet(page: page).appEnvironment()
         }
         .sheet(isPresented: $router.showSettings) {
-            SettingsView().appEnvironment()
+            SettingsView()
+                .appEnvironment()
+                .classicPageSheet()
+                .presentationBackground(ClassicPalette.background)
         }
         .sheet(isPresented: $router.showProfileMenu) {
             ClassicProfileSheet().appEnvironment()

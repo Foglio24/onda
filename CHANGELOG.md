@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.35.3 (2026-11-12)
+
+### Fixed
+- **The classic profile menu sat off-centre** (a gap on the right, especially on iPad). It now opens full-width like the other pages.
+- **Dragging songs was missing in Classico** on the queue (no handles), playlists (only buried in ···) and search (list swipe fought the new look). The queue always shows drag handles; playlists and Preferiti have a clear reorder control; search uses the horizontal drag-to-queue gesture.
+
+### Changed
+- **Classic lyrics card** under the player — and under the queue when that panel is open: peek lines, translate affordance and **Mostra testo**, coloured from the cover.
+- **Settings in Classico**: black page, flat grey section cards, green icons instead of the multicolour Seaglass tiles; the sheet opens full-width.
+
 ## 1.35.2 (2026-11-12)
 
 ### Fixed

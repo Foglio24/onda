@@ -17,6 +17,8 @@ struct SettingsView: View {
     @State private var showEqualizer = false
     @State private var showAccount = false
 
+    private var classic: Bool { interfaceStyle == .classic }
+
     var body: some View {
         NavigationStack {
             List {
@@ -25,6 +27,7 @@ struct SettingsView: View {
                     Section {
                         NavigationLink { AccountSettingsView() } label: { AccountSettingsRow() }
                     }
+                    .classicSettingsSection(classic)
                 }
                 Section {
                     NavigationLink { AudioSettingsView() } label: {
@@ -40,6 +43,7 @@ struct SettingsView: View {
                                         ? String(localized: "Tradotti") : nil)
                     }
                 }
+                .classicSettingsSection(classic)
                 Section {
                     NavigationLink { AppearanceSettingsView() } label: {
                         SettingsRow("Aspetto", symbol: "paintbrush.fill", tint: .blue,
@@ -56,6 +60,7 @@ struct SettingsView: View {
                     }
                     .foregroundStyle(.primary)
                 }
+                .classicSettingsSection(classic)
                 Section {
                     NavigationLink { LastFMSettingsView() } label: {
                         SettingsRow("Last.fm", symbol: "dot.radiowaves.left.and.right", tint: .red,
@@ -70,15 +75,25 @@ struct SettingsView: View {
                                     value: updater.status == .available ? String(localized: "Nuova versione") : nil)
                     }
                 }
+                .classicSettingsSection(classic)
                 Section {
                     NavigationLink { AboutSettingsView() } label: {
                         SettingsRow("Informazioni", symbol: "info.circle.fill", tint: .indigo, value: Bundle.main.appVersion)
                     }
                 }
+                .classicSettingsSection(classic)
             }
+            .listStyle(classic ? .insetGrouped : .automatic)
             .scrollContentBackground(.hidden)
-            .background { AmbientBackground() }
+            .background {
+                if classic {
+                    ClassicPalette.background.ignoresSafeArea()
+                } else {
+                    AmbientBackground()
+                }
+            }
             .navigationTitle("Impostazioni")
+            .toolbarBackground(classic ? ClassicPalette.background : Color.clear, for: .navigationBar)
             // Opened directly only by the CI screenshots (see `LaunchScene`).
             .navigationDestination(isPresented: $showEqualizer) { EqualizerView() }
             .navigationDestination(isPresented: $showAccount) { AccountSettingsView() }
@@ -87,6 +102,7 @@ struct SettingsView: View {
                 if LaunchScene.opensAccount { showAccount = true }
             }
         }
+        .preferredColorScheme(classic ? .dark : nil)
     }
 
     /// The app's language (the iPhone's, or the one chosen for Seaglass in iOS's settings).
@@ -102,6 +118,7 @@ struct SettingsRow: View {
     let symbol: String
     let tint: Color
     var value: String?
+    @Environment(\.interfaceStyle) private var interfaceStyle
 
     init(_ title: LocalizedStringKey, symbol: String, tint: Color, value: String? = nil) {
         self.title = title
@@ -114,14 +131,20 @@ struct SettingsRow: View {
         HStack(spacing: 12) {
             Image(systemName: symbol)
                 .font(.callout.weight(.semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(interfaceStyle == .classic ? ClassicPalette.accent : Color.white)
                 .frame(width: 30, height: 30)
-                .background(tint.gradient, in: .rect(cornerRadius: 7))
+                .background(
+                    interfaceStyle == .classic
+                        ? AnyShapeStyle(ClassicPalette.elevated)
+                        : AnyShapeStyle(tint.gradient),
+                    in: .rect(cornerRadius: 7)
+                )
             Text(title)
+                .foregroundStyle(interfaceStyle == .classic ? Color.white : Color.primary)
             Spacer(minLength: 8)
             if let value {
                 Text(value)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(interfaceStyle == .classic ? ClassicPalette.secondaryText : Color.secondary)
                     .lineLimit(1)
             }
         }
@@ -131,10 +154,39 @@ struct SettingsRow: View {
 /// The settings' pages share the app's background.
 private extension View {
     func settingsPage(_ title: LocalizedStringKey) -> some View {
-        scrollContentBackground(.hidden)
-            .background { AmbientBackground() }
+        modifier(SettingsPageChrome(title: title))
+    }
+
+    /// Flat grey cards for classic settings sections (root list and Form subpages).
+    @ViewBuilder func classicSettingsSection(_ classic: Bool) -> some View {
+        if classic {
+            listRowBackground(ClassicPalette.surface)
+                .listRowSeparatorTint(Color.white.opacity(0.12))
+        } else {
+            self
+        }
+    }
+}
+
+private struct SettingsPageChrome: ViewModifier {
+    let title: LocalizedStringKey
+    @Environment(\.interfaceStyle) private var interfaceStyle
+
+    func body(content: Content) -> some View {
+        let classic = interfaceStyle == .classic
+        content
+            .scrollContentBackground(.hidden)
+            .background {
+                if classic {
+                    ClassicPalette.background.ignoresSafeArea()
+                } else {
+                    AmbientBackground()
+                }
+            }
+            .toolbarBackground(classic ? ClassicPalette.background : Color.clear, for: .navigationBar)
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
+            .preferredColorScheme(classic ? .dark : nil)
     }
 }
 

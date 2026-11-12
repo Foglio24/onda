@@ -325,8 +325,12 @@ struct ClassicProfileSheet: View {
             }
             .navigationBarTitleDisplayMode(.inline)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .preferredColorScheme(.dark)
         .presentationDetents([.medium, .large])
+        .presentationBackground(ClassicPalette.background)
+        // Full width on iPad/Mac: without this the sheet sits off-centre with a gap on the right.
+        .classicPageSheet()
         .onDisappear {
             // Keep the flag in sync if the sheet is dismissed by a swipe.
             router.showProfileMenu = false
@@ -519,6 +523,8 @@ struct TrackActionSheet: View {
         .background(ClassicPalette.surface.ignoresSafeArea())
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.hidden)
+        .presentationBackground(ClassicPalette.surface)
+        .classicPageSheet()
         .preferredColorScheme(.dark)
     }
 
@@ -575,5 +581,11 @@ extension View {
         listRowBackground(classic ? Color.clear : nil)
             .listRowSeparator(classic ? .hidden : .automatic)
             .listSectionSeparator(classic ? .hidden : .automatic)
+    }
+
+    /// Full-width sheet on iPad / Mac Catalyst (form sheets otherwise sit off-centre with a gap).
+    /// An iPhone already fills the screen; enabling this there is harmless.
+    @ViewBuilder func classicPageSheet(_ enabled: Bool = true) -> some View {
+        if enabled { presentationSizing(.page) } else { self }
     }
 }

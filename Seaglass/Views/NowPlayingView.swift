@@ -153,38 +153,48 @@ struct NowPlayingView: View {
     }
 
     /// Classic full player: source in the header, lyric line under the cover, green check, white
-    /// play, AirPlay / share / queue, and a lyrics preview card (no friends or messages — those
-    /// stay out of Seaglass).
+    /// play, AirPlay / share / queue. The lyrics card stays under the player chrome — and under
+    /// the queue when that panel is open (no friends or messages — those stay out of Seaglass).
     private var classicStackedLayout: some View {
         VStack(spacing: 14) {
             VStack(spacing: 14) {
                 classicTopBar
-                if panel == .artwork {
+                switch panel {
+                case .artwork:
                     Spacer(minLength: 0)
                     artwork
                     classicLyricLine
                     Spacer(minLength: 4)
                     classicTitleRow
-                } else {
+                case .queue:
+                    // Compact header so the queue list and the lyrics card fit underneath.
+                    classicTitleRow
+                case .lyrics:
                     compactHeader
                 }
             }
             .contentShape(.rect)
             .simultaneousGesture(dismissDrag)
-            if panel != .artwork {
+
+            if panel == .lyrics {
                 panelContent
                     .frame(maxHeight: .infinity)
                     .overlay(alignment: .bottomTrailing) { singControl }
-            }
-            errorLabel
-            PlayerScrubber(classic: true)
-            if panel == .artwork {
+                errorLabel
+                PlayerScrubber(classic: true)
                 controls
                 classicBottomBar
-                if !isEpisode { classicLyricsCard }
             } else {
+                errorLabel
+                PlayerScrubber(classic: true)
                 controls
                 classicBottomBar
+                if panel == .queue {
+                    QueueView()
+                        .frame(maxHeight: .infinity)
+                }
+                // Always under the player; when the queue is open, under that too.
+                if !isEpisode { classicLyricsCard }
             }
         }
     }
@@ -428,22 +438,34 @@ struct NowPlayingView: View {
         }
     }
 
-    /// Peeking lyrics card under the controls; opens the lyrics panel.
+    /// Rich lyrics card under the player (and under the queue): peek lines + "Mostra testo".
     private var classicLyricsCard: some View {
         Button {
             withAnimation { panel = .lyrics }
         } label: {
-            HStack {
-                Text("Anteprima del testo")
-                    .font(.headline.weight(.bold))
-                Spacer()
-                Image(systemName: "translate")
-                    .font(.body.weight(.semibold))
+            VStack(alignment: .leading, spacing: 14) {
+                HStack {
+                    Text("Anteprima del testo")
+                        .font(.headline.weight(.bold))
+                    Spacer(minLength: 8)
+                    Image(systemName: "translate")
+                        .font(.body.weight(.semibold))
+                }
+                ClassicLyricsPeek(lyrics: player.lyrics)
+                Text("Mostra testo")
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(.black)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(.white, in: .capsule)
             }
             .foregroundStyle(.white)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 18)
-            .background(player.artworkColor.mix(with: .black, by: 0.25), in: .rect(cornerRadius: 12))
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                player.artworkColor.mix(with: .black, by: 0.28),
+                in: .rect(cornerRadius: 12)
+            )
         }
         .buttonStyle(.plain)
         .padding(.top, 4)
@@ -1096,6 +1118,51 @@ private struct ClassicCurrentLyric: View {
                 .frame(maxWidth: .infinity)
                 .foregroundStyle(.white)
         }
+    }
+}
+
+/// A few lines inside the classic "Anteprima del testo" card; ticks with the song when synced.
+private struct ClassicLyricsPeek: View {
+    let lyrics: LyricsState
+    @EnvironmentObject private var progress: PlaybackProgress
+
+    var body: some View {
+        switch lyrics {
+        case .synced(let lines):
+            let current = lines.lastIndex(where: { $0.time <= progress.currentTime + 0.25 }) ?? 0
+            let start = max(0, current - 1)
+            let end = min(lines.count, start + 4)
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(lines[start..<end]) { line in
+                    Text(line.text)
+                        .font(.title3.weight(.bold))
+                        .foregroundStyle(line.id == lines[safe: current]?.id ? Color.white : Color.white.opacity(0.45))
+                        .lineLimit(2)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+            .frame(minHeight: 96, alignment: .topLeading)
+        case .plain(let text):
+            Text(text)
+                .font(.title3.weight(.bold))
+                .lineLimit(4)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        case .loading, .idle:
+            ProgressView()
+                .tint(.white)
+                .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
+        case .unavailable:
+            Text("Testo non disponibile")
+                .font(.body.weight(.semibold))
+                .foregroundStyle(Color.white.opacity(0.7))
+                .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
+        }
+    }
+}
+
+private extension Array {
+    subscript(safe index: Int) -> Element? {
+        indices.contains(index) ? self[index] : nil
     }
 }
 
