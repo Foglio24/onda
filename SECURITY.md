@@ -62,7 +62,9 @@ Out of scope:
 - **Your own songs.** A folder the user picks in the Files picker is kept as a bookmark (with the
   access the picker gave, on iPhone and iPad). The apps only read the audio files in it, their tags
   and their embedded covers (the covers are kept, small, in the app's own folder); they never write
-  to, copy out of or delete from the folder. The songs' names, tags and covers aren't sent anywhere or
+  to, copy out of or delete from the folder. The app's own folder (Documents/Musica, shown in Files)
+  is read the same way, and "Aggiungi file…" moves the copies the system made of the files the user
+  picked into it, which the user can delete in Files. The songs' names, tags and covers aren't sent anywhere or
   synced to the account, and the apps make no request to YouTube Music for them. As for any song
   played, the title and artist go to LRCLIB for lyrics, and to Last.fm when the user connected it.
 - **Lyrics translation.** It runs on the device: Apple's Translation framework on iOS, ML Kit on

@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.34.1 (2026-11-12)
+
+### Added
+- **Seaglass's own Musica folder** (iPhone and iPad). Files shows it as **Sul mio iPhone › Seaglass › Musica**: songs copied there with Files are read by the app with no picker and no permission, and appear in Library › File locali, always the first folder of the list (it can't be removed). It is the way in that doesn't depend on the access the Files picker hands over.
+- **Aggiungi file…** in Library › File locali: the Files picker for audio files, which the system copies for the app (no access to where they are is needed); they are moved into the Musica folder and read.
+
+### Changed
+- A folder with no songs in it says so ("Nessun brano trovato"), and the page explains the Musica folder.
+
 ## 1.34.0 (2026-11-11)
 
 ### Changed
