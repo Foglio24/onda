@@ -18,6 +18,7 @@ struct NowPlayingView: View {
     @AppStorage(Preferences.spatialAudio) private var spatialAudio = true
     @AppStorage(Preferences.playerVolumeBar) private var playerVolumeBar = true
     @AppStorage(Preferences.accent) private var accent: AccentChoice = .pink
+    @Environment(\.interfaceStyle) private var style
 
     private enum Panel { case artwork, lyrics, queue }
 
@@ -248,7 +249,23 @@ struct NowPlayingView: View {
 
     // MARK: Pieces
 
-    private var background: some View {
+    @ViewBuilder private var background: some View {
+        if style == .classic {
+            // From the cover's colour at the top down to the page's black, with nothing blurred behind.
+            ZStack {
+                ClassicPalette.background
+                LinearGradient(colors: [player.artworkColor.mix(with: .black, by: 0.15), player.artworkColor.mix(with: .black, by: 0.6),
+                                        ClassicPalette.background],
+                               startPoint: .top, endPoint: .bottom)
+            }
+            .ignoresSafeArea()
+            .animation(.easeInOut(duration: 0.8), value: player.artworkColor)
+        } else {
+            seaglassBackground
+        }
+    }
+
+    private var seaglassBackground: some View {
         ZStack {
             Color.black
             // Blurred once per song by ArtworkLoader: a live blur this size slowed down opening and closing.
@@ -392,9 +409,9 @@ struct NowPlayingView: View {
         Button {
             if let track = player.current { library.toggleLike(track) }
         } label: {
-            Image(systemName: isLiked ? "heart.fill" : "heart")
+            Image(systemName: style == .classic ? (isLiked ? "checkmark.circle.fill" : "plus.circle") : (isLiked ? "heart.fill" : "heart"))
                 .font(.title2)
-                .foregroundStyle(isLiked ? Color.pink : Color.white)
+                .foregroundStyle(isLiked ? (style == .classic ? ClassicPalette.accent : Color.pink) : Color.white)
                 .contentTransition(.symbolEffect(.replace))
                 .frame(width: 40, height: 44)
         }
@@ -465,7 +482,7 @@ struct NowPlayingView: View {
             .lineLimit(1)
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
-            .glassEffect(.regular, in: .capsule)
+            .styledSurface(in: .capsule)
     }
 
     /// Left to right in every language, like the Music app's: back is on the left, forward on the right.
@@ -506,7 +523,7 @@ struct NowPlayingView: View {
         Button { player.togglePlayPause() } label: {
             ZStack {
                 if player.isLoading {
-                    ProgressView().controlSize(.large).tint(.white)
+                    ProgressView().controlSize(.large).tint(style == .classic ? .black : .white)
                 } else {
                     Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
                         .font(.system(size: 44))
@@ -514,19 +531,15 @@ struct NowPlayingView: View {
                 }
             }
             .frame(width: 76, height: 76)
-            .glassEffect(.regular.interactive(), in: .circle)
+            .modifier(PlayButtonLook(classic: style == .classic))
         }
     }
 
     private var songControls: some View {
         HStack {
             Button { player.toggleShuffle() } label: {
-                Image(systemName: "shuffle")
-                    .font(.title3)
-                    .frame(width: 44, height: 44)
-                    .background(Color.white.opacity(player.shuffleEnabled ? 0.22 : 0), in: .circle)
+                toggleLook("shuffle", on: player.shuffleEnabled)
             }
-            .foregroundStyle(Color.white.opacity(player.shuffleEnabled ? 1 : 0.55))
             Spacer()
             Button { player.previous() } label: {
                 Image(systemName: "backward.fill").font(.system(size: 30)).frame(width: 56, height: 56)
@@ -539,14 +552,31 @@ struct NowPlayingView: View {
             }
             Spacer()
             Button { player.cycleRepeat() } label: {
-                Image(systemName: player.repeatMode.symbol)
-                    .font(.title3)
-                    .frame(width: 44, height: 44)
-                    .background(Color.white.opacity(player.repeatMode == .off ? 0 : 0.22), in: .circle)
+                toggleLook(player.repeatMode.symbol, on: player.repeatMode != .off)
             }
-            .foregroundStyle(Color.white.opacity(player.repeatMode == .off ? 0.55 : 1))
         }
         .buttonStyle(.plain)
+    }
+
+    /// Shuffle or repeat: on, a light disc behind it (Seaglass) or green with a dot under it (classic).
+    @ViewBuilder private func toggleLook(_ symbol: String, on: Bool) -> some View {
+        if style == .classic {
+            VStack(spacing: 2) {
+                Image(systemName: symbol)
+                    .font(.title3)
+                Circle()
+                    .frame(width: 4, height: 4)
+                    .opacity(on ? 1 : 0)
+            }
+            .frame(width: 44, height: 44)
+            .foregroundStyle(on ? ClassicPalette.accent : Color.white.opacity(0.7))
+        } else {
+            Image(systemName: symbol)
+                .font(.title3)
+                .frame(width: 44, height: 44)
+                .background(Color.white.opacity(on ? 0.22 : 0), in: .circle)
+                .foregroundStyle(Color.white.opacity(on ? 1 : 0.55))
+        }
     }
 
     private var bottomBar: some View {
@@ -901,4 +931,21 @@ private struct PlayerScrubber: View {
 
     /// How long before the transition its mark appears.
     private static let markLead: TimeInterval = 60
+}
+
+/// The play button: a glass disc in Seaglass's style; white with a black symbol in the classic one.
+private struct PlayButtonLook: ViewModifier {
+    let classic: Bool
+
+    func body(content: Content) -> some View {
+        if classic {
+            content
+                .foregroundStyle(.black)
+                .tint(.black)
+                .scaleEffect(0.8)
+                .background(Circle().fill(.white).padding(4))
+        } else {
+            content.glassEffect(.regular.interactive(), in: .circle)
+        }
+    }
 }

@@ -83,8 +83,23 @@ struct PlaylistArtwork: View {
 /// Soft background tinted with the colours of the song that is playing.
 struct AmbientBackground: View {
     @EnvironmentObject private var player: PlayerController
+    @Environment(\.interfaceStyle) private var style
 
     var body: some View {
+        if style == .classic {
+            ZStack(alignment: .top) {
+                ClassicPalette.background
+                LinearGradient(colors: [player.artworkColor.opacity(0.32), .clear], startPoint: .top, endPoint: .bottom)
+                    .frame(height: 300)
+            }
+            .ignoresSafeArea()
+            .animation(.easeInOut(duration: 0.8), value: player.artworkColor)
+        } else {
+            seaglass
+        }
+    }
+
+    private var seaglass: some View {
         ZStack(alignment: .top) {
             Color(uiColor: .systemBackground)
             LinearGradient(colors: [player.artworkColor.opacity(0.6), player.artworkColor.opacity(0.18), .clear],

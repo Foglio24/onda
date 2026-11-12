@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct SearchView: View {
+    @Environment(\.interfaceStyle) private var style
     private var player: PlayerController { .shared }
     @EnvironmentObject private var router: AppRouter
     @AppStorage(Preferences.recentSearches) private var recentRaw = ""
@@ -45,6 +46,9 @@ struct SearchView: View {
             .overlay { overlay }
             .navigationTitle("Cerca")
             .toolbar {
+                if style == .classic, !ProcessInfo.processInfo.isMacCatalystApp {
+                    ToolbarItem(placement: .topBarLeading) { ProfileButton() }
+                }
                 ToolbarItem(placement: .topBarTrailing) { RecognitionButton() }
             }
             .navigationDestination(for: MusicPage.self) { MusicPageView(page: $0) }

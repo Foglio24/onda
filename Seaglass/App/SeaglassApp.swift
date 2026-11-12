@@ -112,5 +112,6 @@ extension View {
             .environmentObject(AppUpdater.shared)
             .environmentObject(AccountService.shared)
             .modifier(MacZoomModifier())
+            .modifier(InterfaceStyleModifier())
     }
 }

@@ -854,3 +854,9 @@
 "Puoi anche mettere la musica in File › Sul mio iPhone › Seaglass › Musica: Seaglass la legge da lì, senza permessi." = "You can also put your music in Files › On My iPhone › Seaglass › Musica: Seaglass reads it from there, with no permissions needed.";
 "Download da iCloud: %lld" = "Downloading from iCloud: %lld";
 "Il file %@ non si apre: controlla che sia ancora nella cartella." = "The file %@ won't open: check that it's still in the folder.";
+"Seaglass" = "Seaglass";
+"Classico" = "Classic";
+"La tua libreria" = "Your Library";
+"Stile dell'interfaccia" = "Interface style";
+"Classico è nero e piatto, in verde, con le schede Home, Cerca e La tua libreria e il mini player nei colori della copertina, come le app di streaming più diffuse." = "Classic is black and flat, in green, with the Home, Search and Your Library tabs and the mini player in the cover's colours, like the most popular streaming apps.";
+"Nello stile Classico il colore è il verde." = "In the Classic style the colour is green.";

@@ -410,6 +410,7 @@ private struct LyricsSettingsView: View {
 private struct AppearanceSettingsView: View {
     @EnvironmentObject private var player: PlayerController
     @AppStorage(Preferences.accent) private var accent: AccentChoice = .pink
+    @AppStorage(Preferences.interfaceStyle) private var style: InterfaceStyle = .seaglass
     @AppStorage(Preferences.interactiveArtwork) private var interactiveArtwork = true
     @AppStorage(Preferences.dynamicColors) private var dynamicColors = true
     @AppStorage(Preferences.macZoom) private var zoom = 100
@@ -428,6 +429,21 @@ private struct AppearanceSettingsView: View {
                 } footer: {
                     Text("Ingrandisce o riduce testi e pulsanti, come su Spotify. Anche con ⌘+, ⌘− e ⌘0.")
                 }
+            }
+            Section {
+                Picker(selection: $style) {
+                    ForEach(InterfaceStyle.allCases) { choice in
+                        Text(choice.title).tag(choice)
+                    }
+                } label: {
+                    Label("Stile dell'interfaccia", systemImage: "rectangle.3.group")
+                }
+                .pickerStyle(.inline)
+                .labelsHidden()
+            } header: {
+                Text("Stile dell'interfaccia")
+            } footer: {
+                Text("Classico è nero e piatto, in verde, con le schede Home, Cerca e La tua libreria e il mini player nei colori della copertina, come le app di streaming più diffuse.")
             }
             Section {
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 6), spacing: 12) {
@@ -455,7 +471,10 @@ private struct AppearanceSettingsView: View {
                 .padding(.vertical, 6)
             } header: {
                 Text("Colore del tema")
+            } footer: {
+                if style == .classic { Text("Nello stile Classico il colore è il verde.") }
             }
+            .disabled(style == .classic)
 
             Section {
                 Toggle(isOn: $dynamicColors) {

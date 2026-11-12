@@ -775,3 +775,9 @@
 "Puoi anche mettere la musica in File › Sul mio iPhone › Seaglass › Musica: Seaglass la legge da lì, senza permessi." = "Müziğini Dosyalar › iPhone'umda › Seaglass › Musica içine de koyabilirsin: Seaglass onu oradan, hiçbir izin gerekmeden okur.";
 "Download da iCloud: %lld" = "iCloud'dan indiriliyor: %lld";
 "Il file %@ non si apre: controlla che sia ancora nella cartella." = "%@ dosyası açılmıyor: hâlâ klasörde olup olmadığını kontrol et.";
+"Seaglass" = "Seaglass";
+"Classico" = "Klasik";
+"La tua libreria" = "Kitaplığın";
+"Stile dell'interfaccia" = "Arayüz stili";
+"Classico è nero e piatto, in verde, con le schede Home, Cerca e La tua libreria e il mini player nei colori della copertina, come le app di streaming più diffuse." = "Klasik; siyah ve düz, yeşil renkte, Ana Sayfa, Ara ve Kitaplığın sekmeleri ve kapak renklerindeki mini oynatıcıyla, en yaygın müzik yayın uygulamaları gibidir.";
+"Nello stile Classico il colore è il verde." = "Klasik stilde renk yeşildir.";

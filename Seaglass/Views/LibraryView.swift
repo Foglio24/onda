@@ -2,6 +2,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct LibraryView: View {
+    @Environment(\.interfaceStyle) private var style
     @EnvironmentObject private var library: Library
     @EnvironmentObject private var downloads: DownloadManager
     @ObservedObject private var importer = PlaylistImporter.shared
@@ -112,7 +113,12 @@ struct LibraryView: View {
             }
             .scrollContentBackground(.hidden)
             .background { AmbientBackground() }
-            .navigationTitle("Libreria")
+            .navigationTitle(style == .classic ? String(localized: "La tua libreria") : String(localized: "Libreria"))
+            .toolbar {
+                if style == .classic, !ProcessInfo.processInfo.isMacCatalystApp {
+                    ToolbarItem(placement: .topBarLeading) { ProfileButton() }
+                }
+            }
             // Opened directly only by the CI screenshots (see `LaunchScene`).
             .navigationDestination(isPresented: $showDownloads) { DownloadsView() }
             .task {

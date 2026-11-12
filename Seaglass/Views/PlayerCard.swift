@@ -33,6 +33,12 @@ struct PlayerCard: View {
     /// The card is placed in screen coordinates, left to right; the player in it keeps the app's
     /// direction (right to left in Arabic).
     @Environment(\.layoutDirection) private var layoutDirection
+    @Environment(\.interfaceStyle) private var style
+
+    /// Behind the player while it grows and shrinks: material in Seaglass's style, black in the classic one.
+    @ViewBuilder private var cardBacking: some View {
+        if style == .classic { ClassicPalette.background } else { Rectangle().fill(.regularMaterial) }
+    }
 
     var body: some View {
         GeometryReader { geometry in
@@ -50,7 +56,7 @@ struct PlayerCard: View {
                     .opacity(min(1, max(0, (progress - 0.08) / 0.3)))
                     .scaleEffect(scale, anchor: .topLeading)
                     .frame(width: card.width, height: card.height, alignment: .topLeading)
-                    .background(.regularMaterial)
+                    .background { cardBacking }
                     .clipShape(.rect(cornerRadius: cornerRadius(card)))
                     .offset(x: card.minX - screen.minX, y: card.minY - screen.minY)
                     .allowsHitTesting(!closing)

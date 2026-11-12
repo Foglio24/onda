@@ -25,6 +25,11 @@ enum AccentChoice: String, CaseIterable, Identifiable {
     }
 
     var color: Color {
+        // The classic style is in green, whatever the theme's colour (read here, so every view that tints
+        // with the theme's colour follows it).
+        if UserDefaults.standard.string(forKey: Preferences.interfaceStyle) == InterfaceStyle.classic.rawValue {
+            return ClassicPalette.accent
+        }
         switch self {
         case .pink: return Color(red: 1.0, green: 0.31, blue: 0.6)
         case .red: return Color(red: 0.96, green: 0.23, blue: 0.25)
@@ -169,6 +174,8 @@ enum Preferences {
     /// The last time Opus couldn't play from the start and AAC played instead, and why.
     static let lastOpusFallback = "diagnostics.lastOpusFallback"
     static let accent = "theme.accent"
+    /// The interface style (see `InterfaceStyle`): "seaglass" or "classic".
+    static let interfaceStyle = "theme.style"
     /// The Mac's zoom in percent (see `MacZoom`).
     static let macZoom = "mac.zoom"
     /// -1 unknown, 0 refused by iOS, 1 accepted.

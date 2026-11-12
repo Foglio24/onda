@@ -775,3 +775,9 @@
 "Puoi anche mettere la musica in File › Sul mio iPhone › Seaglass › Musica: Seaglass la legge da lì, senza permessi." = "「ファイル」›「このiPhone内」›「Seaglass」›「Musica」に音楽を入れることもできます。Seaglassはそこから、許可なしで読み込みます。";
 "Download da iCloud: %lld" = "iCloudからダウンロード中：%lld";
 "Il file %@ non si apre: controlla che sia ancora nella cartella." = "ファイル %@ を開けません。まだフォルダ内にあるか確認してください。";
+"Seaglass" = "Seaglass";
+"Classico" = "クラシック";
+"La tua libreria" = "マイライブラリ";
+"Stile dell'interfaccia" = "インターフェイスのスタイル";
+"Classico è nero e piatto, in verde, con le schede Home, Cerca e La tua libreria e il mini player nei colori della copertina, come le app di streaming più diffuse." = "クラシックは黒くフラットで緑を基調とし、ホーム・検索・マイライブラリのタブと、カバーの色をまとったミニプレーヤーを備えた、一般的なストリーミングアプリのようなスタイルです。";
+"Nello stile Classico il colore è il verde." = "クラシックスタイルでは色は緑になります。";

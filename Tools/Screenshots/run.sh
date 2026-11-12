@@ -39,6 +39,20 @@ shot() {
   xcrun simctl io "$device" screenshot "$out/$name.png" >/dev/null && echo "Saved $name"
 }
 
+# The classic interface style (Settings › Aspetto › Classico): the main pages and the player.
+if [ "$kind" = "classic" ]; then
+  shot classic-1-home en 14 home -theme.style classic
+  shot classic-2-search en 12 "search:daft punk" -theme.style classic
+  shot classic-3-library en 6 library -theme.style classic
+  shot classic-4-player en 15 "player:K0HSD_i2DvA" -theme.style classic
+  shot classic-5-album en 9 "album:MPREb_ePmUY37w4pZ" -theme.style classic
+  shot classic-6-artist en 10 "artist:UCRr1xG_2WIDs18a6cIiCxeA" -theme.style classic
+  shot classic-7-settings en 5 settings -theme.style classic
+  shot classic-8-home-italian it 10 home -theme.style classic
+  xcrun simctl shutdown "$device" || true
+  exit 0
+fi
+
 if [ "$kind" = "recognition" ] || [ "$kind" = "ipad" ]; then
   shot recognition-1-listening en 4 recognition:listening
   shot recognition-2-result en 4 recognition:result

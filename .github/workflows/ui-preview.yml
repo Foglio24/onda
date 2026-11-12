@@ -1,0 +1,69 @@
+# Screenshots of the interface on an iPhone simulator, on demand and on changes to the views, apart from
+# build.yml so a change to how the app looks can be seen from a working branch in one go. The kind is
+# Tools/Screenshots/run.sh's: "classic" (the classic interface style) by default.
+name: Interface preview
+
+on:
+  push:
+    branches: ["claude/**", "feature/**"]
+    paths:
+      - "Seaglass/Views/**"
+      - "Seaglass/App/RootView.swift"
+      - "Tools/Screenshots/**"
+      - ".github/workflows/ui-preview.yml"
+  workflow_dispatch:
+    inputs:
+      kind:
+        description: "Screenshots to take (iphone, ipad, classic)"
+        default: classic
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ui-preview-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Karaoke model
+        uses: ./.github/actions/karaoke-model
+      - name: Beat model
+        uses: ./.github/actions/beat-model
+      - name: Generate Xcode project
+        run: |
+          mkdir -p Support
+          xcodegen generate
+      - name: Build for the simulator
+        run: |
+          xcodebuild \
+            -project Seaglass.xcodeproj \
+            -scheme Seaglass \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build-sim \
+            -skipPackagePluginValidation \
+            -skipMacroValidation \
+            -quiet \
+            ARCHS=arm64 \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+      - name: Take the screenshots
+        run: bash Tools/Screenshots/run.sh build-sim/Build/Products/Debug-iphonesimulator/Seaglass.app preview "${{ inputs.kind || 'classic' }}"
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          name: interface-preview
+          path: preview
+          retention-days: 14
+          if-no-files-found: ignore

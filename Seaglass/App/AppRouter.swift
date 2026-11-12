@@ -45,6 +45,8 @@ final class AppRouter: ObservableObject {
     }
 
     @Published var showPlayer = false
+    /// The settings as a sheet: the classic style's profile button (it has no Settings tab).
+    @Published var showSettings = false
     /// Where the mini player is on screen, for the player card to grow out of (see `PlayerCard`).
     /// Not published: it changes with every layout and nothing needs to redraw for it.
     var miniPlayerFrame: CGRect = .zero

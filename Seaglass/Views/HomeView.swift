@@ -55,6 +55,7 @@ struct HomeView: View {
     /// On a Mac the Home is laid out as Apple Music's: big cards for the mixes, square covers, the
     /// moods as coloured cards, rows that scroll by page.
     private static let isMac = ProcessInfo.processInfo.isMacCatalystApp
+    @Environment(\.interfaceStyle) private var style
 
     var body: some View {
         NavigationStack {
@@ -69,6 +70,9 @@ struct HomeView: View {
             .background { AmbientBackground() }
             .navigationTitle(Self.isMac ? String(localized: "Home") : greeting)
             .toolbar {
+                if style == .classic, !Self.isMac {
+                    ToolbarItem(placement: .topBarLeading) { ProfileButton() }
+                }
                 ToolbarItem(placement: .topBarTrailing) { RecognitionButton() }
             }
             // Once a day, and as soon as there is a first song to go on.

@@ -775,3 +775,9 @@
 "Puoi anche mettere la musica in File › Sul mio iPhone › Seaglass › Musica: Seaglass la legge da lì, senza permessi." = "你也可以把音乐放进“文件”›“我的 iPhone”›Seaglass›Musica：Seaglass 会直接从那里读取，无需任何权限。";
 "Download da iCloud: %lld" = "正在从 iCloud 下载：%lld";
 "Il file %@ non si apre: controlla che sia ancora nella cartella." = "无法打开文件 %@：请检查它是否仍在文件夹中。";
+"Seaglass" = "Seaglass";
+"Classico" = "经典";
+"La tua libreria" = "你的资料库";
+"Stile dell'interfaccia" = "界面风格";
+"Classico è nero e piatto, in verde, con le schede Home, Cerca e La tua libreria e il mini player nei colori della copertina, come le app di streaming più diffuse." = "经典风格为黑色扁平设计，以绿色为主色，底部有主页、搜索和你的资料库标签，迷你播放器采用封面的颜色，就像最常见的流媒体应用。";
+"Nello stile Classico il colore è il verde." = "在经典风格中，主色为绿色。";

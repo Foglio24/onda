@@ -24,6 +24,7 @@ struct RootView: View {
     @EnvironmentObject private var updater: AppUpdater
     @EnvironmentObject private var library: Library
     @AppStorage(Preferences.accent) private var accent: AccentChoice = .pink
+    @AppStorage(Preferences.interfaceStyle) private var style: InterfaceStyle = .seaglass
     @State private var selection: AppTab = .home
     @State private var macSelection: MacSection = .home
     @State private var visitedSections: Set<MacSection> = []
@@ -44,6 +45,9 @@ struct RootView: View {
         }
         .sheet(item: router.pageBinding(fromPlayer: false)) { page in
             MusicPageSheet(page: page).appEnvironment()
+        }
+        .sheet(isPresented: $router.showSettings) {
+            SettingsView().appEnvironment()
         }
         .sheet(item: $router.mixTarget) { target in
             PlaylistMixView(playlistID: target.playlistID, opensFirst: target.opensFirst, opensOptions: target.options,
@@ -69,6 +73,8 @@ extension RootView {
     @ViewBuilder fileprivate var tabs: some View {
         if Self.isMac {
             macTabs
+        } else if style == .classic {
+            ClassicTabs(selection: $selection)
         } else {
             phoneTabs
         }
@@ -326,5 +332,32 @@ private struct DownloadErrorAlert: ViewModifier {
 extension View {
     func downloadErrorAlert(isActive: Bool) -> some View {
         modifier(DownloadErrorAlert(isActive: isActive))
+    }
+}
+
+/// The classic style on an iPhone and an iPad: Home, Cerca and La tua libreria in the style's own bar along
+/// the bottom, the mini player above it, the settings behind the profile button (see `InterfaceStyle`).
+private struct ClassicTabs: View {
+    @EnvironmentObject private var player: PlayerController
+    @Binding var selection: AppTab
+
+    var body: some View {
+        let reserved = ClassicBottomBar.reserved(hasSong: player.current != nil)
+        TabView(selection: $selection) {
+            Tab("Home", systemImage: "house.fill", value: AppTab.home) {
+                HomeView().classicTabPage(reserving: reserved)
+            }
+            Tab("Cerca", systemImage: "magnifyingglass", value: AppTab.search) {
+                SearchView().classicTabPage(reserving: reserved)
+            }
+            Tab("La tua libreria", systemImage: "books.vertical.fill", value: AppTab.library) {
+                LibraryView().classicTabPage(reserving: reserved)
+            }
+            Tab("Impostazioni", systemImage: "gearshape.fill", value: AppTab.settings) {
+                SettingsView().classicTabPage(reserving: reserved)
+            }
+        }
+        .overlay(alignment: .bottom) { ClassicBottomBar(selection: $selection) }
+        .background(ClassicPalette.background.ignoresSafeArea())
     }
 }
