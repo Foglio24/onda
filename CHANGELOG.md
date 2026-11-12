@@ -2,6 +2,9 @@
 
 ## 1.35.2 (2026-11-12)
 
+### Fixed
+- **The iPhone and Mac builds of 1.35.1 failed to compile.** The classic full player's layout and the Seaglass one were two different opaque view types in the same `if`; both apps now build again.
+
 ### Changed
 - **Classico on the Mac** (sidebar and player bar). Choosing Classico now restyles the floating sidebar (flat black, green selection, La tua libreria / Brani che ti piacciono) and the bottom player bar (flat elevated capsule, white play button, green shuffle/repeat and progress), instead of leaving Apple Music's glass chrome. The Home's shelf arrows and hover play badges follow the same look.
 

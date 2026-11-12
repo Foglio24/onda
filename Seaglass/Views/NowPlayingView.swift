@@ -112,7 +112,7 @@ struct NowPlayingView: View {
 
     /// The player as on an iPhone: the cover (or, with them open, the lyrics or the queue) above
     /// the controls.
-    private var stackedLayout: some View {
+    @ViewBuilder private var stackedLayout: some View {
         if style == .classic {
             classicStackedLayout
         } else {
