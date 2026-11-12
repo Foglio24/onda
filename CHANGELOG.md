@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.35.0 (2026-11-12)
+
+### Added
+- **A second look for the whole app: Classico** (iPhone and iPad). **Settings › Aspetto › Stile dell'interfaccia** now offers **Seaglass** (Liquid Glass, as it was) or **Classico**: black and flat, in green, laid out as the most common streaming apps. The same app, features and pages in both; only how they look changes, and it switches at once.
+  - **Tabs along the bottom**: Home, Cerca and La tua libreria, over a fade to black, with the mini player above them in the colours of the cover (song, artist, output, play, and a thin line for where the song is). The settings open from the round profile button at the top of the main pages.
+  - **Pages** on near-black with a faint wash of the cover's colour at the top; nearly square covers; flat grey cards and buttons instead of glass.
+  - **Home**: the shortcuts as flat grey tiles with the cover against the edge; the moods as solid coloured tiles.
+  - **Cerca**: **Sfoglia tutto**, twenty coloured tiles of genres and moods (Pop, Hip-Hop, Rock, Dance, Relax, Concentrazione…); one tap searches it.
+  - **La tua libreria**: edge to edge on black, with large square tiles for Preferiti, Download, Cronologia, File locali and Podcast and the number of songs under each name.
+  - **Albums and playlists**: the title, the artist and the details on the left under the cover, and the round green play button with shuffle beside it.
+  - **The player**: from the cover's colour down to black, a white play button, shuffle and repeat in green with a dot, the favourite as a green tick.
+- On the Mac the classic style makes the app dark and green and flattens the pages; the sidebar and the player bar stay as they are.
+
 ## 1.34.3 (2026-11-12)
 
 ### Fixed

@@ -11,6 +11,7 @@ struct SettingsView: View {
     @AppStorage(Preferences.wifiQuality) private var wifiQuality = Preferences.defaultWifiQuality
     @AppStorage(Preferences.songTransition) private var transition: SongTransition = Preferences.songTransitionSetting
     @AppStorage(Preferences.accent) private var accent: AccentChoice = .pink
+    @Environment(\.interfaceStyle) private var interfaceStyle
     @AppStorage(Preferences.lyricsTranslate) private var translateLyrics = false
 
     @State private var showEqualizer = false
@@ -41,7 +42,8 @@ struct SettingsView: View {
                 }
                 Section {
                     NavigationLink { AppearanceSettingsView() } label: {
-                        SettingsRow("Aspetto", symbol: "paintbrush.fill", tint: .blue, value: accent.title)
+                        SettingsRow("Aspetto", symbol: "paintbrush.fill", tint: .blue,
+                                    value: interfaceStyle == .classic ? interfaceStyle.title : accent.title)
                     }
                     Button {
                         // On a Mac an app's language is in System Settings › General › Language & Region.

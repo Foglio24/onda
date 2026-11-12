@@ -34,12 +34,16 @@ struct SearchView: View {
     var body: some View {
         NavigationStack(path: $path) {
             List {
-                if query.trimmed.isEmpty {
-                    recentSection
-                    if style == .classic { browseSection }
-                } else {
-                    resultSections
+                // No lines between the rows in the classic style.
+                Group {
+                    if query.trimmed.isEmpty {
+                        recentSection
+                        if style == .classic { browseSection }
+                    } else {
+                        resultSections
+                    }
                 }
+                .listRowSeparator(style == .classic ? .hidden : .automatic)
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)

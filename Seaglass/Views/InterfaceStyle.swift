@@ -130,6 +130,14 @@ struct ClassicBottomBar: View {
                 item(.library, title: "La tua libreria", symbol: "books.vertical", selected: "books.vertical.fill")
             }
             .padding(.top, 2)
+            // Nearly opaque behind the tabs (down to the screen's edge), so the page doesn't show through
+            // their names; the fade is above them, behind the mini player.
+            .background {
+                Color.black.opacity(0.94)
+                    .padding(.top, player.current != nil ? -8 : 0)
+                    .ignoresSafeArea(edges: .bottom)
+                    .allowsHitTesting(false)
+            }
         }
         .background {
             LinearGradient(colors: [.black.opacity(0), .black.opacity(0.85), .black], startPoint: .top, endPoint: .bottom)
