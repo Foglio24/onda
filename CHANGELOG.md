@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.34.3 (2026-11-12)
+
+### Fixed
+- **Your own songs said "Video non disponibile" and didn't play.** When the app didn't find a song's file at that moment (a folder chosen with the Files picker whose access had to be opened again, a file in iCloud not on the device yet), it didn't treat the song as one of yours and asked YouTube for it, which answered "Video non disponibile": the real cause was hidden and the song could never play. Now your songs never go to YouTube; before one plays, its folder is opened again if needed and the file is read through iOS's file coordination, which brings it down from iCloud or a cloud app (Google Drive, OneDrive…); if it still can't be opened, the message names the file.
+- **Songs in iCloud Drive not on the iPhone yet are found.** iCloud keeps a hidden stand-in for them, which the list left out: they are now asked for, Library › File locali says how many are on their way ("Download da iCloud"), and they appear when they arrive. The folders are read the way Apple asks for folders from the Files picker.
+- **Songs copied into a folder while Seaglass is open appear.** The folders were read once per launch: now whenever the page opens and when the app comes back.
+
 ## 1.34.2 (2026-11-12)
 
 ### Fixed
