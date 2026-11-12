@@ -41,6 +41,7 @@
 "Top del mese" = "Лучшее за месяц";
 "I tuoi mix del giorno" = "Ваши миксы дня";
 "Mix %lld" = "Микс %lld";
+"Mix %lld · %@" = "Микс %lld · %@";
 "%@ e simili" = "%@ и похожие";
 "Mix del giorno · %@" = "Микс дня · %@";
 "Scelti per te" = "Подобрано для вас";

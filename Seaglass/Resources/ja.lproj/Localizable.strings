@@ -41,6 +41,7 @@
 "Top del mese" = "今月のトップ";
 "I tuoi mix del giorno" = "今日のミックス";
 "Mix %lld" = "ミックス %lld";
+"Mix %lld · %@" = "ミックス %lld · %@";
 "%@ e simili" = "%@ と類似曲";
 "Mix del giorno · %@" = "今日のミックス · %@";
 "Scelti per te" = "あなたへのおすすめ";

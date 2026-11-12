@@ -50,6 +50,7 @@
 "Top del mese" = "Top of the month";
 "I tuoi mix del giorno" = "Your daily mixes";
 "Mix %lld" = "Mix %lld";
+"Mix %lld · %@" = "Mix %lld · %@";
 "%@ e simili" = "%@ and similar";
 "Mix del giorno · %@" = "Daily mix · %@";
 "Scelti per te" = "Picked for you";

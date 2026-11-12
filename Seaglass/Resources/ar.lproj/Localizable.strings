@@ -41,6 +41,7 @@
 "Top del mese" = "الأفضل هذا الشهر";
 "I tuoi mix del giorno" = "مزيجاتك اليومية";
 "Mix %lld" = "مزيج %lld";
+"Mix %lld · %@" = "مزيج %lld · %@";
 "%@ e simili" = "%@ وما يشبهه";
 "Mix del giorno · %@" = "مزيج اليوم · %@";
 "Scelti per te" = "مختارات لك";

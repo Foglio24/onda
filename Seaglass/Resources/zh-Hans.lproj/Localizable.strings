@@ -41,6 +41,7 @@
 "Top del mese" = "本月热门";
 "I tuoi mix del giorno" = "你的每日混音";
 "Mix %lld" = "混音 %lld";
+"Mix %lld · %@" = "混音 %lld · %@";
 "%@ e simili" = "%@ 及类似";
 "Mix del giorno · %@" = "每日混音 · %@";
 "Scelti per te" = "为你精选";

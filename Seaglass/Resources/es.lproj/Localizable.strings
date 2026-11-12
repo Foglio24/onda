@@ -41,6 +41,7 @@
 "Top del mese" = "Lo mejor del mes";
 "I tuoi mix del giorno" = "Tus mixes del día";
 "Mix %lld" = "Mix %lld";
+"Mix %lld · %@" = "Mix %lld · %@";
 "%@ e simili" = "%@ y similares";
 "Mix del giorno · %@" = "Mix del día · %@";
 "Scelti per te" = "Elegidas para ti";

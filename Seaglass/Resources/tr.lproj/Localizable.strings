@@ -41,6 +41,7 @@
 "Top del mese" = "Ayın en iyileri";
 "I tuoi mix del giorno" = "Günlük mikslerin";
 "Mix %lld" = "Miks %lld";
+"Mix %lld · %@" = "Miks %lld · %@";
 "%@ e simili" = "%@ ve benzerleri";
 "Mix del giorno · %@" = "Günün miksi · %@";
 "Scelti per te" = "Senin için seçildi";

@@ -41,6 +41,7 @@
 "Top del mese" = "Top du mois";
 "I tuoi mix del giorno" = "Vos mix du jour";
 "Mix %lld" = "Mix %lld";
+"Mix %lld · %@" = "Mix %lld · %@";
 "%@ e simili" = "%@ et similaires";
 "Mix del giorno · %@" = "Mix du jour · %@";
 "Scelti per te" = "Pour vous";
