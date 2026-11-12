@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.36.0 (2026-11-12)
+
+### Added
+- **Light and dark mode** (iPhone, iPad and Mac). **Settings › Aspetto › Modalità**: **Automatica** (as the device, the default), **Chiara** or **Scura**, for the whole app in both styles. In the light mode Classico has white pages, light grey cards and black text; the player stays dark on the cover's colours, as in the common streaming apps.
+
+### Changed
+- **The classic player, as the common streaming apps'.** It fills the screen with the cover as wide as the screen, and scrolls down to **Anteprima del testo** and **Prossimi brani** (the next three songs, **Apri la coda**); pulling it down past its top closes it.
+- **The lyrics open in the classic style**, full screen on the cover's colour: the lines large on the left, the ones already sung white and the ones to come dark, the line being sung a third of the way down; the scrubber and play under them, and the karaoke. They no longer open in Seaglass's lyrics view. The queue opens on its own page.
+- **The profile menu slides in from the left** over the page, with your profile at the top, then Recenti and Impostazioni e privacy; a tap beside it or a swipe to the left closes it.
+
+### Fixed
+- **The profile button and the pages' titles sat off-centre.** The system's toolbar wrapped the profile in a wider glass capsule and cut "Cerca" and "La tua libreria" off: the main pages now have their own header row (the profile, the title or the Home's filters, the page's buttons).
+
 ## 1.35.3 (2026-11-12)
 
 ### Fixed
