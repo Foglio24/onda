@@ -60,6 +60,9 @@ final class SegueSession {
     /// deck with its jumps then, to count those after it (for CI's log).
     private var returnedApart = 0.0
     private var returnedDeck: (stage: SegueStage, jumps: Int)?
+    /// The stretched player's deck: its jumps when the return began, and how many came from then until
+    /// the crossover was over (while it could still be heard; after it, it is silent).
+    private var jumpsBeforeReturn = 0, returnedHeardJumps = 0
     /// The playing song's own file and "Volume uniforme" gain, to carry it on a fresh player (nil: the
     /// next song is the one stretched).
     let outgoingFile: URL?
@@ -475,6 +478,7 @@ final class SegueSession {
     private func restore() async {
         guard phase == .restoring else { return }
         let jumpsBefore = incomingStage.jumps
+        jumpsBeforeReturn = jumpsBefore
         if Self.returnsToOwnSpeed, abs(Double(rate) - 1) > 0.0005, await returnToOwnSpeed() {
             rate = 1
         }
@@ -484,8 +488,8 @@ final class SegueSession {
         if Self.logs {
             let returned = returnedAt.map {
                 String(format: "back to its own speed on a fresh player at %.2f s, %+.0f ms off, %+.1f ms from the stretched one, "
-                       + "fresh deck jumps %d", $0, returnedOff * 1000, returnedApart * 1000,
-                       returnedDeck.map { $0.stage.jumps - $0.jumps } ?? 0)
+                       + "fresh deck jumps %d, stretched deck jumps until it %d", $0, returnedOff * 1000, returnedApart * 1000,
+                       returnedDeck.map { $0.stage.jumps - $0.jumps } ?? 0, returnedHeardJumps)
             } ?? "no fresh player"
             let loud = jumpsAtLoud.map { (jumpsAtEnd.incoming - $0.incoming, jumpsAtEnd.outgoing - $0.outgoing) } ?? (0, 0)
             print(String(format: "segue: after the window: plays on at rate %.4f (the playing song's %.4f), %@; heard with %d speed "
@@ -595,6 +599,7 @@ final class SegueSession {
             returnedOff = (fresh.currentTime().seconds - at) - since
             returnedApart = (fresh.currentTime().seconds - at) - (player.currentTime().seconds - at) / speed
             returnedDeck = (stage, stage.jumps)
+            returnedHeardJumps = incomingStage.jumps - jumpsBeforeReturn
             returnedAt = at
             guard ownSpeed(OwnSpeed(player: fresh, item: freshItem, stage: stage, fader: effects.fader)) else {
                 letGo()
