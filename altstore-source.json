@@ -25,6 +25,15 @@
       ],
       "versions": [
         {
+          "version": "1.36.4",
+          "buildVersion": "83",
+          "date": "2026-11-13T08:36:40Z",
+          "localizedDescription": "Fixed\n- AutoMix no longer skips before and during its mixes. To match the beats, the song ending was brought to the next one's tempo in steps over the bars before the mix, each step on another player of the same song: every step was heard as a short skip, and the change began before the mix itself. Now the song ending is never touched: the next song starts, silent, at its tempo, is kept on the beat only while it is still quiet in the mix, and keeps that speed to its end (a pause or a seek, which hide it, bring it back to its own). The change of player after the mix, also heard, is gone too. CI's live AutoMix check on the Mac now fails if either song's sound jumps while it is heard in a mix, so no future change to AutoMix can bring a skip back unnoticed.\n- Your recent searches in Cerca can be swiped (Classico): to the right a song joins the queue, to the left it goes to your favourites or leaves the history; held, it opens its menu. Those rows (with the ×) had no swipes at all.\n- The classic player shrinks as you drag it down from anywhere (the cover, the controls…), following the finger into the mini player as in Seaglass's style; scrolled down to the lyrics' preview, a drag down scrolls back first.\n\nAdded\n- The lyrics in the player (Settings › Testi › Anteprima nel player): the line being sung and the next one under the cover, a tap opening the lyrics; the preview under the player stays.\n\nChanged\n- AutoMix in the classic queue's sheet is a button again, beside Riproduzione casuale and Timer.",
+          "downloadURL": "https://github.com/Foglio24/onda/releases/download/v1.36.4/Seaglass.ipa",
+          "size": 46320005,
+          "minOSVersion": "26.0"
+        },
+        {
           "version": "1.36.3",
           "buildVersion": "82",
           "date": "2026-11-13T06:33:13Z",
@@ -188,6 +197,17 @@
     }
   ],
   "news": [
+    {
+      "title": "Seaglass 1.36.4",
+      "identifier": "release-1.36.4",
+      "caption": "A new Seaglass update is available. Tap to see what's new.",
+      "date": "2026-11-13T08:36:40Z",
+      "tintColor": "#EC3F8E",
+      "imageURL": "https://raw.githubusercontent.com/Foglio24/onda/main/docs/images/seaglass-banner.jpg",
+      "notify": false,
+      "url": "https://github.com/Foglio24/onda/releases/tag/v1.36.4",
+      "appID": "com.onda.player"
+    },
     {
       "title": "Seaglass 1.36.3",
       "identifier": "release-1.36.3",
