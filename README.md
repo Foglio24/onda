@@ -9,7 +9,7 @@ A hands-on music player for iPhone, iPad, <strong>Mac</strong> and Android, buil
 
 <p align="center">
   <a href="https://github.com/Foglio24/onda/releases/latest/download/Seaglass.ipa"><img src="https://img.shields.io/badge/DOWNLOAD-Seaglass.ipa-EC3F8E?style=for-the-badge&amp;logo=apple&amp;logoColor=white" alt="Download Seaglass.ipa"></a>
-  <a href="https://github.com/Foglio24/onda/releases/latest/download/Seaglass-mac.zip"><img src="https://img.shields.io/badge/DOWNLOAD-Mac_(Apple_silicon)-1F1F1F?style=for-the-badge&amp;logo=apple&amp;logoColor=white" alt="Download Seaglass for Mac"></a>
+  <a href="https://github.com/Foglio24/onda/releases/latest/download/Seaglass-mac.dmg"><img src="https://img.shields.io/badge/DOWNLOAD-Mac_(Apple_silicon)-1F1F1F?style=for-the-badge&amp;logo=apple&amp;logoColor=white" alt="Download Seaglass for Mac"></a>
   <a href="https://github.com/Foglio24/onda/releases?q=android-v&amp;expanded=true"><img src="https://img.shields.io/badge/DOWNLOAD-Android_APK-34A853?style=for-the-badge&amp;logo=android&amp;logoColor=white" alt="Download Seaglass for Android"></a>
   <a href="https://altdirect.app/?url=https%3A%2F%2Fraw.githubusercontent.com%2FFoglio24%2Fonda%2Fmain%2Faltstore-source.json&amp;r=altstore"><img src="https://img.shields.io/badge/ADD_TO-ALTSTORE_CLASSIC-7E4BD6?style=for-the-badge&amp;logo=apple&amp;logoColor=white" alt="Add Seaglass to AltStore Classic"></a>
   <a href="https://github.com/Foglio24/onda/releases/latest"><img src="https://img.shields.io/github/v/release/Foglio24/onda?style=for-the-badge&amp;label=RELEASE" alt="Latest release"></a>
@@ -139,7 +139,7 @@ The app can check GitHub for new releases and notify you or download the IPA to 
 
 **Seaglass for Mac** is laid out as Apple Music on the Mac: the sidebar with the library and your playlists, the player bar along the bottom, and the player with its controls in glass. It has the Liquid Glass design and every feature (AutoMix (beta), the tempo fader, the AI karaoke, the equaliser, lyrics and translation, downloads, podcasts, Last.fm), in a window of its own. It needs a Mac with **Apple silicon** (M1 or later) running **macOS 26 Tahoe** or later.
 
-1. [Download Seaglass-mac.zip](https://github.com/Foglio24/onda/releases/latest/download/Seaglass-mac.zip) and open it: the zip becomes `Seaglass.app`.
+1. [Download Seaglass-mac.dmg](https://github.com/Foglio24/onda/releases/latest/download/Seaglass-mac.dmg) and open it: the disk image opens with `Seaglass.app` and an Applications shortcut.
 2. Drag Seaglass to **Applications**.
 3. Open it. The first time, macOS says it can't verify the developer, because the app is signed on its own rather than with an Apple developer account: click **Done**, then go to **System Settings → Privacy & Security**, scroll down to Seaglass and click **Open Anyway**. (Or, in Terminal, `xattr -dr com.apple.quarantine /Applications/Seaglass.app`.)
 
@@ -190,7 +190,7 @@ No. It tries to favour transitions in time when they suit the songs, but can cho
 Some recordings may not be found or matched with sufficient confidence. Open the import report to see missing songs and choose available alternatives. For long Spotify playlists, use the file import described above.
 
 **What does the download counter measure?**  
-It adds every download of the app from published GitHub releases, on every platform: the iPhone and iPad IPA (`Onda.ipa`, `Seaglass.ipa`), the Mac app (`Seaglass-mac.zip`) and the Android APKs. It refreshes periodically and does not represent the number of users or installations.
+It adds every download of the app from published GitHub releases, on every platform: the iPhone and iPad IPA (`Onda.ipa`, `Seaglass.ipa`), the Mac app (`Seaglass-mac.dmg`) and the Android APKs. It refreshes periodically and does not represent the number of users or installations.
 
 **How can I report a problem?**  
 Open a [GitHub issue](https://github.com/Foglio24/onda/issues), including your app version, iPhone, iPad or Mac model and steps to reproduce the problem. When helpful, you can share a report from **Settings → Diagnostics**.
