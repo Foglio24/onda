@@ -25,6 +25,15 @@
       ],
       "versions": [
         {
+          "version": "1.36.3",
+          "buildVersion": "82",
+          "date": "2026-11-13T06:33:13Z",
+          "localizedDescription": "Fixed\n- Swiping your recent searches in Cerca works (Classico). The recent searches showed only while the search field had the cursor: a drag on the list put the keyboard away and, with it, the list being swiped. They now stay open from a tap in the field until Annulla, as in the common streaming apps.\n- The light mode reaches the player (Classico). In the light mode the player is light: the cover's colour fading to white, the text and the controls black, a black play button; its queue's glass too. The lyrics' preview and the lyrics stay on the cover's colour.\n\nChanged\n- The playlist page as the common streaming apps' (Classico): the name at a smaller size, whose playlist it is (your profile's letter and name), the songs and length, then download, share and reorder on the left, shuffle and the green play on the right, without lines between the songs. The ··· and Mix buttons left that row: they are the ones at the top right.\n- The bar at the bottom is translucent (Classico), as in the common streaming apps: a fade from clear above the mini player to nearly opaque at the screen's edge, the page showing through it.\n- AutoMix in the queue's sheet is a switch, with its Beta label.",
+          "downloadURL": "https://github.com/Foglio24/onda/releases/download/v1.36.3/Seaglass.ipa",
+          "size": 46313823,
+          "minOSVersion": "26.0"
+        },
+        {
           "version": "1.36.2",
           "buildVersion": "81",
           "date": "2026-11-13T00:50:43Z",
@@ -179,6 +188,17 @@
     }
   ],
   "news": [
+    {
+      "title": "Seaglass 1.36.3",
+      "identifier": "release-1.36.3",
+      "caption": "A new Seaglass update is available. Tap to see what's new.",
+      "date": "2026-11-13T06:33:13Z",
+      "tintColor": "#EC3F8E",
+      "imageURL": "https://raw.githubusercontent.com/Foglio24/onda/main/docs/images/seaglass-banner.jpg",
+      "notify": false,
+      "url": "https://github.com/Foglio24/onda/releases/tag/v1.36.3",
+      "appID": "com.onda.player"
+    },
     {
       "title": "Seaglass 1.36.2",
       "identifier": "release-1.36.2",
