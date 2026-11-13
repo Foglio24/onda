@@ -6,22 +6,22 @@ import AVFoundation
 /// audio processing (`SegueStage`), by each song's own time.
 ///
 /// For a beat-matched window the next song is the one stretched: it starts, silent, at the playing
-/// song's tempo and keeps that speed to its end (the controller's `liveSpeed`; a pause or a seek,
-/// which hide it, bring it back to its own). Nothing the listener hears ever changes speed or
-/// player: the playing song plays on untouched, the next one's speed is corrected only while it is
-/// still quiet in the mix. Two earlier ways are kept but off, as each was heard as a jump:
-/// carrying the playing song to the next one's tempo over the bars before the window, a fresh
-/// player a step (`carriesPlayingSong`: one short skip at every step, and the change began before
-/// the mix), and bringing the next song back to its own speed on a fresh player after the window
-/// (`returnsToOwnSpeed`). CI's live check (Tools/SegueScene) fails when a deck jumps while loud.
+/// song's tempo, stays there through the mix, and after the window comes back to its own speed on a
+/// fresh player (`returnsToOwnSpeed`; the controller's `liveSpeed` meanwhile, and a pause or a seek
+/// that hide it also bring it back). The playing song plays on untouched; the next one's speed is
+/// corrected only while it is still quiet in the mix. Carrying the playing song to the next one's
+/// tempo before the window (`carriesPlayingSong`) stays off: each step was heard as a short skip,
+/// and the change began before the mix. CI's live check (Tools/SegueScene) fails when a deck jumps
+/// while loud, and requires the next song back to its own speed after each locked mix.
 ///
-/// Why a heard player's speed never changes: a playing player renders its sound again whenever its
-/// rate changes, and its time jumps by 20–40 ms (CI's Mac: the deck's samples jumped, and the
-/// measured distance with them). On an iPhone that was heard as sound coming and going (steps back to
-/// the song's own speed every 250 ms), then as a cut where one change brought it back; giving the
-/// change to the playing song as the window opened put the two 100 ms apart; keeping the speed to the
-/// song's end left it slowed (or sped up) and time-stretched to the end; going back on a fresh player
-/// after the mix was still heard, the stretched sound giving way to the song's own.
+/// Why a heard player's *rate* never changes in place: a playing player renders its sound again
+/// whenever its rate changes, and its time jumps by 20–40 ms (CI's Mac: the deck's samples jumped,
+/// and the measured distance with them). On an iPhone that was heard as sound coming and going
+/// (steps back to the song's own speed every 250 ms), then as a cut where one change brought it
+/// back; giving the change to the playing song as the window opened put the two 100 ms apart;
+/// keeping the stretched speed to the song's end left the wrong tempo until pause or stop. The
+/// fresh-player return after the window is the compromise: a short equal-gain crossover on a
+/// downbeat, then the song at its own speed for the rest.
 @MainActor
 final class SegueSession {
     enum Phase: String { case preparing, ready, running, mixing, restoring, finished, abandoned }
@@ -168,9 +168,10 @@ final class SegueSession {
     /// Off: the playing song isn't carried to the next one's tempo on a player a step (each step
     /// was heard as a short skip, and the glide began bars before the mix). See the type's notes.
     static let carriesPlayingSong = false
-    /// Off: the next song isn't brought back to its own speed on a fresh player after the window
-    /// (the change of player was heard); it keeps the mix's speed to its end.
-    static let returnsToOwnSpeed = false
+    /// On: after the window the next song comes back to its own speed on a fresh player (equal-gain
+    /// crossover on a downbeat). Leaving it at the mix's speed for the rest of the song kept the
+    /// wrong tempo until the listener paused or stopped.
+    static let returnsToOwnSpeed = true
 
     /// How long before the window `start` is to be called: the glide's first step, a third of a
     /// second before it, and a little more (the run-up when the next song is the one stretched).

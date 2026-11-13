@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.36.7 (2026-11-13)
+
+### Fixed
+- **After an AutoMix live mix, the song brought in goes back to its own tempo.** Beat-matched mixes stretch that song to match the one ending; from 1.36.4 it kept that stretch to its end (a pause or stop brought it back), so the beats and speed stayed wrong until you stopped. It now returns to its own speed on a fresh player a couple of seconds after the mix, on a downbeat. CI's live AutoMix check requires that return after each locked mix.
+
 ## 1.36.6 (2026-11-13)
 
 ### Changed
