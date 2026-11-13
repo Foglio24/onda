@@ -419,6 +419,7 @@ private struct LyricsSettingsView: View {
     @AppStorage(Preferences.lyricsStyle) private var lyricsStyle: LyricsStyle = .focus
     @AppStorage(Preferences.lyricsTranslate) private var translateLyrics = false
     @AppStorage(Preferences.lyricsTranslationTarget) private var translationTarget = Preferences.defaultTranslationTarget
+    @AppStorage(Preferences.lyricsInPlayer) private var lyricsInPlayer = false
     @ObservedObject private var account = AccountService.shared
     @State private var paywall: PremiumFeature?
 
@@ -443,6 +444,14 @@ private struct LyricsSettingsView: View {
                 } label: {
                     Label("Animazione", systemImage: "sparkles")
                 }
+            }
+
+            Section {
+                Toggle(isOn: $lyricsInPlayer) {
+                    Label("Anteprima nel player", systemImage: "quote.bubble")
+                }
+            } footer: {
+                Text("La riga che si sta cantando, e la prossima, sotto la copertina del player. L'anteprima sotto il player resta.")
             }
 
             Section {

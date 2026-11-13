@@ -811,3 +811,5 @@
 "In riproduzione: **%@**" = "再生中：**%@**";
 "Riproduzione casuale" = "シャッフル";
 "Timer" = "タイマー";
+"Anteprima nel player" = "プレーヤーでプレビュー";
+"La riga che si sta cantando, e la prossima, sotto la copertina del player. L'anteprima sotto il player resta." = "プレーヤーのカバーの下に、歌われている行と次の行を表示します。プレーヤーの下のプレビューはそのまま残ります。";

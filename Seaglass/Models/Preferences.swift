@@ -198,6 +198,8 @@ enum Preferences {
     static let tempoRange = "playback.tempoRange"
     static let keyLock = "playback.keyLock"
     static let lyricsTranslate = "lyrics.translate"
+    /// The line being sung (and the next) under the player's cover, besides the preview under the page.
+    static let lyricsInPlayer = "lyrics.inPlayer"
     static let updateMode = "updates.mode"
 
     static var updateModeSetting: UpdateMode {

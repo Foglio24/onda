@@ -811,3 +811,5 @@
 "In riproduzione: **%@**" = "قيد التشغيل: **%@**";
 "Riproduzione casuale" = "تشغيل عشوائي";
 "Timer" = "المؤقت";
+"Anteprima nel player" = "معاينة في المشغّل";
+"La riga che si sta cantando, e la prossima, sotto la copertina del player. L'anteprima sotto il player resta." = "السطر الذي يُغنّى الآن، والسطر التالي، تحت غلاف المشغّل. تبقى المعاينة أسفل المشغّل.";

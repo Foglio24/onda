@@ -5,14 +5,15 @@ import AVFoundation
 /// corrected only while it is still quiet in the mix. The lanes themselves play inside each player's
 /// audio processing (`SegueStage`), by each song's own time.
 ///
-/// For a beat-matched window the playing song changes tempo, not the next one (`carriers`): over the
-/// bars before the window it glides to the next song's tempo, a step of at most half a percent a
-/// bar, each step a fresh player of its own file at the next speed that it crosses over to (80 ms) on
-/// the bar's downbeat; the last, at the next song's tempo from the window's first downbeat, carries
-/// it out of the mix. The next song plays at its own speed and with its own sound from its first
-/// note, so nothing changes once the mix is over. Without the playing song's file the next song is
-/// the one stretched, and goes back to its own speed on a fresh player after the window
-/// (`returnToOwnSpeed`).
+/// For a beat-matched window the next song is the one stretched: it starts, silent, at the playing
+/// song's tempo and keeps that speed to its end (the controller's `liveSpeed`; a pause or a seek,
+/// which hide it, bring it back to its own). Nothing the listener hears ever changes speed or
+/// player: the playing song plays on untouched, the next one's speed is corrected only while it is
+/// still quiet in the mix. Two earlier ways are kept but off, as each was heard as a jump:
+/// carrying the playing song to the next one's tempo over the bars before the window, a fresh
+/// player a step (`carriesPlayingSong`: one short skip at every step, and the change began before
+/// the mix), and bringing the next song back to its own speed on a fresh player after the window
+/// (`returnsToOwnSpeed`). CI's live check (Tools/SegueScene) fails when a deck jumps while loud.
 ///
 /// Why a heard player's speed never changes: a playing player renders its sound again whenever its
 /// rate changes, and its time jumps by 20–40 ms (CI's Mac: the deck's samples jumped, and the
@@ -104,6 +105,9 @@ final class SegueSession {
     private(set) var heardRateChanges = 0
     /// The decks' jumps (see `SegueStage.jumps`) when the window opened and when it closed.
     private var jumpsAtWindow = (incoming: 0, outgoing: 0), jumpsAtEnd = (incoming: 0, outgoing: 0)
+    /// The decks' jumps when the next song first got loud in the mix (nil: it never did): from
+    /// then on to the window's end a jump is heard, and CI's live check fails on any.
+    private var jumpsAtLoud: (incoming: Int, outgoing: Int)?
 
     init(plan: SeguePlan, outgoingTrackID: String, next: Track, file: URL, label: String, incomingGain: Float,
          outgoingStage: SegueStage, outgoingOffset: Double = 0, outgoingRate: Double = 1,
@@ -143,7 +147,7 @@ final class SegueSession {
     /// (a change of tempo that small isn't heard), one a bar, eight at most and over 20 seconds at
     /// most; none for a window that doesn't match beats.
     static func glideSteps(_ plan: SeguePlan) -> Int {
-        guard plan.level.isLocked, plan.rate > 0 else { return 0 }
+        guard carriesPlayingSong, plan.level.isLocked, plan.rate > 0 else { return 0 }
         let change = abs(1 / plan.rate - 1)
         guard change > 0.0005 else { return 0 }
         let bars = max(1, Int(20 / bar(plan)))
@@ -160,6 +164,13 @@ final class SegueSession {
 
     /// The most `prepareLead(for:)` gives (a glide of 20 seconds): planned windows leave room for it.
     static let longestPrepareLead: TimeInterval = 32
+
+    /// Off: the playing song isn't carried to the next one's tempo on a player a step (each step
+    /// was heard as a short skip, and the glide began bars before the mix). See the type's notes.
+    static let carriesPlayingSong = false
+    /// Off: the next song isn't brought back to its own speed on a fresh player after the window
+    /// (the change of player was heard); it keeps the mix's speed to its end.
+    static let returnsToOwnSpeed = false
 
     /// How long before the window `start` is to be called: the glide's first step, a third of a
     /// second before it, and a little more (the run-up when the next song is the one stretched).
@@ -404,6 +415,7 @@ final class SegueSession {
                     // Loud in the mix: never corrected again (a change of its rate would be heard).
                     // A correction still under way ends here, under the playing song.
                     correcting = false
+                    if jumpsAtLoud == nil { jumpsAtLoud = (incomingStage.jumps, outgoingStage.jumps) }
                 } else if heard {
                     if !correcting, abs(error) > 0.020 { correcting = true }
                     if correcting, abs(error) < 0.005 { correcting = false }
@@ -457,7 +469,7 @@ final class SegueSession {
     private func restore() async {
         guard phase == .restoring else { return }
         let jumpsBefore = incomingStage.jumps
-        if abs(Double(rate) - 1) > 0.0005, await returnToOwnSpeed() {
+        if Self.returnsToOwnSpeed, abs(Double(rate) - 1) > 0.0005, await returnToOwnSpeed() {
             rate = 1
         }
         try? await Task.sleep(for: .seconds(0.5 + (plan.hasEcho ? SeguePlan.echoTail : 0)))
@@ -466,10 +478,12 @@ final class SegueSession {
         if Self.logs {
             let returned = returnedAt.map { String(format: "back to its own speed on a fresh player at %.2f s, %+.0f ms off", $0, returnedOff * 1000) }
                 ?? "no fresh player"
+            let loud = jumpsAtLoud.map { (jumpsAtEnd.incoming - $0.incoming, jumpsAtEnd.outgoing - $0.outgoing) } ?? (0, 0)
             print(String(format: "segue: after the window: plays on at rate %.4f (the playing song's %.4f), %@; heard with %d speed "
-                         + "changes; deck jumps in the window: incoming %d, outgoing %d; incoming after it: %d",
+                         + "changes; deck jumps in the window: incoming %d, outgoing %d; incoming after it: %d; "
+                         + "jumps while loud: incoming %d, outgoing %d",
                          rate, outgoingRate, returned, heardRateChanges, jumpsAtEnd.incoming - jumpsAtWindow.incoming,
-                         jumpsAtEnd.outgoing - jumpsAtWindow.outgoing, incomingStage.jumps - jumpsBefore))
+                         jumpsAtEnd.outgoing - jumpsAtWindow.outgoing, incomingStage.jumps - jumpsBefore, loud.0, loud.1))
         }
         finished?()
     }

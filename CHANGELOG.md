@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.36.4 (2026-11-13)
+
+### Fixed
+- **AutoMix no longer skips before and during its mixes.** To match the beats, the song ending was brought to the next one's tempo in steps over the bars before the mix, each step on another player of the same song: every step was heard as a short skip, and the change began before the mix itself. Now the song ending is never touched: the next song starts, silent, at its tempo, is kept on the beat only while it is still quiet in the mix, and keeps that speed to its end (a pause or a seek, which hide it, bring it back to its own). The change of player after the mix, also heard, is gone too. CI's live AutoMix check on the Mac now fails if either song's sound jumps while it is heard in a mix, so no future change to AutoMix can bring a skip back unnoticed.
+- **The classic player shrinks as you drag it down from anywhere** (the cover, the controls…), following the finger into the mini player as in Seaglass's style; scrolled down to the lyrics' preview, a drag down scrolls back first.
+
+### Added
+- **The lyrics in the player** (Settings › Testi › Anteprima nel player): the line being sung and the next one under the cover, a tap opening the lyrics; the preview under the player stays.
+
+### Changed
+- AutoMix in the classic queue's sheet is a button again, beside Riproduzione casuale and Timer.
+
 ## 1.36.3 (2026-11-13)
 
 ### Fixed

@@ -35,6 +35,7 @@ struct NowPlayingView: View {
     /// The classic style's queue, a sheet over the player as the common streaming apps'.
     @State private var showClassicQueue = false
     @AppStorage(Preferences.lyricsTranslate) private var translateLyrics = false
+    @AppStorage(Preferences.lyricsInPlayer) private var lyricsInPlayer = false
     @AppStorage(Preferences.songTransition) private var transition: SongTransition = Preferences.songTransitionSetting
     /// Premium explained from the classic queue's sheet (a sheet can't show the player's own).
     @State private var queuePaywall: PremiumFeature?
@@ -156,6 +157,7 @@ struct NowPlayingView: View {
                 if panel == .artwork {
                     Spacer(minLength: 0)
                     artwork
+                    playerLyricLines
                     Spacer(minLength: 0)
                     titleRow
                 } else {
@@ -180,8 +182,8 @@ struct NowPlayingView: View {
 
     /// Classic full player, laid out as the common streaming apps': the header stays at the top and
     /// the player under it fills the screen, scrolling down to the lyrics' preview and the next songs;
-    /// the lyrics open full screen on the cover's colour, the queue in a sheet. Dragged down by its
-    /// header the player follows the finger and closes; pulled down past its top, it closes on release.
+    /// the lyrics open full screen on the cover's colour, the queue in a sheet. Dragged down anywhere
+    /// while at its top, the player follows the finger and shrinks into the mini player.
     @ViewBuilder private var classicStackedLayout: some View {
         switch panel {
         case .lyrics:
@@ -206,10 +208,21 @@ struct NowPlayingView: View {
                     .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.y + $0.contentInsets.top } action: { _, offset in
                         classicPull = offset
                     }
-                    .onScrollPhaseChange { old, new in
-                        // Let go after pulling the cover down past the top: the player closes.
-                        if old == .interacting, new != .interacting, classicPull < -60 { close() }
-                    }
+                    // Pulled down anywhere (the cover, the controls…) while at its top, the player follows
+                    // the finger and shrinks into the mini player, as Seaglass's; scrolled into the cards,
+                    // a drag down scrolls back first.
+                    .gesture(PullDownPan(atTop: { classicPull <= 1 }) { distance in
+                        draggingDown = true
+                        card?.drag(distance)
+                    } ended: { distance, predicted in
+                        guard draggingDown else { return }
+                        draggingDown = false
+                        if let card {
+                            card.release(distance, predicted)
+                        } else if distance > 120 || predicted > 260 {
+                            dismiss()
+                        }
+                    })
                     // Scrolled, the page fades out under the header (the fade grows with the scroll, so
                     // nothing is faded at rest).
                     .mask {
@@ -226,11 +239,26 @@ struct NowPlayingView: View {
         }
     }
 
+    /// The line being sung and the next, under the cover, when Settings › Testi › Anteprima nel player
+    /// is on (a tap opens the lyrics). Nothing for an episode, or a song without synced lyrics.
+    @ViewBuilder private var playerLyricLines: some View {
+        if lyricsInPlayer, !isEpisode, !Self.isMac {
+            let lyrics = LaunchScene.playerPreviewLyrics.map { LyricsState.synced($0) } ?? player.lyrics
+            if case .synced(let lines) = lyrics {
+                PlayerLyricLines(lines: lines)
+                    .contentShape(.rect)
+                    .onTapGesture { withAnimation { panel = .lyrics } }
+            }
+        }
+    }
+
     /// What the classic player shows under its header without scrolling: cover, song, scrubber, controls.
     private var classicPlayerPage: some View {
         VStack(spacing: 0) {
             Spacer(minLength: 12)
             artwork
+            playerLyricLines
+                .padding(.top, 16)
             Spacer(minLength: 16)
             classicTitleRow
             errorLabel
@@ -644,26 +672,17 @@ struct NowPlayingView: View {
             .padding(.bottom, 4)
             QueueView()
                 .frame(maxHeight: .infinity)
-            // AutoMix on or off with a switch, as in the queue of Seaglass's style.
-            Toggle(isOn: Binding(get: { autoMixOn }, set: { setAutoMix($0) })) {
-                HStack(spacing: 10) {
-                    Image(systemName: "waveform.path")
-                        .font(.body.weight(.semibold))
-                        .foregroundStyle(ClassicPalette.accent)
-                    Text("AutoMix")
-                        .font(.body.weight(.semibold))
-                    BetaBadge()
-                }
-            }
-            .tint(ClassicPalette.accent)
-            .accessibilityLabel(Text("AutoMix"))
-            .padding(.horizontal, 20)
-            .padding(.top, 6)
-            HStack(spacing: 12) {
+            HStack(spacing: 10) {
                 Button { player.toggleShuffle() } label: {
                     classicQueueAction("Riproduzione casuale", symbol: "shuffle", on: player.shuffleEnabled)
                 }
                 .buttonStyle(.plain)
+                // AutoMix on or off, beside shuffle and the timer: green while on.
+                Button { setAutoMix(!autoMixOn) } label: {
+                    classicQueueAction("AutoMix", symbol: "waveform.path", on: autoMixOn)
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(autoMixOn ? .isSelected : [])
                 Menu {
                     sleepTimerOptions
                 } label: {
@@ -709,7 +728,7 @@ struct NowPlayingView: View {
                 .minimumScaleFactor(0.8)
         }
         .foregroundStyle(on ? ClassicPalette.accent : Color.primary)
-        .frame(width: 150, height: 72)
+        .frame(width: 112, height: 72)
         .background(Color.primary.opacity(0.08), in: .rect(cornerRadius: 10))
         .contentShape(.rect(cornerRadius: 10))
     }
@@ -1351,6 +1370,32 @@ private struct PlayerScrubber: View {
 
     /// How long before the transition its mark appears.
     private static let markLead: TimeInterval = 60
+}
+
+/// The line being sung under the player's cover, and the next one dimmer (its own view: it ticks with
+/// the song, the player around it doesn't).
+private struct PlayerLyricLines: View {
+    let lines: [LyricLine]
+    @EnvironmentObject private var progress: PlaybackProgress
+
+    var body: some View {
+        let current = lines.lastIndex(where: { $0.time <= progress.currentTime + 0.25 })
+        let shown = current ?? 0
+        let next = lines.indices.contains(shown + 1) ? lines[shown + 1] : nil
+        VStack(alignment: .leading, spacing: 4) {
+            Text(lines.indices.contains(shown) && !lines[shown].text.isEmpty ? lines[shown].text : "♪")
+                .font(.title3.weight(.bold))
+                .foregroundStyle(Color.primary.opacity(current == nil ? 0.5 : 1))
+            if let next {
+                Text(next.text.isEmpty ? "♪" : next.text)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Color.primary.opacity(0.5))
+            }
+        }
+        .lineLimit(2)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .animation(.easeInOut(duration: 0.25), value: current)
+    }
 }
 
 /// Four lines inside the classic lyrics' preview, from the one before the line being sung: sung

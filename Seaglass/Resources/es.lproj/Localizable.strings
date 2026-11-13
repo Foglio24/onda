@@ -811,3 +811,5 @@
 "In riproduzione: **%@**" = "Reproduciendo: **%@**";
 "Riproduzione casuale" = "Aleatorio";
 "Timer" = "Temporizador";
+"Anteprima nel player" = "Vista previa en el reproductor";
+"La riga che si sta cantando, e la prossima, sotto la copertina del player. L'anteprima sotto il player resta." = "La línea que se está cantando, y la siguiente, bajo la portada del reproductor. La vista previa bajo el reproductor se mantiene.";

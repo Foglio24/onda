@@ -811,3 +811,5 @@
 "In riproduzione: **%@**" = "Tocando: **%@**";
 "Riproduzione casuale" = "Aleatório";
 "Timer" = "Timer";
+"Anteprima nel player" = "Prévia no player";
+"La riga che si sta cantando, e la prossima, sotto la copertina del player. L'anteprima sotto il player resta." = "A linha que está sendo cantada, e a próxima, sob a capa do player. A prévia abaixo do player continua.";

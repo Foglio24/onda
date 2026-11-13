@@ -651,6 +651,65 @@ struct HorizontalPan: UIGestureRecognizerRepresentable {
     }
 }
 
+/// A pull down that takes over from a scroll view at its top, as a sheet's: it begins only for a drag
+/// mostly downwards while `atTop()` says the page is at its top, and the scroll view waits for it to
+/// fail, so the page doesn't bounce under the finger while it runs (a drag up, or one further down
+/// the page, scrolls as ever). It says how far the finger went down, then that distance and where a
+/// flick would have taken it. A UIKit recognizer, not a SwiftUI drag: in a scroll view that one is
+/// cancelled once the scrolling starts.
+struct PullDownPan: UIGestureRecognizerRepresentable {
+    let atTop: () -> Bool
+    let changed: (CGFloat) -> Void
+    let ended: (_ distance: CGFloat, _ predicted: CGFloat) -> Void
+
+    func makeCoordinator(converter: CoordinateSpaceConverter) -> Coordinator {
+        Coordinator()
+    }
+
+    func makeUIGestureRecognizer(context: Context) -> UIPanGestureRecognizer {
+        let pan = UIPanGestureRecognizer()
+        pan.delegate = context.coordinator
+        context.coordinator.atTop = atTop
+        return pan
+    }
+
+    func updateUIGestureRecognizer(_ recognizer: UIPanGestureRecognizer, context: Context) {
+        context.coordinator.atTop = atTop
+    }
+
+    func handleUIGestureRecognizerAction(_ recognizer: UIPanGestureRecognizer, context: Context) {
+        let distance = max(0, recognizer.translation(in: recognizer.view).y)
+        switch recognizer.state {
+        case .began, .changed:
+            changed(distance)
+        case .ended:
+            // Where a flick would carry on to, as SwiftUI's predicted end (a quarter of a second on).
+            let velocity = recognizer.velocity(in: recognizer.view).y
+            ended(distance, distance + max(0, velocity) * 0.25)
+        case .cancelled, .failed:
+            ended(0, 0)
+        default:
+            break
+        }
+    }
+
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        var atTop: () -> Bool = { false }
+
+        func gestureRecognizerShouldBegin(_ recognizer: UIGestureRecognizer) -> Bool {
+            guard let pan = recognizer as? UIPanGestureRecognizer, atTop() else { return false }
+            let velocity = pan.velocity(in: pan.view)
+            return velocity.y > 0 && velocity.y > abs(velocity.x)
+        }
+
+        /// The scroll view's own pan waits for this one to fail.
+        func gestureRecognizer(_ recognizer: UIGestureRecognizer,
+                               shouldBeRequiredToFailBy other: UIGestureRecognizer) -> Bool {
+            other.view is UIScrollView
+        }
+    }
+}
+
 /// The note at the bottom of the screen after a swipe ("Aggiunto ai preferiti"), as Spotify's.
 struct TrackToast: Identifiable, Equatable {
     let id = UUID()

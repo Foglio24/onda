@@ -890,3 +890,5 @@
 "In riproduzione: **%@**" = "Playing: **%@**";
 "Riproduzione casuale" = "Shuffle";
 "Timer" = "Timer";
+"Anteprima nel player" = "Preview in the player";
+"La riga che si sta cantando, e la prossima, sotto la copertina del player. L'anteprima sotto il player resta." = "The line being sung, and the next one, under the player's cover. The preview below the player stays.";
