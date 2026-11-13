@@ -281,27 +281,38 @@ struct SearchView: View {
     /// it goes to the favourites or leaves the history, held it opens its menu. The rest (a search, an
     /// artist, an album, a playlist) opens when tapped and leaves the history by a swipe left or held.
     @ViewBuilder private func recentRow(_ entry: RecentSearch) -> some View {
-        if classicPhone {
-            Button { openRecent(entry) } label: {
-                RecentSearchRow(entry: entry, trailing: AnyView(
-                    HStack(spacing: 14) {
-                        if entry.track.map({ Library.shared.isLiked($0) }) == true {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundStyle(ClassicPalette.accent)
-                        }
-                        Button { forget(entry) } label: {
-                            Image(systemName: "xmark")
-                                .font(.footnote.weight(.bold))
-                                .foregroundStyle(ClassicPalette.secondaryText)
-                                .frame(width: 28, height: 28)
-                                .contentShape(.rect)
-                        }
-                        .buttonStyle(.plain)
+        if classicPhone, let track = entry.track {
+            // A song: swiped right it joins the queue, swiped left it goes to the favourites or leaves
+            // the history, held it opens its menu, as every other song's row.
+            classicRecentRow(entry)
+                .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                    Button { addToQueue(track) } label: {
+                        Label("In coda", systemImage: "text.line.last.and.arrowtriangle.forward")
                     }
-                ))
-            }
-            .buttonStyle(.plain)
-            .listRowBackground(Color.clear)
+                    .tint(.green)
+                }
+                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                    Button { like(track) } label: {
+                        Label("Mi piace", systemImage: "heart.fill")
+                    }
+                    .tint(.pink)
+                    Button(role: .destructive) { forget(entry) } label: {
+                        Label("Rimuovi", systemImage: "trash")
+                    }
+                }
+                .contextMenu { TrackMenu(track: track) }
+        } else if classicPhone {
+            classicRecentRow(entry)
+                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                    Button(role: .destructive) { forget(entry) } label: {
+                        Label("Rimuovi", systemImage: "trash")
+                    }
+                }
+                .contextMenu {
+                    Button(role: .destructive) { forget(entry) } label: {
+                        Label("Rimuovi dalla cronologia", systemImage: "trash")
+                    }
+                }
         } else if let track = entry.track {
             TrackRow(track: track, remove: { forget(entry) }) {
                 openRecent(entry)
@@ -322,6 +333,49 @@ struct SearchView: View {
                     }
                 }
         }
+    }
+
+    /// The classic style's line of the history, as the common streaming apps': the cover, the name,
+    /// what it is, a green tick for a favourite song, and × to take it out.
+    private func classicRecentRow(_ entry: RecentSearch) -> some View {
+        Button { openRecent(entry) } label: {
+            RecentSearchRow(entry: entry, trailing: AnyView(
+                HStack(spacing: 14) {
+                    if entry.track.map({ Library.shared.isLiked($0) }) == true {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(ClassicPalette.accent)
+                    }
+                    Button { forget(entry) } label: {
+                        Image(systemName: "xmark")
+                            .font(.footnote.weight(.bold))
+                            .foregroundStyle(ClassicPalette.secondaryText)
+                            .frame(width: 28, height: 28)
+                            .contentShape(.rect)
+                    }
+                    .buttonStyle(.plain)
+                }
+            ))
+        }
+        .buttonStyle(.plain)
+        .listRowBackground(Color.clear)
+    }
+
+    /// Into the queue, with the note at the bottom (with nothing playing, the song simply starts).
+    private func addToQueue(_ track: Track) {
+        let playing = player.current != nil
+        player.addToQueue(track)
+        guard playing else { return }
+        router.show(TrackToast(text: String(localized: "Aggiunto alla coda"),
+                               systemImage: "text.line.last.and.arrowtriangle.forward", track: track))
+    }
+
+    /// Into the favourites (one already there stays), with the note that offers the playlists.
+    private func like(_ track: Track) {
+        let library = Library.shared
+        let already = library.isLiked(track)
+        if !already { library.toggleLike(track) }
+        router.show(TrackToast(text: already ? String(localized: "Già nei preferiti") : String(localized: "Aggiunto ai preferiti"),
+                               systemImage: "heart.fill", track: track, offersPlaylists: true))
     }
 
     private func forget(_ entry: RecentSearch) {
