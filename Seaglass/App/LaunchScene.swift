@@ -207,13 +207,15 @@ enum LaunchScene {
                 let live = value.isEmpty
                 await Task.detached(priority: .userInitiated) {
                     let alac = value == "alac"
+                    // Different levels, as Volume uniforme gives real songs different gains: CI's
+                    // live check must exercise the render at gains other than 1.
                     try? Self.writeDemoSong(to: Storage.audioFile(for: "SeaglassSegueDemoA"), bpm: 124, root: 57, introBars: 0,
-                                            seconds: 120, alac: alac)
+                                            seconds: 120, alac: alac, amplitude: 0.55)
                     try? Self.writeDemoSong(to: Storage.audioFile(for: "SeaglassSegueDemoB"), bpm: 126, root: 60, introBars: 4,
-                                            seconds: 120, alac: alac)
+                                            seconds: 120, alac: alac, amplitude: 0.95)
                     if live {
                         try? Self.writeDemoSong(to: Storage.audioFile(for: "SeaglassSegueDemoC"), bpm: 128, root: 62, introBars: 4,
-                                                seconds: 120, alac: alac)
+                                                seconds: 120, alac: alac, amplitude: 0.70)
                     }
                 }.value
                 UserDefaults.standard.set(SongTransition.autoMix.rawValue, forKey: Preferences.songTransition)
@@ -457,7 +459,7 @@ enum LaunchScene {
     /// silence at each end, quieter for its first `introBars` bars, saved as AAC (`alac`: in ALAC,
     /// 16 bit, as the "Massima" downloads are kept).
     nonisolated private static func writeDemoSong(to url: URL, bpm: Double, root: Int, introBars: Int, seconds: Double = 72,
-                                                  alac: Bool = false) throws {
+                                                  alac: Bool = false, amplitude: Double = 0.8) throws {
         let rate = 44_100.0
         guard let format = AVAudioFormat(standardFormatWithSampleRate: rate, channels: 2) else { return }
         let frames = Int(seconds * rate)
@@ -489,8 +491,8 @@ enum LaunchScene {
                 }
                 if bar < introBars { value *= 0.35 }
             }
-            channels[0][frame] = Float(value * 0.8)
-            channels[1][frame] = Float(value * 0.8)
+            channels[0][frame] = Float(value * amplitude)
+            channels[1][frame] = Float(value * amplitude)
         }
         try? FileManager.default.removeItem(at: url)
         let settings: [String: Any] = alac

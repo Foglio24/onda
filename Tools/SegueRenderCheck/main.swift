@@ -7,8 +7,11 @@
 // - after it the next song is at its own tempo at once: nothing changes after the window;
 // - resampled, a high tone keeps its level (the filter is flat: no dull stretch to hear end);
 // - a deck's speed never changes in a step, the lanes' processing never jumps, and a mix of two sine
-//   tones has no click anywhere.
+//   tones has no click anywhere;
+// - the finished file on disk, rendered at gains other than 1 (as with Volume uniforme on real
+//   songs), follows on after the mix with no click at the join.
 // Run from the repository root: bash Tools/SegueRenderCheck/run.sh
+import AVFoundation
 import CoreAudio
 import Foundation
 
@@ -265,6 +268,90 @@ if let tones = render(smooth, audio(sine(220, seconds: seconds)), audio(sine(330
     }
     let bound = Float(1.6 * 2 * Double.pi * (220 * 0.8 + 330 * 0.9) * 1.06 * 0.4 / rate)
     expect(largest <= bound, "no click from start to end (largest step \(format(Double(largest), 4)) at \(format(Double(at) / rate, 3)) s, bound \(format(Double(bound), 4)))")
+}
+
+// MARK: Finished file on disk, gains ≠ 1 (as with Volume uniforme)
+
+func writeSong(_ samples: [Float], to url: URL) throws {
+    guard let format = AVAudioFormat(standardFormatWithSampleRate: rate, channels: 2),
+          let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(samples.count)),
+          let channels = buffer.floatChannelData else { throw SegueRender.RenderError.unreadable }
+    buffer.frameLength = AVAudioFrameCount(samples.count)
+    samples.withUnsafeBufferPointer { channels[0].update(from: $0.baseAddress!, count: samples.count) }
+    samples.withUnsafeBufferPointer { channels[1].update(from: $0.baseAddress!, count: samples.count) }
+    try? FileManager.default.removeItem(at: url)
+    let file = try AVAudioFile(forWriting: url, settings: format.settings)
+    try file.write(from: buffer)
+}
+
+func renderToDisk(_ plan: SeguePlan, outgoing: URL, incoming: URL,
+                  gains: (outgoing: Float, incoming: Float), to destination: URL) -> SegueRender.Result? {
+    final class Box: @unchecked Sendable { var result: Result<SegueRender.Result, Error>? }
+    let box = Box()
+    let done = DispatchSemaphore(value: 0)
+    Task {
+        do {
+            box.result = .success(try await SegueRender.render(plan, outgoing: outgoing, incoming: incoming,
+                                                               outgoingGain: gains.outgoing, incomingGain: gains.incoming,
+                                                               to: destination))
+        } catch {
+            box.result = .failure(error)
+        }
+        done.signal()
+    }
+    done.wait()
+    switch box.result {
+    case .success(let result): return result
+    case .failure(let error):
+        expect(false, "the mix renders to disk (\(error))")
+        return nil
+    case nil:
+        expect(false, "the mix renders to disk (no result)")
+        return nil
+    }
+}
+
+do {
+    let folder = FileManager.default.temporaryDirectory.appending(path: "SegueRenderCheck-\(UUID().uuidString)",
+                                                                  directoryHint: .isDirectory)
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: folder) }
+    let outgoingURL = folder.appending(path: "a.caf")
+    let incomingURL = folder.appending(path: "b.caf")
+    let destination = folder.appending(path: "mix.caf")
+    try writeSong(songA, to: outgoingURL)
+    try writeSong(songB, to: incomingURL)
+    // Gains as Volume uniforme gives real songs (never both 1).
+    let gains: (outgoing: Float, incoming: Float) = (0.72, 0.88)
+    if let result = renderToDisk(plan, outgoing: outgoingURL, incoming: incomingURL, gains: gains, to: destination) {
+        expect(result.headDifference < 1e-4, "on disk at gains \(gains.0)/\(gains.1): head is the playing song (\(result.headDifference))")
+        expect(result.tailDifference < 1e-4, "on disk at gains \(gains.0)/\(gains.1): mix end is the next song (\(result.tailDifference))")
+        expect(result.restDifference < 1e-4, "on disk at gains \(gains.0)/\(gains.1): the rest follows on (\(result.restDifference))")
+        expect(result.jumps == 0, "on disk at gains \(gains.0)/\(gains.1): no deck jumps (\(result.jumps))")
+        // The finished file, read back: no click across the join where the rest was appended.
+        let file = try AVAudioFile(forReading: destination)
+        let frames = Int(file.length)
+        guard let buffer = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: AVAudioFrameCount(frames)),
+              let channels = buffer.floatChannelData else {
+            expect(false, "the finished file opens")
+            throw SegueRender.RenderError.unreadable
+        }
+        try file.read(into: buffer)
+        let left = UnsafeBufferPointer(start: channels[0], count: frames)
+        let joinFrame = Int((result.length * result.sampleRate).rounded())
+        let from = max(1, joinFrame - Int(0.01 * result.sampleRate))
+        let to = min(frames, joinFrame + Int(0.05 * result.sampleRate))
+        var largest: Float = 0
+        for i in from..<to where i > 0 {
+            largest = max(largest, abs(left[i] - left[i - 1]))
+        }
+        // A 5 ms equal-gain crossfade of near-identical samples moves far less than a click.
+        let bound = Float(0.08)
+        expect(largest <= bound, "no click at the join on disk (largest step \(format(Double(largest), 4)) around frame \(joinFrame), bound \(format(Double(bound), 4)))")
+        print("disk file \(format(Double(frames) / result.sampleRate, 1)) s at gains \(gains.0)/\(gains.1), join step \(format(Double(largest), 5))")
+    }
+} catch {
+    expect(false, "the finished file on disk (\(error))")
 }
 
 if failures > 0 {

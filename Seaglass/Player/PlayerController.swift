@@ -1624,6 +1624,16 @@ final class PlayerController: ObservableObject {
 
     /// The "Volume uniforme" gain of a song (1 with it off).
     private func volumeGain(for track: Track) async -> Float {
+        // CI's Segue scene: the three demo songs at different gains, as Volume uniforme gives real
+        // songs (local demos would otherwise stay at 1 and never exercise the render at ≠ 1).
+        if LaunchScene.isActive, let videoId = track.videoId {
+            switch videoId {
+            case "SeaglassSegueDemoA": return 0.78
+            case "SeaglassSegueDemoB": return 0.91
+            case "SeaglassSegueDemoC": return 0.65
+            default: break
+            }
+        }
         // The user's own songs play as they are (their loudness isn't YouTube's to tell).
         guard Preferences.normalizesVolume, let videoId = track.videoId, !track.isLocal else { return 1 }
         return Loudness.gain(forDecibels: await Loudness.shared.decibels(for: videoId))
@@ -2279,12 +2289,13 @@ final class PlayerController: ObservableObject {
                             if LaunchScene.isActive {
                                 print(String(format: "segue: rendered %@ %@, playing song 1 → %.4f, next %.4f → %.4f → 1 over %.1f s, "
                                              + "file %.1f s, window %.1f–%.1f s, back at %.1f s, join %.2f s, head %.1e, tail %.1e, "
-                                             + "largest speed step %.1e, jumps %d, rest %.1e",
+                                             + "largest speed step %.1e, jumps %d, rest %.1e, gains %.2f → %.2f",
                                              segue.level.rawValue, segue.shape.rawValue, rendered.glide.outgoingRate,
                                              segue.rate, rendered.glide.incomingRate, rendered.glide.incomingGlide, rendered.length,
                                              rendered.windowStart, rendered.windowEnd, rendered.back, rendered.join,
                                              Double(rendered.headDifference), Double(rendered.tailDifference),
-                                             rendered.largestSpeedStep, rendered.jumps, Double(rendered.restDifference)))
+                                             rendered.largestSpeedStep, rendered.jumps, Double(rendered.restDifference),
+                                             Double(outgoingGain), Double(incomingGain)))
                             }
                             self.autoMixTask = nil
                             let mix = AutoMixRenderer.Mix(url: destination, length: rendered.length, join: rendered.join)

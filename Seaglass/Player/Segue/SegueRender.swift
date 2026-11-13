@@ -31,6 +31,8 @@ struct SegueAudio {
 ///   with them to the song's end, at its gain: the player plays this one file from the take-over to
 ///   the song's end, so nothing changes after the mix (no other file, no other level, no seam).
 ///   `join` is where the song is its own samples again (seeks before it go to the song's own file).
+///   Where the rest is appended, a `microFade` equal-gain crossfade hides a decoder that starts a
+///   hair off the mix's last frame.
 ///
 /// A speed here is a resampling with a long windowed-sinc filter (flat to about 20 kHz, exact on a
 /// whole frame), so the sound is the song's own through and after the mix: the pitch moves with the
@@ -91,6 +93,9 @@ enum SegueRender {
     static let settle = 1.0
     static let margin = 1.5
     static let chunk = 64
+    /// Equal-gain crossfade at the join where the rest of the next song is appended (seconds): hides
+    /// a decoder's first-frame difference from the mix's last ones, which was heard as a click.
+    static let microFade = 0.005
 
     /// From the playing song's tempo to the next one's over the window: the playing song goes to
     /// 1/rate, the next one, locked to it (its speed against the playing one is the plan's `rate`),
@@ -455,12 +460,19 @@ enum SegueRender {
 
     // MARK: Files
 
-    /// Writes stereo frames to a file in blocks (16-bit, interleaved on disk).
+    /// Writes stereo frames to a file in blocks (16-bit, interleaved on disk). Holds back the last
+    /// `microFade` of the mix so the rest of the next song can crossfade in on those frames.
     private final class Writer {
         let file: AVAudioFile
         let buffer: AVAudioPCMBuffer
         let channels: UnsafePointer<UnsafeMutablePointer<Float>>
+        let fadeFrames: Int
         var filled = 0
+        /// Mix frames not yet on disk (left / right), at most `fadeFrames`, for the join's crossfade.
+        private var holdLeft: [Float] = []
+        private var holdRight: [Float] = []
+        private var joining = true
+        private var faded = 0
         static let block = 4096
 
         init(_ url: URL, sampleRate: Double) throws {
@@ -479,9 +491,81 @@ enum SegueRender {
                   let channels = buffer.floatChannelData else { throw RenderError.unreadable }
             self.buffer = buffer
             self.channels = channels
+            self.fadeFrames = max(1, Int((microFade * sampleRate).rounded()))
+            holdLeft.reserveCapacity(fadeFrames)
+            holdRight.reserveCapacity(fadeFrames)
         }
 
+        /// Mix frames: everything but the last `microFade` goes to disk; those stay in `hold` until
+        /// the rest arrives (or `flush` at the very end, if there is no rest).
         func write(_ left: UnsafePointer<Float>, _ right: UnsafePointer<Float>, _ count: Int) throws {
+            guard count > 0 else { return }
+            holdLeft.append(contentsOf: UnsafeBufferPointer(start: left, count: count))
+            holdRight.append(contentsOf: UnsafeBufferPointer(start: right, count: count))
+            let release = holdLeft.count - fadeFrames
+            if release > 0 {
+                try put(holdLeft, holdRight, count: release)
+                holdLeft.removeFirst(release)
+                holdRight.removeFirst(release)
+            }
+        }
+
+        /// The rest of the next song: its first `microFade` frames crossfade from the mix's held
+        /// ones (equal gain), then it writes as itself. Without the blend, a decoder that starts a
+        /// hair off the mix's last frame was heard as a click at the join.
+        func writeRest(_ left: UnsafePointer<Float>, _ right: UnsafePointer<Float>, _ count: Int) throws {
+            guard joining, !holdLeft.isEmpty else {
+                joining = false
+                holdLeft.removeAll(keepingCapacity: false)
+                holdRight.removeAll(keepingCapacity: false)
+                try put(left, right, count)
+                return
+            }
+            var scratchL = [Float](repeating: 0, count: count)
+            var scratchR = [Float](repeating: 0, count: count)
+            let held = holdLeft.count
+            let span = min(fadeFrames, held)
+            for i in 0..<count {
+                if faded < span {
+                    let t = Float(faded + 1) / Float(span)
+                    scratchL[i] = holdLeft[faded] * (1 - t) + left[i] * t
+                    scratchR[i] = holdRight[faded] * (1 - t) + right[i] * t
+                    faded += 1
+                } else {
+                    scratchL[i] = left[i]
+                    scratchR[i] = right[i]
+                }
+            }
+            if faded >= span {
+                joining = false
+                holdLeft.removeAll(keepingCapacity: false)
+                holdRight.removeAll(keepingCapacity: false)
+            }
+            try put(&scratchL, &scratchR, count)
+        }
+
+        func flush() throws {
+            if !holdLeft.isEmpty {
+                try put(holdLeft, holdRight, count: holdLeft.count)
+                holdLeft.removeAll(keepingCapacity: false)
+                holdRight.removeAll(keepingCapacity: false)
+            }
+            guard filled > 0 else { return }
+            buffer.frameLength = AVAudioFrameCount(filled)
+            try file.write(from: buffer)
+            filled = 0
+        }
+
+        private func put(_ left: [Float], _ right: [Float], count: Int) throws {
+            try left.withUnsafeBufferPointer { leftBuf in
+                try right.withUnsafeBufferPointer { rightBuf in
+                    guard let l = leftBuf.baseAddress, let r = rightBuf.baseAddress else { return }
+                    try put(l, r, count)
+                }
+            }
+        }
+
+        private func put(_ left: UnsafePointer<Float>, _ right: UnsafePointer<Float>, _ count: Int) throws {
             var offset = 0
             while offset < count {
                 let take = min(count - offset, Self.block - filled)
@@ -489,15 +573,12 @@ enum SegueRender {
                 channels[1].advanced(by: filled).update(from: right + offset, count: take)
                 filled += take
                 offset += take
-                if filled == Self.block { try flush() }
+                if filled == Self.block {
+                    buffer.frameLength = AVAudioFrameCount(filled)
+                    try file.write(from: buffer)
+                    filled = 0
+                }
             }
-        }
-
-        func flush() throws {
-            guard filled > 0 else { return }
-            buffer.frameLength = AVAudioFrameCount(filled)
-            try file.write(from: buffer)
-            filled = 0
         }
     }
 
@@ -524,13 +605,17 @@ enum SegueRender {
 
     /// The song from `start` (its own time, a whole frame of the earlier decoding) to its end, at
     /// `gain`, onto `writer`: decoded again from a little before it, its first frames up to `start`
-    /// dropped, so it goes on from the very frame the mix ended on.
-    /// Returns the largest difference from `reference` (the first decoding) over the frames both hold.
+    /// dropped, so it goes on from the very frame the mix ended on. Its first `microFade` frames
+    /// crossfade from the mix's held last ones (see `Writer.writeRest`).
+    /// Returns the largest difference from `reference` (the first decoding) over the frames both
+    /// hold, after the micro-fade (the blend itself is meant to differ when the decoder does).
     private static func appendRest(of url: URL, from start: Double, sampleRate: Double, gain: Float, to writer: Writer,
                                    checkedAgainst reference: SegueAudio) async throws -> Float {
         var reference = Optional(reference)
         var compared = Int(((start - (reference?.origin ?? 0)) * sampleRate).rounded())
         var difference: Float = 0
+        let skipCompare = max(1, Int((microFade * sampleRate).rounded()))
+        var written = 0
         let asset = AVURLAsset(url: url)
         guard let track = try await asset.loadTracks(withMediaType: .audio).first else { throw RenderError.noAudio }
         let duration = try await asset.load(.duration).seconds
@@ -580,8 +665,10 @@ enum SegueRender {
                     right[count] = scratch[index + 1] * gain
                     if let known = reference {
                         if compared >= 0, compared < known.frames {
-                            difference = max(difference, abs(left[count] - known.left[compared] * gain),
-                                             abs(right[count] - known.right[compared] * gain))
+                            if written + count >= skipCompare {
+                                difference = max(difference, abs(left[count] - known.left[compared] * gain),
+                                                 abs(right[count] - known.right[compared] * gain))
+                            }
                             compared += 1
                         } else {
                             reference = nil
@@ -589,7 +676,8 @@ enum SegueRender {
                     }
                     count += 1
                     if count == Writer.block {
-                        try writer.write(left, right, count)
+                        try writer.writeRest(left, right, count)
+                        written += count
                         count = 0
                     }
                 }
@@ -597,7 +685,10 @@ enum SegueRender {
             }
         }
         guard reader.status == .completed else { throw reader.error ?? RenderError.unreadable }
-        if count > 0 { try writer.write(left, right, count) }
+        if count > 0 {
+            try writer.writeRest(left, right, count)
+            written += count
+        }
         return difference
     }
 

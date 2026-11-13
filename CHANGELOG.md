@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.36.10 (2026-11-14)
+
+### Fixed
+- **No click where an AutoMix mix's file goes on with the next song.** The rest of the song is still written into the same file after the mix; a short equal-gain crossfade now covers the join, so a decoder that starts a hair off the mix's last frame is no longer heard as a click. CI renders the finished file to disk at gains other than 1 (as Volume uniforme does on real songs) and fails if that join clicks, and the Mac's live Segue scene uses three songs at different levels and gains.
+
 ## 1.36.9 (2026-11-13)
 
 ### Fixed

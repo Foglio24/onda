@@ -167,13 +167,14 @@ file instead, sample by sample:
 3. After the window the next song's lanes go back to plain, then it goes onto its own samples (the
    last fraction of a frame made up over a second, a few hundred-thousandths of speed), and the file
    goes on with them to the song's end, at its gain (decoded again from just before, the frames up
-   to the mix's end dropped, so they follow on exactly). The player plays this one file from the
-   take-over to the song's end: nothing changes after the mix, no other file, no other level, no
-   seam. An item of two parts (the mix, then the song's own file from `join`) came back louder after
-   its seam, the audio mix's volume ramps not being held, and its two parts' starts could be heard.
-   The file comes in through its own deck (silent until the crossover, then in over it), the playing
-   song goes out through the deck its audio goes through at that moment: neither uses the audio
-   mix's volume.
+   to the mix's end dropped, so they follow on exactly). Where that rest is appended, a 5 ms
+   equal-gain crossfade covers the join, so a decoder that starts a hair off the mix's last frame
+   is not heard as a click. The player plays this one file from the take-over to the song's end:
+   nothing changes after the mix, no other file, no other level, no seam. An item of two parts
+   (the mix, then the song's own file from `join`) came back louder after its seam, the audio mix's
+   volume ramps not being held, and its two parts' starts could be heard. The file comes in through
+   its own deck (silent until the crossover, then in over it), the playing song goes out through
+   the deck its audio goes through at that moment: neither uses the audio mix's volume.
 4. A speed is a resampling with a 64-tap windowed sinc (Kaiser), flat to about 20 kHz and exact on a
    whole frame, so the song sounds as its own through and after the mix (a cubic filter dulled the
    top octave by a few decibels while it resampled, heard as the song's own sound coming back when

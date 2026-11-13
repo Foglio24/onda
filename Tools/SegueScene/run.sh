@@ -62,6 +62,15 @@ rests=$(grep -c "segue: rendered .*, rest " "$work/live.log")
 rendered=$(grep -c "segue: rendered" "$work/live.log")
 [ "$rendered" -ge 2 ] || { echo "::error::Only $rendered mix(es) played ahead in three songs"; failed=1; }
 grep -q "segue: rendered" "$work/alac.log" || { echo "::error::The mix wasn't played ahead on ALAC files"; failed=1; }
+# Gains other than 1 (as Volume uniforme on real songs): both sides of every live mix.
+while read -r out_g in_g; do
+  echo "Rendered gains: $out_g → $in_g"
+  if awk -v o="$out_g" -v i="$in_g" 'BEGIN { exit !((o == 1 && i == 1)) }'; then
+    echo "::error::A mix was rendered at gains 1 → 1 (CI must use Volume uniforme's gains)"; failed=1
+  fi
+done < <(grep -ho "gains [0-9.]* → [0-9.]*" "$work/live.log" | sed -E 's/gains ([0-9.]*) → ([0-9.]*)/\1 \2/')
+gains=$(grep -c "gains [0-9.]* → [0-9.]*" "$work/live.log")
+[ "$gains" -ge 2 ] || { echo "::error::Only $gains mix(es) reported their gains"; failed=1; }
 # The take-over: the file's player and the playing one on the same music, in phase (a few
 # milliseconds apart would be a faint comb, ten a doubled beat).
 while read -r apart; do
