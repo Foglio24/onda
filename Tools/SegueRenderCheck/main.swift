@@ -2,10 +2,10 @@
 // made here, whose beats are known: the plan comes from the policy (as in the app), then
 // - the file's first second is the playing song's own samples and its last ones the next song's,
 //   exactly (the players hand over on the same music, unheard);
-// - through the window the next song's beats stay on the playing song's while both tempos glide to
-//   meet halfway (no drift);
-// - after it the next song's tempo comes back to its own gradually: no step from one beat to the next,
-//   and exactly its own at the end;
+// - through the window the next song's beats stay on the playing song's while the tempo glides from
+//   the playing song's to the next one's (no drift, no step from one beat to the next);
+// - after it the next song is at its own tempo at once: nothing changes after the window;
+// - resampled, a high tone keeps its level (the filter is flat: no dull stretch to hear end);
 // - a deck's speed never changes in a step, the lanes' processing never jumps, and a mix of two sine
 //   tones has no click anywhere.
 // Run from the repository root: bash Tools/SegueRenderCheck/run.sh
@@ -149,9 +149,8 @@ print("plan: \(plan.level.rawValue) \(plan.shape.rawValue), \(format(plan.length
 // MARK: Speeds
 
 let glide = SegueRender.glides(for: plan)
-expect(abs(glide.outgoingRate * glide.incomingRate - 1) < 1e-9 && abs(glide.incomingRate / glide.outgoingRate - plan.rate) < 1e-9,
-       "the two songs meet halfway: playing \(format(glide.outgoingRate, 4)), next \(format(glide.incomingRate, 4)) (rate \(format(plan.rate, 4)))")
-expect(glide.incomingGlide >= 8 && glide.incomingGlide <= 24, "the next song comes back over \(format(glide.incomingGlide, 1)) s")
+expect(abs(glide.outgoingRate - 1 / plan.rate) < 1e-12 && glide.incomingRate == 1 && glide.incomingGlide == 0,
+       "the tempo goes from the playing song's to the next one's over the window: playing 1 → \(format(glide.outgoingRate, 4)), next \(format(plan.rate, 4)) → 1")
 var unlocked = plan
 unlocked.level = .simpleFade
 expect(SegueRender.glides(for: unlocked) == SegueRender.Glide(outgoingRate: 1, incomingRate: 1, incomingGlide: 0),
@@ -168,7 +167,7 @@ if let mixed = render(plan, audio(songA), audio(songB), gains: (0.8, 0.9)) {
     expect(result.tailDifference == 0, "the file's end is the next song's own samples exactly (\(result.tailDifference))")
     expect(result.largestSpeedStep < 1e-4, "no deck's speed changes in a step (largest \(String(format: "%.1e", result.largestSpeedStep)) per frame)")
     expect(result.jumps == 0, "the lanes' processing never jumps (\(result.jumps))")
-    expect(result.back > result.windowEnd + glide.incomingGlide * 0.9, "the next song is back at its own speed after its glide")
+    expect(result.back > result.windowEnd && result.back < result.windowEnd + 5, "the next song is on its own samples a few seconds after the window (\(format(result.back - result.windowEnd, 2)) s)")
     // The join: the next song's own time right after the file, whole frames.
     let joinFrames = result.join * rate
     expect(abs(joinFrames - joinFrames.rounded()) < 1e-6, "the next song's file carries on from a whole frame (\(format(result.join, 5)) s)")
@@ -207,25 +206,45 @@ if let alone = render(timing, audio(tickA), audio(tickB), gains: (1, 0)),
     let gapsA = zip(beatsA, beatsA.dropFirst()).map { $1 - $0 }
     let stepsA = zip(gapsA, gapsA.dropFirst()).map { abs($1 - $0) }
     expect((stepsA.max() ?? 1) < 0.0006, "the playing song's tempo glides through the window (largest change \(format((stepsA.max() ?? 0) * 1000, 2)) ms a beat)")
+    let gapsIn = zip(inWindow, inWindow.dropFirst()).map { $1 - $0 }
+    let stepsIn = zip(gapsIn, gapsIn.dropFirst()).map { abs($1 - $0) }
+    expect((stepsIn.max() ?? 1) < 0.0006, "the next song's tempo glides with it (largest change \(format((stepsIn.max() ?? 0) * 1000, 2)) ms a beat)")
     let ownA = 60.0 / 124, ownB = 60.0 / 126
     let glide = SegueRender.glides(for: timing)
     if let last = gapsA.last {
         expect(abs(last - ownA / glide.outgoingRate) < 0.0005,
-               "and ends at the middle tempo (beat \(format(last * 1000, 2)) ms, \(format(ownA / glide.outgoingRate * 1000, 2)) expected)")
+               "and ends at the next song's tempo (beat \(format(last * 1000, 2)) ms, \(format(ownA / glide.outgoingRate * 1000, 2)) expected)")
     }
     // The next song after the window: from the middle tempo back to its own, beat by beat.
     let after = beatsB.filter { $0 > result.windowEnd }
     let gapsB = zip(after, after.dropFirst()).map { $1 - $0 }
     let stepsB = zip(gapsB, gapsB.dropFirst()).map { abs($1 - $0) }
     expect(gapsB.count >= 16, "the next song's beats after the window (\(gapsB.count))")
-    expect((stepsB.max() ?? 1) < 0.0006, "its tempo comes back without a step (largest change \(format((stepsB.max() ?? 0) * 1000, 2)) ms a beat)")
+    expect((stepsB.max() ?? 1) < 0.0003, "after the window its tempo holds (largest change \(format((stepsB.max() ?? 0) * 1000, 2)) ms a beat)")
     if let firstGap = gapsB.first {
         expect(abs(firstGap - ownB / glide.incomingRate) < 0.0005,
-               "it leaves the window at the middle tempo (beat \(format(firstGap * 1000, 2)) ms, \(format(ownB / glide.incomingRate * 1000, 2)) expected)")
+               "it leaves the window at its own tempo (beat \(format(firstGap * 1000, 2)) ms, \(format(ownB / glide.incomingRate * 1000, 2)) expected)")
     }
     let ownBeats = zip(after, after.dropFirst()).filter { $0.0 >= result.back }.map { $1 - $0 }
     expect(!ownBeats.isEmpty && ownBeats.allSatisfy { abs($0 - ownB) < 0.0002 },
            "and ends at its own tempo (\(ownBeats.map { format($0 * 1000, 2) }.joined(separator: ", ")) ms; \(format(ownB * 1000, 2)) expected)")
+}
+
+// MARK: The sound, resampled
+
+// A tone at three quarters of the Nyquist frequency (16.5 kHz at 44.1 kHz), the next song alone at
+// full level through the window while its speed glides: its level must stay the tone's.
+do {
+    let high = 0.75 * rate / 2
+    let tone = sine(high, seconds: seconds)
+    if let resampled = render(timing, audio(sine(220, seconds: seconds)), audio(tone), gains: (0, 1)) {
+        let result = resampled.result
+        let from = Int((result.windowStart + 1) * rate), to = Int((result.windowEnd - 1) * rate)
+        let heard = (resampled.out[from..<to].reduce(0.0) { $0 + Double($1 * $1) } / Double(to - from)).squareRoot()
+        let own = 0.4 / 2.0.squareRoot()
+        let change = 20 * log10(heard / own)
+        expect(abs(change) < 0.1, "a tone at \(format(high / 1000, 1)) kHz keeps its level while resampled (\(format(change, 3)) dB)")
+    }
 }
 
 // MARK: No click

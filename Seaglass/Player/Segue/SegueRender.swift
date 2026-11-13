@@ -22,14 +22,17 @@ struct SegueAudio {
 ///   its player plays it (same samples, same gain): the player that plays the file takes over from
 ///   the playing one there, unheard (`crossing`, `fade`).
 /// - Through the window the next song is locked to the playing one, beat on beat (its place follows
-///   from the playing song's, as the plan has it), and the two meet halfway in tempo: the playing song
-///   glides from its own speed to the middle one over the window, the next one with it.
-/// - After the window the next song glides back to its own speed over eight of its bars, eased at both
-///   ends (no corner in the speed), then onto its own samples exactly (`settle`): the file ends with
+///   from the playing song's, as the plan has it), and the tempo goes from the playing song's to the
+///   next one's, eased at both ends (no corner in the speed): at the start the playing song is at its
+///   own speed and the next one, still quiet, at the playing one's tempo; at the end the next song is
+///   at its own speed and the playing one, faded out, at the next one's. The song heard most is always
+///   at or near its own tempo, and nothing changes after the window.
+/// - After the window the next song goes onto its own samples exactly (`settle`): the file ends with
 ///   it sample for sample as its file plays, where the song's file carries on (`join`).
 ///
-/// A speed here is a resampling: the pitch moves with the tempo by half the gap at most, as on a
-/// turntable, and nothing else is changed (no time stretch with its artefacts).
+/// A speed here is a resampling with a long windowed-sinc filter (flat to about 20 kHz, exact on a
+/// whole frame), so the sound is the song's own through and after the mix: the pitch moves with the
+/// tempo, as on a turntable, and nothing else changes (no time stretch with its artefacts).
 enum SegueRender {
     enum RenderError: Error {
         case noAudio
@@ -83,17 +86,16 @@ enum SegueRender {
     static let margin = 1.5
     static let chunk = 64
 
-    /// Meeting halfway: the playing song goes to 1/√rate, the next one, locked to it, to √rate (its
-    /// speed against the playing one is the plan's `rate`); then back to 1 over eight of its bars.
-    /// Plans that don't match beats keep both songs at their own speed.
+    /// From the playing song's tempo to the next one's over the window: the playing song goes to
+    /// 1/rate, the next one, locked to it (its speed against the playing one is the plan's `rate`),
+    /// to 1, its own, by the window's end. Nothing glides after it. Plans that don't match beats keep
+    /// both songs at their own speed.
     static func glides(for plan: SeguePlan) -> Glide {
         let rate = plan.rate
         guard plan.level.isLocked, rate.isFinite, rate > 0.5, rate < 2, abs(rate - 1) > 1e-6 else {
             return Glide(outgoingRate: 1, incomingRate: 1, incomingGlide: 0)
         }
-        let root = rate.squareRoot()
-        let tempo = max(40, (plan.tempo ?? 120) / rate)
-        return Glide(outgoingRate: 1 / root, incomingRate: root, incomingGlide: min(24, max(8, 8 * 4 * 60 / tempo)))
+        return Glide(outgoingRate: 1 / rate, incomingRate: 1, incomingGlide: 0)
     }
 
     /// The song time each side's audio must cover, decoded from (before, after) seconds around these.
@@ -114,22 +116,77 @@ enum SegueRender {
         return x * x * (3 - 2 * x)
     }
 
-    /// The sample at frame position `x` (fractional) of `samples`: exact on a whole frame, cubic
-    /// (Hermite) between, silence outside them.
+    // MARK: Resampling
+
+    /// The interpolation filter: a windowed sinc of `taps` taps (Kaiser, β 9.5), tabulated at `phases`
+    /// fractions of a frame and read between them linearly. Flat to about nine tenths of the Nyquist
+    /// frequency (20 kHz at 44.1 kHz) with its images 90 dB down; on a whole frame it is the frame
+    /// itself. A cubic filter, as before, dulled the top octave by a few decibels while a song was
+    /// resampled, heard as its own sound coming back when the resampling stopped.
+    static let taps = 64
+    static let phases = 512
+    private static let kernel: [Float] = {
+        let half = taps / 2
+        let beta = 9.5
+        func bessel0(_ x: Double) -> Double {
+            var sum = 1.0, term = 1.0, k = 1.0
+            while term > 1e-12 * sum {
+                term *= (x / (2 * k)) * (x / (2 * k))
+                sum += term
+                k += 1
+            }
+            return sum
+        }
+        let norm = bessel0(beta)
+        var table = [Float](repeating: 0, count: (phases + 1) * taps)
+        for phase in 0...phases {
+            let fraction = Double(phase) / Double(phases)
+            for j in 0..<taps {
+                // Tap j reads frame base + j - (half - 1); its distance from the position.
+                let t = Double(j - (half - 1)) - fraction
+                let ratio = t / Double(half)
+                guard abs(ratio) < 1 else { continue }
+                let sinc = t == 0 ? 1 : sin(Double.pi * t) / (Double.pi * t)
+                let window = bessel0(beta * (1 - ratio * ratio).squareRoot()) / norm
+                table[phase * taps + j] = Float(sinc * window)
+            }
+        }
+        return table
+    }()
+
+    /// The sample at frame position `x` (fractional) of `samples`: exact on a whole frame, the
+    /// windowed sinc between, silence outside them.
     @inline(__always)
-    private static func read(_ samples: UnsafeBufferPointer<Float>, at x: Double) -> Float {
+    private static func read(_ samples: UnsafeBufferPointer<Float>, at x: Double, kernel: UnsafeBufferPointer<Float>) -> Float {
         let frames = samples.count
-        guard x.isFinite, x > -4, x < Double(frames) + 4 else { return 0 }
-        @inline(__always) func at(_ i: Int) -> Float { i >= 0 && i < frames ? samples[i] : 0 }
+        let half = taps / 2
+        guard x.isFinite, x > Double(-half), x < Double(frames + half) else { return 0 }
         let nearest = x.rounded()
-        if abs(x - nearest) < 1e-6 { return at(Int(nearest)) }
+        if abs(x - nearest) < 1e-6 {
+            let i = Int(nearest)
+            return i >= 0 && i < frames ? samples[i] : 0
+        }
         let base = Int(x.rounded(.down))
-        let fraction = Float(x - Double(base))
-        let y0 = at(base - 1), y1 = at(base), y2 = at(base + 1), y3 = at(base + 2)
-        let c1 = 0.5 * (y2 - y0)
-        let c2 = y0 - 2.5 * y1 + 2 * y2 - 0.5 * y3
-        let c3 = 0.5 * (y3 - y0) + 1.5 * (y1 - y2)
-        return ((c3 * fraction + c2) * fraction + c1) * fraction + y1
+        let position = (x - Double(base)) * Double(phases)
+        let phase = min(phases - 1, Int(position))
+        let blend = Float(position - Double(phase))
+        let low = phase * taps, high = low + taps
+        let first = base - (half - 1)
+        var sum: Float = 0
+        if first >= 0, first + taps <= frames {
+            for j in 0..<taps {
+                let weight = kernel[low + j] + (kernel[high + j] - kernel[low + j]) * blend
+                sum += samples[first + j] * weight
+            }
+        } else {
+            for j in 0..<taps {
+                let i = first + j
+                guard i >= 0, i < frames else { continue }
+                let weight = kernel[low + j] + (kernel[high + j] - kernel[low + j]) * blend
+                sum += samples[i] * weight
+            }
+        }
+        return sum
     }
 
     /// Untouched up to 0.95, then a smooth knee under 1 (as `DeckMixer`'s): only where both songs play.
@@ -216,7 +273,8 @@ enum SegueRender {
             free(listB.unsafeMutablePointer)
         }
 
-        return try a.left.withUnsafeBufferPointer { aLeft in
+        return try kernel.withUnsafeBufferPointer { kernel in
+        try a.left.withUnsafeBufferPointer { aLeft in
             try a.right.withUnsafeBufferPointer { aRight in
                 try b.left.withUnsafeBufferPointer { bLeft in
                     try b.right.withUnsafeBufferPointer { bRight in
@@ -252,8 +310,8 @@ enum SegueRender {
                             for i in 0..<n {
                                 // The playing song.
                                 if outgoingOn {
-                                    aL[i] = read(aLeft, at: pA)
-                                    aR[i] = read(aRight, at: pA)
+                                    aL[i] = read(aLeft, at: pA, kernel: kernel)
+                                    aR[i] = read(aRight, at: pA, kernel: kernel)
                                     if windowStart == nil, pA >= startS { windowStart = written + i }
                                     if windowEnd == nil, pA >= endS { windowEnd = written + i }
                                     let advance = rateA(pA)
@@ -272,8 +330,8 @@ enum SegueRender {
                                     bL[i] = 0
                                     bR[i] = 0
                                 case .locked:
-                                    bL[i] = read(bLeft, at: pB)
-                                    bR[i] = read(bRight, at: pB)
+                                    bL[i] = read(bLeft, at: pB, kernel: kernel)
+                                    bR[i] = read(bRight, at: pB, kernel: kernel)
                                     if pA < endS {
                                         let next = startI + (pA - startS) * r
                                         advance = next - pB
@@ -284,8 +342,8 @@ enum SegueRender {
                                         pB += advance
                                     }
                                 case .gliding:
-                                    bL[i] = read(bLeft, at: pB)
-                                    bR[i] = read(bRight, at: pB)
+                                    bL[i] = read(bLeft, at: pB, kernel: kernel)
+                                    bR[i] = read(bRight, at: pB, kernel: kernel)
                                     advance = rateB(pB)
                                     pB += advance
                                     if pB >= settleAt {
@@ -299,8 +357,8 @@ enum SegueRender {
                                         }
                                     }
                                 case .settling(let left, let step):
-                                    bL[i] = read(bLeft, at: pB)
-                                    bR[i] = read(bRight, at: pB)
+                                    bL[i] = read(bLeft, at: pB, kernel: kernel)
+                                    bR[i] = read(bRight, at: pB, kernel: kernel)
                                     advance = step
                                     pB += step
                                     if left <= 1 {
@@ -385,6 +443,7 @@ enum SegueRender {
                     }
                 }
             }
+        }
         }
     }
 

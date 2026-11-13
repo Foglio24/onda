@@ -73,8 +73,14 @@ struct SearchView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) { RecognitionButton() }
         }
-        .searchable(text: $query, prompt: "Brani, playlist e artisti")
+        .searchable(text: $query, placement: Self.fieldPlacement, prompt: "Brani, playlist e artisti")
         .onSubmit(of: .search) { remember(query) }
+    }
+
+    /// Under the title, always shown, on an iPhone and an iPad (Search is one of the tab bar's tabs, not
+    /// the system's search tab that holds the field itself); as the system places it on a Mac.
+    private static var fieldPlacement: SearchFieldPlacement {
+        ProcessInfo.processInfo.isMacCatalystApp ? .automatic : .navigationBarDrawer(displayMode: .always)
     }
 
     /// Classic: white search field, category tiles, browse-all genres, recent when typing or focused.

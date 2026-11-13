@@ -115,7 +115,9 @@ extension RootView {
             Tab("Impostazioni", systemImage: "gearshape.fill", value: AppTab.settings) {
                 SettingsView()
             }
-            Tab(value: AppTab.search, role: .search) {
+            // Search in the same glass bar as the other tabs (the system's search tab is a circle of
+            // its own beside the bar); its field is at the top of the page.
+            Tab("Cerca", systemImage: "magnifyingglass", value: AppTab.search) {
                 SearchView()
             }
         }

@@ -119,3 +119,127 @@ struct SingControl: View {
         player.setKaraokeAmount(Float(1 - level * level * level))
     }
 }
+
+/// While the karaoke separates the song's voice from its music (it takes a while the first time):
+/// a card at the top of the player, on every page of it (the cover, the lyrics, the queue), with a
+/// ring filling up as it goes, the voice's waves being drawn apart, how far it is and how long it
+/// has left. Its × turns the karaoke off. It shows only while it prepares; the badge under the cover
+/// says the rest.
+struct KaraokePreparingCard: View {
+    @EnvironmentObject private var player: PlayerController
+
+    var body: some View {
+        Group {
+            if case .preparing(let value, let remaining) = player.karaokeStatus, player.karaokeMode != .off {
+                card(value: value, remaining: remaining)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
+        }
+        .animation(.spring(duration: 0.45, bounce: 0.2), value: isPreparing)
+    }
+
+    private var isPreparing: Bool {
+        if case .preparing = player.karaokeStatus { return player.karaokeMode != .off }
+        return false
+    }
+
+    private func card(value: Double, remaining: TimeInterval?) -> some View {
+        HStack(spacing: 14) {
+            ProgressRing(value: value)
+                .frame(width: 48, height: 48)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Preparazione del karaoke")
+                    .font(.subheadline.weight(.semibold))
+                Text("La voce viene separata dalla musica")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                HStack(spacing: 8) {
+                    VoiceWaves(progress: value)
+                        .frame(height: 14)
+                    Text(Self.detail(value, remaining: remaining))
+                        .font(.caption2.weight(.semibold))
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                        .fixedSize()
+                }
+            }
+            Spacer(minLength: 0)
+            Button {
+                player.setKaraoke(.off)
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.footnote.weight(.bold))
+                    .frame(width: 32, height: 32)
+                    .contentShape(.circle)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(Text("Annulla"))
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .styledSurface(in: .rect(cornerRadius: 24))
+        .shadow(color: .black.opacity(0.25), radius: 18, y: 8)
+        .padding(.horizontal, 16)
+        .accessibilityElement(children: .contain)
+    }
+
+    /// "35% · 12 s" (or "1 min"); just the share at first, before the time left is known.
+    private static func detail(_ value: Double, remaining: TimeInterval?) -> String {
+        var text = max(0, min(1, value)).formatted(.percent.precision(.fractionLength(0)))
+        if let remaining {
+            text += remaining < 60 ? " · \(max(1, Int(remaining))) s" : " · \(Int((remaining / 60).rounded())) min"
+        }
+        return text
+    }
+
+    /// The share done as a ring around a breathing microphone.
+    private struct ProgressRing: View {
+        let value: Double
+
+        var body: some View {
+            TimelineView(.animation) { context in
+                let t = context.date.timeIntervalSinceReferenceDate
+                let breath = 1 + 0.08 * sin(t * 2 * .pi / 1.6)
+                ZStack {
+                    Circle().stroke(Color.primary.opacity(0.15), lineWidth: 4)
+                    Circle()
+                        .trim(from: 0, to: CGFloat(max(0.04, min(1, value))))
+                        .stroke(AngularGradient(colors: [.pink, .purple, .orange, .pink], center: .center),
+                                style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                        .animation(.smooth(duration: 0.5), value: value)
+                    Image(systemName: "music.mic")
+                        .font(.system(size: 18, weight: .semibold))
+                        .scaleEffect(CGFloat(breath))
+                }
+            }
+        }
+    }
+
+    /// Bars moving like a voice: the done share of them in colour, the rest dim, so the waves fill
+    /// from left to right as the voice is drawn apart from the music.
+    private struct VoiceWaves: View {
+        let progress: Double
+        private static let count = 22
+
+        var body: some View {
+            TimelineView(.animation) { context in
+                let t = context.date.timeIntervalSinceReferenceDate
+                HStack(alignment: .center, spacing: 2) {
+                    ForEach(0..<Self.count, id: \.self) { index in
+                        let x = Double(index)
+                        let height = 0.3 + 0.7 * abs(sin(t * 3.1 + x * 0.55) * cos(t * 1.7 + x * 0.23))
+                        Capsule()
+                            .fill(Double(index) / Double(Self.count) < progress
+                                  ? AnyShapeStyle(LinearGradient(colors: [.pink, .purple], startPoint: .bottom, endPoint: .top))
+                                  : AnyShapeStyle(Color.primary.opacity(0.2)))
+                            .frame(width: 3)
+                            .scaleEffect(x: 1, y: CGFloat(height), anchor: .center)
+                    }
+                }
+            }
+        }
+    }
+}

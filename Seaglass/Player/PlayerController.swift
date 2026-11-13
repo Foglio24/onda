@@ -2792,12 +2792,16 @@ final class PlayerController: ObservableObject {
                                                 fade: Double) async -> (item: AVPlayerItem, fader: HandoverFader?, stage: SegueStage?)? {
         guard let parts = await AutoMixPlayback.compose(mixURL: planned.mix.url, songURL: planned.file,
             length: planned.mix.length, join: planned.mix.join, incomingGain: planned.incomingGain,
-            crossing: crossing, fade: fade, timescale: planned.segue.map { CMTimeScale($0.result.sampleRate.rounded()) } ?? 44_100)
+            crossing: crossing, fade: fade, timescale: planned.segue.map { CMTimeScale($0.result.sampleRate.rounded()) } ?? 44_100,
+            songLead: planned.segue == nil ? 0 : 0.5)
         else { return nil }
         let equalizer = EqualizerParameters.shared.isOn
         let stage = Preferences.liveMixEnabled ? SegueStage() : nil
-        if equalizer { parts.mixPart.audioTapProcessor = EqualizerTap.make() }
-        if equalizer || stage != nil { parts.songPart.audioTapProcessor = EqualizerTap.make(segue: stage) }
+        // Both parts through the same processing, so the seam joins the same sound on both sides.
+        if equalizer || stage != nil {
+            parts.mixPart.audioTapProcessor = EqualizerTap.make()
+            parts.songPart.audioTapProcessor = EqualizerTap.make(segue: stage)
+        }
         let audioMix = AVMutableAudioMix()
         audioMix.inputParameters = [parts.mixPart, parts.songPart]
         let item = AVPlayerItem(asset: parts.composition)

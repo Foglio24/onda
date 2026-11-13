@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.36.9 (2026-11-13)
+
+### Fixed
+- **No more small break at the end of an AutoMix mix.** The song brought in was resampled with a simple filter that dulled its highest sounds a little while its tempo moved; when its own sound came back after the mix, that was heard as a small break, as if AutoMix stopped and the plain song came in. The resampling now uses a long, high-quality filter, flat to about 20 kHz, so the song sounds as itself through and after the mix. Where the mix's file hands on to the song's own file, the song's part now starts half a second earlier, silent, so its playback is already running when it comes in, and both parts go through the same audio processing.
+- **The mix ends where the mark on the progress bar ends.** The tempo now goes from the playing song's to the next one's across the mix itself: at the start the playing song is at its own tempo (the next one, still quiet, follows it), at the end the next song is at its own (the playing one, faded out, follows it). The song you hear most is always at or near its own tempo and pitch, and nothing changes after the mark; before, the next song took another fifteen seconds after it to get back to its own tempo.
+
+### Changed
+- **Search joins the other tabs** in the Liquid Glass bar at the bottom (Seaglass style, iPhone and iPad), instead of a separate circle beside it; its field is at the top of the page.
+- **Preparing the karaoke is easy to see**: a card at the top of the player, on every page of it, with a ring filling up, the voice's waves being drawn apart, the share done and the time left, and a × to call it off.
+
 ## 1.36.8 (2026-11-13)
 
 ### Fixed

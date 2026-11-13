@@ -60,6 +60,11 @@ struct NowPlayingView: View {
         }
         .padding(.horizontal, 24)
         .padding(.bottom, 8)
+        // The karaoke being prepared, on top of whatever page of the player shows.
+        .overlay(alignment: .top) {
+            KaraokePreparingCard()
+                .padding(.top, 52)
+        }
         .foregroundStyle(lightPlayer ? Color.black : Color.white)
         .background { background }
         // Dark on the cover's colours; in the classic style's light mode, light (the text and the
