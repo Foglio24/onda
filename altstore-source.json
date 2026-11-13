@@ -25,6 +25,15 @@
       ],
       "versions": [
         {
+          "version": "1.36.7",
+          "buildVersion": "86",
+          "date": "2026-11-13T12:15:59Z",
+          "localizedDescription": "1.36.7 (2026-11-13)\n\nFixed\n- After an AutoMix live mix, the song brought in goes back to its own tempo. Beat-matched mixes stretch that song to match the one ending; from 1.36.4 it kept that stretch to its end (a pause or stop brought it back), so the beats and speed stayed wrong until you stopped. It now returns to its own speed on a fresh player a couple of seconds after the mix, on a downbeat. CI's live AutoMix check requires that return after each locked mix, and fails when the fresh player crosses over more than 5 ms from the stretched one (heard as a skip) or its sound jumps after it.\n\n1.36.6 (2026-11-13)\n\nChanged\n- Classico on the Mac as the common streaming apps' desktop window: three resizable panels — La tua libreria on the left (with Playlist / Podcast filters), the page in the middle (Home, Cerca, playlist…), and Coda on the right (Stai ascoltando, next from the source, drag handles). Drag the gaps between panels to resize them; the widths are kept. The queue button on the player bar opens and closes the right panel (green when open) instead of the full player. Song ··· on the Mac opens a desktop menu, not the phone's bottom sheet.",
+          "downloadURL": "https://github.com/Foglio24/onda/releases/download/v1.36.7/Seaglass.ipa",
+          "size": 46408139,
+          "minOSVersion": "26.0"
+        },
+        {
           "version": "1.36.5",
           "buildVersion": "84",
           "date": "2026-11-13T11:10:28Z",
@@ -206,6 +215,17 @@
     }
   ],
   "news": [
+    {
+      "title": "Seaglass 1.36.7",
+      "identifier": "release-1.36.7",
+      "caption": "A new Seaglass update is available. Tap to see what's new.",
+      "date": "2026-11-13T12:15:59Z",
+      "tintColor": "#EC3F8E",
+      "imageURL": "https://raw.githubusercontent.com/Foglio24/onda/main/docs/images/seaglass-banner.jpg",
+      "notify": false,
+      "url": "https://github.com/Foglio24/onda/releases/tag/v1.36.7",
+      "appID": "com.onda.player"
+    },
     {
       "title": "Seaglass 1.36.5",
       "identifier": "release-1.36.5",
