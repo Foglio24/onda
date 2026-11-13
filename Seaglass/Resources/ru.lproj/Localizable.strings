@@ -139,6 +139,9 @@
 "Niente in riproduzione" = "Ничего не играет";
 "IN RIPRODUZIONE DA" = "ВОСПРОИЗВЕДЕНИЕ ИЗ";
 "Coda" = "Очередь";
+"Stai ascoltando" = "Сейчас играет";
+"Prossima traccia da: %@" = "Далее из: %@";
+"Ridimensiona pannello" = "Изменить размер панели";
 "Timer di spegnimento" = "Таймер сна";
 "%lld minuti" = "%lld мин";
 "Fine del brano" = "Конец песни";

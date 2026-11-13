@@ -139,6 +139,9 @@
 "Niente in riproduzione" = "Çalan bir şey yok";
 "IN RIPRODUZIONE DA" = "ÇALINAN YER";
 "Coda" = "Sıra";
+"Stai ascoltando" = "Şu an çalıyor";
+"Prossima traccia da: %@" = "Sonraki: %@";
+"Ridimensiona pannello" = "Paneli yeniden boyutlandır";
 "Timer di spegnimento" = "Uyku zamanlayıcısı";
 "%lld minuti" = "%lld dakika";
 "Fine del brano" = "Şarkının sonu";

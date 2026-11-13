@@ -139,6 +139,9 @@
 "Niente in riproduzione" = "لا يتم تشغيل شيء";
 "IN RIPRODUZIONE DA" = "يتم التشغيل من";
 "Coda" = "قائمة الانتظار";
+"Stai ascoltando" = "تشغل الآن";
+"Prossima traccia da: %@" = "التالي من: %@";
+"Ridimensiona pannello" = "تغيير حجم اللوحة";
 "Timer di spegnimento" = "مؤقت النوم";
 "%lld minuti" = "%lld دقيقة";
 "Fine del brano" = "نهاية الأغنية";

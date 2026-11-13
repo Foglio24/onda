@@ -162,6 +162,9 @@
 "Niente in riproduzione" = "Not playing";
 "IN RIPRODUZIONE DA" = "PLAYING FROM";
 "Coda" = "Queue";
+"Stai ascoltando" = "Now playing";
+"Prossima traccia da: %@" = "Next from: %@";
+"Ridimensiona pannello" = "Resize panel";
 "Timer di spegnimento" = "Sleep timer";
 "%lld minuti" = "%lld minutes";
 "Fine del brano" = "End of song";

@@ -36,8 +36,11 @@ struct MacPlayerBar: View {
             HStack(spacing: 2) {
                 button("quote.bubble") { router.openPlayer(on: .lyrics) }
                     .disabled(player.current == nil)
-                button("list.bullet") { router.openPlayer(on: .queue) }
-                    .disabled(player.current == nil)
+                // Queue toggles the window's right panel (Spotify desktop), not the full player.
+                button("list.bullet", on: router.showMacQueuePanel) {
+                    router.toggleMacQueuePanel()
+                }
+                .disabled(player.current == nil)
                 AirPlayButton(activeTint: tint, tint: ClassicPalette.uiPrimaryText)
                     .frame(width: 38, height: 38)
                 MacVolumeControl(tint: ClassicPalette.primaryText)

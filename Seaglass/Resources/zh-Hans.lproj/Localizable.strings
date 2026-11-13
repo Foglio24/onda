@@ -139,6 +139,9 @@
 "Niente in riproduzione" = "未在播放";
 "IN RIPRODUZIONE DA" = "播放来源";
 "Coda" = "队列";
+"Stai ascoltando" = "正在播放";
+"Prossima traccia da: %@" = "接下来来自：%@";
+"Ridimensiona pannello" = "调整面板大小";
 "Timer di spegnimento" = "睡眠定时器";
 "%lld minuti" = "%lld 分钟";
 "Fine del brano" = "歌曲结束时";

@@ -139,6 +139,9 @@
 "Niente in riproduzione" = "Aucune lecture";
 "IN RIPRODUZIONE DA" = "EN LECTURE DEPUIS";
 "Coda" = "File d’attente";
+"Stai ascoltando" = "En cours de lecture";
+"Prossima traccia da: %@" = "À suivre depuis : %@";
+"Ridimensiona pannello" = "Redimensionner le panneau";
 "Timer di spegnimento" = "Minuteur de veille";
 "%lld minuti" = "%lld minutes";
 "Fine del brano" = "Fin du morceau";

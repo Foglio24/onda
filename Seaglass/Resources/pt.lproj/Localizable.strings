@@ -139,6 +139,9 @@
 "Niente in riproduzione" = "Nada tocando";
 "IN RIPRODUZIONE DA" = "TOCANDO DE";
 "Coda" = "Fila";
+"Stai ascoltando" = "A tocar";
+"Prossima traccia da: %@" = "A seguir de: %@";
+"Ridimensiona pannello" = "Redimensionar painel";
 "Timer di spegnimento" = "Timer para desligar";
 "%lld minuti" = "%lld minutos";
 "Fine del brano" = "Fim da música";

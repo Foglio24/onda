@@ -25,6 +25,8 @@ struct RootView: View {
     @EnvironmentObject private var library: Library
     @AppStorage(Preferences.accent) private var accent: AccentChoice = .pink
     @AppStorage(Preferences.interfaceStyle) private var style: InterfaceStyle = .seaglass
+    @AppStorage(Preferences.macClassicSidebarWidth) private var classicSidebarWidth: Double = 280
+    @AppStorage(Preferences.macClassicQueueWidth) private var classicQueueWidth: Double = 320
     @State private var selection: AppTab = .home
     @State private var macSelection: MacSection = .home
     @State private var visitedSections: Set<MacSection> = []
@@ -137,22 +139,33 @@ extension RootView {
         if style == .classic { classicMacLayout } else { seaglassMacLayout }
     }
 
-    /// The classic style on a Mac, as the common streaming apps' desktop: on a black window, the
-    /// sidebar in two dark panels (Home and Cerca; the library with its playlists) beside the page's
-    /// panel, and the player bar along the whole bottom (the song, the controls with the progress,
-    /// then the lyrics, the queue, the output and the volume).
+    /// The classic style on a Mac, as the common streaming apps' desktop: three resizable panels
+    /// (library | page | queue) on a black window, and the player bar along the whole bottom.
     private var classicMacLayout: some View {
         GeometryReader { proxy in
+            let top = max(proxy.safeAreaInsets.top, 28) + 6
+            let available = max(proxy.size.width - 16, 600)
             VStack(spacing: 0) {
-                // Under the window's buttons, on the window itself, as the common streaming apps'
-                // desktop: the sidebar's panels and the page's start at the same height.
-                HStack(spacing: 8) {
-                    MacClassicSidebar(selection: $macSelection)
+                HStack(spacing: 0) {
+                    MacClassicSidebar(selection: $macSelection, width: classicSidebarWidth)
+                    ClassicMacResizeHandle(width: $classicSidebarWidth,
+                                          minWidth: 220, maxWidth: min(420, available * 0.4))
                     macPages
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(ClassicPalette.panel)
                         .clipShape(.rect(cornerRadius: 8))
+                    if router.showMacQueuePanel {
+                        ClassicMacResizeHandle(width: $classicQueueWidth,
+                                              minWidth: 240, maxWidth: min(480, available * 0.45),
+                                              expandsLeading: false)
+                        MacClassicQueuePanel(width: classicQueueWidth) {
+                            router.setMacQueuePanel(false)
+                        }
+                    }
                 }
-                .padding(.top, max(proxy.safeAreaInsets.top, 28) + 6)
+                .padding(.top, top)
                 .padding(.horizontal, 8)
+                .padding(.bottom, 8)
                 MacPlayerBar()
                     .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
                         router.miniPlayerFrame = frame
@@ -160,6 +173,11 @@ extension RootView {
             }
             .background(ClassicPalette.window)
             .ignoresSafeArea(edges: .top)
+            .onAppear {
+                // Clamp widths if the window is narrower than when they were last saved.
+                classicSidebarWidth = min(max(classicSidebarWidth, 220), min(420, available * 0.4))
+                classicQueueWidth = min(max(classicQueueWidth, 240), min(480, available * 0.45))
+            }
         }
         // A deleted playlist's page goes with it.
         .onChange(of: library.playlists.map(\.id)) { _, ids in
@@ -235,16 +253,147 @@ extension RootView {
     }
 }
 
+/// Drag handle between classic Mac panels. Dragging changes `width` (the panel on the leading
+/// side when `expandsLeading` is true; the trailing panel otherwise).
+private struct ClassicMacResizeHandle: View {
+    @Binding var width: Double
+    let minWidth: CGFloat
+    let maxWidth: CGFloat
+    var expandsLeading: Bool = true
+    @State private var dragStart: Double?
+
+    var body: some View {
+        Rectangle()
+            .fill(Color.clear)
+            .frame(width: 8)
+            .contentShape(.rect)
+            .overlay(alignment: .center) {
+                Capsule()
+                    .fill(ClassicPalette.separator)
+                    .frame(width: 2, height: 28)
+                    .opacity(0.6)
+            }
+            .gesture(
+                DragGesture(minimumDistance: 1)
+                    .onChanged { value in
+                        if dragStart == nil { dragStart = width }
+                        let delta = expandsLeading ? value.translation.width : -value.translation.width
+                        let next = (dragStart ?? width) + delta
+                        width = min(max(next, minWidth), maxWidth)
+                    }
+                    .onEnded { _ in dragStart = nil }
+            )
+            .accessibilityLabel(Text("Ridimensiona pannello"))
+            .accessibilityAddTraits(.isButton)
+    }
+}
+
+/// The classic Mac right panel: queue and now-playing, as the common streaming apps' desktop.
+private struct MacClassicQueuePanel: View {
+    let width: Double
+    let onClose: () -> Void
+    @EnvironmentObject private var player: PlayerController
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Text("Coda")
+                    .font(.title3.bold())
+                    .foregroundStyle(ClassicPalette.primaryText)
+                Spacer(minLength: 8)
+                Button(action: onClose) {
+                    Image(systemName: "xmark")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(ClassicPalette.secondaryText)
+                        .frame(width: 28, height: 28)
+                        .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(Text("Chiudi"))
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 14)
+            .padding(.bottom, 8)
+
+            if let track = player.current {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Stai ascoltando")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(ClassicPalette.secondaryText)
+                    HStack(spacing: 10) {
+                        ArtworkView(track: track, size: 48, cornerRadius: 4)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(track.title)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(ClassicPalette.accent)
+                                .lineLimit(1)
+                            Text(track.artist)
+                                .font(.caption)
+                                .foregroundStyle(ClassicPalette.secondaryText)
+                                .lineLimit(1)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 10)
+            }
+
+            Group {
+                if player.shuffleEnabled {
+                    Text("Riproduzione casuale da:")
+                } else {
+                    Text("Prossima traccia da: \(player.source)")
+                }
+            }
+            .font(.caption.weight(.bold))
+            .foregroundStyle(ClassicPalette.secondaryText)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 16)
+            .padding(.bottom, 4)
+
+            QueueView(macSidePanel: true)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .frame(width: width)
+        .frame(maxHeight: .infinity)
+        .background(ClassicPalette.panel, in: .rect(cornerRadius: 8))
+        .foregroundStyle(ClassicPalette.primaryText)
+    }
+}
+
 /// The classic style's sidebar on a Mac, as the common streaming apps' desktop: two dark panels
 /// on the black window. The first has Home, Cerca and Impostazioni;
 /// the second is the library: Brani che ti piacciono, Cronologia, Download and Podcast as square
 /// tiles, then the playlists with their covers, each with what it is under its name.
 private struct MacClassicSidebar: View {
-    static let width: CGFloat = 300
-
     @Binding var selection: MacSection
+    var width: Double = 280
     @EnvironmentObject private var library: Library
     @ObservedObject private var podcasts = PodcastLibrary.shared
+    @State private var libraryFilter: LibraryFilter = .all
+
+    private enum LibraryFilter: Hashable {
+        case all, playlists, podcasts
+    }
+
+    private func libraryFilterPill(_ title: LocalizedStringKey, filter: LibraryFilter) -> some View {
+        let on = libraryFilter == filter
+        return Button {
+            withAnimation(.easeInOut(duration: 0.15)) {
+                libraryFilter = on ? .all : filter
+            }
+        } label: {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(on ? Color.black : ClassicPalette.primaryText)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(on ? ClassicPalette.accent : ClassicPalette.elevated, in: .capsule)
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(on ? .isSelected : [])
+    }
 
     var body: some View {
         VStack(spacing: 8) {
@@ -273,29 +422,45 @@ private struct MacClassicSidebar: View {
                     .contentShape(.rect)
                 }
                 .buttonStyle(.plain)
+
+                HStack(spacing: 8) {
+                    libraryFilterPill("Playlist", filter: .playlists)
+                    libraryFilterPill("Podcast", filter: .podcasts)
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 8)
+
                 ScrollView {
                     VStack(alignment: .leading, spacing: 2) {
-                        libraryRow("Brani che ti piacciono", subtitle: String(localized: "\(library.liked.count) brani"),
-                                   section: .liked) {
-                            tile("heart.fill", colors: [Color(red: 0.27, green: 0.18, blue: 0.85), Color(red: 0.55, green: 0.75, blue: 0.95)])
+                        if libraryFilter == .all || libraryFilter == .playlists {
+                            libraryRow("Brani che ti piacciono", subtitle: String(localized: "\(library.liked.count) brani"),
+                                       section: .liked) {
+                                tile("heart.fill", colors: [Color(red: 0.27, green: 0.18, blue: 0.85), Color(red: 0.55, green: 0.75, blue: 0.95)])
+                            }
                         }
-                        libraryRow("Cronologia", subtitle: String(localized: "\(library.history.count) brani"),
-                                   section: .history) {
-                            tile("clock.fill", colors: [.orange, Color(red: 0.75, green: 0.35, blue: 0.1)])
+                        if libraryFilter == .all {
+                            libraryRow("Cronologia", subtitle: String(localized: "\(library.history.count) brani"),
+                                       section: .history) {
+                                tile("clock.fill", colors: [.orange, Color(red: 0.75, green: 0.35, blue: 0.1)])
+                            }
+                            libraryRow("Download", subtitle: String(localized: "\(library.downloads.count) brani"),
+                                       section: .downloads) {
+                                tile("arrow.down", colors: [Color(red: 0.1, green: 0.55, blue: 0.95), Color(red: 0.05, green: 0.3, blue: 0.6)])
+                            }
                         }
-                        libraryRow("Download", subtitle: String(localized: "\(library.downloads.count) brani"),
-                                   section: .downloads) {
-                            tile("arrow.down", colors: [Color(red: 0.1, green: 0.55, blue: 0.95), Color(red: 0.05, green: 0.3, blue: 0.6)])
+                        if libraryFilter == .all || libraryFilter == .podcasts {
+                            libraryRow("Podcast", subtitle: String(localized: "\(podcasts.followed.count) seguiti"),
+                                       section: .podcasts) {
+                                tile("mic.fill", colors: [Color(red: 0.6, green: 0.3, blue: 0.9), Color(red: 0.35, green: 0.12, blue: 0.55)])
+                            }
                         }
-                        libraryRow("Podcast", subtitle: String(localized: "\(podcasts.followed.count) seguiti"),
-                                   section: .podcasts) {
-                            tile("mic.fill", colors: [Color(red: 0.6, green: 0.3, blue: 0.9), Color(red: 0.35, green: 0.12, blue: 0.55)])
-                        }
-                        ForEach(library.playlists) { playlist in
-                            libraryRow(LocalizedStringKey(playlist.name), verbatim: playlist.name,
-                                       subtitle: playlist.countLabel, section: .playlist(playlist.id)) {
-                                PlaylistArtwork(playlist: playlist, size: 48, cornerRadius: 4)
-                                    .accessibilityHidden(true)
+                        if libraryFilter == .all || libraryFilter == .playlists {
+                            ForEach(library.playlists) { playlist in
+                                libraryRow(LocalizedStringKey(playlist.name), verbatim: playlist.name,
+                                           subtitle: playlist.countLabel, section: .playlist(playlist.id)) {
+                                    PlaylistArtwork(playlist: playlist, size: 48, cornerRadius: 4)
+                                        .accessibilityHidden(true)
+                                }
                             }
                         }
                     }
@@ -307,7 +472,7 @@ private struct MacClassicSidebar: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .background(ClassicPalette.panel, in: .rect(cornerRadius: 8))
         }
-        .frame(width: Self.width)
+        .frame(width: width)
         .foregroundStyle(ClassicPalette.primaryText)
     }
 

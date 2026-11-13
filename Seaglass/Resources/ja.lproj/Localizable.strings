@@ -139,6 +139,9 @@
 "Niente in riproduzione" = "再生停止中";
 "IN RIPRODUZIONE DA" = "再生元";
 "Coda" = "キュー";
+"Stai ascoltando" = "再生中";
+"Prossima traccia da: %@" = "次の曲の再生元: %@";
+"Ridimensiona pannello" = "パネルのサイズを変更";
 "Timer di spegnimento" = "スリープタイマー";
 "%lld minuti" = "%lld分";
 "Fine del brano" = "曲の終わり";

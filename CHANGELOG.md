@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.36.6 (2026-11-13)
+
+### Changed
+- **Classico on the Mac as the common streaming apps' desktop window**: three resizable panels — **La tua libreria** on the left (with Playlist / Podcast filters), the page in the middle (Home, Cerca, playlist…), and **Coda** on the right (Stai ascoltando, next from the source, drag handles). Drag the gaps between panels to resize them; the widths are kept. The queue button on the player bar opens and closes the right panel (green when open) instead of the full player. Song ··· on the Mac opens a desktop menu, not the phone's bottom sheet.
+
 ## 1.36.5 (2026-11-13)
 
 ### Fixed

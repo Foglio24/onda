@@ -180,6 +180,12 @@ enum Preferences {
     static let appearanceMode = "theme.mode"
     /// The Mac's zoom in percent (see `MacZoom`).
     static let macZoom = "mac.zoom"
+    /// Classic Mac desktop: width of the library sidebar (points).
+    static let macClassicSidebarWidth = "mac.classic.sidebarWidth"
+    /// Classic Mac desktop: width of the queue / now-playing panel (points).
+    static let macClassicQueueWidth = "mac.classic.queueWidth"
+    /// Classic Mac desktop: whether the right queue panel is open.
+    static let macClassicQueueVisible = "mac.classic.queueVisible"
     /// -1 unknown, 0 refused by iOS, 1 accepted.
     static let nowPlayingAccepted = "diagnostics.nowPlayingAccepted"
     static let nowPlayingBackend = "diagnostics.nowPlayingBackend"

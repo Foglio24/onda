@@ -139,6 +139,9 @@
 "Niente in riproduzione" = "Nada en reproducción";
 "IN RIPRODUZIONE DA" = "REPRODUCIENDO DESDE";
 "Coda" = "Cola";
+"Stai ascoltando" = "Estás escuchando";
+"Prossima traccia da: %@" = "Siguiente de: %@";
+"Ridimensiona pannello" = "Cambiar tamaño del panel";
 "Timer di spegnimento" = "Temporizador";
 "%lld minuti" = "%lld minutos";
 "Fine del brano" = "Fin de la canción";

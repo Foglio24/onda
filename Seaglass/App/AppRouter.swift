@@ -53,6 +53,8 @@ final class AppRouter: ObservableObject {
     @Published var profilePage: ProfilePage?
     /// The classic style's song actions as a bottom sheet (see `TrackActionSheet`).
     @Published var trackActions: Track?
+    /// Classic Mac: the right queue / now-playing panel (toggled from the player bar).
+    @Published var showMacQueuePanel = UserDefaults.standard.object(forKey: Preferences.macClassicQueueVisible) as? Bool ?? true
     /// Where the mini player is on screen, for the player card to grow out of (see `PlayerCard`).
     /// Not published: it changes with every layout and nothing needs to redraw for it.
     var miniPlayerFrame: CGRect = .zero
@@ -97,6 +99,17 @@ final class AppRouter: ObservableObject {
     func openPlayer(on panel: PlayerPanel) {
         playerPanel = panel
         openPlayer()
+    }
+
+    func toggleMacQueuePanel() {
+        showMacQueuePanel.toggle()
+        UserDefaults.standard.set(showMacQueuePanel, forKey: Preferences.macClassicQueueVisible)
+    }
+
+    func setMacQueuePanel(_ open: Bool) {
+        guard showMacQueuePanel != open else { return }
+        showMacQueuePanel = open
+        UserDefaults.standard.set(open, forKey: Preferences.macClassicQueueVisible)
     }
 
     /// Removes the player at once, after `PlayerCard` has shrunk it into the mini player.

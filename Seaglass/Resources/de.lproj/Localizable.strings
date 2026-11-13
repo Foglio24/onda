@@ -139,6 +139,9 @@
 "Niente in riproduzione" = "Keine Wiedergabe";
 "IN RIPRODUZIONE DA" = "WIEDERGABE AUS";
 "Coda" = "Warteschlange";
+"Stai ascoltando" = "Wird abgespielt";
+"Prossima traccia da: %@" = "Als Nächstes aus: %@";
+"Ridimensiona pannello" = "Bereich skalieren";
 "Timer di spegnimento" = "Sleep-Timer";
 "%lld minuti" = "%lld Minuten";
 "Fine del brano" = "Ende des Songs";

@@ -1,6 +1,10 @@
 import SwiftUI
 
 struct QueueView: View {
+    /// Classic Mac's right panel already draws "Stai ascoltando" and the section title above;
+    /// skip the duplicate chrome inside the list.
+    var macSidePanel: Bool = false
+
     @EnvironmentObject private var player: PlayerController
     @Environment(\.playerTextScale) private var playerTextScale
     @Environment(\.interfaceStyle) private var style
@@ -19,10 +23,10 @@ struct QueueView: View {
                 seaglassControls
             }
 
-            if classic {
+            if classic && !macSidePanel {
                 classicNowPlayingRow
                 classicSectionHeader
-            } else {
+            } else if !classic {
                 seaglassSectionHeader
             }
 

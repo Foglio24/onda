@@ -260,8 +260,9 @@ struct TrackRow: View {
             .buttonStyle(.plain)
 
             if showsMenu {
-                // Classic: a bottom sheet like the common streaming apps; Seaglass: the system menu.
-                if style == .classic {
+                // Classic phone: bottom sheet. Classic Mac / Seaglass: a menu (right-click still uses
+                // the context menu too), as the common streaming apps' desktop.
+                if style == .classic && !ProcessInfo.processInfo.isMacCatalystApp {
                     Button { router.trackActions = track } label: {
                         Image(systemName: "ellipsis")
                             .font(.body.weight(.semibold))
@@ -276,7 +277,7 @@ struct TrackRow: View {
                     } label: {
                         Image(systemName: "ellipsis")
                             .font(.body.weight(.semibold))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(style == .classic ? ClassicPalette.secondaryText : Color.secondary)
                             .frame(width: 34, height: 44)
                             .contentShape(.rect)
                     }
