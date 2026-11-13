@@ -359,8 +359,15 @@ jobs:
           /usr/libexec/PlistBuddy -c "Print :LSMinimumSystemVersion" "$app/Contents/Info.plist" || true
           test "$(/usr/libexec/PlistBuddy -c "Print :UIApplicationSceneManifest:UIApplicationSupportsMultipleScenes" "$app/Contents/Info.plist")" = true
           ls "$app/Contents/Resources" | grep -i -e karaoke -e VocFT -e icns || true
+          # Keep the legacy ZIP for the updater test and existing installations.
           ditto -c -k --sequesterRsrc --keepParent "$app" Seaglass-mac.zip
-          ls -lh Seaglass-mac.zip
+          # The public Mac download is a read-only, compressed disk image.
+          mkdir -p dmg-root
+          ditto "$app" dmg-root/Seaglass.app
+          ln -s /Applications dmg-root/Applications
+          hdiutil create -volname "Seaglass" -srcfolder dmg-root -format UDZO -imagekey zlib-level=9 -ov Seaglass-mac.dmg
+          hdiutil verify Seaglass-mac.dmg
+          ls -lh Seaglass-mac.dmg Seaglass-mac.zip
 
       # The Mac's updater, for real: the zip installed over a copy of the app, which opens again.
       - name: Check the Mac updater
@@ -391,7 +398,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Seaglass-mac
-          path: Seaglass-mac.zip
+          path: |
+            Seaglass-mac.dmg
+            Seaglass-mac.zip
           retention-days: 30
 
       # The Mac app's window at a few screens, as on the simulators.
@@ -479,5 +488,6 @@ jobs:
           body_path: release-notes.md
           files: |
             Seaglass.ipa
+            Seaglass-mac.dmg
             Seaglass-mac.zip
             Seaglass.app.dSYM.zip

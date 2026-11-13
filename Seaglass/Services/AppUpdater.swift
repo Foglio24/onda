@@ -62,7 +62,7 @@ final class AppUpdater: ObservableObject {
         let version: String
         let notes: String
         let page: URL
-        /// The IPA, or on a Mac the Mac app's zip.
+        /// The IPA, or on a Mac the DMG (legacy ZIP releases remain supported).
         let ipa: URL?
         /// Its size and SHA-256 as GitHub gives them, to check the download against.
         var size: Int?
@@ -263,16 +263,19 @@ final class AppUpdater: ObservableObject {
             macInstall = .verifying
             macDownloadedBytes = Int64(size)
             macDownloadProgress = 1
-            let zip = Storage.updates.appending(path: "Seaglass-\(release.version)-mac.zip")
-            try? FileManager.default.removeItem(at: zip)
-            try FileManager.default.moveItem(at: temporary, to: zip)
-            defer { try? FileManager.default.removeItem(at: zip) }
-            let actualSize = (try? FileManager.default.attributesOfItem(atPath: zip.path)[.size] as? Int) ?? -1
-            let actualDigest = await Self.sha256(of: zip)
+            let isDMG = source.pathExtension.lowercased() == "dmg"
+            let archive = Storage.updates.appending(path: "Seaglass-\(release.version)-mac.\(isDMG ? "dmg" : "zip")")
+            try? FileManager.default.removeItem(at: archive)
+            try FileManager.default.moveItem(at: temporary, to: archive)
+            defer { try? FileManager.default.removeItem(at: archive) }
+            let actualSize = (try? FileManager.default.attributesOfItem(atPath: archive.path)[.size] as? Int) ?? -1
+            let actualDigest = await Self.sha256(of: archive)
             guard actualSize == size, actualDigest == String(digest.dropFirst("sha256:".count)) else {
                 throw UpdateError.invalid
             }
-            let app = try await MacBridge.shared.stage(zip: zip, version: release.version)
+            let app = try await (isDMG
+                ? MacBridge.shared.stage(dmg: archive, version: release.version)
+                : MacBridge.shared.stage(zip: archive, version: release.version))
             macInstall = .ready(app)
             showsRestartPrompt = true
         } catch is CancellationError {
@@ -359,7 +362,7 @@ final class AppUpdater: ObservableObject {
     private func removeInstalledUpdates() {
         if ProcessInfo.processInfo.isMacCatalystApp, macInstall == .none {
             let items = (try? FileManager.default.contentsOfDirectory(at: Storage.updates, includingPropertiesForKeys: nil)) ?? []
-            for item in items where item.lastPathComponent.hasSuffix("-mac") || item.pathExtension == "zip" {
+            for item in items where item.lastPathComponent.hasSuffix("-mac") || item.pathExtension == "zip" || item.pathExtension == "dmg" {
                 try? FileManager.default.removeItem(at: item)
             }
         }
@@ -409,11 +412,11 @@ final class AppUpdater: ObservableObject {
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         let release = try decoder.decode(GitHubRelease.self, from: data)
-        // On a Mac, the Mac app's zip.
-        let suffix = ProcessInfo.processInfo.isMacCatalystApp ? "-mac.zip" : ".ipa"
-        let asset = release.assets.first {
-            ProcessInfo.processInfo.isMacCatalystApp ? $0.name == "Seaglass-mac.zip" : $0.name.lowercased().hasSuffix(suffix)
-        }
+        // Prefer DMG releases on Mac, but retain ZIP downloads for older releases.
+        let asset = ProcessInfo.processInfo.isMacCatalystApp
+            ? (release.assets.first { $0.name == "Seaglass-mac.dmg" }
+               ?? release.assets.first { $0.name == "Seaglass-mac.zip" })
+            : release.assets.first { $0.name.lowercased().hasSuffix(".ipa") }
         let version = AppVersion.components(release.tagName).map(String.init).joined(separator: ".")
         return Release(version: version, notes: release.body ?? "", page: release.htmlUrl, ipa: asset?.browserDownloadUrl,
                        size: asset?.size, digest: asset?.digest)

@@ -2,14 +2,14 @@
 """Build a Shields endpoint badge from paginated GitHub release API responses.
 
 It counts every download of the app itself, whatever the platform: the iPhone and iPad IPA
-(Onda.ipa, Seaglass.ipa), the Mac app (Seaglass-mac.zip) and the Android APKs
+(Onda.ipa, Seaglass.ipa), the Mac app (Seaglass-mac.zip / Seaglass-mac.dmg) and the Android APKs
 (Seaglass-x.y.z.apk, Seaglass-x.y.z-32bit.apk). Debug symbols and other files are left out.
 """
 
 import json
 import sys
 
-APP_EXTENSIONS = (".ipa", ".apk", "-mac.zip")
+APP_EXTENSIONS = (".ipa", ".apk", "-mac.zip", "-mac.dmg")
 # App downloads of the iPhone/Mac releases v1.0.0 to v1.29.1, deleted on 2026-11-10 (they unlocked
 # Seaglass Premium's features for free), counted from the deleting workflow's log.
 ARCHIVED_DOWNLOADS = 170

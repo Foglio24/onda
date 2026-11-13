@@ -98,9 +98,9 @@ Treat a change that breaks any of these as **P0** (secrets, updates) or **P1** (
   that release's own asset. The Android updater reads only that repository's `android-v*`
   releases and hands the APK's link to the browser.
 - The Mac updater (`AppUpdater.updateMac`, with the AppKit plug-in in `Mac/Bridge`) installs
-  updates itself. It downloads only the latest release's own `Seaglass-mac.zip`, from
+  updates itself. It downloads only the latest release's own `Seaglass-mac.dmg` (or legacy `Seaglass-mac.zip`), from
   `https://github.com/Foglio24/onda/releases/download/`. The file's size and SHA-256 must match
-  what the GitHub API gives for that asset. Once unzipped, the app must have Seaglass's bundle
+  what the GitHub API gives for that asset. Once extracted from the ZIP or mounted DMG, the app must have Seaglass's bundle
   identifier and the release's version, and pass `codesign --verify --deep --strict`. Only then
   does it replace the app, and it is never run before that. Don't drop or loosen any of these
   checks.

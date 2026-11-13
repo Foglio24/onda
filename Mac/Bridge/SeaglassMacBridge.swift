@@ -471,6 +471,68 @@ final class SeaglassMacBridge: NSObject, NSMenuDelegate {
         return .success(app)
     }
 
+    /// Mount a verified release DMG read-only, copy its app out, then apply the same identity,
+    /// version and code-signature checks used for ZIP updates. Never run the mounted app.
+    @objc func stageDMGUpdate(_ request: NSDictionary) {
+        guard let path = request["dmg"] as? String, let version = request["version"] as? String,
+              let completionObject = request["completion"] else { return }
+        let completion = unsafeBitCast(completionObject as AnyObject,
+                                       to: (@convention(block) (NSString?, NSString?) -> Void).self)
+        let identifier = Bundle.main.bundleIdentifier
+        DispatchQueue.global(qos: .utility).async {
+            let result = Self.stageDMG(URL(fileURLWithPath: path), version: version, identifier: identifier)
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let app): completion(app.path as NSString, nil)
+                case .failure(let error): completion(nil, error.message as NSString)
+                }
+            }
+        }
+    }
+
+    nonisolated private static func stageDMG(_ dmg: URL, version: String, identifier: String?) -> Result<URL, StageError> {
+        let mount = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let folder = dmg.deletingPathExtension()
+        do {
+            try FileManager.default.createDirectory(at: mount, withIntermediateDirectories: true)
+        } catch {
+            return .failure(StageError(message: "DMG mount directory failed"))
+        }
+        defer { try? FileManager.default.removeItem(at: mount) }
+
+        guard run("/usr/bin/hdiutil", ["attach", "-readonly", "-nobrowse", "-noautoopen", "-mountpoint", mount.path, dmg.path]) else {
+            return .failure(StageError(message: "DMG mount failed"))
+        }
+        defer { _ = run("/usr/bin/hdiutil", ["detach", mount.path]) }
+
+        let source = mount.appendingPathComponent("Seaglass.app", isDirectory: true)
+        guard FileManager.default.fileExists(atPath: source.path) else {
+            return .failure(StageError(message: "Seaglass.app missing from DMG"))
+        }
+        try? FileManager.default.removeItem(at: folder)
+        var verified = false
+        defer { if !verified { try? FileManager.default.removeItem(at: folder) } }
+        do {
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            try FileManager.default.copyItem(at: source, to: folder.appendingPathComponent("Seaglass.app"))
+        } catch {
+            return .failure(StageError(message: "DMG app copy failed"))
+        }
+        let app = folder.appendingPathComponent("Seaglass.app")
+        guard let info = Bundle(url: app)?.infoDictionary,
+              let found = info["CFBundleIdentifier"] as? String, found == identifier else {
+            return .failure(StageError(message: "not Seaglass"))
+        }
+        guard info["CFBundleShortVersionString"] as? String == version else {
+            return .failure(StageError(message: "not version \(version)"))
+        }
+        guard run("/usr/bin/codesign", ["--verify", "--deep", "--strict", app.path]) else {
+            return .failure(StageError(message: "signature not valid"))
+        }
+        verified = true
+        return .success(app)
+    }
+
     /// Puts a staged update in place of the running app (the running copy carries on from memory) and,
     /// with "relaunch", quits and opens the new one as soon as this one has gone.
     /// `request`: "app" (the staged app's path), "relaunch" (a Bool), "prepareToQuit" (a block that
