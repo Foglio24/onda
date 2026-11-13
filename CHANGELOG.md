@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.36.2 (2026-11-13)
+
+### Changed
+- **Classico on the Mac, as the common streaming apps' desktop.** On the window, the sidebar is two dark panels: Home, Cerca and Impostazioni, then **La tua libreria** with Brani che ti piacciono, Cronologia, Download, Podcast and your playlists, each with its cover (or tile) and what it is. The page sits in its own rounded panel beside it, and the player bar runs along the whole bottom: the song on the left with its favourite tick, the controls in the middle over the progress and its times (click or drag on it to move), the lyrics, the queue, the output and the volume on the right. Home, Cerca and La tua libreria are the classic pages, as on the iPhone; the full player's corner buttons are flat, without glass.
+- **The classic queue's sheet is Liquid Glass when half open** (opaque when extended), and it has **AutoMix** on or off between Riproduzione casuale and Timer.
+- **The progress bars glide** at the screen's own rate (120 Hz on ProMotion) between the player's updates, instead of stepping four times a second: the player's, the mini player's and the Mac's bar.
+
+### Fixed
+- **Swiping a song in Cerca works again in Classico**, to both sides (queue it; favourites or remove from the history).
+
 ## 1.36.1 (2026-11-12)
 
 ### Fixed

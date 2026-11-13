@@ -84,12 +84,13 @@ shot() {
 
 # The classic interface style only (the Interface preview workflow): its pages, its player, light mode.
 if [ "${3:-}" = "classic" ]; then
-  shot mac-classic-1-home 16 home -theme.style classic
+  # Dark, as the runner's Mac may be light (the light mode has its own shots below).
+  shot mac-classic-1-home 16 home -theme.style classic -theme.mode dark
   shot mac-classic-2-player 8 player-demo -theme.style classic -SeaglassWindowSize 1440x900
   shot mac-classic-3-lyrics 8 player-demo -SeaglassPanel lyrics -theme.style classic -SeaglassWindowSize 1440x900
   shot mac-classic-4-queue 8 player-demo -SeaglassPanel queue -theme.style classic -SeaglassWindowSize 1440x900
-  shot mac-classic-5-search 14 "search:daft punk" -theme.style classic
-  shot mac-classic-6-library 8 library-playlist -theme.style classic
+  shot mac-classic-5-search 14 "search:daft punk" -theme.style classic -theme.mode dark
+  shot mac-classic-6-library 8 library-playlist -theme.style classic -theme.mode dark
   shot mac-classic-7-sidebar 6 sidebar-demo -theme.style classic
   shot mac-classic-8-settings 6 settings -theme.style classic
   shot mac-classic-9-home-light 16 home -theme.style classic -theme.mode light

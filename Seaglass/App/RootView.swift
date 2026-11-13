@@ -144,12 +144,14 @@ extension RootView {
     private var classicMacLayout: some View {
         GeometryReader { proxy in
             VStack(spacing: 0) {
+                // Under the window's buttons, on the window itself, as the common streaming apps'
+                // desktop: the sidebar's panels and the page's start at the same height.
                 HStack(spacing: 8) {
-                    MacClassicSidebar(selection: $macSelection, top: proxy.safeAreaInsets.top)
+                    MacClassicSidebar(selection: $macSelection)
                     macPages
                         .clipShape(.rect(cornerRadius: 8))
-                        .padding(.top, max(proxy.safeAreaInsets.top, 28) + 6)
                 }
+                .padding(.top, max(proxy.safeAreaInsets.top, 28) + 6)
                 .padding(.horizontal, 8)
                 MacPlayerBar()
                     .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
@@ -234,15 +236,13 @@ extension RootView {
 }
 
 /// The classic style's sidebar on a Mac, as the common streaming apps' desktop: two dark panels
-/// on the black window. The first, under the window's buttons, has Home, Cerca and Impostazioni;
+/// on the black window. The first has Home, Cerca and Impostazioni;
 /// the second is the library: Brani che ti piacciono, Cronologia, Download and Podcast as square
 /// tiles, then the playlists with their covers, each with what it is under its name.
 private struct MacClassicSidebar: View {
     static let width: CGFloat = 300
 
     @Binding var selection: MacSection
-    /// The window's title bar (its buttons), which the first panel runs under.
-    let top: CGFloat
     @EnvironmentObject private var library: Library
     @ObservedObject private var podcasts = PodcastLibrary.shared
 
@@ -253,9 +253,8 @@ private struct MacClassicSidebar: View {
                 navItem("Cerca", symbol: "magnifyingglass", selected: "magnifyingglass", section: .search)
                 navItem("Impostazioni", symbol: "gearshape", selected: "gearshape.fill", section: .settings)
             }
-            .padding(.top, max(top, 28) + 6)
             .padding(.horizontal, 12)
-            .padding(.bottom, 10)
+            .padding(.vertical, 10)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(ClassicPalette.panel, in: .rect(cornerRadius: 8))
 
