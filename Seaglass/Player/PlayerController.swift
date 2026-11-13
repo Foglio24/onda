@@ -1624,18 +1624,11 @@ final class PlayerController: ObservableObject {
 
     /// The "Volume uniforme" gain of a song (1 with it off).
     private func volumeGain(for track: Track) async -> Float {
-        // CI's Segue scene: the three demo songs at different gains, as Volume uniforme gives real
-        // songs (local demos would otherwise stay at 1 and never exercise the render at ≠ 1).
-        if LaunchScene.isActive, let videoId = track.videoId {
-            switch videoId {
-            case "SeaglassSegueDemoA": return 0.78
-            case "SeaglassSegueDemoB": return 0.91
-            case "SeaglassSegueDemoC": return 0.65
-            default: break
-            }
-        }
         // The user's own songs play as they are (their loudness isn't YouTube's to tell).
-        guard Preferences.normalizesVolume, let videoId = track.videoId, !track.isLocal else { return 1 }
+        // CI's Segue scene seeds Loudness for the demo IDs before play (see LaunchScene), so they
+        // take this path at gains other than 1 even though they aren't YouTube songs.
+        guard Preferences.normalizesVolume, let videoId = track.videoId else { return 1 }
+        if track.isLocal, !LaunchScene.isActive { return 1 }
         return Loudness.gain(forDecibels: await Loudness.shared.decibels(for: videoId))
     }
 

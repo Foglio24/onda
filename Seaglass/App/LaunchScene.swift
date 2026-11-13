@@ -207,8 +207,8 @@ enum LaunchScene {
                 let live = value.isEmpty
                 await Task.detached(priority: .userInitiated) {
                     let alac = value == "alac"
-                    // Different levels, as Volume uniforme gives real songs different gains: CI's
-                    // live check must exercise the render at gains other than 1.
+                    // Different levels in the files, as real songs differ; Volume uniforme's gains
+                    // are seeded below so the render runs at gains other than 1.
                     try? Self.writeDemoSong(to: Storage.audioFile(for: "SeaglassSegueDemoA"), bpm: 124, root: 57, introBars: 0,
                                             seconds: 120, alac: alac, amplitude: 0.55)
                     try? Self.writeDemoSong(to: Storage.audioFile(for: "SeaglassSegueDemoB"), bpm: 126, root: 60, introBars: 4,
@@ -220,6 +220,12 @@ enum LaunchScene {
                 }.value
                 UserDefaults.standard.set(SongTransition.autoMix.rawValue, forKey: Preferences.songTransition)
                 UserDefaults.standard.set(value != "off", forKey: Preferences.liveMix)
+                UserDefaults.standard.set(true, forKey: Preferences.normalizeVolume)
+                // As Volume uniforme on real songs: louder → turned down. Seeds before play so the
+                // first audio mix and the Segue render both see gains ≠ 1.
+                await Loudness.shared.remember(2.2, for: "SeaglassSegueDemoA") // ≈ 0.78
+                await Loudness.shared.remember(0.8, for: "SeaglassSegueDemoB") // ≈ 0.91
+                await Loudness.shared.remember(3.7, for: "SeaglassSegueDemoC") // ≈ 0.65
                 let player = PlayerController.shared
                 player.play(live ? [first, second, third] : [first, second], source: "Segue demo")
                 router.openPlayer()
