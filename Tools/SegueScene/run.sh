@@ -44,6 +44,18 @@ grep -q "segue: after the window" "$work/live.log" || { echo "::error::The live 
 if grep -q "the playing song carried at" "$work/live.log"; then echo "::error::The playing song was carried on players a step (heard as skips)"; failed=1; fi
 fresh=$(grep -c "after the window: .*back to its own speed on a fresh player" "$work/live.log")
 [ "$fresh" -ge 2 ] || { echo "::error::Only $fresh mix(es) brought the next song back to its own speed"; failed=1; }
+# The return itself must not be heard as a skip: the fresh player and the stretched one cross over in
+# 80 ms on the same music, so they must be at the same place (a few milliseconds apart is a faint
+# comb; ten or more is a doubled beat), on the schedule set for it, and the fresh deck must play on
+# without a jump.
+while read -r off apart fresh_jumps; do
+  echo "Return to its own speed: $off ms off its schedule, $apart ms from the stretched player, fresh deck jumps $fresh_jumps"
+  if awk -v o="$off" -v a="$apart" 'BEGIN { exit !((o < 0 ? -o : o) > 5 || (a < 0 ? -a : a) > 5) }'; then
+    echo "::error::The return to its own speed crossed over $apart ms from the stretched player ($off ms off its schedule): heard as a skip"; failed=1
+  fi
+  if [ "$fresh_jumps" -ne 0 ]; then echo "::error::The fresh player's deck jumped $fresh_jumps time(s) after the return"; failed=1; fi
+done < <(grep -ho "back to its own speed on a fresh player at [0-9.]* s, [-+0-9]* ms off, [-+0-9.]* ms from the stretched one, fresh deck jumps [0-9]*" "$work/live.log" "$work/alac.log" \
+  | sed -E 's/.* s, ([-+0-9]+) ms off, ([-+0-9.]+) ms from the stretched one, fresh deck jumps ([0-9]+)/\1 \2 \3/')
 # Nothing heard may jump: neither deck from when the next song is loud in the mix to the window's
 # end, nor the playing song's anywhere in the window (its player is never touched).
 while read -r loud_in loud_out; do

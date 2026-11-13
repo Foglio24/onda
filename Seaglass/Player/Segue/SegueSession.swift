@@ -55,6 +55,11 @@ final class SegueSession {
     /// For CI's log: where the song went back to its own speed (its time) and how far the fresh
     /// player started from the stretched one's place (s).
     private var returnedAt: Double?, returnedOff = 0.0
+    /// At the return, the fresh player's distance from the stretched one (seconds of the song's own
+    /// time): the two copies of the music the crossover lays over each other. And the fresh player's
+    /// deck with its jumps then, to count those after it (for CI's log).
+    private var returnedApart = 0.0
+    private var returnedDeck: (stage: SegueStage, jumps: Int)?
     /// The playing song's own file and "Volume uniforme" gain, to carry it on a fresh player (nil: the
     /// next song is the one stretched).
     let outgoingFile: URL?
@@ -477,8 +482,11 @@ final class SegueSession {
         guard phase == .restoring else { return }
         phase = .finished
         if Self.logs {
-            let returned = returnedAt.map { String(format: "back to its own speed on a fresh player at %.2f s, %+.0f ms off", $0, returnedOff * 1000) }
-                ?? "no fresh player"
+            let returned = returnedAt.map {
+                String(format: "back to its own speed on a fresh player at %.2f s, %+.0f ms off, %+.1f ms from the stretched one, "
+                       + "fresh deck jumps %d", $0, returnedOff * 1000, returnedApart * 1000,
+                       returnedDeck.map { $0.stage.jumps - $0.jumps } ?? 0)
+            } ?? "no fresh player"
             let loud = jumpsAtLoud.map { (jumpsAtEnd.incoming - $0.incoming, jumpsAtEnd.outgoing - $0.outgoing) } ?? (0, 0)
             print(String(format: "segue: after the window: plays on at rate %.4f (the playing song's %.4f), %@; heard with %d speed "
                          + "changes; deck jumps in the window: incoming %d, outgoing %d; incoming after it: %d; "
@@ -585,6 +593,8 @@ final class SegueSession {
             // How far the fresh player is from the stretched one's place, both counted from `at`.
             let since = CMClockGetTime(CMClockGetHostTimeClock()).seconds - host.seconds
             returnedOff = (fresh.currentTime().seconds - at) - since
+            returnedApart = (fresh.currentTime().seconds - at) - (player.currentTime().seconds - at) / speed
+            returnedDeck = (stage, stage.jumps)
             returnedAt = at
             guard ownSpeed(OwnSpeed(player: fresh, item: freshItem, stage: stage, fader: effects.fader)) else {
                 letGo()
