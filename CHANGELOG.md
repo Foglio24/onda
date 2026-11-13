@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.36.3 (2026-11-13)
+
+### Fixed
+- **Swiping your recent searches in Cerca works** (Classico). The recent searches showed only while the search field had the cursor: a drag on the list put the keyboard away and, with it, the list being swiped. They now stay open from a tap in the field until Annulla, as in the common streaming apps.
+- **The light mode reaches the player** (Classico). In the light mode the player is light: the cover's colour fading to white, the text and the controls black, a black play button; its queue's glass too. The lyrics' preview and the lyrics stay on the cover's colour.
+
+### Changed
+- **The playlist page as the common streaming apps'** (Classico): the name at a smaller size, whose playlist it is (your profile's letter and name), the songs and length, then download, share and reorder on the left, shuffle and the green play on the right, without lines between the songs. The ··· and Mix buttons left that row: they are the ones at the top right.
+- **The bar at the bottom is translucent** (Classico), as in the common streaming apps: a fade from clear above the mini player to nearly opaque at the screen's edge, the page showing through it.
+- AutoMix in the queue's sheet is a switch, with its Beta label.
+
 ## 1.36.2 (2026-11-13)
 
 ### Changed

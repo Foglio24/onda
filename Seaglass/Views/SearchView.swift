@@ -19,6 +19,10 @@ struct SearchView: View {
     @State private var showAllSongs = false
     /// Classic search field focused: shows recent searches over the browse tiles.
     @FocusState private var classicSearchFocused: Bool
+    /// The classic search's recent searches are open: from a tap in the field until Annulla, as the
+    /// common streaming apps. Not the field's focus, which a drag on the list takes away with the
+    /// keyboard, and with it the list being swiped.
+    @State private var showsRecent = false
 
     /// Songs shown before "Mostra tutti i brani", so playlists and artists stay in sight.
     private static let songsPreview = 6
@@ -81,7 +85,7 @@ struct SearchView: View {
                 Group {
                     if query.trimmed.isEmpty {
                         // Focused: recent searches (as the common streaming apps). Idle: browse tiles.
-                        if classicSearchFocused {
+                        if showsRecent {
                             recentSection
                         } else {
                             classicCategorySection
@@ -109,6 +113,9 @@ struct SearchView: View {
                     .foregroundStyle(.black.opacity(0.7))
                 TextField("Cosa vuoi ascoltare?", text: $query)
                     .focused($classicSearchFocused)
+                    .onChange(of: classicSearchFocused) { _, focused in
+                        if focused { showsRecent = true }
+                    }
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .submitLabel(.search)
@@ -120,10 +127,11 @@ struct SearchView: View {
             .padding(.vertical, 11)
             .background(ClassicPalette.field, in: .rect(cornerRadius: 8))
             .environment(\.colorScheme, .light)
-            if classicSearchFocused || !query.isEmpty {
+            if showsRecent || !query.isEmpty {
                 Button("Annulla") {
                     query = ""
                     classicSearchFocused = false
+                    showsRecent = false
                 }
                 .font(.body.weight(.semibold))
                 .foregroundStyle(ClassicPalette.primaryText)

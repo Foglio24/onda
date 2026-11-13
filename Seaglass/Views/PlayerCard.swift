@@ -35,10 +35,10 @@ struct PlayerCard: View {
     @Environment(\.layoutDirection) private var layoutDirection
     @Environment(\.interfaceStyle) private var style
 
-    /// Behind the player while it grows and shrinks: material in Seaglass's style, black in the classic
-    /// one (its player is dark in the light mode too).
+    /// Behind the player while it grows and shrinks: material in Seaglass's style, the page's colour in
+    /// the classic one (black, or white in the light mode, as its player).
     @ViewBuilder private var cardBacking: some View {
-        if style == .classic { Color.black } else { Rectangle().fill(.regularMaterial) }
+        if style == .classic { ClassicPalette.background } else { Rectangle().fill(.regularMaterial) }
     }
 
     var body: some View {

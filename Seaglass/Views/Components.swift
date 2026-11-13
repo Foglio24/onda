@@ -589,6 +589,8 @@ struct AirPlayButton: UIViewRepresentable {
 
     func updateUIView(_ uiView: AVRoutePickerView, context: Context) {
         uiView.activeTintColor = UIColor(activeTint)
+        // The light or dark mode can change while it's on screen.
+        uiView.tintColor = tint
     }
 
     func makeCoordinator() -> Coordinator { Coordinator() }

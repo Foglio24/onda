@@ -34,7 +34,7 @@ struct QueueView: View {
                     description: Text(player.autoRadio
                         ? "Con la radio automatica arriveranno brani simili."
                         : "Aggiungi brani dal menu ··· di ogni canzone."))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(.primary)
                     .frame(maxWidth: .infinity)
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
@@ -97,11 +97,12 @@ struct QueueView: View {
                 }
                 Spacer(minLength: 0)
                 Button { player.togglePlayPause() } label: {
+                    // White with a black symbol in the dark, black with a white one in the light.
                     Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
                         .font(.body)
-                        .foregroundStyle(.black)
+                        .foregroundStyle(Color(uiColor: .systemBackground))
                         .frame(width: 40, height: 40)
-                        .background(Color.white, in: .circle)
+                        .background(Color.primary, in: .circle)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(player.isPlaying ? Text("Pausa") : Text("Riproduci"))

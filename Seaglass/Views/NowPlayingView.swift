@@ -20,6 +20,11 @@ struct NowPlayingView: View {
     @AppStorage(Preferences.playerVolumeBar) private var playerVolumeBar = true
     @AppStorage(Preferences.accent) private var accent: AccentChoice = .pink
     @Environment(\.interfaceStyle) private var style
+    /// The app's light or dark mode (the player sets its own for what's inside it).
+    @Environment(\.colorScheme) private var appScheme
+
+    /// The classic style in the light mode: the player is light too, the cover's colour fading to white.
+    private var lightPlayer: Bool { style == .classic && appScheme == .light }
 
     private enum Panel { case artwork, lyrics, queue }
 
@@ -54,9 +59,11 @@ struct NowPlayingView: View {
         }
         .padding(.horizontal, 24)
         .padding(.bottom, 8)
-        .foregroundStyle(.white)
+        .foregroundStyle(lightPlayer ? Color.black : Color.white)
         .background { background }
-        .environment(\.colorScheme, .dark)
+        // Dark on the cover's colours; in the classic style's light mode, light (the text and the
+        // controls follow it: they are drawn in the primary colour).
+        .environment(\.colorScheme, lightPlayer ? .light : .dark)
         .animation(.smooth(duration: 0.35), value: panel)
         .sheet(item: router.addToPlaylistBinding(fromPlayer: true)) { track in
             AddToPlaylistSheet(track: track).appEnvironment()
@@ -65,8 +72,8 @@ struct NowPlayingView: View {
             MusicPageSheet(page: page).appEnvironment()
         }
         .sheet(isPresented: $showClassicQueue) {
-            // Dark glass in the light mode too: the queue is part of the player, which stays dark.
-            classicQueueSheet.appEnvironment().preferredColorScheme(.dark)
+            // Glass as dark or light as the player.
+            classicQueueSheet.appEnvironment().preferredColorScheme(lightPlayer ? .light : .dark)
         }
         .sheet(isPresented: $showEqualizer) {
             NavigationStack {
@@ -272,7 +279,7 @@ struct NowPlayingView: View {
                     .lineLimit(1)
                 Text(subtitle)
                     .font(.caption)
-                    .foregroundStyle(Color.white.opacity(0.75))
+                    .foregroundStyle(Color.primary.opacity(0.75))
                     .lineLimit(1)
             }
             Spacer(minLength: 8)
@@ -294,7 +301,7 @@ struct NowPlayingView: View {
                     Button { showClassicQueue = true } label: {
                         Text("Apri la coda")
                             .font(.subheadline.weight(.bold))
-                            .foregroundStyle(Color.white.opacity(0.85))
+                            .foregroundStyle(Color.primary.opacity(0.85))
                     }
                     .buttonStyle(.plain)
                 }
@@ -308,7 +315,7 @@ struct NowPlayingView: View {
                                 .lineLimit(1)
                             Text(track.artist)
                                 .font(.caption)
-                                .foregroundStyle(Color.white.opacity(0.7))
+                                .foregroundStyle(Color.primary.opacity(0.7))
                                 .lineLimit(1)
                         }
                         Spacer(minLength: 0)
@@ -319,7 +326,7 @@ struct NowPlayingView: View {
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.white.opacity(0.1), in: .rect(cornerRadius: 12))
+            .background(Color.primary.opacity(0.1), in: .rect(cornerRadius: 12))
         }
     }
 
@@ -373,7 +380,7 @@ struct NowPlayingView: View {
         if let message = player.errorMessage {
             Label(message, systemImage: "exclamationmark.triangle.fill")
                 .font(.footnote)
-                .foregroundStyle(Color.white.opacity(0.85))
+                .foregroundStyle(Color.primary.opacity(0.85))
                 .lineLimit(2)
         }
     }
@@ -438,6 +445,10 @@ struct NowPlayingView: View {
                 if panel == .lyrics {
                     // The lyrics sit on the cover's colour itself.
                     player.artworkColor.mix(with: .black, by: 0.2)
+                } else if lightPlayer {
+                    LinearGradient(colors: [player.artworkColor.mix(with: .white, by: 0.5), player.artworkColor.mix(with: .white, by: 0.85),
+                                            Color.white],
+                                   startPoint: .top, endPoint: .bottom)
                 } else {
                     LinearGradient(colors: [player.artworkColor.mix(with: .black, by: 0.15), player.artworkColor.mix(with: .black, by: 0.6),
                                             ClassicPalette.background],
@@ -479,7 +490,7 @@ struct NowPlayingView: View {
             VStack(spacing: 2) {
                 Text("IN RIPRODUZIONE DA")
                     .font(.caption2.weight(.semibold))
-                    .foregroundStyle(Color.white.opacity(0.6))
+                    .foregroundStyle(Color.primary.opacity(0.6))
                 Text(player.source)
                     .font(.footnote.weight(.semibold))
                     .lineLimit(1)
@@ -535,7 +546,7 @@ struct NowPlayingView: View {
                 } label: {
                     Text(player.current?.artist ?? "")
                         .font(.body)
-                        .foregroundStyle(Color.white.opacity(0.7))
+                        .foregroundStyle(Color.primary.opacity(0.7))
                         .lineLimit(1)
                 }
                 .buttonStyle(.plain)
@@ -625,7 +636,7 @@ struct NowPlayingView: View {
                     .font(.title.bold())
                 Text("In riproduzione: **\(player.source)**")
                     .font(.subheadline)
-                    .foregroundStyle(Color.white.opacity(0.75))
+                    .foregroundStyle(Color.primary.opacity(0.75))
                     .lineLimit(1)
             }
             .padding(.horizontal, 20)
@@ -663,8 +674,8 @@ struct NowPlayingView: View {
             .frame(maxWidth: .infinity)
             .padding(.vertical, 12)
         }
-        .foregroundStyle(.white)
-        .environment(\.colorScheme, .dark)
+        .foregroundStyle(lightPlayer ? Color.black : Color.white)
+        .environment(\.colorScheme, lightPlayer ? .light : .dark)
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
         // No background of its own: half open, the system's sheet is Liquid Glass over the player;
@@ -697,9 +708,9 @@ struct NowPlayingView: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
         }
-        .foregroundStyle(on ? ClassicPalette.accent : Color.white)
+        .foregroundStyle(on ? ClassicPalette.accent : Color.primary)
         .frame(width: 150, height: 72)
-        .background(Color.white.opacity(0.08), in: .rect(cornerRadius: 10))
+        .background(Color.primary.opacity(0.08), in: .rect(cornerRadius: 10))
         .contentShape(.rect(cornerRadius: 10))
     }
 
@@ -757,7 +768,7 @@ struct NowPlayingView: View {
                 } label: {
                     Text(player.current?.artist ?? "")
                         .font(.title3)
-                        .foregroundStyle(Color.white.opacity(0.7))
+                        .foregroundStyle(Color.primary.opacity(0.7))
                         .lineLimit(1)
                 }
                 .buttonStyle(.plain)
@@ -779,7 +790,7 @@ struct NowPlayingView: View {
                     .lineLimit(1)
                 Text(player.current?.artist ?? "")
                     .font(.subheadline)
-                    .foregroundStyle(Color.white.opacity(0.7))
+                    .foregroundStyle(Color.primary.opacity(0.7))
                     .lineLimit(1)
             }
             Spacer()
@@ -808,7 +819,7 @@ struct NowPlayingView: View {
         } label: {
             Image(systemName: style == .classic ? (isLiked ? "checkmark.circle.fill" : "plus.circle") : (isLiked ? "heart.fill" : "heart"))
                 .font(.title2)
-                .foregroundStyle(isLiked ? (style == .classic ? ClassicPalette.accent : Color.pink) : Color.white)
+                .foregroundStyle(isLiked ? (style == .classic ? ClassicPalette.accent : Color.pink) : Color.primary)
                 .contentTransition(.symbolEffect(.replace))
                 .frame(width: 40, height: 44)
         }
@@ -896,7 +907,7 @@ struct NowPlayingView: View {
             Button { player.previous() } label: {
                 Image(systemName: "backward.fill").font(.title3).frame(width: 44, height: 44)
             }
-            .foregroundStyle(Color.white.opacity(0.7))
+            .foregroundStyle(Color.primary.opacity(0.7))
             Spacer()
             Button { player.skip(by: -15) } label: {
                 Image(systemName: "gobackward.15").font(.system(size: 30)).frame(width: 56, height: 56)
@@ -911,7 +922,7 @@ struct NowPlayingView: View {
             Button { player.next() } label: {
                 Image(systemName: "forward.fill").font(.title3).frame(width: 44, height: 44)
             }
-            .foregroundStyle(Color.white.opacity(0.7))
+            .foregroundStyle(Color.primary.opacity(0.7))
         }
         .buttonStyle(.plain)
     }
@@ -920,7 +931,7 @@ struct NowPlayingView: View {
         Button { player.togglePlayPause() } label: {
             ZStack {
                 if player.isLoading {
-                    ProgressView().controlSize(.large).tint(style == .classic ? .black : .white)
+                    ProgressView().controlSize(.large).tint(style == .classic ? Color(uiColor: .systemBackground) : .white)
                 } else {
                     Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
                         .font(.system(size: 44))
@@ -966,13 +977,13 @@ struct NowPlayingView: View {
                     .opacity(on ? 1 : 0)
             }
             .frame(width: 44, height: 44)
-            .foregroundStyle(on ? ClassicPalette.accent : Color.white.opacity(0.7))
+            .foregroundStyle(on ? ClassicPalette.accent : Color.primary.opacity(0.7))
         } else {
             Image(systemName: symbol)
                 .font(.title3)
                 .frame(width: 44, height: 44)
-                .background(Color.white.opacity(on ? 0.22 : 0), in: .circle)
-                .foregroundStyle(Color.white.opacity(on ? 1 : 0.55))
+                .background(Color.primary.opacity(on ? 0.22 : 0), in: .circle)
+                .foregroundStyle(Color.primary.opacity(on ? 1 : 0.55))
         }
     }
 
@@ -1017,7 +1028,7 @@ struct NowPlayingView: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
                 .frame(width: 44, height: 44)
-                .background(Color.white.opacity(player.episodeSpeed == 1 ? 0 : 0.2), in: .circle)
+                .background(Color.primary.opacity(player.episodeSpeed == 1 ? 0 : 0.2), in: .circle)
         }
         .buttonStyle(.plain)
     }
@@ -1038,7 +1049,7 @@ struct NowPlayingView: View {
                 }
             }
             .frame(width: 44, height: 44)
-            .background(Color.white.opacity(player.songTempo == 0 ? 0 : 0.2), in: .circle)
+            .background(Color.primary.opacity(player.songTempo == 0 ? 0 : 0.2), in: .circle)
             .overlay(alignment: .topTrailing) {
                 if !account.unlocks(.tempo) { PremiumLock().offset(x: -2, y: 4) }
             }
@@ -1087,7 +1098,7 @@ struct NowPlayingView: View {
             Image(systemName: player.karaokeMode == .off ? "music.mic" : player.karaokeMode.symbol)
                 .font(.title3)
                 .frame(width: 44, height: 44)
-                .background(Color.white.opacity(player.karaokeMode == .off ? 0 : 0.2), in: .circle)
+                .background(Color.primary.opacity(player.karaokeMode == .off ? 0 : 0.2), in: .circle)
         }
         .buttonStyle(.plain)
     }
@@ -1164,7 +1175,7 @@ struct NowPlayingView: View {
                         } label: {
                             Text(macSubtitle)
                                 .font(.system(size: min(22, max(17, width * 0.043))))
-                                .foregroundStyle(Color.white.opacity(0.7))
+                                .foregroundStyle(Color.primary.opacity(0.7))
                                 .lineLimit(1)
                         }
                         .buttonStyle(.plain)
@@ -1217,7 +1228,7 @@ struct NowPlayingView: View {
             Image(systemName: symbol)
                 .font(.title3)
                 .frame(width: 44, height: 44)
-                .background(Color.white.opacity(panel == target ? 0.2 : 0), in: .circle)
+                .background(Color.primary.opacity(panel == target ? 0.2 : 0), in: .circle)
         }
         .buttonStyle(.plain)
     }
@@ -1233,7 +1244,7 @@ private struct MacPlayerCloseButton: UIViewRepresentable {
         var configuration = UIButton.Configuration.plain()
         configuration.image = UIImage(systemName: "xmark")
         configuration.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(pointSize: 17, weight: .semibold)
-        configuration.baseForegroundColor = .white
+        configuration.baseForegroundColor = .label
         button.configuration = configuration
         button.accessibilityLabel = String(localized: "Chiudi player")
         button.accessibilityIdentifier = "player.close"
@@ -1272,12 +1283,12 @@ private struct PlayerScrubber: View {
                 let width = max(geometry.size.width, 1)
                 let fraction = min(max(shown / duration, 0), 1)
                 ZStack(alignment: .leading) {
-                    Capsule().fill(Color.white.opacity(classic ? 0.3 : 0.25))
+                    Capsule().fill(Color.primary.opacity(classic ? 0.3 : 0.25))
                     transitionMarkView(width: width, duration: duration, shown: shown)
-                    Capsule().fill(Color.white).frame(width: max(classic ? 8 : 0, width * CGFloat(fraction)))
+                    Capsule().fill(Color.primary).frame(width: max(classic ? 8 : 0, width * CGFloat(fraction)))
                     if classic {
                         Circle()
-                            .fill(Color.white)
+                            .fill(Color.primary)
                             .frame(width: isScrubbing ? 16 : 12, height: isScrubbing ? 16 : 12)
                             .offset(x: max(0, width * CGFloat(fraction) - (isScrubbing ? 8 : 6)))
                     }
@@ -1317,7 +1328,7 @@ private struct PlayerScrubber: View {
                 Text("-" + max(0, progress.duration - shown).formattedTime)
             }
             .font(.caption.monospacedDigit())
-            .foregroundStyle(Color.white.opacity(0.6))
+            .foregroundStyle(Color.primary.opacity(0.6))
         }
         // Time runs left to right in every language (Arabic included), like the Music app's.
         .environment(\.layoutDirection, .leftToRight)
@@ -1370,6 +1381,7 @@ private struct ClassicLyricsPeek: View {
                                 .opacity(0.8)
                         }
                     }
+                    // On the cover's colour in both modes: sung lines white, the next ones dark.
                     .foregroundStyle(sung ? Color.white : Color.black.opacity(0.8))
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -1398,10 +1410,11 @@ private struct ClassicLyricsPeek: View {
 /// green, the name of the headphones or speaker it plays on (nothing when it's the iPhone's own).
 private struct ClassicOutputLabel: View {
     @State private var name: String? = ClassicOutputLabel.currentName()
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         HStack(spacing: 0) {
-            AirPlayButton(activeTint: ClassicPalette.accent)
+            AirPlayButton(activeTint: ClassicPalette.accent, tint: colorScheme == .light ? .black : .white)
                 .frame(width: 44, height: 44)
             if let name {
                 Text(name)
@@ -1437,11 +1450,12 @@ private struct PlayButtonLook: ViewModifier {
 
     func body(content: Content) -> some View {
         if classic {
+            // White with a black symbol in the dark, black with a white one in the light.
             content
-                .foregroundStyle(.black)
-                .tint(.black)
+                .foregroundStyle(Color(uiColor: .systemBackground))
+                .tint(Color(uiColor: .systemBackground))
                 .scaleEffect(0.8)
-                .background(Circle().fill(.white).padding(4))
+                .background(Circle().fill(Color.primary).padding(4))
         } else {
             content.glassEffect(.regular.interactive(), in: .circle)
         }
@@ -1455,7 +1469,7 @@ private struct MacPlayerChrome<S: Shape>: ViewModifier {
 
     func body(content: Content) -> some View {
         if classic {
-            content.background(Color.white.opacity(0.12), in: shape)
+            content.background(Color.primary.opacity(0.12), in: shape)
         } else {
             content.glassEffect(.regular.interactive(), in: shape)
         }

@@ -176,21 +176,18 @@ struct ClassicBottomBar: View {
                 item(.library, title: "La tua libreria", symbol: "books.vertical", selected: "books.vertical.fill")
             }
             .padding(.top, 2)
-            // Nearly opaque behind the tabs (down to the screen's edge), so the page doesn't show through
-            // their names; the fade is above them, behind the mini player.
-            .background {
-                ClassicPalette.background.opacity(0.94)
-                    .padding(.top, player.current != nil ? -8 : 0)
-                    .ignoresSafeArea(edges: .bottom)
-                    .allowsHitTesting(false)
-            }
         }
+        // As the common streaming apps' bar: a fade from clear above the mini player to nearly
+        // opaque at the screen's edge, so the page shows through it, dimmer towards the bottom.
         .background {
-            LinearGradient(colors: [ClassicPalette.background.opacity(0), ClassicPalette.background.opacity(0.85), ClassicPalette.background],
-                           startPoint: .top, endPoint: .bottom)
-                .padding(.top, player.current != nil ? 30 : -20)
-                .ignoresSafeArea(edges: .bottom)
-                .allowsHitTesting(false)
+            LinearGradient(stops: [
+                .init(color: ClassicPalette.background.opacity(0), location: 0),
+                .init(color: ClassicPalette.background.opacity(0.72), location: 0.42),
+                .init(color: ClassicPalette.background.opacity(0.9), location: 1),
+            ], startPoint: .top, endPoint: .bottom)
+            .padding(.top, player.current != nil ? 0 : -28)
+            .ignoresSafeArea(edges: .bottom)
+            .allowsHitTesting(false)
         }
     }
 

@@ -94,6 +94,8 @@ struct PlaylistDetailView: View {
                         }
                         .allowsHitTesting(!isEditing)
                         .listRowBackground(Color.clear)
+                        // No lines between the songs in the classic style.
+                        .listRowSeparator(style == .classic ? .hidden : .automatic)
                     }
                     .onDelete { library.removeTracks(atOffsets: $0, from: playlistID) }
                     .onMove { library.moveTracks(fromOffsets: $0, toOffset: $1, in: playlistID) }
@@ -207,13 +209,15 @@ struct PlaylistDetailView: View {
             }
             .buttonStyle(.plain)
 
-            // The classic style has the name and the summary on the left, under the cover.
-            VStack(alignment: classic ? .leading : .center, spacing: classic ? 6 : 4) {
+            // The classic style has, on the left under the cover as the common streaming apps: the
+            // name, whose playlist it is (the profile's letter and name), and its songs and length.
+            VStack(alignment: classic ? .leading : .center, spacing: classic ? 8 : 4) {
                 Text(playlist.name)
-                    .font(classic ? .largeTitle.bold() : .title2.bold())
+                    .font(classic ? .system(size: 24, weight: .bold) : .title2.bold())
                     .multilineTextAlignment(classic ? .leading : .center)
+                if classic { ownerRow }
                 Text(summary(playlist))
-                    .font(.subheadline)
+                    .font(classic ? .footnote : .subheadline)
                     .foregroundStyle(classic ? ClassicPalette.secondaryText : Color.secondary)
             }
             .frame(maxWidth: .infinity, alignment: classic ? .leading : .center)
@@ -231,7 +235,23 @@ struct PlaylistDetailView: View {
         .padding(.vertical, 8)
     }
 
-    /// Classic playlist chrome: download / share / menu on the left, shuffle + green play on the right.
+    /// Whose playlist it is, as the common streaming apps: the profile's letter in its colour, the name.
+    private var ownerRow: some View {
+        let letter = ProfileButton.letter(for: account)
+        let name = account.details?.name.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return HStack(spacing: 8) {
+            Text(letter)
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(.black)
+                .frame(width: 24, height: 24)
+                .background(ProfileButton.avatarTint(for: letter), in: .circle)
+            Text(name.isEmpty ? String(localized: "Seaglass") : name)
+                .font(.footnote.weight(.bold))
+        }
+    }
+
+    /// Classic playlist chrome: download, share and reorder on the left, shuffle and the green play on
+    /// the right. The Mix and the playlist's menu are the buttons at the top right, so not here again.
     private func classicActionRow(_ playlist: Playlist) -> some View {
         let status = downloads.status(of: playlist.tracks)
         let isComplete = status.total > 0 && status.saved == status.total
@@ -262,10 +282,6 @@ struct PlaylistDetailView: View {
                     .frame(width: 36, height: 36)
             }
 
-            toolbarMenu(playlist)
-                .font(.title2)
-                .foregroundStyle(ClassicPalette.secondaryText)
-
             if playlist.tracks.count >= 2 {
                 Button {
                     withAnimation { editMode = isEditing ? .inactive : .active }
@@ -281,16 +297,6 @@ struct PlaylistDetailView: View {
 
             Spacer(minLength: 0)
 
-            if playlist.tracks.count >= 2 {
-                Button { openMix() } label: {
-                    Image(systemName: "slider.horizontal.3")
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(ClassicPalette.secondaryText)
-                        .frame(width: 36, height: 36)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(Text("Mix"))
-            }
             PlayShuffleButtons(tracks: playlist.tracks, source: playlist.name, playlist: playlist.id,
                                fillsWidth: false)
         }
