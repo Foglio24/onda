@@ -219,7 +219,8 @@ if let alone = render(timing, audio(tickA), audio(tickB), gains: (1, 0)),
     let after = beatsB.filter { $0 > result.windowEnd }
     let gapsB = zip(after, after.dropFirst()).map { $1 - $0 }
     let stepsB = zip(gapsB, gapsB.dropFirst()).map { abs($1 - $0) }
-    expect(gapsB.count >= 16, "the next song's beats after the window (\(gapsB.count))")
+    // The file ends a few seconds after the window now (nothing changes after it): a few beats.
+    expect(gapsB.count >= 6, "the next song's beats after the window (\(gapsB.count))")
     expect((stepsB.max() ?? 1) < 0.0003, "after the window its tempo holds (largest change \(format((stepsB.max() ?? 0) * 1000, 2)) ms a beat)")
     if let firstGap = gapsB.first {
         expect(abs(firstGap - ownB / glide.incomingRate) < 0.0005,
