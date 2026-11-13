@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.36.5 (2026-11-13)
+
+### Fixed
+- **The classic player shrinks when dragged down from the cover too.** The cover tilted with the finger, and that drag of its own took the finger before the player's: dragging down from it did nothing. In the classic player the cover no longer tilts with the finger (it still follows the phone's movement, and a double tap still likes the song), so a drag down from it, as from anywhere on the player, shrinks it into the mini player.
+
+### Added
+- **AutoMix's settings** (Settings › Riproduzione › AutoMix, with Mix dal vivo on):
+  - **Stile**: Automatico (the best that fits the two songs: on the beat, filtered, a cut or a fade, as until now), Blend (the songs overlap on the beat, never a cut), Taglio (a cut on a downbeat) or Dissolvenza (a fade). When the chosen kind can't be done for a pair, a plain fade takes over, and failing that the songs simply follow each other.
+  - **Variazione di tempo**: how far the next song may speed up or slow down to be on the beat: Delicata (4 %), Normale (8 %, as until now) or Ampia (12 %). It keeps its pitch.
+  - **Mix armonico**: whether the songs' keys count when choosing the mix.
+  - **Tieni l'album intero**: an album played in order stays as it is, its songs one after the other with no mix (on by default, as until now); off, AutoMix mixes them too.
+  - **Mix Lab**, five ideas to turn on or off: **Passaggio dei bassi** (in mixes on the beat the bass changes hands on a downbeat), **Voci pulite** (two voices almost never at once), **Coda d'eco** (the song ending may leave with an echo on its beat), **Dissolvenza sul beat** (fades start on a bar's first beat) and **Stile per energia** (when the energy rises the next song opens up; when it falls, the one playing moves away).
+- **What Avanti does with AutoMix** (Settings › Riproduzione › AutoMix › Avanti): **Taglio**, straight to the next song (as until now); **Mix veloce**, the next song mixed in over three seconds; **Mix a tempo**, mixed in over a bar from the playing song's next downbeat.
+- **The cover pulses on the beat during a mix**: from where the mix starts (the stretch marked on the progress bar) to its end, the cover beats slightly with the music. The mark stays on the progress bar of the song brought in, too, until the mix is over.
+
 ## 1.36.4 (2026-11-13)
 
 ### Fixed

@@ -51,6 +51,9 @@ final class PlaybackProgress: ObservableObject {
 struct TransitionMark: Equatable {
     var start: TimeInterval
     var end: TimeInterval
+    /// A beat of the playing song in the mix (seconds of its time), when the mix is on the beat: the
+    /// cover pulses with it (see `CoverPulse`).
+    var beat: TimeInterval? = nil
 }
 
 /// What song lists and the Home show about playback: the current song, whether it plays, and
@@ -941,11 +944,60 @@ final class PlayerController: ObservableObject {
         stopMusicRecognitionForPlayback()
         // Counts as a skip for the recommendations if the song played less than 30 seconds.
         ListeningLog.shared.noteSkip()
+        skipMixTask?.cancel()
+        skipMixTask = nil
+        if mixSkip() { return }
         advance(reason: .skip)
+    }
+
+    /// The playing song's analysis (its beat grid), once AutoMix has it.
+    private var playingGrid: (trackID: String, analysis: TrackAnalysis)?
+    /// A mix "Avanti" waits to start on the next downbeat.
+    private var skipMixTask: Task<Void, Never>?
+
+    /// "Avanti" with AutoMix on, as Settings › AutoMix › Avanti says: the next song mixed in over
+    /// three seconds, or over a bar from the playing song's next downbeat (by its beat grid; three
+    /// seconds without one), instead of a cut. False (a cut) when nothing plays as a plain song now
+    /// (a mix already under way, a prepared mix's file, an episode, the queue's end).
+    private func mixSkip() -> Bool {
+        let behaviour = Preferences.skipMix
+        guard behaviour != .cut, transitionSetting == .autoMix, canCrossfade, outgoingPlayer == nil, mixItem == nil,
+              player.timeControlStatus == .playing, let track = current else { return false }
+        if let session = segueSession {
+            guard [.preparing, .ready, .running].contains(session.phase) else { return false }
+            session.abandon()
+            segueSession = nil
+        }
+        let rate = Double(max(0.5, player.rate))
+        let now = player.currentTime().seconds
+        guard now.isFinite else { return false }
+        if behaviour == .onBeat, let grid = playingGrid, grid.trackID == track.id, grid.analysis.beatLength > 0 {
+            let analysis = grid.analysis
+            let bar = 4 * analysis.beatLength
+            let first = analysis.gridStart + Double(analysis.downbeat) * analysis.beatLength
+            let downbeat = first + ((now + 0.15 - first) / bar).rounded(.up) * bar
+            let wait = max(0, (downbeat - now) / rate)
+            skipMixTask = Task { [weak self] in
+                try? await Task.sleep(for: .seconds(wait))
+                guard let self, !Task.isCancelled, self.current?.id == track.id else { return }
+                self.skipMixTask = nil
+                // Paused (or a mix begun) meanwhile: the skip still happens, as a cut.
+                guard self.outgoingPlayer == nil, self.player.timeControlStatus == .playing else {
+                    return self.advance(reason: .skip)
+                }
+                let at = self.player.currentTime().seconds
+                self.beginCrossfade(remaining: bar / rate, length: at + bar)
+            }
+            return true
+        }
+        beginCrossfade(remaining: 3, length: now + 3 * rate)
+        return true
     }
 
     func previous() {
         stopMusicRecognitionForPlayback()
+        skipMixTask?.cancel()
+        skipMixTask = nil
         if progress.currentTime > 3 || index == 0 {
             seek(to: 0)
         } else {
@@ -2028,16 +2080,26 @@ final class PlayerController: ObservableObject {
     /// (or armed), the prepared mix, or the crossfade at its end; none when the song just ends, or
     /// the mark is turned off.
     private func transitionMark(length: TimeInterval) -> TransitionMark? {
-        guard Preferences.showsTransitionMark, length > 0, let current, index + 1 < queue.count else { return nil }
+        guard Preferences.showsTransitionMark, length > 0, let current else { return nil }
+        // The live mix under way, in the song it brought in (its start): the cover pulses through it.
+        if let session = segueSession, session.next.id == current.id, session.phase == .mixing {
+            let plan = session.plan
+            return TransitionMark(start: plan.incomingStart, end: plan.incomingTime(atOutgoing: plan.outgoingEnd),
+                                  beat: plan.tempo.map { 60 / max(40, $0) * plan.rate })
+        }
+        guard index + 1 < queue.count else { return nil }
         if let session = segueSession, session.outgoingTrackID == current.id,
            [.preparing, .ready, .running].contains(session.phase) {
-            return TransitionMark(start: session.plan.outgoingStart, end: session.plan.outgoingEnd)
+            return TransitionMark(start: session.plan.outgoingStart, end: session.plan.outgoingEnd,
+                                  beat: session.plan.tempo.map { 60 / max(40, $0) })
         }
         if let planned = seguePlanned, planned.trackID == current.id {
-            return TransitionMark(start: planned.plan.outgoingStart, end: planned.plan.outgoingEnd)
+            return TransitionMark(start: planned.plan.outgoingStart, end: planned.plan.outgoingEnd,
+                                  beat: planned.plan.tempo.map { 60 / max(40, $0) })
         }
         if let planned = plannedTransition() {
-            return TransitionMark(start: planned.plan.outStart, end: planned.plan.outEnd)
+            return TransitionMark(start: planned.plan.outStart, end: planned.plan.outEnd,
+                                  beat: planned.plan.tempoOut > 0 ? 60 / planned.plan.tempoOut : nil)
         }
         if segueNormalPair == "\(current.id)>\(queue[index + 1].id)" { return nil }
         let crossfade = plainCrossfadeSeconds
@@ -2118,6 +2180,8 @@ final class PlayerController: ObservableObject {
                 self.autoMixNote = String(localized: "Analisi non riuscita: dissolvenza semplice")
                 return
             }
+            // Its beat grid, for "Avanti" mixing on the next downbeat.
+            self.playingGrid = (track.id, outgoing)
             // The song's tempo, for the tempo fader.
             if let bpm = outgoing.shownTempo, self.current?.id == track.id { self.songBPM = (track.id, bpm) }
             // At the gain the song plays with, so the mix takes over at its very level.
@@ -2127,7 +2191,7 @@ final class PlayerController: ObservableObject {
             guard !Task.isCancelled, self.autoMixPair == pair else { return }
             // Two songs that follow each other on their album, played in order (an album's songs, not
             // a playlist), stay as the album has them.
-            let albumOrder = self.isPlayingAlbumInOrder(from: track, to: next)
+            let albumOrder = Preferences.autoMixKeepAlbum && self.isPlayingAlbumInOrder(from: track, to: next)
             // Their voices where they meet (this song's end, the next one's start), with the
             // karaoke's vocal model, when there is the energy and the time for it: by a minute and a
             // half before this song's end the mix must be planned and rendered. Without them AutoMix
@@ -2155,11 +2219,22 @@ final class PlayerController: ObservableObject {
             // album in order exactly as it is (its junction rendered sample for sample).
             let speed = self.playingSpeed
             if design == nil, !albumOrder, self.segueRefusedPair != pair, let stage = self.segueStage(for: track) {
+                // As Settings › AutoMix has it: the style, the tempo's bend, the keys, and Mix Lab.
+                var tuning = SegueTuning()
+                tuning.maxRateChange = Preferences.autoMixTempoBend.maxRateChange
+                if Preferences.mixLabVocals {
+                    // Clear vocals: two voices hardly ever at once.
+                    tuning.voiceOverlapMax = 0.25
+                    tuning.penaltyVoice *= 2
+                }
                 let request = SegueRequest(outgoing: SegueSong(outgoing, voices: outgoingVocals),
                                            incoming: SegueSong(incoming, voices: incomingVocals),
                                            earliestExit: self.progress.currentTime + SegueSession.longestPrepareLead + 5,
+                                           harmonic: Preferences.autoMixHarmonic,
                                            length: Preferences.mixLength, eq: Preferences.autoMixEqualiser,
-                                           outgoingRate: speed)
+                                           outgoingRate: speed, tuning: tuning, families: Preferences.autoMixStyle.families,
+                                           bassHandover: Preferences.mixLabBass, echoes: Preferences.mixLabEcho,
+                                           fadeOnBeat: Preferences.mixLabBeatFade, byEnergy: Preferences.mixLabEnergy)
                 let decision = await Task.detached(priority: .userInitiated) { SeguePolicy.decide(request) }.value
                 guard !Task.isCancelled, self.requests.isCurrentLoad(generation), self.autoMixPair == pair else { return }
                 let why = decision.why.isEmpty ? "" : "\n" + decision.why

@@ -374,3 +374,38 @@ struct MacZoomModifier: ViewModifier {
         }
     }
 }
+
+// MARK: AutoMix's settings (see AutoMixSettings.swift)
+
+extension Preferences {
+    static let autoMixStyleKey = "automix.style"
+    static var autoMixStyle: AutoMixStyle {
+        UserDefaults.standard.string(forKey: autoMixStyleKey).flatMap(AutoMixStyle.init(rawValue:)) ?? .automatic
+    }
+    static let autoMixTempoBendKey = "automix.tempoBend"
+    static var autoMixTempoBend: AutoMixTempoBend {
+        UserDefaults.standard.string(forKey: autoMixTempoBendKey).flatMap(AutoMixTempoBend.init(rawValue:)) ?? .normal
+    }
+    /// Keys taken into account (a clash costs a pair its score).
+    static let autoMixHarmonicKey = "automix.harmonic"
+    static var autoMixHarmonic: Bool { UserDefaults.standard.object(forKey: autoMixHarmonicKey) as? Bool ?? true }
+    /// An album's songs played in order stay as the album has them, not mixed.
+    static let autoMixKeepAlbumKey = "automix.keepAlbum"
+    static var autoMixKeepAlbum: Bool { UserDefaults.standard.object(forKey: autoMixKeepAlbumKey) as? Bool ?? true }
+    static let skipMixKey = "automix.skip"
+    static var skipMix: SkipMix {
+        UserDefaults.standard.string(forKey: skipMixKey).flatMap(SkipMix.init(rawValue:)) ?? .cut
+    }
+
+    // Mix Lab.
+    static let mixLabBassKey = "automix.lab.bass"
+    static var mixLabBass: Bool { UserDefaults.standard.object(forKey: mixLabBassKey) as? Bool ?? true }
+    static let mixLabVocalsKey = "automix.lab.vocals"
+    static var mixLabVocals: Bool { UserDefaults.standard.object(forKey: mixLabVocalsKey) as? Bool ?? false }
+    static let mixLabEchoKey = "automix.lab.echo"
+    static var mixLabEcho: Bool { UserDefaults.standard.object(forKey: mixLabEchoKey) as? Bool ?? true }
+    static let mixLabBeatFadeKey = "automix.lab.beatFade"
+    static var mixLabBeatFade: Bool { UserDefaults.standard.object(forKey: mixLabBeatFadeKey) as? Bool ?? false }
+    static let mixLabEnergyKey = "automix.lab.energy"
+    static var mixLabEnergy: Bool { UserDefaults.standard.object(forKey: mixLabEnergyKey) as? Bool ?? false }
+}

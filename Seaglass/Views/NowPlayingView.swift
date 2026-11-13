@@ -762,10 +762,11 @@ struct NowPlayingView: View {
     }
 
     private var artwork: some View {
-        InteractiveArtwork(track: player.current, isPlaying: player.isPlaying) {
+        InteractiveArtwork(track: player.current, isPlaying: player.isPlaying, tiltsWithFinger: style != .classic || Self.isMac) {
             // Double tap likes the song (never un-likes it, like a double tap on a photo).
             if let track = player.current, !track.isPodcastEpisode, !library.isLiked(track) { library.toggleLike(track) }
         }
+        .modifier(CoverPulse())
     }
 
     /// A podcast episode plays: skips of 15 and 30 seconds, a speed, chapters instead of lyrics, and
@@ -1370,6 +1371,38 @@ private struct PlayerScrubber: View {
 
     /// How long before the transition its mark appears.
     private static let markLead: TimeInterval = 60
+}
+
+/// During a mix on the beat the cover pulses with it, a little larger on each beat and settling
+/// back. Only while the playing song is in its mix's window (its marked stretch on the progress bar)
+/// does it redraw at the screen's rate; the rest of the time the timeline is paused.
+private struct CoverPulse: ViewModifier {
+    @EnvironmentObject private var progress: PlaybackProgress
+    @EnvironmentObject private var player: PlayerController
+    /// The song's time at the last tick, and when it came: between ticks the time is carried on.
+    @State private var tick: (time: Double, at: Date) = (0, .now)
+
+    private var window: TransitionMark? {
+        guard let mark = progress.transitionMark, let beat = mark.beat, beat > 0.2,
+              progress.currentTime >= mark.start - 0.2, progress.currentTime <= mark.end else { return nil }
+        return mark
+    }
+
+    func body(content: Content) -> some View {
+        let mark = window
+        TimelineView(.animation(minimumInterval: nil, paused: mark == nil || !player.isPlaying)) { context in
+            content.scaleEffect(scale(mark, at: context.date))
+        }
+        .onChange(of: progress.currentTime) { _, time in tick = (time, .now) }
+    }
+
+    private func scale(_ mark: TransitionMark?, at date: Date) -> CGFloat {
+        guard let mark, let beat = mark.beat, player.isPlaying else { return 1 }
+        let time = tick.time + date.timeIntervalSince(tick.at)
+        guard time >= mark.start, time <= mark.end else { return 1 }
+        let phase = ((time - mark.start) / beat).truncatingRemainder(dividingBy: 1)
+        return 1 + 0.025 * CGFloat(exp(-phase * 5))
+    }
 }
 
 /// The line being sung under the player's cover, and the next one dimmer (its own view: it ticks with

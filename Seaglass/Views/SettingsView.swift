@@ -285,6 +285,46 @@ private struct AudioSettingsView: View {
 
 // MARK: Playback
 
+/// AutoMix's extra ideas, each on or off: what the live mix does in its transitions.
+private struct MixLabSettingsView: View {
+    @EnvironmentObject private var player: PlayerController
+    @AppStorage(Preferences.mixLabBassKey) private var bass = true
+    @AppStorage(Preferences.mixLabVocalsKey) private var vocals = false
+    @AppStorage(Preferences.mixLabEchoKey) private var echo = true
+    @AppStorage(Preferences.mixLabBeatFadeKey) private var beatFade = false
+    @AppStorage(Preferences.mixLabEnergyKey) private var energy = false
+
+    var body: some View {
+        Form {
+            Section {
+                Toggle(isOn: $bass) {
+                    Label("Passaggio dei bassi", systemImage: "speaker.wave.3")
+                }
+                Toggle(isOn: $vocals) {
+                    Label("Voci pulite", systemImage: "music.mic")
+                }
+                Toggle(isOn: $echo) {
+                    Label("Coda d'eco", systemImage: "dot.radiowaves.right")
+                }
+                Toggle(isOn: $beatFade) {
+                    Label("Dissolvenza sul beat", systemImage: "metronome")
+                }
+                Toggle(isOn: $energy) {
+                    Label("Stile per energia", systemImage: "bolt")
+                }
+            } footer: {
+                Text("Passaggio dei bassi: nei mix a tempo i bassi passano da un brano all'altro su un battere. Voci pulite: due voci non si sovrappongono quasi mai. Coda d'eco: il brano che finisce può uscire con un'eco a tempo. Dissolvenza sul beat: le dissolvenze partono dal primo tempo di una battuta. Stile per energia: se l'energia sale il brano nuovo si apre, se scende quello in corso si allontana. Per un tempo gentile, scegli Variazione di tempo Delicata.")
+            }
+        }
+        .settingsPage("Mix Lab")
+        .onChange(of: bass) { _, _ in player.applyTransitionPreference() }
+        .onChange(of: vocals) { _, _ in player.applyTransitionPreference() }
+        .onChange(of: echo) { _, _ in player.applyTransitionPreference() }
+        .onChange(of: beatFade) { _, _ in player.applyTransitionPreference() }
+        .onChange(of: energy) { _, _ in player.applyTransitionPreference() }
+    }
+}
+
 private struct PlaybackSettingsView: View {
     @EnvironmentObject private var player: PlayerController
     @AppStorage(Preferences.songTransition) private var transition: SongTransition = Preferences.songTransitionSetting
@@ -294,6 +334,11 @@ private struct PlaybackSettingsView: View {
     @AppStorage(Preferences.mixLengthKey) private var mixLength = SegueLength.normal.rawValue
     @AppStorage(Preferences.autoMixEqualiserKey) private var autoMixEqualiser = true
     @AppStorage(Preferences.transitionMark) private var transitionMark = true
+    @AppStorage(Preferences.autoMixStyleKey) private var autoMixStyle: AutoMixStyle = .automatic
+    @AppStorage(Preferences.autoMixTempoBendKey) private var tempoBend: AutoMixTempoBend = .normal
+    @AppStorage(Preferences.autoMixHarmonicKey) private var harmonic = true
+    @AppStorage(Preferences.autoMixKeepAlbumKey) private var keepAlbum = true
+    @AppStorage(Preferences.skipMixKey) private var skipMix: SkipMix = .cut
     @ObservedObject private var account = AccountService.shared
     @State private var paywall: PremiumFeature?
 
@@ -353,6 +398,11 @@ private struct PlaybackSettingsView: View {
                         Label("Mix dal vivo", systemImage: "dial.medium")
                     }
                     if liveMix {
+                        Picker(selection: $autoMixStyle) {
+                            ForEach(AutoMixStyle.allCases) { Text($0.title).tag($0) }
+                        } label: {
+                            Label("Stile", systemImage: "wand.and.stars")
+                        }
                         Picker(selection: $mixLength) {
                             Text("Breve").tag(SegueLength.short.rawValue)
                             Text("Normale").tag(SegueLength.normal.rawValue)
@@ -360,9 +410,30 @@ private struct PlaybackSettingsView: View {
                         } label: {
                             Label("Durata del mix", systemImage: "ruler")
                         }
+                        Picker(selection: $tempoBend) {
+                            ForEach(AutoMixTempoBend.allCases) { Text($0.title).tag($0) }
+                        } label: {
+                            Label("Variazione di tempo", systemImage: "metronome")
+                        }
                         Toggle(isOn: $autoMixEqualiser) {
                             Label("Equalizzazione automatica", systemImage: "slider.vertical.3")
                         }
+                        Toggle(isOn: $harmonic) {
+                            Label("Mix armonico", systemImage: "pianokeys")
+                        }
+                        Toggle(isOn: $keepAlbum) {
+                            Label("Tieni l'album intero", systemImage: "square.stack")
+                        }
+                        NavigationLink {
+                            MixLabSettingsView()
+                        } label: {
+                            Label("Mix Lab", systemImage: "flask")
+                        }
+                    }
+                    Picker(selection: $skipMix) {
+                        ForEach(SkipMix.allCases) { Text($0.title).tag($0) }
+                    } label: {
+                        Label("Avanti", systemImage: "forward.end")
                     }
                 } header: {
                     HStack(spacing: 6) {
@@ -373,12 +444,17 @@ private struct PlaybackSettingsView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("AutoMix suona il brano successivo su un secondo lettore, a tempo con quello in corso, con livelli, bassi e filtri automatici. Spento, usa i mix preparati in un file.")
                         if liveMix {
-                            Text("Breve: fino a 8 battute. Normale: fino a 16. Lunga: fino a 32, quando i due brani tengono il tempo così a lungo. Con l'equalizzazione automatica bassi, medi, alti, filtri ed eco passano da un brano all'altro; spenta, cambiano solo i volumi.")
+                            Text("Stile: Automatico sceglie il meglio (a tempo, filtrato, taglio, dissolvenza); Blend sovrappone i brani sul ritmo; Taglio passa sul primo tempo della battuta; Dissolvenza sfuma. Breve: fino a 8 battute. Normale: fino a 16. Lunga: fino a 32, quando i due brani tengono il tempo così a lungo. Variazione di tempo: quanto il brano successivo può accelerare o rallentare per andare a tempo (4, 8 o 12 %). Con l'equalizzazione automatica bassi, medi, alti, filtri ed eco passano da un brano all'altro; spenta, cambiano solo i volumi. Il mix armonico tiene conto delle tonalità; tieni l'album intero lascia come sono i brani di un album ascoltato in ordine.")
                         }
+                        Text("Avanti: Taglio passa subito al brano successivo; Mix veloce lo fa entrare in tre secondi; Mix a tempo lo fa entrare in una battuta, dal primo tempo della prossima.")
                     }
                 }
                 .onChange(of: mixLength) { _, _ in player.applyTransitionPreference() }
                 .onChange(of: autoMixEqualiser) { _, _ in player.applyTransitionPreference() }
+                .onChange(of: autoMixStyle) { _, _ in player.applyTransitionPreference() }
+                .onChange(of: tempoBend) { _, _ in player.applyTransitionPreference() }
+                .onChange(of: harmonic) { _, _ in player.applyTransitionPreference() }
+                .onChange(of: keepAlbum) { _, _ in player.applyTransitionPreference() }
             }
 
             if shownTransition.wrappedValue != .off {

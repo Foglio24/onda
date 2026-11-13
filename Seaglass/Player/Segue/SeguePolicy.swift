@@ -521,6 +521,16 @@ struct SegueRequest {
     /// incoming song's own against it (`rate` × this).
     var outgoingRate = 1.0
     var tuning = SegueTuning()
+    /// The families of transitions allowed (Settings › AutoMix › Stile): nil, all of them in their
+    /// order (locked, filtered, cut, fade).
+    var families: Set<SegueFamily>?
+    /// Mix Lab: the bass handed over in beat-matched mixes; the echoes (a tail, an echo out); a
+    /// plain fade that starts on a downbeat; a beat-matched shape chosen by how the energy moves
+    /// from one song into the other (rising: the next one opens up; falling: the playing one goes).
+    var bassHandover = true
+    var echoes = true
+    var fadeOnBeat = false
+    var byEnergy = false
 }
 
 /// Writes the transition between two songs: candidates are generated, rejected by the guards (a
@@ -530,6 +540,11 @@ enum SeguePolicy {
     static func decide(_ request: SegueRequest) -> SegueDecision {
         var run = Run(request)
         return run.decide()
+    }
+
+    /// The beat-matched shape for a window of `bars`, as the policy picks it (for Tools/SegueCheck).
+    static func lockedShapeForCheck(bars: Int, rings: Bool, energyRise: Double?) -> SegueShape {
+        Run.lockedShape(exitTime: 100, entryTime: 10, bars: bars, overlapRisk: false, rings: rings, energyRise: energyRise)
     }
 
     private struct Point {
@@ -583,6 +598,10 @@ enum SeguePolicy {
                                      attempts: SegueLevel.allCases.filter { $0 != .normal }.map { SegueAttempt(level: $0, cause: .albumContinuity) })
             }
             for level in SegueLevel.allCases where level != .normal {
+                if let families = r.families, let family = level.family, !families.contains(family) {
+                    attempts.append(SegueAttempt(level: level, cause: .disabled, detail: "style"))
+                    continue
+                }
                 guard let found = attempt(level) else { continue }
                 var plan = found.plan
                 let problems = SegueValidator.problems(plan, outgoingDuration: a.analysis.duration, incomingDuration: b.analysis.duration)
@@ -879,8 +898,10 @@ enum SeguePolicy {
                             if bars > cap { tooLong = true; continue }
                             seen += 1
                             let phase = SegueStretch.phase(sa, sb, rate: rate)
+                            let rise = r.byEnergy ? energyRise(exitBar: exit.bar, bars: bars, entryBar: entry.bar, barsB: barsB) : nil
                             let shape = Self.lockedShape(exitTime: sa.start, entryTime: sb.start, bars: bars, overlapRisk: voiceRisk(sa, sb),
-                                                         eq: r.eq, rings: rings(after: sa.end))
+                                                         eq: r.eq, rings: rings(after: sa.end), bassHandover: r.bassHandover,
+                                                         echoes: r.echoes, energyRise: rise)
                             let swap = swapShare(exit: sa, entry: sb, bars: bars, rate: rate)
                             let match = loudnessMatch(exit: sa.start, entry: sb.start, length: sa.length, span: sb.length)
                             let lanes = equalised(compiler.locked(shape, swap: swap, beatShare: 1 / Double(bars * 4), matchA: match.a, matchB: match.b))
@@ -947,13 +968,34 @@ enum SeguePolicy {
         /// Without the equaliser only the levels move (a bass swap of levels, or a cut); the echo needs
         /// room after the window for its repeats.
         static func lockedShape(exitTime: Double, entryTime: Double, bars: Int, overlapRisk: Bool, eq: Bool = true,
-                                rings: Bool = false) -> SegueShape {
+                                rings: Bool = false, bassHandover: Bool = true, echoes: Bool = true,
+                                energyRise: Double? = nil) -> SegueShape {
             if overlapRisk && bars <= 4 { return .cutOnBeat }
             let hash = Int((exitTime * 1000).rounded()) &* 31 &+ Int((entryTime * 1000).rounded())
             var shapes: [SegueShape] = bars >= 8 ? [.bassSwap, .threeBand, .filterOpen, .riseOut] : [.bassSwap, .filterOpen]
             if !eq { shapes = bars >= 8 ? [.bassSwap] : [.bassSwap, .cutOnBeat] }
-            if eq, rings, bars >= 4 { shapes.append(.echoTail) }
+            if eq, echoes, rings, bars >= 4 { shapes.append(.echoTail) }
+            if !bassHandover {
+                shapes.removeAll { $0 == .bassSwap }
+                if shapes.isEmpty { shapes = [.cutOnBeat] }
+            }
+            // By energy (Mix Lab): rising into the next song, it opens up (or comes in on the beat);
+            // falling, the playing one is carried away (an echo, rising out, its bands one by one).
+            if let rise = energyRise {
+                let wanted: [SegueShape] = rise > 2 ? [.filterOpen, .cutOnBeat] : (rise < -2 ? [.echoTail, .riseOut, .threeBand] : [])
+                if let shape = wanted.first(where: { shapes.contains($0) }) { return shape }
+            }
             return shapes[abs(hash) % shapes.count]
+        }
+
+        /// How much louder (dB) the next song's bars are than the playing song's over a window: their
+        /// mean levels, nil when either stretch isn't measured.
+        func energyRise(exitBar: Int, bars: Int, entryBar: Int, barsB: Int) -> Double? {
+            guard bars > 0, barsB > 0, exitBar >= 0, entryBar >= 0,
+                  exitBar + bars <= a.barLevel.count, entryBar + barsB <= b.barLevel.count else { return nil }
+            let out = a.barLevel[exitBar..<(exitBar + bars)].reduce(0, +) / Double(bars)
+            let into = b.barLevel[entryBar..<(entryBar + barsB)].reduce(0, +) / Double(barsB)
+            return into - out
         }
 
         /// The outgoing song has the time after a window ending at `end` for an echo to ring out.
@@ -985,7 +1027,7 @@ enum SeguePolicy {
                         // What the music asks for first, then a choice from the pair itself.
                         let variant = abs(Int(exit.time * 10) &+ Int(entry.time * 10))
                         var choices: [SegueShape] = r.eq ? [.sweepOut, .evenFade] : [.evenFade]
-                        if r.eq, a.fromModel || a.analysis.isGridLocked, rings(after: exit.time + length) { choices.append(.echoOut) }
+                        if r.eq, r.echoes, a.fromModel || a.analysis.isGridLocked, rings(after: exit.time + length) { choices.append(.echoOut) }
                         let shape: SegueShape = voiceOut > 0.3 ? .quickOut : (voiceIn > 0.3 ? .lateOut : choices[variant % choices.count])
                         let match = loudnessMatch(exit: exit.time, entry: entry.time, length: length, span: length)
                         let lanes = equalised(compiler.filtered(shape, matchA: match.a, matchB: match.b))
@@ -1053,6 +1095,12 @@ enum SeguePolicy {
                 length = t.simpleVoiceFade
                 start = max(zoneStart, a.analysis.soundEnd - length)
                 lanes = equalised(compiler.fade())
+            }
+            // On the beat (Mix Lab): the fade starts on the downbeat before, a little longer for it
+            // (not over a voice: that fade stays as short as it can).
+            if r.fadeOnBeat, !overlapping, let downbeat = a.barStarts.last(where: { $0 <= start && $0 >= zoneStart && start - $0 < 4 }) {
+                length += start - downbeat
+                start = downbeat
             }
             guard start + length <= a.analysis.duration, entry + length <= b.analysis.duration else {
                 return fail(level, .noCandidate)

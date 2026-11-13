@@ -93,6 +93,10 @@ final class MotionTilt: ObservableObject {
 struct InteractiveArtwork: View {
     let track: Track?
     let isPlaying: Bool
+    /// Off in the classic player: there the cover sits in a scroll view whose pull-down closes the
+    /// player, and a drag of the cover's own would take the finger first (a view's gestures go before
+    /// those of what holds it), so dragging down from the cover did nothing.
+    var tiltsWithFinger = true
     let onDoubleTap: () -> Void
 
     @ObservedObject private var motion = MotionTilt.shared
@@ -150,7 +154,9 @@ struct InteractiveArtwork: View {
                     }
                     .onEnded { _ in
                         withAnimation(.spring(duration: 0.6, bounce: 0.45)) { drag = .zero }
-                    }
+                    },
+                // Without the finger's tilt, only the double tap stays.
+                including: tiltsWithFinger ? .all : .subviews
             )
             .onAppear { if enabled { motion.start() } }
             .onDisappear { if enabled { motion.stop() } }

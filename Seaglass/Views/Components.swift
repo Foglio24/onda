@@ -698,8 +698,16 @@ struct PullDownPan: UIGestureRecognizerRepresentable {
 
         func gestureRecognizerShouldBegin(_ recognizer: UIGestureRecognizer) -> Bool {
             guard let pan = recognizer as? UIPanGestureRecognizer, atTop() else { return false }
+            // Mostly downwards, by where the finger went or (a slow start) where it's going.
+            let moved = pan.translation(in: pan.view)
             let velocity = pan.velocity(in: pan.view)
-            return velocity.y > 0 && velocity.y > abs(velocity.x)
+            return (moved.y > 0 && moved.y > abs(moved.x)) || (velocity.y > 0 && velocity.y > abs(velocity.x))
+        }
+
+        /// The gestures under the finger (the cover's tilt) go on with it; only the scroll view waits.
+        func gestureRecognizer(_ recognizer: UIGestureRecognizer,
+                               shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool {
+            !(other.view is UIScrollView)
         }
 
         /// The scroll view's own pan waits for this one to fail.

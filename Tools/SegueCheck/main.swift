@@ -579,6 +579,43 @@ if let plan = close.plan {
     expect(lowest > 0.35 && highest < 2.0, "through the mix the level stays near the songs' (\(format(20 * log10(lowest), 1)) to \(format(20 * log10(highest), 1)) dB)")
 }
 
+// MARK: Settings › AutoMix (style, tempo bend) and Mix Lab
+
+func decideWith(_ x: TrackAnalysis, _ y: TrackAnalysis, _ change: (inout SegueRequest) -> Void) -> SegueDecision {
+    var request = SegueRequest(outgoing: SegueSong(x, voices: nil), incoming: SegueSong(y, voices: nil), earliestExit: 0)
+    change(&request)
+    return SeguePolicy.decide(request)
+}
+
+let faded = decideWith(a, b) { $0.families = AutoMixStyle.fade.families }
+expect(faded.level == .simpleFade, "style Dissolvenza: a plain fade (\(faded.level.rawValue))")
+let cutStyle = decideWith(a, b) { $0.families = AutoMixStyle.cut.families }
+expect(cutStyle.level == .hard || cutStyle.level == .simpleFade, "style Taglio: a cut or, failing it, a fade (\(cutStyle.level.rawValue))")
+let blended = decideWith(a, b) { $0.families = AutoMixStyle.blend.families }
+expect(blended.level.isLocked, "style Blend on close tempos: beat-matched (\(blended.level.rawValue))")
+let automatic = decideWith(a, b) { $0.families = AutoMixStyle.automatic.families }
+expect(automatic.plan == close.plan, "style Automatico: the plan as before")
+// 124 → 126 BPM is a 1.6 % change: within the gentle bend (4 %) too; 90 → 124 is not even with the wide one.
+let gentle = decideWith(a, b) { $0.tuning.maxRateChange = AutoMixTempoBend.gentle.maxRateChange }
+expect(gentle.level.isLocked, "tempo bend Delicata, 1.6 % apart: still beat-matched (\(gentle.level.rawValue))")
+let wide = decideWith(slow, a) { $0.tuning.maxRateChange = AutoMixTempoBend.wide.maxRateChange }
+expect(!wide.level.isLocked, "tempo bend Ampia, 90 against 124 BPM: never beat-matched (\(wide.level.rawValue))")
+let noBass = decideWith(a, b) { $0.bassHandover = false }
+expect(noBass.plan?.shape != .bassSwap, "Mix Lab without the bass handover: no bass swap (\(noBass.plan?.shape.rawValue ?? "none"))")
+let noEcho = decideWith(a, b) { $0.echoes = false }
+expect(noEcho.plan?.shape != .echoTail && noEcho.plan?.shape != .echoOut, "Mix Lab without echoes: no echo (\(noEcho.plan?.shape.rawValue ?? "none"))")
+for (rise, wanted) in [(4.0, SegueShape.filterOpen), (-4.0, SegueShape.echoTail)] {
+    let shape = SeguePolicy.lockedShapeForCheck(bars: 8, rings: true, energyRise: rise)
+    expect(shape == wanted, "Mix Lab by energy, \(rise > 0 ? "rising" : "falling"): \(wanted.rawValue) (\(shape.rawValue))")
+}
+let beatFade = decideWith(a, b) { $0.families = [.fade]; $0.fadeOnBeat = true }
+if let plan = beatFade.plan {
+    let onBar = SegueSong(a, voices: nil).barStarts.contains { abs($0 - plan.outgoingStart) < 0.001 }
+    expect(onBar, "Mix Lab fade on the beat: the fade starts on a downbeat (\(format(plan.outgoingStart, 2)) s)")
+} else {
+    expect(false, "Mix Lab fade on the beat: a fade (\(beatFade.level.rawValue))")
+}
+
 if failures > 0 {
     print("SegueCheck: \(failures) failed")
     exit(1)
