@@ -36,14 +36,14 @@ grep -q "segue: locked" "$work/live.log" || { echo "::error::The two songs weren
 grep -q "segue: window" "$work/live.log" || { echo "::error::The live mix's window never opened"; failed=1; }
 grep -q "segue: mixed" "$work/live.log" || { echo "::error::The live mix didn't reach its end"; failed=1; }
 grep -q "segue-scene: next song" "$work/live.log" || { echo "::error::The next song didn't take over"; failed=1; }
-# A beat-matched mix stretches the next song, started silent at the playing one's tempo, and keeps
-# it so to its end: the playing song is never carried on other players (each step was heard as a
-# skip) and the next one never changes player after the window (heard too). Its own transition into
-# the next follows: a finished mix must not hold the next one back.
+# A beat-matched mix stretches the next song, started silent at the playing one's tempo, then brings
+# it back to its own speed on a fresh player after the window (keeping it stretched left the wrong
+# tempo until pause/stop). The playing song is never carried on other players (each step was heard
+# as a skip). Its own transition into the next follows: a finished mix must not hold the next one back.
 grep -q "segue: after the window" "$work/live.log" || { echo "::error::The live mix never finished after its window"; failed=1; }
 if grep -q "the playing song carried at" "$work/live.log"; then echo "::error::The playing song was carried on players a step (heard as skips)"; failed=1; fi
 fresh=$(grep -c "after the window: .*back to its own speed on a fresh player" "$work/live.log")
-[ "$fresh" -eq 0 ] || { echo "::error::The song brought in changed player after $fresh mix(es) (heard as a skip)"; failed=1; }
+[ "$fresh" -ge 2 ] || { echo "::error::Only $fresh mix(es) brought the next song back to its own speed"; failed=1; }
 # Nothing heard may jump: neither deck from when the next song is loud in the mix to the window's
 # end, nor the playing song's anywhere in the window (its player is never touched).
 while read -r loud_in loud_out; do

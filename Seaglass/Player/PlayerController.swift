@@ -505,14 +505,15 @@ final class PlayerController: ObservableObject {
     /// The current item's speed: podcasts at theirs, songs at the tempo set.
     private var playbackRate: Float {
         if current?.isPodcastEpisode == true { return episodeSpeed }
-        // A song a live mix brought in keeps the speed it was matched at (see `liveSpeed`).
+        // A song a live mix brought in keeps the matched speed until it returns to its own
+        // (fresh player after the window, or a pause/seek; see `liveSpeed`).
         if let live = liveSpeed, live.item === player.currentItem { return live.rate }
         return PlaybackTempo.rate
     }
 
-    /// The song a live mix brought in, on the item it plays from, and the speed it keeps to its end:
-    /// a playing player's rate can't change without being heard (see `SegueSession`), so it isn't
-    /// brought back to its own; the mix into the next song is matched to it.
+    /// The song a live mix brought in, on the item it plays from, and the matched speed it holds
+    /// until `adoptOwnSpeed` (or a pause/seek) clears it. A playing player's rate isn't changed in
+    /// place (heard as a jump; see `SegueSession`); the return uses a fresh player instead.
     private var liveSpeed: (item: AVPlayerItem, rate: Float)?
 
     /// The speed the playing song plays at, for the next live mix (1 unless a live mix brought it in).
