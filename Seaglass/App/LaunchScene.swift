@@ -231,7 +231,8 @@ enum LaunchScene {
                         print(String(format: "segue-scene: next song %@ at %.1f s, %@", songs[arrived].title,
                                      player.progress.currentTime, player.autoMixNote ?? "-"))
                         arrived += 1
-                    } else if arrived == songs.count, player.progress.currentTime > 45 {
+                    } else if arrived == songs.count, player.progress.currentTime > 65 {
+                        // Past where the last mix's file hands on to the song's own (about a minute in).
                         break
                     }
                 }

@@ -177,8 +177,12 @@ if let mixed = render(plan, audio(songA), audio(songB), gains: (0.8, 0.9)) {
 // MARK: Beats locked through the window, the tempo back gradually
 
 let tickA = ticks(bpm: 124, seconds: seconds), tickB = ticks(bpm: 126, seconds: seconds)
-// Both songs at their full level through the window (a lane-less stage would be silent), no echo.
+// Both songs at their full level through the window (a lane-less stage would be silent), no echo, and
+// the songs' exact ratio of tempos: the policy's estimate (from the analysis) may be off by a few
+// hundred-thousandths, a few milliseconds over a long window, which is the plan's, not the render's.
+print("the policy's rate \(format(plan.rate, 5)) against the songs' own \(format(124.0 / 126.0, 5))")
 var timing = plan
+timing.rate = 124.0 / 126.0
 let flat = [SegueLane.Knot(at: 0, value: 0), SegueLane.Knot(at: 1, value: 0)]
 timing.lanes = [SegueLane(side: .outgoing, target: .level, knots: flat), SegueLane(side: .incoming, target: .level, knots: flat)]
 timing.echoDelay = nil
@@ -204,6 +208,7 @@ if let alone = render(timing, audio(tickA), audio(tickB), gains: (1, 0)),
     let stepsA = zip(gapsA, gapsA.dropFirst()).map { abs($1 - $0) }
     expect((stepsA.max() ?? 1) < 0.0006, "the playing song's tempo glides through the window (largest change \(format((stepsA.max() ?? 0) * 1000, 2)) ms a beat)")
     let ownA = 60.0 / 124, ownB = 60.0 / 126
+    let glide = SegueRender.glides(for: timing)
     if let last = gapsA.last {
         expect(abs(last - ownA / glide.outgoingRate) < 0.0005,
                "and ends at the middle tempo (beat \(format(last * 1000, 2)) ms, \(format(ownA / glide.outgoingRate * 1000, 2)) expected)")
