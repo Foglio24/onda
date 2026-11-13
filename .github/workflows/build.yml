@@ -489,4 +489,5 @@ jobs:
           files: |
             Seaglass.ipa
             Seaglass-mac.dmg
+            Seaglass-mac.zip
             Seaglass.app.dSYM.zip
