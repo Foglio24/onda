@@ -751,7 +751,7 @@
 "Stacco sul battere, a %lld s" = "Vuruşta geçiş, %lld. saniyede";
 "mix dal vivo" = "canlı miks";
 "Mix dal vivo" = "Canlı miks";
-"AutoMix suona il brano successivo su un secondo lettore, a tempo con quello in corso, con livelli, bassi e filtri automatici. Spento, usa i mix preparati in un file." = "AutoMix sonraki şarkıyı ikinci bir oynatıcıda, çalanla aynı tempoda, otomatik seviye, bas ve filtrelerle çalar. Kapalıyken bir dosyada hazırlanmış miksleri kullanır.";
+"AutoMix prepara il passaggio al brano successivo a tempo con quello in corso, con livelli, bassi e filtri automatici: il tempo dei due brani cambia gradualmente, senza scatti, e torna al loro. Spento, usa i mix del modello precedente." = "AutoMix, sonraki şarkıya geçişi çalan şarkının temposunda önceden hazırlar; seviyeler, baslar ve filtreler otomatiktir: iki şarkının temposu sıçramadan, yavaş yavaş değişir ve kendi temposuna döner. Kapalıyken önceki modelin mikslerini kullanır.";
 "Breve" = "Kısa";
 "Lunga" = "Uzun";
 "Durata del mix" = "Miks süresi";

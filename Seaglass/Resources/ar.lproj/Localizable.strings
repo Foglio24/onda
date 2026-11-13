@@ -751,7 +751,7 @@
 "Stacco sul battere, a %lld s" = "قطع على الضربة القوية، عند %lld ث";
 "mix dal vivo" = "مزج مباشر";
 "Mix dal vivo" = "مزج مباشر";
-"AutoMix suona il brano successivo su un secondo lettore, a tempo con quello in corso, con livelli, bassi e filtri automatici. Spento, usa i mix preparati in un file." = "يشغّل AutoMix الأغنية التالية على مشغّل ثانٍ متزامنًا مع الأغنية الحالية، مع ضبط تلقائي للمستويات والجهير والمرشحات. عند إيقافه، يستخدم مزجات مُعدّة في ملف.";
+"AutoMix prepara il passaggio al brano successivo a tempo con quello in corso, con livelli, bassi e filtri automatici: il tempo dei due brani cambia gradualmente, senza scatti, e torna al loro. Spento, usa i mix del modello precedente." = "يُعِدّ AutoMix الانتقال إلى الأغنية التالية مسبقًا على إيقاع الأغنية الحالية، مع مستويات وجهير ومرشحات تلقائية: يتغير إيقاع الأغنيتين تدريجيًا، دون قفزات، ثم يعود إلى إيقاعهما الأصلي. عند إيقافه، يستخدم مزجات النموذج السابق.";
 "Breve" = "قصير";
 "Lunga" = "طويل";
 "Durata del mix" = "مدة المزج";

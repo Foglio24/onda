@@ -290,7 +290,7 @@ final class PlayerController: ObservableObject {
     /// The item playing an AutoMix mix: its first `length` seconds are the rendered mix, then the
     /// song carries on from its own time `join` (from `file`). Item time minus `itemOffset` is the
     /// song's time.
-    private var mixItem: (item: AVPlayerItem, length: Double, join: Double, file: URL, label: String)?
+    private var mixItem: (item: AVPlayerItem, length: Double, join: Double, file: URL, label: String, window: TransitionMark?)?
     private var itemOffset: TimeInterval = 0
     /// What the current item plays with: its "Volume uniforme" gain and, when AutoMix may hand over
     /// from it, the fader in its audio processing (see `audioMix(for:track:)` and `startOnTime`).
@@ -962,7 +962,8 @@ final class PlayerController: ObservableObject {
     /// (a mix already under way, a prepared mix's file, an episode, the queue's end).
     private func mixSkip() -> Bool {
         let behaviour = Preferences.skipMix
-        guard behaviour != .cut, transitionSetting == .autoMix, canCrossfade, outgoingPlayer == nil, mixItem == nil,
+        let inMixFile = mixItem.map { $0.item === player.currentItem && player.currentTime().seconds < $0.length } ?? false
+        guard behaviour != .cut, transitionSetting == .autoMix, canCrossfade, outgoingPlayer == nil, !inMixFile,
               player.timeControlStatus == .playing, let track = current else { return false }
         if let session = segueSession {
             guard [.preparing, .ready, .running].contains(session.phase) else { return false }
@@ -2082,6 +2083,11 @@ final class PlayerController: ObservableObject {
     /// the mark is turned off.
     private func transitionMark(length: TimeInterval) -> TransitionMark? {
         guard Preferences.showsTransitionMark, length > 0, let current else { return nil }
+        // A rendered Segue under way: its window, in the song it brings in (the item's time less its offset).
+        if let mix = mixItem, player.currentItem === mix.item, let window = mix.window,
+           progress.currentTime + itemOffset < window.end + 1 {
+            return TransitionMark(start: window.start - itemOffset, end: window.end - itemOffset, beat: window.beat)
+        }
         // The live mix under way, in the song it brought in (its start): the cover pulses through it.
         if let session = segueSession, session.next.id == current.id, session.phase == .mixing {
             let plan = session.plan
@@ -2098,10 +2104,7 @@ final class PlayerController: ObservableObject {
             return TransitionMark(start: planned.plan.outgoingStart, end: planned.plan.outgoingEnd,
                                   beat: planned.plan.tempo.map { 60 / max(40, $0) })
         }
-        if let planned = plannedTransition() {
-            return TransitionMark(start: planned.plan.outStart, end: planned.plan.outEnd,
-                                  beat: planned.plan.tempoOut > 0 ? 60 / planned.plan.tempoOut : nil)
-        }
+        if let planned = plannedTransition() { return planned.mark }
         if segueNormalPair == "\(current.id)>\(queue[index + 1].id)" { return nil }
         let crossfade = plainCrossfadeSeconds
         guard crossfade > 0, canCrossfade, length > crossfade * 3 else { return nil }
@@ -2228,9 +2231,15 @@ final class PlayerController: ObservableObject {
                     tuning.voiceOverlapMax = 0.25
                     tuning.penaltyVoice *= 2
                 }
+                // A song a rendered mix brought in is handed on from its own file (past the mix's join),
+                // where the next file can take over on its very samples.
+                var earliest = self.progress.currentTime + SegueSession.longestPrepareLead + 5
+                if let mix = self.mixItem, mix.item === self.player.currentItem {
+                    earliest = max(earliest, mix.join + SegueRender.lead + 2)
+                }
                 let request = SegueRequest(outgoing: SegueSong(outgoing, voices: outgoingVocals),
                                            incoming: SegueSong(incoming, voices: incomingVocals),
-                                           earliestExit: self.progress.currentTime + SegueSession.longestPrepareLead + 5,
+                                           earliestExit: earliest,
                                            harmonic: Preferences.autoMixHarmonic,
                                            length: Preferences.mixLength, eq: Preferences.autoMixEqualiser,
                                            outgoingRate: speed, tuning: tuning, families: Preferences.autoMixStyle.families,
@@ -2252,6 +2261,49 @@ final class PlayerController: ObservableObject {
                     return
                 }
                 if let segue = decision.plan {
+                    // Played ahead into a file, both songs' tempos gliding (see `SegueRender`): no tempo
+                    // ever changes in a step. The live session below is the fallback when it can't be.
+                    if speed == 1 {
+                        self.autoMixNote = String(localized: "Preparazione del mix…")
+                        let destination = AutoMixLibrary.newMixFile()
+                        let incomingURL = incomingFile.url
+                        let rendered = try? await Task.detached(priority: .userInitiated) {
+                            try await SegueRender.render(segue, outgoing: outgoingFile, incoming: incomingURL,
+                                                         outgoingGain: outgoingGain, incomingGain: incomingGain,
+                                                         to: destination)
+                        }.value
+                        guard !Task.isCancelled, self.requests.isCurrentLoad(generation), self.autoMixPair == pair else { return }
+                        let playing = self.playingSource
+                        if let rendered, rendered.headDifference < 1e-4, rendered.tailDifference < 1e-4,
+                           playing == source || playing == outgoingFile, (self.playingGain ?? outgoingGain) == outgoingGain {
+                            if LaunchScene.isActive {
+                                print(String(format: "segue: rendered %@ %@, playing song 1 → %.4f, next %.4f → %.4f → 1 over %.1f s, "
+                                             + "file %.1f s, window %.1f–%.1f s, back at %.1f s, join %.2f s, head %.1e, tail %.1e, "
+                                             + "largest speed step %.1e, jumps %d",
+                                             segue.level.rawValue, segue.shape.rawValue, rendered.glide.outgoingRate,
+                                             segue.rate, rendered.glide.incomingRate, rendered.glide.incomingGlide, rendered.length,
+                                             rendered.windowStart, rendered.windowEnd, rendered.back, rendered.join,
+                                             Double(rendered.headDifference), Double(rendered.tailDifference),
+                                             rendered.largestSpeedStep, rendered.jumps))
+                            }
+                            self.autoMixTask = nil
+                            let mix = AutoMixRenderer.Mix(url: destination, length: rendered.length, join: rendered.join)
+                            self.autoMix = PlannedTransition(
+                                trackID: track.id, nextID: next.id, plan: nil, mix: mix, handover: rendered.handover,
+                                crossing: SegueRender.crossing, fade: SegueRender.fade,
+                                mark: TransitionMark(start: segue.outgoingStart, end: segue.outgoingEnd,
+                                                     beat: segue.tempo.map { 60 / max(40, $0) }),
+                                segue: RenderedSegue(plan: segue, result: rendered, stage: stage),
+                                file: incomingFile.url, label: incomingFile.label, incomingGain: incomingGain,
+                                outgoingFile: outgoingFile, outgoingGain: outgoingGain)
+                            UserDefaults.standard.set("\(track.title) → \(next.title)\nSegue: \(Self.describe(segue))\(why)",
+                                                      forKey: Preferences.lastAutoMixChoice)
+                            self.autoMixNote = Self.describe(segue)
+                            return
+                        }
+                        try? FileManager.default.removeItem(at: destination)
+                        if LaunchScene.isActive { print("segue: render failed, live session instead") }
+                    }
                     self.autoMixTask = nil
                     self.seguePlanned = SeguePlanned(trackID: track.id, nextID: next.id, plan: segue, file: incomingFile.url,
                                                      label: incomingFile.label, incomingGain: incomingGain, outgoingStage: stage,
@@ -2322,6 +2374,9 @@ final class PlayerController: ObservableObject {
                 return
             }
             self.autoMix = PlannedTransition(trackID: track.id, nextID: next.id, plan: plan, mix: mix,
+                                             handover: plan.handover, crossing: 0, fade: AutoMixPlayback.handoverFade,
+                                             mark: TransitionMark(start: plan.outStart, end: plan.outEnd,
+                                                                  beat: plan.tempoOut > 0 ? 60 / plan.tempoOut : nil),
                                              file: incomingFile.url, label: incomingFile.label, incomingGain: incomingGain,
                                              outgoingFile: outgoingFile, outgoingGain: outgoingGain)
             self.autoMixNote = Self.describe(plan, from: outgoing, to: incoming)
@@ -2669,7 +2724,7 @@ final class PlayerController: ObservableObject {
     /// becomes a plain crossfade.
     private func followPlan(_ planned: PlannedTransition, at seconds: TimeInterval) {
         guard outgoingPlayer == nil else { return }
-        let handover = planned.plan.handover
+        let handover = planned.handover
         if armed == nil, seconds >= handover - 12, seconds < handover - 1 {
             armTransition(planned)
         } else if seconds > handover + 0.3, armed?.scheduled != true {
@@ -2688,11 +2743,13 @@ final class PlayerController: ObservableObject {
         PlaybackVolume.shared.register(incoming)
         // AVPlayer starts at an exact moment (see `startOnTime`) only without its own waiting.
         incoming.automaticallyWaitsToMinimizeStalling = false
-        // As in 1.15, the rendered mix starts fading in immediately at its scheduled start.
-        let crossing = 0.0
-        let fade = AutoMixPlayback.handoverFade
+        // As in 1.15, the rendered mix starts fading in immediately at its scheduled start; a rendered
+        // Segue starts silent and comes in on the playing song's own samples (see `startOnTime`).
+        let crossing = planned.crossing
+        let fade = planned.fade
         let transition = ArmedTransition(planned: planned, player: incoming, track: next, outgoingTrackID: track.id,
                                          fade: fade)
+        transition.crossing = crossing
         armed = transition
         armTask = Task {
             guard let made = await Self.makeMixItem(for: planned, crossing: crossing, fade: fade) else {
@@ -2705,6 +2762,7 @@ final class PlayerController: ObservableObject {
             incoming.replaceCurrentItem(with: item)
             transition.item = item
             transition.fader = made.fader
+            transition.stage = made.stage
             var waited = 0
             while item.status == .unknown, waited < 50, !Task.isCancelled {
                 try? await Task.sleep(for: .milliseconds(100))
@@ -2727,24 +2785,26 @@ final class PlayerController: ObservableObject {
         }
     }
 
-    /// The mix fades in as soon as it starts. Add processing taps only when the equalizer is on,
-    /// as in 1.15; the next handover fades out using the player's volume.
+    /// The mix fades in as soon as it starts (a rendered Segue: silent until `crossing`, then in over
+    /// `fade`, on the playing song's own samples). The equalizer's taps when it is on; the song's part
+    /// also gets a stage when live mixes are on, so the next transition can play out of it.
     nonisolated private static func makeMixItem(for planned: PlannedTransition, crossing: Double,
-                                                fade: Double) async -> (item: AVPlayerItem, fader: HandoverFader?)? {
+                                                fade: Double) async -> (item: AVPlayerItem, fader: HandoverFader?, stage: SegueStage?)? {
         guard let parts = await AutoMixPlayback.compose(mixURL: planned.mix.url, songURL: planned.file,
             length: planned.mix.length, join: planned.mix.join, incomingGain: planned.incomingGain,
-            crossing: crossing, fade: fade) else { return nil }
-        if EqualizerParameters.shared.isOn {
-            parts.mixPart.audioTapProcessor = EqualizerTap.make()
-            parts.songPart.audioTapProcessor = EqualizerTap.make()
-        }
+            crossing: crossing, fade: fade, timescale: planned.segue.map { CMTimeScale($0.result.sampleRate.rounded()) } ?? 44_100)
+        else { return nil }
+        let equalizer = EqualizerParameters.shared.isOn
+        let stage = Preferences.liveMixEnabled ? SegueStage() : nil
+        if equalizer { parts.mixPart.audioTapProcessor = EqualizerTap.make() }
+        if equalizer || stage != nil { parts.songPart.audioTapProcessor = EqualizerTap.make(segue: stage) }
         let audioMix = AVMutableAudioMix()
         audioMix.inputParameters = [parts.mixPart, parts.songPart]
         let item = AVPlayerItem(asset: parts.composition)
         item.audioMix = audioMix
         // At the songs' tempo (see `PlaybackTempo`): the mix's beats stay matched, faster or slower.
         item.audioTimePitchAlgorithm = PlaybackTempo.pitchAlgorithm
-        return (item, nil)
+        return (item, nil, stage)
     }
 
     /// Output latency is included when deciding when to stop the outgoing player.
@@ -2756,7 +2816,7 @@ final class PlayerController: ObservableObject {
     /// Schedule the preloaded mix as in 1.15. The outgoing player stays audible until that
     /// moment and fades out with its volume; the rendered mix fades in over the same interval.
     private func startOnTime(_ transition: ArmedTransition) async {
-        let handover = transition.planned.plan.handover
+        let handover = transition.planned.handover
         let outgoing = player
         while true {
             guard !Task.isCancelled, armed === transition, player === outgoing,
@@ -2783,6 +2843,28 @@ final class PlayerController: ObservableObject {
         let tempo = PlaybackTempo.rate
         transition.player.setRate(tempo, time: .zero, atHostTime: start)
         transition.scheduled = true
+        if let segue = transition.planned.segue {
+            // A rendered Segue: the file starts with the playing song's own samples, so the two cross over
+            // on the same music, in phase. The playing song gives way on its samples (its stage), the file
+            // comes in on its volume ramp, both on the sample; neither tempo changes here.
+            let offset = itemOffset
+            let cross = handover + transition.crossing
+            segue.stage.arm(SeguePlan.crossover(at: cross, length: transition.fade), side: .outgoing, offset: offset)
+            let over = delay + (transition.crossing + transition.fade) / Double(tempo)
+            beginTransition(transition, outgoingFor: over + Self.outputLatency + 0.3)
+            noteHandover(String(localized: "mix dal vivo") + " · " + Self.describe(segue.plan))
+            if LaunchScene.isActive {
+                // How far the file is from the playing song as they cross: both counted from `handover`.
+                let filePlayer = transition.player
+                Task {
+                    try? await Task.sleep(for: .seconds(over + 0.05))
+                    let file = filePlayer.currentTime().seconds
+                    let song = outgoing.currentTime().seconds - offset - handover
+                    print(String(format: "segue: take-over at %.2f s, %+.1f ms apart", cross, (file - song) * 1000))
+                }
+            }
+            return
+        }
         let fade = transition.fade / Double(tempo)
         beginTransition(transition, outgoingFor: delay + fade + Self.outputLatency + 0.3)
         noteHandover(String(localized: "mix avviato senza controllo"))
@@ -2829,9 +2911,13 @@ final class PlayerController: ObservableObject {
         attach(transition.player)
         index += 1
         loadCurrent(crossfading: true, reason: .automatic, adopting: transition)
-        mixItem = (item, planned.mix.length, planned.mix.join, planned.file, planned.label)
+        let window = planned.segue.map { segue in
+            TransitionMark(start: segue.result.windowStart, end: segue.result.windowEnd,
+                           beat: segue.plan.tempo.map { 60 / max(40, $0) / segue.result.glide.outgoingRate })
+        }
+        mixItem = (item, planned.mix.length, planned.mix.join, planned.file, planned.label, window)
         itemOffset = planned.mix.length - planned.mix.join
-        itemEffects = (item, planned.incomingGain, transition.fader, nil)
+        itemEffects = (item, planned.incomingGain, transition.fader, transition.stage)
         Task {
             try? await Task.sleep(for: .seconds(seconds))
             if self.outgoingPlayer === outgoing { self.endCrossfade(interrupted: false) }
@@ -3161,7 +3247,10 @@ final class PlayerController: ObservableObject {
         guard itemTime.isFinite else { return }
         // In an AutoMix item, the song's own time.
         let seconds = max(0, itemTime - itemOffset)
-        if let mix = mixItem, streamInfo == "AutoMix", itemTime >= mix.length { streamInfo = mix.label }
+        if let mix = mixItem, streamInfo == "AutoMix", itemTime >= mix.length {
+            streamInfo = mix.label
+            if LaunchScene.isActive { print(String(format: "segue: joined the next song's own file at %.2f s", mix.join)) }
+        }
         let delta = seconds - lastTick
         lastTick = seconds
         progress.currentTime = seconds
@@ -3429,8 +3518,18 @@ final class PlayerController: ObservableObject {
 private struct PlannedTransition {
     let trackID: String
     let nextID: String
-    let plan: TransitionPlan
+    /// The rendered planner's plan; nil for a Segue plan rendered with its glides (`segue`).
+    let plan: TransitionPlan?
     let mix: AutoMixRenderer.Mix
+    /// The playing song's own time where the mix's file starts; when the file comes in (seconds of it,
+    /// silent before) and over how long.
+    let handover: Double
+    let crossing: Double
+    let fade: Double
+    /// The playing song's stretch on the progress bar, with its beat.
+    let mark: TransitionMark
+    /// A Segue plan rendered with its glides (see `SegueRender`).
+    var segue: RenderedSegue? = nil
     /// The next song's file, analysed, mixed and played from.
     let file: URL
     let label: String
@@ -3440,6 +3539,14 @@ private struct PlannedTransition {
     let outgoingGain: Float
     /// Its moment passed without the mix.
     var missed = false
+}
+
+/// A Segue plan played ahead into a file (see `SegueRender`): the plan, what the render measured, and
+/// the playing song's stage, where it gives way to the file on its own samples.
+private struct RenderedSegue {
+    let plan: SeguePlan
+    let result: SegueRender.Result
+    let stage: SegueStage
 }
 
 /// A live mix planned for the playing song (see `SegueSession`).
@@ -3467,11 +3574,14 @@ private final class ArmedTransition {
     let player: AVPlayer
     let track: Track
     let outgoingTrackID: String
-    /// How long the two players cross at the start of the mix.
+    /// How long the two players cross at the start of the mix, and when (seconds of the mix's file).
     let fade: Double
+    var crossing = 0.0
     var item: AVPlayerItem?
-    /// The item's fader, when one is in use.
+    /// The item's fader, when one is in use, and the stage in its song's audio processing (the next
+    /// live mix plays out of it).
     var fader: HandoverFader?
+    var stage: SegueStage?
     /// Its start has been set on the system clock.
     var scheduled = false
 

@@ -751,7 +751,7 @@
 "Stacco sul battere, a %lld s" = "強拍で切り替え、%lld 秒から";
 "mix dal vivo" = "ライブミックス";
 "Mix dal vivo" = "ライブミックス";
-"AutoMix suona il brano successivo su un secondo lettore, a tempo con quello in corso, con livelli, bassi e filtri automatici. Spento, usa i mix preparati in un file." = "AutoMix は次の曲を2台目のプレーヤーで再生中の曲とテンポを合わせて再生し、音量、低音、フィルタを自動で調整します。オフにすると、ファイルに用意したミックスを使います。";
+"AutoMix prepara il passaggio al brano successivo a tempo con quello in corso, con livelli, bassi e filtri automatici: il tempo dei due brani cambia gradualmente, senza scatti, e torna al loro. Spento, usa i mix del modello precedente." = "AutoMix は再生中の曲のテンポに合わせて次の曲への移行を前もって用意し、音量・低音・フィルターを自動で調整します。2曲のテンポは段差なく少しずつ変わり、それぞれのテンポに戻ります。オフにすると以前のモデルのミックスを使います。";
 "Breve" = "短め";
 "Lunga" = "長め";
 "Durata del mix" = "ミックスの長さ";

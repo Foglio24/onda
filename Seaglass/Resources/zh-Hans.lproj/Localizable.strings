@@ -751,7 +751,7 @@
 "Stacco sul battere, a %lld s" = "在强拍处切换，在 %lld 秒处";
 "mix dal vivo" = "实时混音";
 "Mix dal vivo" = "实时混音";
-"AutoMix suona il brano successivo su un secondo lettore, a tempo con quello in corso, con livelli, bassi e filtri automatici. Spento, usa i mix preparati in un file." = "AutoMix 会在第二个播放器上播放下一首歌，与当前歌曲节拍同步，并自动调节音量、低音和滤波。关闭时，使用预先生成在文件中的混音。";
+"AutoMix prepara il passaggio al brano successivo a tempo con quello in corso, con livelli, bassi e filtri automatici: il tempo dei due brani cambia gradualmente, senza scatti, e torna al loro. Spento, usa i mix del modello precedente." = "AutoMix 会按正在播放的歌曲的节拍提前准备好切换到下一首，自动调节音量、低音和滤波：两首歌的速度逐渐变化，没有跳变，并回到各自的速度。关闭时使用旧模型的混音。";
 "Breve" = "短";
 "Lunga" = "长";
 "Durata del mix" = "混音长度";

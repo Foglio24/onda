@@ -1,11 +1,12 @@
-# AutoMix: live transitions
+# AutoMix: Segue transitions
 
 AutoMix, and the playlists' Mix that builds on it, are **beta features**: they are marked *Beta* in
 the apps, on the account page and in the README, while their tuning is confirmed by listening on
 more devices and genres.
 
-On iPhone, iPad and Mac, AutoMix can play a transition live, on two players in step, instead of
-rendering it into a file. The engine is in `Seaglass/Player/Segue/`. It is Seaglass's own code,
+On iPhone, iPad and Mac, AutoMix plans a transition with its Segue engine and plays it ahead into a
+file (`SegueRender`), both songs' tempos gliding, never in a step; playing it live on two players in
+step (`SegueSession`) is the fallback when that can't be done. The engine is in `Seaglass/Player/Segue/`. It is Seaglass's own code,
 written after the behaviour of the "Segue" engine of Myspoti (kota-zo/myspoti, GPL-3.0). None of
 Myspoti's code is used or translated, so Seaglass keeps its own licence. This page describes what
 the engine does, where it differs from Segue and what still needs listening on real devices.
@@ -141,7 +142,43 @@ level interpolated in between, uses state-variable filters (Simper's trapezoidal
 they move), and on the audio thread it doesn't allocate, wait, log or read files: a new plan comes
 in under a lock the audio thread only tries.
 
-`SegueSession` runs the transition:
+## Played ahead
+
+`SegueRender` plays the plan into a file as soon as it is written (a minute or more before the
+window), from both songs' own files decoded to memory, and the player plays that file followed by
+the next song's own file in one item (`AutoMixPlayback`). AVPlayer can't change a playing song's
+speed without its sound being rendered again (see below), so every change of speed happens in the
+file instead, sample by sample:
+
+1. The file starts a second before the window with the playing song alone, its own samples at its
+   own gain, exactly as its player plays them. Its player comes in a third of a second later, silent
+   until then (so its start is never heard), at an exact moment of the system clock computed from
+   the playing song's timebase, and the two cross over in 80 ms on the same music, in phase: the
+   playing song gives way on its own samples (its deck's lanes), the file comes in on its volume
+   ramp. Nothing changes speed there.
+2. Through the window the next song is locked to the playing one: its place follows from the
+   playing song's as the plan has it, so its beats stay on the other's whatever the speeds do. The
+   two meet halfway in tempo: the playing song glides from its own speed to 1/√rate over the window
+   (eased at both ends), the next one with it from `rate` to √rate. The lanes play on each song's
+   own time through the same deck as live (`SegueStage`), the echo's delay kept on the beat.
+3. After the window the next song glides back to its own speed over eight of its bars (eased, no
+   corner in the speed: about 0.1 % per beat), its lanes go back to plain, then onto its own samples
+   (the last fraction of a frame made up over a second, a few hundred-thousandths of speed). The
+   file ends with a second and a half of its own samples, exactly, and the item carries on with the
+   song's own file from there (`join`, a whole frame), crossfaded over 30 ms on the same music.
+4. A speed is a resampling (cubic between frames, exact on a frame): the pitch moves with the tempo
+   by half the gap at most, as on a turntable, with no time stretch and its artefacts. A soft
+   limiter (a knee at 0.95) works only where both songs play.
+
+The render reports the largest difference between the file and the songs at both ends (0), the
+largest change of a song's speed from one frame to the next, and the decks' jumps; a render that
+isn't exact at both ends isn't played. A song brought in this way is handed on from its own file
+(after the join), where the next file can take over on its very samples.
+
+## Played live (the fallback)
+
+When a transition can't be played ahead (a file can't be read, the playing song isn't at its own
+speed), `SegueSession` runs it live:
 
 1. 15 seconds before the window, the next song is loaded on a second player, its deck armed and
    prerolled. It keeps the app's way of changing speed (Tempo's key lock: Apple's spectral
@@ -200,21 +237,26 @@ heard, the lanes ramp back to plain sound over 0.4 s and the songs carry on as t
   karaoke's MDX model, and only when the device allows it (energy, time). Unmeasured voices count
   as unknown: guards don't reject on them, the score trusts them less.
 - An echo send, but no reverb ("room") send.
-- The faders' sum is bounded, but there is no limiter shared by the two players (each plays on its
-  own `AVPlayer`; iOS mixes them).
+- The faders' sum is bounded; played ahead, a soft limiter works where both songs play (live, each
+  plays on its own `AVPlayer` and iOS mixes them).
 - Album songs played in order keep Seaglass's album junction, rendered exactly.
-- Speeds are changed by `AVPlayer` (time stretching with the pitch kept, or resampling as Tempo's
-  key lock says), not by a dedicated time-stretch engine. A player's rate can't glide without its
-  sound being rendered again, so the playing song is carried out of the mix at the next one's tempo
-  on a fresh player, and the next song never changes speed, instead of the next song coming back
-  to its own speed little by little after the mix (0.1 % per beat, as Segue does).
+- Played ahead, speeds are changed by resampling, so the pitch moves with the tempo (half the gap at
+  most, the two songs meeting halfway); Segue keeps the key with a time-stretch engine. As in Segue
+  the next song comes back to its own speed little by little after the mix (about 0.1 % per beat).
+  Live (the fallback), speeds are `AVPlayer`'s, which can't glide.
 
 ## Checks
 
 On CI's Mac, `bash Tools/SegueScene/run.sh` plays three songs made by the app (124, 126 and
-128 BPM) through two live mixes in a row, and checks that both come, that the playing song is
-carried at the next one's tempo in both, and that each song brought in plays at its own speed. Its log counts the speed
-changes while the next song is heard and the jumps in each deck's samples, and warns past four.
+128 BPM) through two mixes in a row, and checks that both are played ahead (the live session never
+runs), that each file is the songs' own samples where it takes over and hands back, that no speed
+changes in a step and no deck jumps, that the file's player takes over within 2 ms of the playing
+song, and that each mix carries on into the next song's own file.
+
+`bash Tools/SegueRenderCheck/run.sh` renders a plan the policy wrote for songs made there and checks
+the file's both ends against the songs' samples (exactly), the next song's beats on the playing
+song's through the window while both tempos glide (no drift), its tempo back to its own beat by beat
+without a step and exactly at the end, and no click in a mix of two tones.
 
 `bash Tools/SegueCheck/run.sh` builds songs whose beats, bars and voices are known and checks the
 levels the policy reaches and why the others were refused, that plans are valid and the same for

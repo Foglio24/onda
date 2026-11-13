@@ -442,7 +442,7 @@ private struct PlaybackSettingsView: View {
                     }
                 } footer: {
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("AutoMix suona il brano successivo su un secondo lettore, a tempo con quello in corso, con livelli, bassi e filtri automatici. Spento, usa i mix preparati in un file.")
+                        Text("AutoMix prepara il passaggio al brano successivo a tempo con quello in corso, con livelli, bassi e filtri automatici: il tempo dei due brani cambia gradualmente, senza scatti, e torna al loro. Spento, usa i mix del modello precedente.")
                         if liveMix {
                             Text("Stile: Automatico sceglie il meglio (a tempo, filtrato, taglio, dissolvenza); Blend sovrappone i brani sul ritmo; Taglio passa sul primo tempo della battuta; Dissolvenza sfuma. Breve: fino a 8 battute. Normale: fino a 16. Lunga: fino a 32, quando i due brani tengono il tempo così a lungo. Variazione di tempo: quanto il brano successivo può accelerare o rallentare per andare a tempo (4, 8 o 12 %). Con l'equalizzazione automatica bassi, medi, alti, filtri ed eco passano da un brano all'altro; spenta, cambiano solo i volumi. Il mix armonico tiene conto delle tonalità; tieni l'album intero lascia come sono i brani di un album ascoltato in ordine.")
                         }

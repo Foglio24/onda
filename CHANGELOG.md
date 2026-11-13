@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.36.8 (2026-11-13)
+
+### Fixed
+- **AutoMix's tempo never changes in a step any more, for either song.** The song brought in by a mix went back to its own tempo all at once after the mix, heard as a clean break with the key lock's sound changing; the steps before that were heard too. Now each mix is played ahead into a file, both songs on their own samples, and every change of tempo happens there, gradually, as a DJ moves the fader:
+  - through the mix the two songs meet halfway in tempo, gliding together, their beats locked on each other's from start to end;
+  - after the mix the song brought in glides back to its own tempo over eight of its bars, with no corner anywhere;
+  - the file starts on the playing song's very samples and ends on the next song's, so the players hand over on the same music, in phase, and nothing is heard there.
+  The tempo is changed by resampling rather than by a time stretch: there are no time-stretch artefacts, and the pitch moves with the tempo by half the gap at most (about a tenth of a semitone for songs 2 BPM apart), as on a turntable. When a mix can't be played ahead, the live mix of before plays it.
+- CI checks both on every build: the file is the songs' own samples at both ends (exactly), no speed changes in a step, the beats don't drift while the tempos glide, the next song's tempo comes back beat by beat without a step, nothing clicks, and in the Mac app the file's player takes over within 2 ms of the playing song.
+
 ## 1.36.7 (2026-11-13)
 
 ### Fixed

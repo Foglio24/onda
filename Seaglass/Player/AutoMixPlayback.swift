@@ -11,8 +11,11 @@ enum AutoMixPlayback {
         let songPart: AVMutableAudioMixInputParameters
     }
 
+    /// `timescale`: the times' grid (a rendered Segue's sample rate, so its length and join fall on
+    /// whole frames).
     static func compose(mixURL: URL, songURL: URL, length: Double, join: Double,
-                        incomingGain: Float, crossing: Double, fade: Double) async -> Parts? {
+                        incomingGain: Float, crossing: Double, fade: Double,
+                        timescale: CMTimeScale = 44_100) async -> Parts? {
         let overlapSeconds = 0.03
         guard length.isFinite, join.isFinite, crossing.isFinite, fade.isFinite,
               length > overlapSeconds, join >= overlapSeconds, crossing >= 0, fade > 0,
@@ -25,7 +28,7 @@ enum AutoMixPlayback {
         guard let first = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid),
               let second = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid)
         else { return nil }
-        let scale: CMTimeScale = 44_100
+        let scale: CMTimeScale = timescale > 0 ? timescale : 44_100
         let overlap = CMTime(seconds: overlapSeconds, preferredTimescale: scale)
         let duration = CMTime(seconds: length, preferredTimescale: scale)
         let joinTime = CMTime(seconds: join, preferredTimescale: scale)

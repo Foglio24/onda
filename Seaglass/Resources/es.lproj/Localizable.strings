@@ -751,7 +751,7 @@
 "Stacco sul battere, a %lld s" = "Corte en el tiempo fuerte, a los %lld s";
 "mix dal vivo" = "mezcla en vivo";
 "Mix dal vivo" = "Mezcla en vivo";
-"AutoMix suona il brano successivo su un secondo lettore, a tempo con quello in corso, con livelli, bassi e filtri automatici. Spento, usa i mix preparati in un file." = "AutoMix reproduce la siguiente canción en un segundo reproductor, a tempo con la actual, con niveles, graves y filtros automáticos. Desactivado, usa mezclas preparadas en un archivo.";
+"AutoMix prepara il passaggio al brano successivo a tempo con quello in corso, con livelli, bassi e filtri automatici: il tempo dei due brani cambia gradualmente, senza scatti, e torna al loro. Spento, usa i mix del modello precedente." = "AutoMix prepara el paso a la siguiente canción al ritmo de la que suena, con niveles, graves y filtros automáticos: el tempo de las dos canciones cambia gradualmente, sin saltos, y vuelve al suyo. Desactivado, usa las mezclas del modelo anterior.";
 "Breve" = "Corta";
 "Lunga" = "Larga";
 "Durata del mix" = "Duración de la mezcla";

@@ -751,7 +751,7 @@
 "Stacco sul battere, a %lld s" = "Склейка на сильную долю, с %lld с";
 "mix dal vivo" = "живой микс";
 "Mix dal vivo" = "Живой микс";
-"AutoMix suona il brano successivo su un secondo lettore, a tempo con quello in corso, con livelli, bassi e filtri automatici. Spento, usa i mix preparati in un file." = "AutoMix играет следующую песню на втором плеере в такт с текущей, автоматически управляя громкостью, басами и фильтрами. Если выключено, используются миксы, подготовленные в файле.";
+"AutoMix prepara il passaggio al brano successivo a tempo con quello in corso, con livelli, bassi e filtri automatici: il tempo dei due brani cambia gradualmente, senza scatti, e torna al loro. Spento, usa i mix del modello precedente." = "AutoMix заранее готовит переход к следующему треку в темпе текущего, с автоматическими уровнями, басами и фильтрами: темп обоих треков меняется плавно, без скачков, и возвращается к их собственному. Если выключено, используются миксы прежней модели.";
 "Breve" = "Короткий";
 "Lunga" = "Длинный";
 "Durata del mix" = "Длина микса";

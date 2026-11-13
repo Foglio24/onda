@@ -188,8 +188,9 @@ struct SeguePlan: Equatable, Codable, Sendable {
     var incomingStart: Double
     /// How fast the incoming song's time passes against the outgoing song's during the window, so
     /// that its bars meet the outgoing song's: its speed, with the outgoing song at its own (1 = the
-    /// same). The outgoing song never changes speed; when it plays at another (a live mix brought it
-    /// in so), the incoming one plays at this times that.
+    /// same). Played ahead (`SegueRender`) the two meet halfway, keeping this ratio; played live the
+    /// outgoing song keeps its speed and, when it plays at another (a live mix brought it in so), the
+    /// incoming one plays at this times that.
     var rate: Double
     /// The window's length in the outgoing song's time (as heard).
     var length: Double
