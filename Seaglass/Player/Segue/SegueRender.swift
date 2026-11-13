@@ -27,8 +27,10 @@ struct SegueAudio {
 ///   own speed and the next one, still quiet, at the playing one's tempo; at the end the next song is
 ///   at its own speed and the playing one, faded out, at the next one's. The song heard most is always
 ///   at or near its own tempo, and nothing changes after the window.
-/// - After the window the next song goes onto its own samples exactly (`settle`): the file ends with
-///   it sample for sample as its file plays, where the song's file carries on (`join`).
+/// - After the window the next song goes onto its own samples exactly (`settle`), and the file goes on
+///   with them to the song's end, at its gain: the player plays this one file from the take-over to
+///   the song's end, so nothing changes after the mix (no other file, no other level, no seam).
+///   `join` is where the song is its own samples again (seeks before it go to the song's own file).
 ///
 /// A speed here is a resampling with a long windowed-sinc filter (flat to about 20 kHz, exact on a
 /// whole frame), so the sound is the song's own through and after the mix: the pitch moves with the
@@ -55,7 +57,8 @@ enum SegueRender {
         var length: Double
         /// The playing song's own time at the file's first frame.
         var handover: Double
-        /// The next song's own time just after the file's last frame: its file carries on from there.
+        /// The next song's own time just after the mix's last frame (`length`): from there the file is
+        /// the song's own samples to its end.
         var join: Double
         /// In the file's seconds: the window, and where the next song is back at its own speed.
         var windowStart: Double
@@ -70,6 +73,9 @@ enum SegueRender {
         var largestSpeedStep: Double
         /// Samples that didn't follow on in the decks' processing (0).
         var jumps: Int
+        /// Largest difference between the rest of the song written after the mix (decoded again) and
+        /// the same frames of the first decoding, at its gain: 0 when it follows on exactly.
+        var restDifference: Float = 0
     }
 
     /// Seconds of the playing song alone before the window; when the file's player comes in (silent
@@ -449,47 +455,150 @@ enum SegueRender {
 
     // MARK: Files
 
-    /// Decodes both songs, mixes `plan` and writes it to `destination` (32-bit float, at the playing
-    /// song's own rate, so the file's first second is its samples exactly).
-    static func render(_ plan: SeguePlan, outgoing: URL, incoming: URL, outgoingGain: Float, incomingGain: Float,
-                       to destination: URL) async throws -> Result {
-        let outgoingSpan = outgoingRange(plan), incomingSpan = incomingRange(plan)
-        let a = try await decode(outgoing, from: outgoingSpan.from, to: outgoingSpan.to, sampleRate: nil)
-        let b = try await decode(incoming, from: incomingSpan.from, to: incomingSpan.to, sampleRate: a.sampleRate)
-        try Task.checkCancellation()
-        try? FileManager.default.removeItem(at: destination)
-        let file = try AVAudioFile(forWriting: destination, settings: [
-            AVFormatIDKey: kAudioFormatLinearPCM,
-            AVSampleRateKey: a.sampleRate,
-            AVNumberOfChannelsKey: 2,
-            AVLinearPCMBitDepthKey: 32,
-            AVLinearPCMIsFloatKey: true,
-            AVLinearPCMIsBigEndianKey: false,
-            AVLinearPCMIsNonInterleaved: false,
-        ], commonFormat: .pcmFormatFloat32, interleaved: false)
-        guard let format = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: a.sampleRate, channels: 2, interleaved: false),
-              let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(4096)),
-              let channels = buffer.floatChannelData else { throw RenderError.unreadable }
+    /// Writes stereo frames to a file in blocks (16-bit, interleaved on disk).
+    private final class Writer {
+        let file: AVAudioFile
+        let buffer: AVAudioPCMBuffer
+        let channels: UnsafePointer<UnsafeMutablePointer<Float>>
         var filled = 0
+        static let block = 4096
+
+        init(_ url: URL, sampleRate: Double) throws {
+            try? FileManager.default.removeItem(at: url)
+            file = try AVAudioFile(forWriting: url, settings: [
+                AVFormatIDKey: kAudioFormatLinearPCM,
+                AVSampleRateKey: sampleRate,
+                AVNumberOfChannelsKey: 2,
+                AVLinearPCMBitDepthKey: 16,
+                AVLinearPCMIsFloatKey: false,
+                AVLinearPCMIsBigEndianKey: false,
+                AVLinearPCMIsNonInterleaved: false,
+            ], commonFormat: .pcmFormatFloat32, interleaved: false)
+            guard let format = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: sampleRate, channels: 2, interleaved: false),
+                  let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(Self.block)),
+                  let channels = buffer.floatChannelData else { throw RenderError.unreadable }
+            self.buffer = buffer
+            self.channels = channels
+        }
+
+        func write(_ left: UnsafePointer<Float>, _ right: UnsafePointer<Float>, _ count: Int) throws {
+            var offset = 0
+            while offset < count {
+                let take = min(count - offset, Self.block - filled)
+                channels[0].advanced(by: filled).update(from: left + offset, count: take)
+                channels[1].advanced(by: filled).update(from: right + offset, count: take)
+                filled += take
+                offset += take
+                if filled == Self.block { try flush() }
+            }
+        }
+
         func flush() throws {
             guard filled > 0 else { return }
             buffer.frameLength = AVAudioFrameCount(filled)
             try file.write(from: buffer)
             filled = 0
         }
-        let result = try mix(plan, a: a, b: b, gains: (outgoingGain, incomingGain)) { left, right, count in
-            var offset = 0
-            while offset < count {
-                let take = min(count - offset, 4096 - filled)
-                channels[0].advanced(by: filled).update(from: left + offset, count: take)
-                channels[1].advanced(by: filled).update(from: right + offset, count: take)
-                filled += take
-                offset += take
-                if filled == 4096 { try flush() }
+    }
+
+    /// Decodes both songs, mixes `plan` and writes it to `destination`, followed by the rest of the
+    /// next song to its end, at its gain: the player plays this one file from the take-over to the
+    /// song's end, so nothing changes after the mix (no other file, no other level, no seam). At the
+    /// next song's own rate (the playing song resampled to it if it differs), so its samples go on
+    /// exactly as decoded; 16-bit.
+    static func render(_ plan: SeguePlan, outgoing: URL, incoming: URL, outgoingGain: Float, incomingGain: Float,
+                       to destination: URL) async throws -> Result {
+        let outgoingSpan = outgoingRange(plan), incomingSpan = incomingRange(plan)
+        let b = try await decode(incoming, from: incomingSpan.from, to: incomingSpan.to, sampleRate: nil)
+        let a = try await decode(outgoing, from: outgoingSpan.from, to: outgoingSpan.to, sampleRate: b.sampleRate)
+        try Task.checkCancellation()
+        let writer = try Writer(destination, sampleRate: b.sampleRate)
+        var result = try mix(plan, a: a, b: b, gains: (outgoingGain, incomingGain)) { left, right, count in
+            try writer.write(left, right, count)
+        }
+        result.restDifference = try await appendRest(of: incoming, from: result.join, sampleRate: b.sampleRate,
+                                                     gain: incomingGain, to: writer, checkedAgainst: b)
+        try writer.flush()
+        return result
+    }
+
+    /// The song from `start` (its own time, a whole frame of the earlier decoding) to its end, at
+    /// `gain`, onto `writer`: decoded again from a little before it, its first frames up to `start`
+    /// dropped, so it goes on from the very frame the mix ended on.
+    /// Returns the largest difference from `reference` (the first decoding) over the frames both hold.
+    private static func appendRest(of url: URL, from start: Double, sampleRate: Double, gain: Float, to writer: Writer,
+                                   checkedAgainst reference: SegueAudio) async throws -> Float {
+        var reference = Optional(reference)
+        var compared = Int(((start - (reference?.origin ?? 0)) * sampleRate).rounded())
+        var difference: Float = 0
+        let asset = AVURLAsset(url: url)
+        guard let track = try await asset.loadTracks(withMediaType: .audio).first else { throw RenderError.noAudio }
+        let duration = try await asset.load(.duration).seconds
+        let reader = try AVAssetReader(asset: asset)
+        let from = max(0, start - 0.5)
+        reader.timeRange = CMTimeRange(start: CMTime(seconds: from, preferredTimescale: 1_000_000),
+                                       end: duration.isFinite && duration > from ? CMTime(seconds: duration, preferredTimescale: 1_000_000) : .positiveInfinity)
+        let output = AVAssetReaderTrackOutput(track: track, outputSettings: [
+            AVFormatIDKey: kAudioFormatLinearPCM,
+            AVLinearPCMBitDepthKey: 32,
+            AVLinearPCMIsFloatKey: true,
+            AVLinearPCMIsBigEndianKey: false,
+            AVLinearPCMIsNonInterleaved: false,
+            AVSampleRateKey: sampleRate,
+            AVNumberOfChannelsKey: 2,
+        ])
+        output.alwaysCopiesSampleData = false
+        guard reader.canAdd(output) else { throw RenderError.unreadable }
+        reader.add(output)
+        guard reader.startReading() else { throw reader.error ?? RenderError.unreadable }
+        var skip: Int?
+        var scratch: [Float] = []
+        var left = [Float](repeating: 0, count: Writer.block), right = [Float](repeating: 0, count: Writer.block)
+        var count = 0
+        while let sample = output.copyNextSampleBuffer() {
+            try Task.checkCancellation()
+            guard let block = CMSampleBufferGetDataBuffer(sample) else { continue }
+            let values = CMBlockBufferGetDataLength(block) / MemoryLayout<Float>.size
+            guard values >= 2 else { continue }
+            if skip == nil {
+                let time = CMSampleBufferGetPresentationTimeStamp(sample)
+                guard time.isNumeric else { continue }
+                skip = max(0, Int(((start - time.seconds) * sampleRate).rounded()))
+            }
+            if scratch.count < values { scratch = [Float](repeating: 0, count: values) }
+            let status = scratch.withUnsafeMutableBytes { bytes -> OSStatus in
+                guard let base = bytes.baseAddress else { return -1 }
+                return CMBlockBufferCopyDataBytes(block, atOffset: 0, dataLength: values * MemoryLayout<Float>.size, destination: base)
+            }
+            guard status == noErr else { throw RenderError.unreadable }
+            var index = 0
+            while index + 1 < values {
+                if let remaining = skip, remaining > 0 {
+                    skip = remaining - 1
+                } else {
+                    left[count] = scratch[index] * gain
+                    right[count] = scratch[index + 1] * gain
+                    if let known = reference {
+                        if compared >= 0, compared < known.frames {
+                            difference = max(difference, abs(left[count] - known.left[compared] * gain),
+                                             abs(right[count] - known.right[compared] * gain))
+                            compared += 1
+                        } else {
+                            reference = nil
+                        }
+                    }
+                    count += 1
+                    if count == Writer.block {
+                        try writer.write(left, right, count)
+                        count = 0
+                    }
+                }
+                index += 2
             }
         }
-        try flush()
-        return result
+        guard reader.status == .completed else { throw reader.error ?? RenderError.unreadable }
+        if count > 0 { try writer.write(left, right, count) }
+        return difference
     }
 
     /// The song's audio from `start` to `end` (its own time), stereo, at `sampleRate` (nil: the file's
