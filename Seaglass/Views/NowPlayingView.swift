@@ -1168,11 +1168,11 @@ struct NowPlayingView: View {
                         Image(systemName: "ellipsis")
                             .font(.body.weight(.semibold))
                             .frame(width: 32, height: 32)
-                            .glassEffect(.regular.interactive(), in: .circle)
+                            .modifier(MacPlayerChrome(classic: style == .classic, shape: .circle))
                     }
                     .buttonStyle(.plain)
                 }
-                PlayerScrubber()
+                PlayerScrubber(classic: style == .classic)
                 badges
                 controls
                 errorLabel
@@ -1191,11 +1191,13 @@ struct NowPlayingView: View {
         return track.artist
     }
 
+    /// The Mac player's corner controls: in glass in Seaglass's style, on a flat translucent
+    /// capsule in the classic one.
     private func macCapsule<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
         HStack(spacing: 2) { content() }
             .padding(.horizontal, 6)
             .frame(height: 46)
-            .glassEffect(.regular.interactive(), in: .capsule)
+            .modifier(MacPlayerChrome(classic: style == .classic, shape: .capsule))
             .buttonStyle(.plain)
     }
 
@@ -1433,6 +1435,20 @@ private struct PlayButtonLook: ViewModifier {
                 .background(Circle().fill(.white).padding(4))
         } else {
             content.glassEffect(.regular.interactive(), in: .circle)
+        }
+    }
+}
+
+/// Glass in Seaglass's style; a flat, translucent fill in the classic one (no glass there).
+private struct MacPlayerChrome<S: Shape>: ViewModifier {
+    let classic: Bool
+    let shape: S
+
+    func body(content: Content) -> some View {
+        if classic {
+            content.background(Color.white.opacity(0.12), in: shape)
+        } else {
+            content.glassEffect(.regular.interactive(), in: shape)
         }
     }
 }

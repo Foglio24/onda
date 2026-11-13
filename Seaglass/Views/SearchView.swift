@@ -32,7 +32,8 @@ struct SearchView: View {
     }
 
     private static let recentLimit = 20
-    private var classicPhone: Bool { style == .classic && !ProcessInfo.processInfo.isMacCatalystApp }
+    /// The classic style, on the iPhone, the iPad and the Mac alike.
+    private var classicPhone: Bool { style == .classic }
 
     var body: some View {
         NavigationStack(path: $path) {

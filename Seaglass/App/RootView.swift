@@ -131,19 +131,50 @@ extension RootView {
     /// On a Mac, Apple Music's layout on macOS 26: a sidebar floating in Liquid Glass along the
     /// window's left (search, the Home, the library, the playlists, Settings), with the window's
     /// buttons on it, and the player bar floating in glass along the bottom, the page scrolling
-    /// under it. In the classic style the same chrome is black and flat, in green. The sidebar is
-    /// the app's own: the system's (TabView, NavigationSplitView) is opaque in an iPad app on a Mac.
-    private var macTabs: some View {
-        let classic = style == .classic
-        return macPages
+    /// under it. The classic style has its own (see `classicMacLayout`). The sidebar is the app's
+    /// own: the system's (TabView, NavigationSplitView) is opaque in an iPad app on a Mac.
+    @ViewBuilder private var macTabs: some View {
+        if style == .classic { classicMacLayout } else { seaglassMacLayout }
+    }
+
+    /// The classic style on a Mac, as the common streaming apps' desktop: on a black window, the
+    /// sidebar in two dark panels (Home and Cerca; the library with its playlists) beside the page's
+    /// panel, and the player bar along the whole bottom (the song, the controls with the progress,
+    /// then the lyrics, the queue, the output and the volume).
+    private var classicMacLayout: some View {
+        GeometryReader { proxy in
+            VStack(spacing: 0) {
+                HStack(spacing: 8) {
+                    MacClassicSidebar(selection: $macSelection, top: proxy.safeAreaInsets.top)
+                    macPages
+                        .clipShape(.rect(cornerRadius: 8))
+                        .padding(.top, max(proxy.safeAreaInsets.top, 28) + 6)
+                }
+                .padding(.horizontal, 8)
+                MacPlayerBar()
+                    .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
+                        router.miniPlayerFrame = frame
+                    }
+            }
+            .background(ClassicPalette.window)
+            .ignoresSafeArea(edges: .top)
+        }
+        // A deleted playlist's page goes with it.
+        .onChange(of: library.playlists.map(\.id)) { _, ids in
+            if case .playlist(let id) = macSelection, !ids.contains(id) { macSelection = .home }
+        }
+    }
+
+    private var seaglassMacLayout: some View {
+        macPages
             .safeAreaPadding(.bottom, MacPlayerBar.height + 24)
             .padding(.leading, MacSidebar.width + 2 * MacSidebar.inset)
             .background {
-                (classic ? ClassicPalette.background : Color(.systemBackground)).ignoresSafeArea()
+                Color(.systemBackground).ignoresSafeArea()
             }
             .overlay(alignment: .bottom) {
                 MacPlayerBar()
-                    .modifier(MacPlayerBarChrome(classic: classic))
+                    .glassEffect(.regular, in: .capsule)
                     .padding(.leading, MacSidebar.width + 2 * MacSidebar.inset + 8)
                     .padding(.trailing, 18)
                     .padding(.bottom, 14)
@@ -202,8 +233,169 @@ extension RootView {
     }
 }
 
+/// The classic style's sidebar on a Mac, as the common streaming apps' desktop: two dark panels
+/// on the black window. The first, under the window's buttons, has Home, Cerca and Impostazioni;
+/// the second is the library: Brani che ti piacciono, Cronologia, Download and Podcast as square
+/// tiles, then the playlists with their covers, each with what it is under its name.
+private struct MacClassicSidebar: View {
+    static let width: CGFloat = 300
+
+    @Binding var selection: MacSection
+    /// The window's title bar (its buttons), which the first panel runs under.
+    let top: CGFloat
+    @EnvironmentObject private var library: Library
+    @ObservedObject private var podcasts = PodcastLibrary.shared
+
+    var body: some View {
+        VStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: 2) {
+                navItem("Home", symbol: "house", selected: "house.fill", section: .home)
+                navItem("Cerca", symbol: "magnifyingglass", selected: "magnifyingglass", section: .search)
+                navItem("Impostazioni", symbol: "gearshape", selected: "gearshape.fill", section: .settings)
+            }
+            .padding(.top, max(top, 28) + 6)
+            .padding(.horizontal, 12)
+            .padding(.bottom, 10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(ClassicPalette.panel, in: .rect(cornerRadius: 8))
+
+            VStack(alignment: .leading, spacing: 0) {
+                Button { selection = .library } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: selection == .library ? "books.vertical.fill" : "books.vertical")
+                            .font(.title2)
+                        Text("La tua libreria")
+                            .font(.headline.weight(.bold))
+                        Spacer(minLength: 0)
+                    }
+                    .foregroundStyle(selection == .library ? ClassicPalette.primaryText : ClassicPalette.secondaryText)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+                    .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 2) {
+                        libraryRow("Brani che ti piacciono", subtitle: String(localized: "\(library.liked.count) brani"),
+                                   section: .liked) {
+                            tile("heart.fill", colors: [Color(red: 0.27, green: 0.18, blue: 0.85), Color(red: 0.55, green: 0.75, blue: 0.95)])
+                        }
+                        libraryRow("Cronologia", subtitle: String(localized: "\(library.history.count) brani"),
+                                   section: .history) {
+                            tile("clock.fill", colors: [.orange, Color(red: 0.75, green: 0.35, blue: 0.1)])
+                        }
+                        libraryRow("Download", subtitle: String(localized: "\(library.downloads.count) brani"),
+                                   section: .downloads) {
+                            tile("arrow.down", colors: [Color(red: 0.1, green: 0.55, blue: 0.95), Color(red: 0.05, green: 0.3, blue: 0.6)])
+                        }
+                        libraryRow("Podcast", subtitle: String(localized: "\(podcasts.followed.count) seguiti"),
+                                   section: .podcasts) {
+                            tile("mic.fill", colors: [Color(red: 0.6, green: 0.3, blue: 0.9), Color(red: 0.35, green: 0.12, blue: 0.55)])
+                        }
+                        ForEach(library.playlists) { playlist in
+                            libraryRow(LocalizedStringKey(playlist.name), verbatim: playlist.name,
+                                       subtitle: playlist.countLabel, section: .playlist(playlist.id)) {
+                                PlaylistArtwork(playlist: playlist, size: 48, cornerRadius: 4)
+                                    .accessibilityHidden(true)
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.bottom, 8)
+                }
+                .scrollIndicators(.never)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .background(ClassicPalette.panel, in: .rect(cornerRadius: 8))
+        }
+        .frame(width: Self.width)
+        .foregroundStyle(ClassicPalette.primaryText)
+    }
+
+    /// Home, Cerca, Impostazioni: white and filled when open, grey otherwise.
+    private func navItem(_ title: LocalizedStringKey, symbol: String, selected: String, section: MacSection) -> some View {
+        let on = selection == section
+        return Button { selection = section } label: {
+            HStack(spacing: 16) {
+                Image(systemName: on ? selected : symbol)
+                    .font(.title2.weight(on ? .semibold : .regular))
+                    .frame(width: 28)
+                Text(title)
+                    .font(.headline.weight(.bold))
+                Spacer(minLength: 0)
+            }
+            .foregroundStyle(on ? ClassicPalette.primaryText : ClassicPalette.secondaryText)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 10)
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(on ? .isSelected : [])
+    }
+
+    /// A line of the library: its cover or tile, its name (green while open) and what it is.
+    private func libraryRow<Artwork: View>(_ title: LocalizedStringKey, verbatim: String? = nil, subtitle: String,
+                                           section: MacSection, @ViewBuilder artwork: () -> Artwork) -> some View {
+        MacClassicLibraryRow(selected: selection == section, title: title, verbatim: verbatim, subtitle: subtitle,
+                             artwork: artwork()) {
+            selection = section
+        }
+    }
+
+    /// A library part's square tile: its symbol on a gradient, as large as a playlist's cover.
+    private func tile(_ symbol: String, colors: [Color]) -> some View {
+        Image(systemName: symbol)
+            .font(.title3.weight(.semibold))
+            .foregroundStyle(.white)
+            .frame(width: 48, height: 48)
+            .background(LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing),
+                        in: .rect(cornerRadius: 4))
+    }
+}
+
+/// A line of the classic library on a Mac: a lighter fill while open or under the pointer.
+private struct MacClassicLibraryRow<Artwork: View>: View {
+    let selected: Bool
+    let title: LocalizedStringKey
+    var verbatim: String?
+    let subtitle: String
+    let artwork: Artwork
+    let action: () -> Void
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                artwork
+                VStack(alignment: .leading, spacing: 2) {
+                    Group {
+                        if let verbatim { Text(verbatim: verbatim) } else { Text(title) }
+                    }
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(selected ? ClassicPalette.accent : ClassicPalette.primaryText)
+                    .lineLimit(1)
+                    Text(subtitle)
+                        .font(.subheadline)
+                        .foregroundStyle(ClassicPalette.secondaryText)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(8)
+            .background {
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(ClassicPalette.primaryText.opacity(selected ? 0.1 : (hovering ? 0.06 : 0)))
+            }
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+}
+
 /// The Mac's sidebar, as Apple Music's on macOS 26: a panel of Liquid Glass floating inside the
-/// window (or flat black in the classic style), the window's buttons at its top, the library's
+/// window (the classic style has `MacClassicSidebar`), the window's buttons at its top, the library's
 /// parts and the playlists (with their covers) in sections that fold, and Settings at its foot.
 private struct MacSidebar: View {
     /// Wider than the system's, for bigger names, symbols and covers, easier to see.
@@ -328,21 +520,6 @@ private struct MacSidebarChrome: ViewModifier {
         } else {
             // Faintly in the theme's colour, so the glass reads as glass over the window's plain background.
             content.glassEffect(.regular.tint(accent.opacity(0.12)), in: .rect(cornerRadius: 24))
-        }
-    }
-}
-
-/// Glass capsule in Seaglass's style; flat elevated bar in the classic one.
-private struct MacPlayerBarChrome: ViewModifier {
-    let classic: Bool
-
-    func body(content: Content) -> some View {
-        if classic {
-            content
-                .background(ClassicPalette.elevated, in: .capsule)
-                .overlay { Capsule().strokeBorder(ClassicPalette.separator.opacity(0.7), lineWidth: 1) }
-        } else {
-            content.glassEffect(.regular, in: .capsule)
         }
     }
 }

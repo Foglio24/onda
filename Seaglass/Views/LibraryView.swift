@@ -32,7 +32,8 @@ struct LibraryView: View {
         case playlists, podcasts, local
     }
 
-    private var classicPhone: Bool { style == .classic && !ProcessInfo.processInfo.isMacCatalystApp }
+    /// The classic style, on the iPhone, the iPad and the Mac alike.
+    private var classicPhone: Bool { style == .classic }
 
     var body: some View {
         NavigationStack {
@@ -117,10 +118,13 @@ struct LibraryView: View {
     /// The classic library's header: profile and title on the left, search and new playlist on the right.
     private var classicHeaderView: some View {
         ClassicHeader(title: "La tua libreria") {
-            Button { router.pendingTab = .search } label: {
-                Image(systemName: "magnifyingglass")
+            // A Mac has Cerca in its sidebar.
+            if !ProcessInfo.processInfo.isMacCatalystApp {
+                Button { router.pendingTab = .search } label: {
+                    Image(systemName: "magnifyingglass")
+                }
+                .accessibilityLabel(Text("Cerca"))
             }
-            .accessibilityLabel(Text("Cerca"))
             Menu {
                 Button { newName = ""; showNewPlaylist = true } label: {
                     Label("Nuova playlist", systemImage: "plus")

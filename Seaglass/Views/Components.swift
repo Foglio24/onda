@@ -90,8 +90,8 @@ struct AmbientBackground: View {
     var body: some View {
         if style == .classic {
             // Plain, as the common streaming apps' pages: a wash of the cover's colour showed as a band
-            // under the pinned header, in the light mode above all.
-            ClassicPalette.background
+            // under the pinned header, in the light mode above all. On a Mac, the page's panel.
+            (ProcessInfo.processInfo.isMacCatalystApp ? ClassicPalette.panel : ClassicPalette.background)
                 .ignoresSafeArea()
         } else {
             seaglass

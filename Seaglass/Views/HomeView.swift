@@ -67,24 +67,24 @@ struct HomeView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                if Self.isMac {
-                    macSections
-                } else if style == .classic {
+                if style == .classic {
                     classicSections
+                } else if Self.isMac {
+                    macSections
                 } else {
                     phoneSections
                 }
             }
             // In the colours of the song playing, as the other pages (on a Mac too).
             .background { AmbientBackground() }
-            .navigationTitle(classicPhone ? "" : (Self.isMac ? String(localized: "Home") : greeting))
-            .navigationBarTitleDisplayMode(classicPhone ? .inline : .large)
+            .navigationTitle(style == .classic ? "" : (Self.isMac ? String(localized: "Home") : greeting))
+            .navigationBarTitleDisplayMode(style == .classic ? .inline : .large)
             .toolbar {
-                if !classicPhone {
+                if style != .classic {
                     ToolbarItem(placement: .topBarTrailing) { RecognitionButton() }
                 }
             }
-            .modifier(ClassicHomeHeader(enabled: classicPhone, filter: $homeFilter))
+            .modifier(ClassicHomeHeader(enabled: style == .classic, filter: $homeFilter))
             // Once a day, and as soon as there is a first song to go on.
             .task(id: "\(Recommendations.today)|\(library.history.isEmpty)") {
                 quickPicks = await Recommendations.quickPicks(refresh: false)

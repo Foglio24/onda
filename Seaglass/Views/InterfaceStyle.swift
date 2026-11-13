@@ -67,7 +67,14 @@ enum ClassicPalette {
     static let pill = adaptive(dark: gray(0.20), light: gray(0.90))
     /// The text on the pages: white in the dark, black in the light.
     static let primaryText = adaptive(dark: .white, light: .black)
+    /// The same for UIKit's views (the output button).
+    static let uiPrimaryText = UIColor { $0.userInterfaceStyle == .dark ? .white : .black }
     static let secondaryText = adaptive(dark: gray(0.70), light: gray(0.40))
+    /// The Mac's window behind the panels (sidebar, page), as the common streaming apps' desktop:
+    /// black, a little darker than the panels; light grey in the light mode.
+    static let window = adaptive(dark: .black, light: gray(0.90))
+    /// The Mac's panels on that window: the sidebar's and the page's.
+    static let panel = adaptive(dark: gray(0.071), light: .white)
     /// The search field: white on the dark pages, light grey on the light ones (its text is black in both).
     static let field = adaptive(dark: .white, light: gray(0.92))
     /// Lines between rows.
@@ -323,7 +330,8 @@ struct ClassicHeader<Middle: View, Trailing: View>: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            ProfileButton()
+            // The profile menu slides in over the iPhone's and iPad's tabs; a Mac has its sidebar.
+            if !ProcessInfo.processInfo.isMacCatalystApp { ProfileButton() }
             if let title {
                 Text(title)
                     .font(.title2.bold())
@@ -341,7 +349,7 @@ struct ClassicHeader<Middle: View, Trailing: View>: View {
         }
         .frame(height: 48)
         .padding(.horizontal, 16)
-        .background(ClassicPalette.background)
+        .background { AmbientBackground() }
     }
 }
 
