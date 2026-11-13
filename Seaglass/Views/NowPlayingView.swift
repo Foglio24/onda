@@ -633,17 +633,26 @@ struct NowPlayingView: View {
             .padding(.bottom, 4)
             QueueView()
                 .frame(maxHeight: .infinity)
-            HStack(spacing: 10) {
+            // AutoMix on or off with a switch, as in the queue of Seaglass's style.
+            Toggle(isOn: Binding(get: { autoMixOn }, set: { setAutoMix($0) })) {
+                HStack(spacing: 10) {
+                    Image(systemName: "waveform.path")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(ClassicPalette.accent)
+                    Text("AutoMix")
+                        .font(.body.weight(.semibold))
+                    BetaBadge()
+                }
+            }
+            .tint(ClassicPalette.accent)
+            .accessibilityLabel(Text("AutoMix"))
+            .padding(.horizontal, 20)
+            .padding(.top, 6)
+            HStack(spacing: 12) {
                 Button { player.toggleShuffle() } label: {
                     classicQueueAction("Riproduzione casuale", symbol: "shuffle", on: player.shuffleEnabled)
                 }
                 .buttonStyle(.plain)
-                // AutoMix on or off, as in the queue of Seaglass's style.
-                Button { setAutoMix(!autoMixOn) } label: {
-                    classicQueueAction("AutoMix", symbol: "waveform.path", on: autoMixOn)
-                }
-                .buttonStyle(.plain)
-                .accessibilityValue(autoMixOn ? Text("Attivo") : Text("Disattivo"))
                 Menu {
                     sleepTimerOptions
                 } label: {
@@ -689,7 +698,7 @@ struct NowPlayingView: View {
                 .minimumScaleFactor(0.8)
         }
         .foregroundStyle(on ? ClassicPalette.accent : Color.white)
-        .frame(width: 112, height: 72)
+        .frame(width: 150, height: 72)
         .background(Color.white.opacity(0.08), in: .rect(cornerRadius: 10))
         .contentShape(.rect(cornerRadius: 10))
     }

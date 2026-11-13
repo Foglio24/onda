@@ -12,6 +12,7 @@ on:
       - "Tools/Screenshots/**"
       - ".github/workflows/ui-preview.yml"
       - "Mac/**"
+      - "project-uitests.yml"
   workflow_dispatch:
     inputs:
       kind:
@@ -65,6 +66,40 @@ jobs:
             build
       - name: Take the screenshots
         run: bash Tools/Screenshots/run.sh build-sim/Build/Products/Debug-iphonesimulator/Seaglass.app preview "${{ inputs.kind || 'classic' }}"
+      # The classic style's gestures with real touches (Tools/UITests): a song swiped both ways in
+      # Cerca, the player dragged down, AutoMix switched in the queue. The log's "ui-check:" lines
+      # say what happened; the screenshots of each step go with the others.
+      - name: Interaction checks
+        continue-on-error: true
+        timeout-minutes: 25
+        run: |
+          set -o pipefail
+          xcodegen generate --spec project-uitests.yml
+          udid=$(xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          devices = json.load(sys.stdin)["devices"]
+          phones = [d for r, l in sorted(devices.items()) if "iOS" in r for d in l if d["name"].startswith("iPhone")]
+          pro = [d for d in phones if "Pro" in d["name"] and "Max" not in d["name"]]
+          print((pro or phones)[-1]["udid"])')
+          xcodebuild test \
+            -project Seaglass.xcodeproj \
+            -scheme SeaglassUITests \
+            -destination "platform=iOS Simulator,id=$udid" \
+            -derivedDataPath build-sim \
+            -resultBundlePath uitests.xcresult \
+            -skipPackagePluginValidation \
+            -skipMacroValidation \
+            ARCHS=arm64 \
+            CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee uitests.log | grep -E "ui-check:|Test Case .*(passed|failed)|error:|XCTAssert|\*\* TEST"
+      - name: Interaction screenshots
+        if: ${{ always() }}
+        continue-on-error: true
+        run: |
+          mkdir -p preview/interactions
+          xcrun xcresulttool export attachments --path uitests.xcresult --output-path preview/interactions || true
+          cp uitests.log preview/interactions/ 2>/dev/null || true
+          ls preview/interactions | head -40
       - uses: actions/upload-artifact@v4
         if: ${{ always() }}
         with:

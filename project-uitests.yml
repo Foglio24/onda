@@ -1,0 +1,40 @@
+# XcodeGen spec for the interface's interaction checks only (the Interface preview workflow): the app's
+# project (project.yml, unchanged for the builds and releases) plus a UI test bundle that drives the
+# app on a simulator with real touches (swipes, drags, taps) and reports what happened.
+include:
+  - project.yml
+
+targets:
+  SeaglassUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    deploymentTarget: "26.0"
+    sources:
+      - path: Tools/UITests/Sources
+    dependencies:
+      - target: Seaglass
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.onda.player.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: Seaglass
+        SWIFT_VERSION: "5.0"
+
+schemes:
+  Seaglass:
+    build:
+      targets:
+        Seaglass: all
+    run:
+      config: Debug
+    archive:
+      config: Release
+  SeaglassUITests:
+    build:
+      targets:
+        Seaglass: all
+        SeaglassUITests: [test]
+    test:
+      config: Debug
+      targets:
+        - SeaglassUITests
