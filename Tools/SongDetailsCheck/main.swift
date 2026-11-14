@@ -69,7 +69,8 @@ expect(combined.contains(", ") && combined != "Producer, Synthesizer", "combined
 
 // "Riconoscimenti" under the classic player: by person, the song's artists first.
 let people = details.people(artists: ["Daft Punk"])
-expect(people.map(\.name) == ["Daft Punk", "Guy-Manuel de Homem-Christo", "Nilesh Patel", "Romanthony", "Thomas Bangalter",
+// In the order of the credits, which YouTube groups by role (the producers come before the mastering).
+expect(people.map(\.name) == ["Daft Punk", "Guy-Manuel de Homem-Christo", "Thomas Bangalter", "Nilesh Patel", "Romanthony",
                                "Anthony Moore"], "credits by person, artists first: \(people.map(\.name))")
 expect(people.first?.roles == [String(localized: "Artista principale")], "the artist is the main artist: \(people.first?.roles ?? [])")
 let guy = people.first { $0.name == "Guy-Manuel de Homem-Christo" }?.roles ?? []
