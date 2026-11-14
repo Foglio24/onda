@@ -80,8 +80,8 @@ final class SegueStage: @unchecked Sendable {
     private let echoCut: UnsafeMutablePointer<Double>
     private var echoCutCoefficient = 0.0
     private var echoSend = 0.0
-    /// The song time at the end of the last block processed (read by the main thread, unsynchronised:
-    /// a Double written whole by one thread).
+    /// The song time at the end of the last block processed, armed or not (read by the main thread,
+    /// unsynchronised: a Double written whole by one thread).
     private(set) var processedTime = -Double.infinity
     /// How many times the samples didn't follow on from the last ones (a seek, or the player
     /// rendering again after a change), for CI's log; written by the audio thread alone, as above.
@@ -211,8 +211,14 @@ final class SegueStage: @unchecked Sendable {
             }
         }
         let mode = active[Header.mode]
-        guard mode != 0 else { return }
         let step = duration > 0 ? duration / Double(frames) : 1 / sampleRate
+        guard mode != 0 else {
+            // Unarmed, the samples pass untouched, but where the song's processing has got to is still
+            // kept: a fade armed later can only reach sound that hasn't been processed yet (the
+            // processing runs ahead of what is heard), and its caller asks.
+            processedTime = time + Double(frames) * step
+            return
+        }
         var start = 0
         while start < frames {
             let count = min(Self.blockFrames, frames - start)

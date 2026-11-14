@@ -2941,8 +2941,9 @@ final class PlayerController: ObservableObject {
                     try? await Task.sleep(for: .seconds(over + 0.05))
                     let file = filePlayer.currentTime().seconds
                     let song = outgoing.currentTime().seconds - offset - handover
-                    print(String(format: "segue: take-over at %.2f s, %+.1f ms apart, the playing song out by its %@ (armed %.2f s ahead)",
-                                 cross, (file - song) * 1000, staged ? "stage" : "player's volume", ahead.isFinite ? ahead : 99))
+                    let margin = ahead.isFinite ? String(format: "%.2f", ahead) : "unknown"
+                    print(String(format: "segue: take-over at %.2f s, %+.1f ms apart", cross, (file - song) * 1000)
+                          + ", the playing song out by its \(staged ? "stage" : "player's volume") (armed \(margin) s ahead)")
                 }
             }
             return
