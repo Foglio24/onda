@@ -838,3 +838,4 @@
 "Passaggio dei bassi: nei mix a tempo i bassi passano da un brano all'altro su un battere. Voci pulite: due voci non si sovrappongono quasi mai. Coda d'eco: il brano che finisce può uscire con un'eco a tempo. Dissolvenza sul beat: le dissolvenze partono dal primo tempo di una battuta. Stile per energia: se l'energia sale il brano nuovo si apre, se scende quello in corso si allontana. Per un tempo gentile, scegli Variazione di tempo Delicata." = "ベースの受け渡し：ビートに合わせたミックスでは、強拍でベースが曲から曲へ受け渡されます。クリアなボーカル：2つの声がほとんど重なりません。エコーテール：終わる曲がビートに合ったエコーで抜けることがあります。ビートでフェード：フェードが小節の1拍目から始まります。エネルギーでスタイル：エネルギーが上がると新しい曲が開き、下がると再生中の曲が遠ざかります。控えめなテンポにするには、テンポの変化を「控えめ」にしてください。";
 "Preparazione del karaoke" = "カラオケを準備中";
 "La voce viene separata dalla musica" = "ボーカルを伴奏から分離しています";
+"mix preparato" = "準備済みミックス";

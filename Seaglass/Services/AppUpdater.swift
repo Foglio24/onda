@@ -97,13 +97,14 @@ final class AppUpdater: ObservableObject {
 
     private init() {
         guard ProcessInfo.processInfo.isMacCatalystApp else { return }
-        // A Mac app stays open for days: it looks again when it comes forward, twice a day at most,
-        // and an update that's ready goes in as it quits.
+        // A Mac app stays open for days: it looks again when it comes forward, once an hour at most
+        // (twice a day left a Mac a version or two behind on a day with several releases, and what was
+        // tested there wasn't what had just been fixed), and an update that's ready goes in as it quits.
         observers.append(NotificationCenter.default.addObserver(forName: UIApplication.didBecomeActiveNotification,
                                                                 object: nil, queue: .main) { _ in
             MainActor.assumeIsolated {
                 let updater = AppUpdater.shared
-                guard let last = updater.lastCheck, Date.now.timeIntervalSince(last) > 12 * 3600 else { return }
+                guard let last = updater.lastCheck, Date.now.timeIntervalSince(last) > 3600 else { return }
                 Task { await updater.check(userInitiated: false) }
             }
         })

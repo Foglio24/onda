@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.36.10 (2026-11-14)
+
+### Fixed
+- **The playing song is no longer heard twice for a moment as an AutoMix mix comes in.** Its fade out was set as the mix's file started, but a song's sound is processed half a second and more ahead of what is heard: the fade came too late for it, so the song played on over the file (the same music, twice as loud) for a fifth of a second and was then cut. The fade is now set four seconds ahead, and the song's player is silenced right after it whatever happens.
+- **Every AutoMix mix is now played ahead, so none has the break and the step in tempo any more.** Some mixes went smoothly and others didn't: when a mix couldn't be prepared it was played the live way instead, on two players, with its break and its step in tempo after the mix. That happened whenever the mix ended with the song (or its echo's tail ran past the song's end), which now prepares like the others; and when a mix still can't be prepared, the earlier kind of prepared mix is made instead, never a live one. A song that moves to another file while its mix is being prepared (a seek, its local copy) gets its mix made again.
+- **Mixes made the earlier way** (a playlist's Mix, an album in order, with "Mix dal vivo" off) **no longer come back louder after the mix.** They were still played as two parts joined by the player, the second of which came in at full volume, without "Volume uniforme". They are now one file too: the mix, then the song to its end at its own level.
+- Where the mix's file goes on with the rest of the song there is now a 50 ms crossover between the two decodings, so a file whose decoder doesn't give the very same samples twice can't be heard as a step.
+- A mix's file is no longer cleared while its song still plays (a song paused for a quarter of an hour, then played to its end and seeked).
+
+### Changed
+- **On a Mac, Seaglass looks for a new version once an hour** when it comes forward (it was twice a day): on a day with several releases an open Mac stayed a version or two behind. Settings → Aggiornamenti → Cerca aggiornamenti looks at once, as before.
+- Settings → Informazioni → **Ultimo passaggio AutoMix** now says how the last mix was played: *mix preparato* (played ahead, one file), *mix dal vivo* (two players) or the earlier way, and **Ultima scelta AutoMix** says why a mix couldn't be prepared when it wasn't.
+
 ## 1.36.9 (2026-11-13)
 
 ### Fixed

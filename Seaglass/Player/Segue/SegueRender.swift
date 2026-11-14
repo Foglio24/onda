@@ -237,7 +237,10 @@ enum SegueRender {
         let settleAt = max(endI + glideFrames, bypassAt + blendFrames)
         let settleFrames = max(1, Int((settle * sr).rounded()))
         let marginFrames = max(1, Int((margin * sr).rounded()))
-        guard first >= 4, endS > startS, Double(a.frames) > outgoingLast + 4,
+        // The playing song may end with the window, or within its echo's tail (most mixes are at a song's
+        // end): past its samples it reads as silence. It must only hold the take-over's second.
+        let headFrames = Int(((crossing + fade + 0.05) * sr).rounded())
+        guard first >= 4, endS > startS, Double(a.frames) > first + Double(headFrames) + 8,
               Double(b.frames) > settleAt + Double(settleFrames + marginFrames) * 1.01 + 8 else { throw RenderError.range }
 
         func rateA(_ p: Double) -> Double {
@@ -294,7 +297,6 @@ enum SegueRender {
                         var lastA = 1.0, lastB: Double?
                         var largestStep = 0.0
                         var head: Float = 0, tail: Float = 0
-                        let headFrames = Int(((crossing + fade + 0.05) * sr).rounded())
                         var finished = false
                         var joinIndex = 0
                         while !finished {
@@ -516,21 +518,26 @@ enum SegueRender {
         var result = try mix(plan, a: a, b: b, gains: (outgoingGain, incomingGain)) { left, right, count in
             try writer.write(left, right, count)
         }
-        result.restDifference = try await appendRest(of: incoming, from: result.join, sampleRate: b.sampleRate,
-                                                     gain: incomingGain, to: writer, checkedAgainst: b)
+        // From the first decoding (the mix's last frames are its samples) onto the second, over 50 ms.
+        let firstKnown = Int(((result.join - b.origin) * b.sampleRate).rounded())
+        result.restDifference = try await appendSong(of: incoming, from: result.join, sampleRate: b.sampleRate,
+                                                     gain: incomingGain, to: writer, blend: Int(0.05 * b.sampleRate)) { k in
+            let index = firstKnown + k
+            return index >= 0 && index < b.frames ? (b.left[index] * incomingGain, b.right[index] * incomingGain) : nil
+        }
         try writer.flush()
         return result
     }
 
-    /// The song from `start` (its own time, a whole frame of the earlier decoding) to its end, at
-    /// `gain`, onto `writer`: decoded again from a little before it, its first frames up to `start`
-    /// dropped, so it goes on from the very frame the mix ended on.
-    /// Returns the largest difference from `reference` (the first decoding) over the frames both hold.
-    private static func appendRest(of url: URL, from start: Double, sampleRate: Double, gain: Float, to writer: Writer,
-                                   checkedAgainst reference: SegueAudio) async throws -> Float {
-        var reference = Optional(reference)
-        var compared = Int(((start - (reference?.origin ?? 0)) * sampleRate).rounded())
-        var difference: Float = 0
+    /// The song from `start` (its own time) to its end, at `gain`, onto `writer`: decoded again from a
+    /// little before it, its first frames up to `start` dropped. `before(k)` is what the file would hold
+    /// at the k-th of these frames had it gone on as it was (the first decoding's samples, or a mix's
+    /// last ones), already at its gain, nil past what is known: the first `blend` frames cross over from
+    /// it to the new decoding, so a decoder that doesn't give the very same samples twice (a lossy one
+    /// started elsewhere) is never heard as a step. Returns the largest difference between the two
+    /// where both are known (0: the song follows on exactly).
+    private static func appendSong(of url: URL, from start: Double, sampleRate: Double, gain: Float, to writer: Writer,
+                                   blend: Int, before: (Int) -> (Float, Float)?) async throws -> Float {
         let asset = AVURLAsset(url: url)
         guard let track = try await asset.loadTracks(withMediaType: .audio).first else { throw RenderError.noAudio }
         let duration = try await asset.load(.duration).seconds
@@ -555,6 +562,10 @@ enum SegueRender {
         var scratch: [Float] = []
         var left = [Float](repeating: 0, count: Writer.block), right = [Float](repeating: 0, count: Writer.block)
         var count = 0
+        var written = 0
+        var known = true
+        var difference: Float = 0
+        let blendFrames = max(1, blend)
         while let sample = output.copyNextSampleBuffer() {
             try Task.checkCancellation()
             guard let block = CMSampleBufferGetDataBuffer(sample) else { continue }
@@ -576,17 +587,22 @@ enum SegueRender {
                 if let remaining = skip, remaining > 0 {
                     skip = remaining - 1
                 } else {
-                    left[count] = scratch[index] * gain
-                    right[count] = scratch[index + 1] * gain
-                    if let known = reference {
-                        if compared >= 0, compared < known.frames {
-                            difference = max(difference, abs(left[count] - known.left[compared] * gain),
-                                             abs(right[count] - known.right[compared] * gain))
-                            compared += 1
+                    var l = scratch[index] * gain, r = scratch[index + 1] * gain
+                    if known {
+                        if let earlier = before(written) {
+                            difference = max(difference, abs(l - earlier.0), abs(r - earlier.1))
+                            if written < blendFrames {
+                                let w = Float(written) / Float(blendFrames)
+                                l = earlier.0 * (1 - w) + l * w
+                                r = earlier.1 * (1 - w) + r * w
+                            }
                         } else {
-                            reference = nil
+                            known = false
                         }
                     }
+                    left[count] = l
+                    right[count] = r
+                    written += 1
                     count += 1
                     if count == Writer.block {
                         try writer.write(left, right, count)
@@ -599,6 +615,33 @@ enum SegueRender {
         guard reader.status == .completed else { throw reader.error ?? RenderError.unreadable }
         if count > 0 { try writer.write(left, right, count) }
         return difference
+    }
+
+    /// A mix rendered the earlier way (`AutoMixRenderer`: `length` seconds, ending where the next song
+    /// is at `join`), followed by the rest of that song to its end at `gain`, in one file at
+    /// `destination`: its last 30 ms cross over into the song's own samples, as the two-part item did
+    /// with volume ramps, which weren't held with audio processing on its parts (the song came back at
+    /// full level). The player plays this one file to the song's end.
+    static func extend(mix: URL, length: Double, join: Double, song: URL, gain: Float, to destination: URL) async throws {
+        let file = try AVAudioFile(forReading: mix, commonFormat: .pcmFormatFloat32, interleaved: false)
+        let format = file.processingFormat
+        let rate = format.sampleRate
+        let wanted = min(file.length, AVAudioFramePosition((length * rate).rounded()))
+        guard wanted > 0, format.channelCount >= 2, rate > 1000,
+              let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(wanted)) else { throw RenderError.unreadable }
+        try file.read(into: buffer, frameCount: AVAudioFrameCount(wanted))
+        guard let channels = buffer.floatChannelData else { throw RenderError.unreadable }
+        let count = Int(buffer.frameLength)
+        let overlap = min(count, max(1, Int(0.03 * rate)))
+        guard count > overlap, join * rate > Double(overlap) else { throw RenderError.range }
+        let writer = try Writer(destination, sampleRate: rate)
+        try writer.write(channels[0], channels[1], count - overlap)
+        let tailLeft = channels[0] + (count - overlap), tailRight = channels[1] + (count - overlap)
+        _ = try await appendSong(of: song, from: join - Double(overlap) / rate, sampleRate: rate, gain: gain, to: writer,
+                                 blend: overlap) { k in k < overlap ? (tailLeft[k], tailRight[k]) : nil }
+        try writer.flush()
+        // The mix's samples (the pointers above) live as long as their buffer.
+        withExtendedLifetime(buffer) {}
     }
 
     /// The song's audio from `start` to `end` (its own time), stereo, at `sampleRate` (nil: the file's

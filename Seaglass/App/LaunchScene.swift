@@ -218,6 +218,12 @@ enum LaunchScene {
                 }.value
                 UserDefaults.standard.set(SongTransition.autoMix.rawValue, forKey: Preferences.songTransition)
                 UserDefaults.standard.set(value != "off", forKey: Preferences.liveMix)
+                // "Volume uniforme" at work, each song at another gain (0.50, 0.71, 0.40), as real songs
+                // are: a mix must hold each at its own.
+                UserDefaults.standard.set(true, forKey: Preferences.normalizeVolume)
+                await Loudness.shared.remember(6, for: "SeaglassSegueDemoA")
+                await Loudness.shared.remember(3, for: "SeaglassSegueDemoB")
+                await Loudness.shared.remember(8, for: "SeaglassSegueDemoC")
                 let player = PlayerController.shared
                 player.play(live ? [first, second, third] : [first, second], source: "Segue demo")
                 router.openPlayer()

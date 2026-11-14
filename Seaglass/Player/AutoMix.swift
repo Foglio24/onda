@@ -122,14 +122,16 @@ actor AutoMixLibrary {
         }
     }
 
-    /// A new file for a rendered mix. Mixes older than a quarter of an hour are deleted: by then
-    /// they have played (or never will).
-    static func newMixFile() -> URL {
+    /// A new file for a rendered mix. Mixes older than a quarter of an hour are deleted, but for
+    /// those in use (`keeping`: their file names): a mix's file holds the song it brings in to its
+    /// end, so it plays for as long as that song does (and waits with it while it is paused).
+    static func newMixFile(keeping inUse: Set<String> = []) -> URL {
         let folder = directory.appending(path: "Mixes", directoryHint: .isDirectory)
         let manager = FileManager.default
         try? manager.createDirectory(at: folder, withIntermediateDirectories: true)
         let old = Date.now.addingTimeInterval(-15 * 60)
         for file in (try? manager.contentsOfDirectory(at: folder, includingPropertiesForKeys: [.creationDateKey])) ?? [] {
+            if inUse.contains(file.lastPathComponent) { continue }
             let created = (try? file.resourceValues(forKeys: [.creationDateKey]))?.creationDate ?? .distantPast
             if created < old { try? manager.removeItem(at: file) }
         }

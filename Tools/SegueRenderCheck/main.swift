@@ -8,7 +8,12 @@
 // - resampled, a high tone keeps its level (the filter is flat: no dull stretch to hear end);
 // - a deck's speed never changes in a step, the lanes' processing never jumps, and a mix of two sine
 //   tones has no click anywhere.
+// - written to a file from the songs' files, at gains other than 1 (as "Volume uniforme" gives): the
+//   file starts with the playing song at its gain, goes on after the mix with the next song at its
+//   gain to its very end, sample for sample (one file: nothing changes after the mix); a playing song
+//   that ends with the mix still renders; and a mix made the earlier way gets the song's rest too.
 // Run from the repository root: bash Tools/SegueRenderCheck/run.sh
+import AVFoundation
 import CoreAudio
 import Foundation
 
@@ -265,6 +270,147 @@ if let tones = render(smooth, audio(sine(220, seconds: seconds)), audio(sine(330
     }
     let bound = Float(1.6 * 2 * Double.pi * (220 * 0.8 + 330 * 0.9) * 1.06 * 0.4 / rate)
     expect(largest <= bound, "no click from start to end (largest step \(format(Double(largest), 4)) at \(format(Double(at) / rate, 3)) s, bound \(format(Double(bound), 4)))")
+}
+
+// MARK: Files
+
+final class Box<T>: @unchecked Sendable { var value: Result<T, Error>? }
+
+/// Runs `body` (it reads and writes files with AVFoundation's async calls) and waits for it.
+func blocking<T>(_ body: @escaping @Sendable () async throws -> T) -> Result<T, Error> {
+    let box = Box<T>()
+    let done = DispatchSemaphore(value: 0)
+    Task.detached {
+        do { box.value = .success(try await body()) } catch { box.value = .failure(error) }
+        done.signal()
+    }
+    done.wait()
+    return box.value ?? .failure(CancellationError())
+}
+
+/// A stereo 16-bit file of `samples` (both channels) at the check's rate.
+func writeSong(_ samples: [Float], _ name: String) -> URL {
+    let url = FileManager.default.temporaryDirectory.appending(path: "segue-render-check-\(UUID().uuidString)-\(name).caf")
+    do {
+        let file = try AVAudioFile(forWriting: url, settings: [
+            AVFormatIDKey: kAudioFormatLinearPCM, AVSampleRateKey: rate, AVNumberOfChannelsKey: 2, AVLinearPCMBitDepthKey: 16,
+            AVLinearPCMIsFloatKey: false, AVLinearPCMIsBigEndianKey: false, AVLinearPCMIsNonInterleaved: false,
+        ], commonFormat: .pcmFormatFloat32, interleaved: false)
+        let format = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: rate, channels: 2, interleaved: false)!
+        let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(samples.count))!
+        buffer.frameLength = AVAudioFrameCount(samples.count)
+        samples.withUnsafeBufferPointer {
+            buffer.floatChannelData![0].update(from: $0.baseAddress!, count: samples.count)
+            buffer.floatChannelData![1].update(from: $0.baseAddress!, count: samples.count)
+        }
+        try file.write(from: buffer)
+    } catch {
+        expect(false, "a test song is written (\(error))")
+    }
+    return url
+}
+
+/// A file's left channel, as float.
+func readLeft(_ url: URL) -> [Float] {
+    guard let file = try? AVAudioFile(forReading: url, commonFormat: .pcmFormatFloat32, interleaved: false),
+          let buffer = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: AVAudioFrameCount(file.length)),
+          (try? file.read(into: buffer)) != nil, let channels = buffer.floatChannelData else { return [] }
+    return Array(UnsafeBufferPointer(start: channels[0], count: Int(buffer.frameLength)))
+}
+
+/// 16-bit steps: what a sample may differ by once written and read back (twice, for a source that
+/// was a 16-bit file itself and is scaled).
+let quantum: Float = 2.5 / 32768
+
+/// The largest difference between `mixed` from frame `at` and `song` (at `gain`) from frame `from`,
+/// over `count` frames (fewer when either ends), and how many were compared.
+func difference(_ mixed: [Float], at: Int, _ song: [Float], from: Int, gain: Float, count: Int = .max) -> (worst: Float, compared: Int) {
+    var worst: Float = 0
+    var k = 0
+    while k < count, at + k >= 0, from + k >= 0, at + k < mixed.count, from + k < song.count {
+        worst = max(worst, abs(mixed[at + k] - song[from + k] * gain))
+        k += 1
+    }
+    return (worst, k)
+}
+
+/// Where `song` really is at `mixed`'s frame `at`: `near`, or a frame either side of it (a time in
+/// seconds turned into a frame may round either way). The frame that fits best over a tenth of a second.
+func place(_ mixed: [Float], at: Int, _ song: [Float], near: Int, gain: Float) -> Int {
+    [near, near - 1, near + 1].min { a, b in
+        difference(mixed, at: at, song, from: a, gain: gain, count: Int(0.1 * rate)).worst
+            < difference(mixed, at: at, song, from: b, gain: gain, count: Int(0.1 * rate)).worst
+    } ?? near
+}
+
+do {
+    let fileA = writeSong(songA, "a"), fileB = writeSong(songB, "b")
+    let gainA: Float = 0.5, gainB: Float = 0.7
+    let out = FileManager.default.temporaryDirectory.appending(path: "segue-render-check-\(UUID().uuidString)-mix.caf")
+    // The songs as their files hold them (16-bit).
+    let heldA = readLeft(fileA), heldB = readLeft(fileB)
+    switch blocking({ try await SegueRender.render(plan, outgoing: fileA, incoming: fileB, outgoingGain: gainA, incomingGain: gainB, to: out) }) {
+    case .failure(let error):
+        expect(false, "the mix renders to a file (\(error))")
+    case .success(let result):
+        let mixed = readLeft(out)
+        let mixFrames = Int((result.length * rate).rounded())
+        let joinFrame = Int((result.join * rate).rounded())
+        let firstFrame = Int((result.handover * rate).rounded())
+        expect(result.headDifference == 0 && result.tailDifference == 0 && result.restDifference == 0,
+               "from files, at gains \(gainA) and \(gainB): exact at the start, the end and the song's rest (\(result.headDifference), \(result.tailDifference), \(result.restDifference))")
+        let headPlace = place(mixed, at: 0, heldA, near: firstFrame, gain: gainA)
+        let head = difference(mixed, at: 0, heldA, from: headPlace, gain: gainA, count: Int(0.3 * rate))
+        expect(head.worst <= quantum && head.compared == Int(0.3 * rate),
+               "it starts with the playing song at its gain (largest difference \(head.worst))")
+        let joinPlace = place(mixed, at: mixFrames, heldB, near: joinFrame, gain: gainB)
+        let rest = difference(mixed, at: mixFrames, heldB, from: joinPlace, gain: gainB)
+        expect(rest.compared > Int(30 * rate) && rest.worst <= quantum,
+               "after the mix it is the next song at its gain, sample for sample (\(rest.compared) frames, largest difference \(rest.worst))")
+        expect(abs(mixed.count - (mixFrames + heldB.count - joinPlace)) <= 2,
+               "to the song's very end (\(mixed.count) frames; \(mixFrames + heldB.count - joinPlace) expected)")
+        // The level doesn't move where the mix ends: half a second each side of it, against the song's own.
+        func level(_ x: ArraySlice<Float>) -> Double { (x.reduce(0.0) { $0 + Double($1 * $1) } / Double(max(1, x.count))).squareRoot() }
+        let half = Int(0.5 * rate)
+        if mixFrames > half, mixFrames + half < mixed.count, joinPlace > half, joinPlace + half < heldB.count {
+            let before = level(mixed[(mixFrames - half)..<mixFrames]) / max(1e-9, level(heldB[(joinPlace - half)..<joinPlace]) * Double(gainB))
+            let after = level(mixed[mixFrames..<(mixFrames + half)]) / max(1e-9, level(heldB[joinPlace..<(joinPlace + half)]) * Double(gainB))
+            expect(abs(20 * log10(before)) < 0.05 && abs(20 * log10(after)) < 0.05,
+                   "the level is the song's on both sides of the mix's end (\(format(20 * log10(before), 3)) and \(format(20 * log10(after), 3)) dB)")
+        }
+    }
+    // The playing song ends with the window (most mixes are at a song's end): it still renders.
+    let endsWithWindow = Array(songA.prefix(Int(plan.outgoingEnd * rate)))
+    let shortA = writeSong(endsWithWindow, "a-short")
+    let shortOut = FileManager.default.temporaryDirectory.appending(path: "segue-render-check-\(UUID().uuidString)-short.caf")
+    switch blocking({ try await SegueRender.render(plan, outgoing: shortA, incoming: fileB, outgoingGain: gainA, incomingGain: gainB, to: shortOut) }) {
+    case .failure(let error):
+        expect(false, "a playing song that ends with the mix renders (\(error))")
+    case .success(let result):
+        expect(result.headDifference == 0 && result.tailDifference == 0 && result.restDifference == 0,
+               "a playing song that ends with the mix renders, exact at both ends")
+    }
+    // A mix made the earlier way (here: two seconds of the next song at its gain, ending at 20 s of it)
+    // gets the song's rest: the whole is the song from 18 s to its end.
+    let join = 20.0, length = 2.0
+    let from = Int((join - length) * rate), to = Int(join * rate)
+    let earlier = writeSong(heldB[from..<to].map { $0 * gainB }, "earlier-mix")
+    let whole = FileManager.default.temporaryDirectory.appending(path: "segue-render-check-\(UUID().uuidString)-whole.caf")
+    switch blocking({ try await SegueRender.extend(mix: earlier, length: length, join: join, song: fileB, gain: gainB, to: whole) }) {
+    case .failure(let error):
+        expect(false, "an earlier mix gets the song's rest (\(error))")
+    case .success:
+        let all = readLeft(whole)
+        let overlap = Int(0.03 * rate)
+        // The mix's own part, then the song from where the two cross over (a frame either way).
+        let own = difference(all, at: 0, heldB, from: from, gain: gainB, count: to - from - overlap)
+        let after = place(all, at: to - from, heldB, near: to, gain: gainB)
+        let rest = difference(all, at: to - from, heldB, from: after, gain: gainB)
+        expect(own.worst <= quantum && rest.worst <= quantum && rest.compared > Int(30 * rate) && abs(after - to) <= 1,
+               "an earlier mix goes on with the song to its end in one file (largest differences \(own.worst) and \(rest.worst), \(rest.compared) frames after it)")
+        expect(abs(all.count - (heldB.count - from)) <= 2, "to the song's very end (\(all.count) frames, \(heldB.count - from) expected)")
+    }
+    for url in [fileA, fileB, out, shortA, shortOut, earlier, whole] { try? FileManager.default.removeItem(at: url) }
 }
 
 if failures > 0 {

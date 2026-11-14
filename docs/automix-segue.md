@@ -5,8 +5,9 @@ the apps, on the account page and in the README, while their tuning is confirmed
 more devices and genres.
 
 On iPhone, iPad and Mac, AutoMix plans a transition with its Segue engine and plays it ahead into a
-file (`SegueRender`), both songs' tempos gliding, never in a step; playing it live on two players in
-step (`SegueSession`) is the fallback when that can't be done. The engine is in `Seaglass/Player/Segue/`. It is Seaglass's own code,
+file (`SegueRender`), both songs' tempos gliding, never in a step; when that can't be done, the
+earlier way's rendered mix is made instead (playing it live on two players, `SegueSession`, is no
+longer done: its steps were heard). The engine is in `Seaglass/Player/Segue/`. It is Seaglass's own code,
 written after the behaviour of the "Segue" engine of Myspoti (kota-zo/myspoti, GPL-3.0). None of
 Myspoti's code is used or translated, so Seaglass keeps its own licence. This page describes what
 the engine does, where it differs from Segue and what still needs listening on real devices.
@@ -173,7 +174,15 @@ file instead, sample by sample:
    its seam, the audio mix's volume ramps not being held, and its two parts' starts could be heard.
    The file comes in through its own deck (silent until the crossover, then in over it), the playing
    song goes out through the deck its audio goes through at that moment: neither uses the audio
-   mix's volume.
+   mix's volume. The playing song's fade is armed four seconds ahead: its audio is processed ahead
+   of what is heard (half a second and more), and a fade armed as the take-over was set came after
+   the sound it was meant for (the song played on, doubled with the file, for a fifth of a second).
+   Its player's volume goes to zero right after the crossover in any case. Where the second decoding
+   takes over from the first (the mix's last frames) the two cross over in 50 ms: the same samples
+   from a lossless file, nearly so from a lossy one decoded from elsewhere.
+
+A mix made the earlier way (`AutoMixRenderer`) is played as one file too: `SegueRender.extend` adds
+the rest of the song to it, its last 30 ms crossing over into the song's samples.
 4. A speed is a resampling with a 64-tap windowed sinc (Kaiser), flat to about 20 kHz and exact on a
    whole frame, so the song sounds as its own through and after the mix (a cubic filter dulled the
    top octave by a few decibels while it resampled, heard as the song's own sound coming back when
@@ -185,10 +194,12 @@ largest change of a song's speed from one frame to the next, and the decks' jump
 isn't exact at both ends isn't played. A song brought in this way is handed on from its own file
 (after the join), where the next file can take over on its very samples.
 
-## Played live (the fallback)
+## Played live (no longer used)
 
-When a transition can't be played ahead (a file can't be read, the playing song isn't at its own
-speed), `SegueSession` runs it live:
+When a transition can't be played ahead (a file can't be read), the earlier way's mix is rendered
+instead (`AutoMixRenderer`, one file too). Until 1.36.9 `SegueSession` ran it live, as below; its
+steps in tempo and its change of player after the mix were heard, so no mix is played live now. The
+session's code is kept:
 
 1. 15 seconds before the window, the next song is loaded on a second player, its deck armed and
    prerolled. It keeps the app's way of changing speed (Tempo's key lock: Apple's spectral
