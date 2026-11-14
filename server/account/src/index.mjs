@@ -3,12 +3,14 @@ import {
   requestPasswordReset, requestVerification, resetPassword, startLogin, verifyEmail,
 } from "./auth.mjs";
 import { HttpError, json, readJson, respond, unix } from "./http.mjs";
+import { artistEvents } from "./events.mjs";
 import { disconnectPatreon, finishPatreon, patreonConfigured, patreonWebhook, startPatreon, membership } from "./patreon.mjs";
 import { pullLibrary, pullSync, writeSync } from "./sync.mjs";
 
 // Seaglass's account service: sign-in for the app and the account page, the library and
 // preferences the app syncs, and Seaglass Premium (a Patreon membership). Everything about the
 // account is managed on the page (as on Spotify): the app only signs in, shows it and signs out.
+// It also looks up artists' concerts for the classic player (events.mjs), signed in or not.
 
 const recordPath = /^\/v1\/sync\/(profile|playlist|history|favorites|preferences|library)\/([a-z0-9-]+)$/;
 const authenticated = new Set([
@@ -75,7 +77,7 @@ async function accountOverview(env, session) {
   });
 }
 
-async function route(request, env) {
+async function route(request, env, context) {
   const url = new URL(request.url);
   const path = request.method + " " + url.pathname;
   if (path === "GET /health") return json({ status: "ok" });
@@ -105,6 +107,7 @@ async function route(request, env) {
       return finishPatreon(url, env, session?.accountId ?? null);
     }
     case "POST /v1/patreon/webhook": return patreonWebhook(request, env);
+    case "GET /v1/events": return artistEvents(request, url, env, context);
   }
   const syncMatch = request.method === "PUT" ? recordPath.exec(url.pathname) : null;
   if (!syncMatch && !authenticated.has(path)) throw new HttpError(404, "not_found");
@@ -145,9 +148,9 @@ async function route(request, env) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, context) {
     try {
-      return await route(request, env);
+      return await route(request, env, context);
     } catch (error) {
       if (error instanceof HttpError) return json({ error: error.code }, error.status);
       console.error(error);

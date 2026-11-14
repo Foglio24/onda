@@ -26,9 +26,10 @@
       "migrations_dir": "migrations"
     }
   ],
-  // Sign-in, sign-up and password requests, per IP address.
+  // Sign-in, sign-up and password requests, and concerts not yet cached (events.mjs), per IP address.
   "ratelimits": [
-    { "name": "AUTH_RATE_LIMITER", "namespace_id": "2401", "simple": { "limit": 20, "period": 60 } }
+    { "name": "AUTH_RATE_LIMITER", "namespace_id": "2401", "simple": { "limit": 20, "period": 60 } },
+    { "name": "EVENTS_RATE_LIMITER", "namespace_id": "2402", "simple": { "limit": 30, "period": 60 } }
   ],
   // Expired sign-ins, codes, sessions and links are cleared once a day.
   "triggers": { "crons": ["17 3 * * *"] },

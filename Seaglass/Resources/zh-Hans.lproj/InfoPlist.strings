@@ -1,2 +1,5 @@
 /* Microphone permission for song recognition. */
 "NSMicrophoneUsageDescription" = "Seaglass 仅在你识别歌曲时使用麦克风。发送至 Shazam 的是音频指纹，而非录音。";
+
+/* Location permission for concerts near you under the classic player. */
+"NSLocationWhenInUseUsageDescription" = "Seaglass 仅使用你的大致位置在播放器下方显示你附近的演出。位置信息保留在你的设备上，不会发送给任何人。";

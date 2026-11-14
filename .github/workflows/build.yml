@@ -63,6 +63,7 @@ jobs:
           bash Tools/RecognitionCheck/run.sh
           bash Tools/EqualizerCheck/run.sh
           bash Tools/SongDetailsCheck/run.sh
+          bash Tools/LiveEventsCheck/run.sh
           bash Tools/EnergyCheck/run.sh
           bash Tools/AudioWorkCheck/run.sh
           bash Tools/StartupMetricsCheck/run.sh

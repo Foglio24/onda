@@ -1,2 +1,5 @@
 /* Microphone permission for song recognition. */
 "NSMicrophoneUsageDescription" = "Seaglass uses the microphone only when you identify a song. An audio fingerprint, rather than the recording, is sent to Shazam.";
+
+/* Location permission for concerts near you under the classic player. */
+"NSLocationWhenInUseUsageDescription" = "Seaglass uses your approximate location only to show you concerts near you under the player. It stays on your device and isn't sent to anyone.";

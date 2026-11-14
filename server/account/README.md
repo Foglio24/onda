@@ -13,6 +13,11 @@ A Cloudflare Worker with a D1 database. It gives Seaglass accounts, as Spotify d
   Premium. In the app it unlocks AutoMix and playlist Mixes (both beta features), importing playlists from
   links, song recognition, lyrics translation, AI karaoke and Tempo. The app locks them only when the service says Premium can be
   bought (`premiumEnabled` in `/v1/status`: Patreon set up, with `PATREON_URL`).
+- **Concerts** (`/v1/events?artist=…`, signed in or not): an artist's upcoming concerts for the
+  classic player's "Eventi dal vivo", from Ticketmaster's Discovery API with the service's key.
+  Only the artist's name comes in (the app works out which concerts are near on the device), the
+  answer is kept at Cloudflare's edge for six hours, and lookups that miss it are limited to 30 a
+  minute per address.
 
 ## Layout
 
@@ -22,6 +27,7 @@ A Cloudflare Worker with a D1 database. It gives Seaglass accounts, as Spotify d
 | `src/auth.mjs` | Accounts, passwords (PBKDF2), sessions, the app's sign-in (a code exchanged with a verifier, as PKCE) |
 | `src/sync.mjs` | Synced records, with revisions: a stale write gets `409` and the current record |
 | `src/patreon.mjs` | Patreon's OAuth link and its signed webhook |
+| `src/events.mjs` | An artist's concerts, from Ticketmaster |
 | `public/` | The account page (Italian and English) |
 | `migrations/` | The D1 schema |
 | `scripts/cloudflare.mjs` | Finds the domain and the database for the deploy workflow and the app's build |
@@ -101,6 +107,13 @@ database, for example with `npx wrangler d1 execute DB --remote -c wrangler.depl
 ### 4. Support
 
 `SUPPORT_EMAIL` in `wrangler.jsonc` is the address the page and the app give for help.
+
+### 5. Concerts (optional: without it the classic player shows no "Eventi dal vivo")
+
+1. Sign up at [developer.ticketmaster.com](https://developer.ticketmaster.com) (free) and open
+   My Apps: the app it made has a "Consumer Key".
+2. Add it to GitHub as the secret `TICKETMASTER_API_KEY` and run the "Account service" workflow
+   again. The key stays a Worker secret: the app never sees it.
 
 ## Security
 

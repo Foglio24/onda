@@ -67,6 +67,19 @@ expect(mastering?.title != "Mastering Engineer", "known roles are translated: \(
 let combined = details.credits.first { $0.role == "Producer, Synthesizer" }?.title ?? ""
 expect(combined.contains(", ") && combined != "Producer, Synthesizer", "combined roles translated part by part: \(combined)")
 
+// "Riconoscimenti" under the classic player: by person, the song's artists first.
+let people = details.people(artists: ["Daft Punk"])
+expect(people.map(\.name) == ["Daft Punk", "Guy-Manuel de Homem-Christo", "Nilesh Patel", "Romanthony", "Thomas Bangalter",
+                               "Anthony Moore"], "credits by person, artists first: \(people.map(\.name))")
+expect(people.first?.roles == [String(localized: "Artista principale")], "the artist is the main artist: \(people.first?.roles ?? [])")
+let guy = people.first { $0.name == "Guy-Manuel de Homem-Christo" }?.roles ?? []
+expect(guy.count == 4 && guy.first == "Drum Machine Drums" && guy.last == String(localized: "Autore"),
+       "each of a person's roles once, combined ones split: \(guy)")
+let merged = details.people(artists: ["thomas bangalter"])
+expect(merged.first?.roles.count == 4 && merged.filter { $0.name.lowercased() == "thomas bangalter" }.count == 1,
+       "an artist also in the credits is listed once: \(merged.first?.roles ?? [])")
+expect(SongDetails().people(artists: ["A", "B"]).map(\.name) == ["A", "B"], "a song without credits lists its artists")
+
 var video = SongDetails()
 video.read(description: "The official video for \"Never Gonna Give You Up\".\n\nFollow Rick.")
 expect(video.label == nil && video.credits.isEmpty, "an ordinary video has no catalogue data")

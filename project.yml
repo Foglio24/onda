@@ -14,8 +14,8 @@ settings:
   base:
     SWIFT_VERSION: "5.0"
     SWIFT_STRICT_CONCURRENCY: minimal
-    MARKETING_VERSION: "1.36.10"
-    CURRENT_PROJECT_VERSION: "89"
+    MARKETING_VERSION: "1.36.11"
+    CURRENT_PROJECT_VERSION: "90"
     # Lists the localizable strings of each Swift file, for Tools/check_localization.py.
     SWIFT_EMIT_LOC_STRINGS: YES
 
@@ -76,6 +76,9 @@ targets:
         UIBackgroundModes:
           - audio
         NSMicrophoneUsageDescription: "Seaglass usa il microfono solo quando riconosci un brano. A Shazam viene inviata un’impronta audio, non la registrazione."
+        # Asked only from the classic player's "Eventi dal vivo"; approximate by default, as it's all that's needed.
+        NSLocationWhenInUseUsageDescription: "Seaglass usa la tua posizione approssimativa solo per mostrarti i concerti vicino a te sotto il player. Resta sul dispositivo: non viene inviata a nessuno."
+        NSLocationDefaultAccuracyReduced: true
         # Shows Documents in the Files app (Sul mio iPhone › Seaglass), where app updates are saved.
         UIFileSharingEnabled: true
         LSSupportsOpeningDocumentsInPlace: true

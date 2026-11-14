@@ -34,6 +34,8 @@ struct ArtistPage {
     /// The playlist with all of the artist's songs ("Tutti i brani").
     let songsPlaylistID: String?
     let shelves: [MusicShelf]
+    /// "399 Mln ascoltatori mensili", as YouTube Music writes it in the app's language.
+    var monthlyListeners: String? = nil
 }
 
 struct AlbumPage {
@@ -140,6 +142,20 @@ extension InnerTube {
         return (exact ?? artists.first)?.id
     }
 
+    /// A song's artist: its channel's page, else (a song's channel isn't always an artist page, and
+    /// songs from Last.fm have none) the page found by its name.
+    func artist(id: String?, name: String) async throws -> ArtistPage {
+        if let id {
+            do {
+                return try await artist(id)
+            } catch where !name.isEmpty {
+                // Looked up by name below.
+            }
+        }
+        guard let browseId = try await artistID(named: name), browseId != id else { throw InnerTubeError.notFound }
+        return try await artist(browseId)
+    }
+
     func artist(_ browseId: String) async throws -> ArtistPage {
         let json = try await post("browse", ["browseId": browseId])
         let header = ["musicImmersiveHeaderRenderer", "musicVisualHeaderRenderer", "musicResponsiveHeaderRenderer"]
@@ -167,7 +183,8 @@ extension InnerTube {
         return ArtistPage(name: Self.text(header["title"]) ?? "",
                           artworkURL: Self.thumbnail(in: header["thumbnail"]),
                           about: Self.text(header["description"]),
-                          topSongs: topSongs, songsPlaylistID: songsPlaylistID, shelves: shelves)
+                          topSongs: topSongs, songsPlaylistID: songsPlaylistID, shelves: shelves,
+                          monthlyListeners: Self.text(header["monthlyListenerCount"]))
     }
 
     func album(_ browseId: String) async throws -> AlbumPage {

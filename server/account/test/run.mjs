@@ -1,8 +1,9 @@
 // The account service end to end, on a local copy of the Worker and its database (Miniflare,
 // through Wrangler): signing up (confirming the address) and in from the page and from the app,
 // syncing, the profile, Patreon's webhook, changing and resetting the password, signing out and
-// deleting the account. Emails go to a stand-in for Resend's API on this machine.
-// Run with `npm test` from server/account. Nothing here reaches Cloudflare, Patreon or Resend.
+// deleting the account, and an artist's concerts. Emails go to a stand-in for Resend's API on this
+// machine, concerts come from a stand-in for Ticketmaster's.
+// Run with `npm test` from server/account. Nothing here reaches Cloudflare, Patreon, Resend or Ticketmaster.
 
 import { execFileSync } from "node:child_process";
 import { createHash, createHmac, randomBytes, randomUUID } from "node:crypto";
@@ -40,6 +41,43 @@ const resend = createServer((request, response) => {
   });
 });
 await new Promise((resolve) => resend.listen(0, "127.0.0.1", resolve));
+// Ticketmaster's Discovery API, as far as the Worker can tell: one artist with three concerts (one
+// cancelled, one without a ticket link), a tribute band with the same word in its name, and an
+// artist whose lookups fail. `ticketmasterCalls` counts what reached it.
+let ticketmasterCalls = 0;
+const venue = (city, latitude, longitude) => ({
+  name: `${city} Arena`, city: { name: city }, country: { countryCode: "IT" }, location: { latitude, longitude },
+});
+const concerts = [
+  { id: "e1", name: "Coldplay", url: "https://www.ticketmaster.it/event/e1", dates: { start: { localDate: "2027-06-12", localTime: "21:00:00" }, status: { code: "onsale" } },
+    _embedded: { venues: [venue("Milano", "45.4642", "9.19")] } },
+  { id: "e2", name: "Coldplay", url: "https://www.ticketmaster.it/event/e2", dates: { start: { localDate: "2027-06-15" }, status: { code: "cancelled" } },
+    _embedded: { venues: [venue("Roma", "41.9028", "12.4964")] } },
+  { id: "e3", name: "Coldplay", url: "http://example.com/e3", dates: { start: { localDate: "2027-06-18" }, status: { code: "onsale" } } },
+  { id: "e4", name: "Coldplay", url: "https://www.ticketmaster.de/event/e4", dates: { start: { localDate: "2027-07-01" }, status: { code: "postponed" } },
+    _embedded: { venues: [{ name: "Olympiastadion", city: { name: "Berlin" }, country: { countryCode: "DE" }, location: { latitude: "x" } }] } },
+];
+const ticketmaster = createServer((request, response) => {
+  ticketmasterCalls += 1;
+  const url = new URL(request.url, "http://127.0.0.1");
+  let body = {};
+  let status = url.searchParams.get("apikey") === "test-ticketmaster" ? 200 : 401;
+  if (url.searchParams.get("keyword") === "Broken") status = 500;
+  if (status === 200 && url.pathname === "/discovery/v2/attractions.json") {
+    const keyword = url.searchParams.get("keyword");
+    body = keyword === "Coldplay"
+      ? { _embedded: { attractions: [
+        { id: "tribute", name: "Coldplay Tribute", upcomingEvents: { _total: 40 } },
+        { id: "K1", name: "Coldplay", upcomingEvents: { _total: 4 } },
+      ] } }
+      : {};
+  } else if (status === 200 && url.pathname === "/discovery/v2/events.json") {
+    body = url.searchParams.get("attractionId") === "K1" ? { _embedded: { events: concerts } } : {};
+  }
+  response.writeHead(status, { "Content-Type": "application/json" });
+  response.end(JSON.stringify(body));
+});
+await new Promise((resolve) => ticketmaster.listen(0, "127.0.0.1", resolve));
 process.env.NO_PROXY = [process.env.NO_PROXY, "127.0.0.1", "localhost"].filter(Boolean).join(",");
 const lastEmail = () => emails.at(-1);
 
@@ -55,6 +93,8 @@ const worker = await unstable_startWorker({
     RESEND_ENDPOINT: { type: "plain_text", value: `http://127.0.0.1:${resend.address().port}/emails` },
     AUTH_EMAIL_FROM: { type: "plain_text", value: "Seaglass <no-reply@seaglass.test>" },
     AUTH_EMAIL_READY: { type: "plain_text", value: "true" },
+    TICKETMASTER_API_KEY: { type: "plain_text", value: "test-ticketmaster" },
+    TICKETMASTER_ENDPOINT: { type: "plain_text", value: `http://127.0.0.1:${ticketmaster.address().port}/discovery/v2` },
   },
   dev: { persist: state, server: { port: 0, secure: true }, inspector: false, logLevel: "error" },
 });
@@ -107,6 +147,30 @@ try {
   check(response.status === 200 && response.headers.get("Content-Security-Policy"), "script served");
   response = await call("GET", "/wrangler.jsonc");
   check(response.status === 404, "only the page's files are served", response.status);
+
+  // An artist's concerts, signed in or not: only that artist's (not the tribute band's), without the
+  // cancelled one or one whose tickets aren't on HTTPS; then the same answer from the edge's cache.
+  response = await call("GET", "/v1/events?artist=");
+  check(response.status === 400, "concerts need an artist", response.status);
+  response = await call("GET", "/v1/events?artist=" + "x".repeat(101));
+  check(response.status === 400, "an artist's name has a limit", response.status);
+  response = await call("GET", "/v1/events?artist=Coldplay");
+  const shows = response.data?.events ?? [];
+  check(response.status === 200 && response.data.enabled === true && shows.map((show) => show.id).join() === "e1,e4",
+    "concerts", response.data);
+  check(shows[0]?.city === "Milano" && shows[0].country === "IT" && shows[0].latitude === 45.4642 && shows[0].longitude === 9.19 &&
+    shows[0].time === "21:00" && shows[0].date === "2027-06-12" && shows[0].postponed === false, "a concert's details", shows[0]);
+  check(shows[1]?.latitude === null && shows[1].longitude === null && shows[1].postponed === true && shows[1].time === null,
+    "a postponed concert without a place on the map", shows[1]);
+  check(!JSON.stringify(response.data).includes("test-ticketmaster"), "the key isn't passed on");
+  const callsBefore = ticketmasterCalls;
+  response = await call("GET", "/v1/events?artist=COLDPLAY");
+  check(response.status === 200 && response.data.events?.length === 2 && ticketmasterCalls === callsBefore,
+    "concerts from the cache", [ticketmasterCalls, callsBefore, response.data]);
+  response = await call("GET", "/v1/events?artist=Nobody%20Here");
+  check(response.status === 200 && response.data.events?.length === 0, "an artist without concerts", response.data);
+  response = await call("GET", "/v1/events?artist=Broken");
+  check(response.status === 502 && response.data.error === "events_unavailable", "Ticketmaster failing", response.data);
 
   // Signing up on the page, confirming the address from the email, then signing in.
   const email = `test-${randomUUID().slice(0, 8)}@example.com`;
@@ -336,6 +400,7 @@ try {
 } finally {
   await worker.dispose();
   resend.close();
+  ticketmaster.close();
   rmSync(state, { recursive: true, force: true });
 }
 

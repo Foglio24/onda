@@ -450,8 +450,9 @@ final class AccountService: ObservableObject {
         var token: String
     }
 
-    /// Its own session: nothing cached or kept in cookies, and bounded waits.
-    private static let session: URLSession = {
+    /// Its own session: nothing cached or kept in cookies, and bounded waits. The classic player's
+    /// concerts (`LiveEvents`) go through it too.
+    static let session: URLSession = {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.timeoutIntervalForRequest = 20
         configuration.timeoutIntervalForResource = 90

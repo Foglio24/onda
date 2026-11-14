@@ -43,8 +43,10 @@ Out of scope:
   - Spotify's and Apple Music's public pages (`open.spotify.com`, `music.apple.com` and their
     short links), when the user imports a playlist from a link;
   - the GitHub API, to check for updates;
-  - the Seaglass account service (`account.<domain>`, set at build time), only when the user
-    signs in.
+  - the Seaglass account service (`account.<domain>`, set at build time), when the user
+    signs in; and, signed in or not, for the concerts under the classic player, to which only
+    the artist's name is sent (the service asks Ticketmaster with its own key, which the app
+    never has).
   - Shazam (`amp.shazam.com`), only when the user starts song recognition on iPhone, iPad or
     Mac. Only a locally generated audio fingerprint is sent, not the recorded audio. Artwork
     and optional catalog links in the response are accepted only over HTTPS.
@@ -67,6 +69,10 @@ Out of scope:
   picked into it, which the user can delete in Files. The songs' names, tags and covers aren't sent anywhere or
   synced to the account, and the apps make no request to YouTube Music for them. As for any song
   played, the title and artist go to LRCLIB for lyrics, and to Last.fm when the user connected it.
+- **Concerts near you.** The classic player asks for the device's location only after a tap on
+  "Mostra gli eventi vicino a te": when in use, approximate by default. The position stays in
+  memory on the device, where the artist's concerts are compared with it; it is never sent,
+  stored or logged. A concert opens its ticket page in the browser.
 - **Lyrics translation.** It runs on the device: Apple's Translation framework on iOS, ML Kit on
   Android.
 - **Song recognition.** The microphone is requested only after a tap on the recognition control.
@@ -166,7 +172,9 @@ folder. For example, a YouTube video ID matches `[A-Za-z0-9_-]{11}`.
   finishes in the browser, signed in to the account, that started it.
 - Deleting the account deletes everything synced with it at once. Sync never deletes anything
   on a device except what the user deleted on another device (see `LibraryMerge`).
-- Cloudflare and Patreon credentials are GitHub secrets, given to the deploy steps that use them.
+- Cloudflare, Patreon and Ticketmaster credentials are GitHub secrets, given to the deploy steps
+  that use them. Ticketmaster's key stays a Worker secret: the concerts lookup takes only an
+  artist's name, never a location, and never passes the key on.
 
 ### iOS files
 

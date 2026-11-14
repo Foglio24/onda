@@ -148,14 +148,46 @@ struct SongDetails: Sendable, Equatable {
     }
 }
 
+extension SongDetails {
+    /// Someone in the credits with everything they did, as the classic player's "Riconoscimenti" lists them.
+    struct Person: Hashable, Sendable {
+        let name: String
+        /// In the app's language: "Artista principale", "Produttore"…
+        var roles: [String]
+    }
+
+    /// The credits by person: the song's artists first (as "Artista principale"), then the others
+    /// in YouTube's order, each once (whatever the case of the name) with all their roles once.
+    func people(artists: [String]) -> [Person] {
+        var people: [Person] = []
+        func add(_ name: String, _ roles: [String]) {
+            let name = name.trimmingCharacters(in: .whitespaces)
+            guard !name.isEmpty else { return }
+            if let index = people.firstIndex(where: { $0.name.caseInsensitiveCompare(name) == .orderedSame }) {
+                for role in roles where !people[index].roles.contains(role) { people[index].roles.append(role) }
+            } else {
+                people.append(Person(name: name, roles: roles))
+            }
+        }
+        let main = String(localized: "Artista principale")
+        for artist in artists { add(artist, [main]) }
+        for credit in credits {
+            for name in credit.names { add(name, credit.titles) }
+        }
+        return people
+    }
+}
+
 extension SongDetails.Credit {
     /// The role in the app's language. Combined roles ("Producer, Synthesizer") are translated
     /// part by part; uncommon ones stay as YouTube writes them.
-    var title: String {
-        if let known = Self.translate(role) { return known }
-        let parts = role.components(separatedBy: ", ")
-        guard parts.count > 1 else { return role }
-        return parts.map { Self.translate($0) ?? $0 }.joined(separator: ", ")
+    var title: String { titles.joined(separator: ", ") }
+
+    /// The role's parts in the app's language: "Producer, Synthesizer" is two, "Composer, Lyricist"
+    /// (said as one) is one.
+    var titles: [String] {
+        if let known = Self.translate(role) { return [known] }
+        return role.components(separatedBy: ", ").filter { !$0.isEmpty }.map { Self.translate($0) ?? $0 }
     }
 
     private static func translate(_ role: String) -> String? {

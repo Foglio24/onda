@@ -839,3 +839,16 @@
 "Preparazione del karaoke" = "カラオケを準備中";
 "La voce viene separata dalla musica" = "ボーカルを伴奏から分離しています";
 "mix preparato" = "準備済みミックス";
+"Informazioni sull'artista" = "アーティストについて";
+"mostra altro" = "もっと見る";
+"mostra meno" = "閉じる";
+"Eventi dal vivo" = "ライブイベント";
+"Vicino a te" = "近くのイベント";
+"1 evento" = "1件のイベント";
+"%lld eventi" = "%lld件のイベント";
+"Trova biglietti" = "チケットを探す";
+"Mostra gli eventi vicino a te" = "近くのイベントを表示";
+"Riconoscimenti" = "クレジット";
+"Tutte le date" = "すべての日程";
+"Date e biglietti da Ticketmaster." = "日程とチケットは Ticketmaster から。";
+"Rinviato" = "延期";

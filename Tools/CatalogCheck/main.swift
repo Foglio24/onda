@@ -41,6 +41,10 @@ do {
     expect(artist.name == "Daft Punk", "artist page name: \(artist.name)")
     expect(artist.topSongs.count >= 3, "artist top songs: \(artist.topSongs.map(\.title))")
     expect(artist.artworkURL != nil, "artist picture")
+    expect(artist.monthlyListeners.map { $0.contains(where: \.isNumber) } == true,
+           "monthly listeners: \(artist.monthlyListeners ?? "none")")
+    let byName = try await tube.artist(id: "UCnot-an-artist-page-000", name: "Daft Punk")
+    expect(byName.name == "Daft Punk", "a song's artist found by name when its channel isn't a page: \(byName.name)")
     expect(artist.shelves.contains { $0.items.contains { $0.kind == .album } }, "artist albums: \(artist.shelves.map(\.title))")
 
     let albumID = catalog.albums.first?.id ?? "MPREb_ePmUY37w4pZ"

@@ -186,7 +186,8 @@ struct NowPlayingView: View {
     }
 
     /// Classic full player, laid out as the common streaming apps': the header stays at the top and
-    /// the player under it fills the screen, scrolling down to the lyrics' preview and the next songs;
+    /// the player under it fills the screen, scrolling down to the lyrics' preview, the next songs,
+    /// the artist, their concerts and the credits (`ClassicSongCards`);
     /// the lyrics open full screen on the cover's colour, the queue in a sheet. Dragged down anywhere
     /// while at its top, the player follows the finger and shrinks into the mini player.
     @ViewBuilder private var classicStackedLayout: some View {
@@ -206,6 +207,8 @@ struct NowPlayingView: View {
                                 .frame(height: geometry.size.height)
                             if !isEpisode { classicLyricsCard }
                             classicUpNextCard
+                            // The artist, their concerts and the song's credits, as the streaming apps.
+                            if !isEpisode, let track = player.current { ClassicSongCards(track: track) }
                         }
                         .padding(.bottom, 24)
                     }

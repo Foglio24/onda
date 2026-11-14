@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.36.11 (2026-11-14)
+
+### Added
+- **Under the classic player, as on Spotify** (iPhone and iPad; scroll down past the next songs):
+  - **Informazioni sull'artista**: the artist's photo, name and monthly listeners (as YouTube Music counts them), and the biography, three lines of it with *mostra altro*. **Vai all'artista** opens their page (Seaglass has no following of artists, so it takes the place of Spotify's *Segui*).
+  - **Eventi dal vivo**: the artist's upcoming concerts, how many and from when to when, and **Trova biglietti** with every date, its venue and its distance, a tap from its ticket page. They come from Ticketmaster through Seaglass's account service (signed in or not), which receives only the artist's name. **Mostra gli eventi vicino a te** asks once for the iPhone's approximate position: then the card shows the concerts within about 300 km, else those in your country (from the iPhone's region), else all of them. The position stays on the iPhone, in memory: the concerts are compared with it there.
+  - **Riconoscimenti**: who made the song, each person once with all their roles (*Artista principale • Produttore • …*), from the credits the label sent to YouTube Music; the song's artists open their page, **Mostra tutto** opens Informazioni sul brano.
+- The concerts need a Ticketmaster key on the account service (the `TICKETMASTER_API_KEY` secret, see `server/account/README.md`); until it is there the card doesn't show.
+
 ## 1.36.10 (2026-11-14)
 
 ### Fixed

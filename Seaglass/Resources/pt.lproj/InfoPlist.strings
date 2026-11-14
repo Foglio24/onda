@@ -1,2 +1,5 @@
 /* Microphone permission for song recognition. */
 "NSMicrophoneUsageDescription" = "O Seaglass usa o microfone apenas quando você identifica uma música. Uma impressão digital de áudio é enviada ao Shazam, não a gravação.";
+
+/* Location permission for concerts near you under the classic player. */
+"NSLocationWhenInUseUsageDescription" = "O Seaglass usa sua localização aproximada apenas para mostrar shows perto de você abaixo do player. Ela fica no seu dispositivo e não é enviada a ninguém.";
