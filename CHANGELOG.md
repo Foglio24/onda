@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.36.12 (2026-11-14)
+
+### Fixed
+- **The classic player fits the screen again.** With 1.36.11's cards under it, the artist's photo (a wide picture) made the whole player page as wide as itself, so its right side was cut off on an iPhone: the title, the controls and the cards' buttons. The photos now only fill the space they are given, and the page is never wider than the screen. The title over the artist's photo is easier to read on light pictures.
+
 ## 1.36.11 (2026-11-14)
 
 ### Added

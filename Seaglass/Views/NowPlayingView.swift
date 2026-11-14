@@ -211,6 +211,9 @@ struct NowPlayingView: View {
                             if !isEpisode, let track = player.current { ClassicSongCards(track: track) }
                         }
                         .padding(.bottom, 24)
+                        // Never wider than the screen, whatever a card holds (a wide photo once made the
+                        // whole page wider, cutting off its right side).
+                        .frame(width: geometry.size.width)
                     }
                     .scrollIndicators(.hidden)
                     .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.y + $0.contentInsets.top } action: { _, offset in

@@ -35,10 +35,7 @@ struct ClassicSongCards: View {
     private func artistCard(_ page: ArtistPage) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             Button { openArtist() } label: {
-                CachedImage(url: page.artworkURL, pixels: 1200) { Rectangle().fill(Color.primary.opacity(0.08)) }
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 230)
-                    .clipped()
+                FilledPhoto(url: page.artworkURL, height: 230)
                     .overlay(alignment: .topLeading) {
                         Text("Informazioni sull'artista")
                             .font(.headline.weight(.bold))
@@ -47,7 +44,7 @@ struct ClassicSongCards: View {
                             .padding(16)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .background {
-                                LinearGradient(colors: [.black.opacity(0.45), .clear], startPoint: .top, endPoint: .bottom)
+                                LinearGradient(colors: [.black.opacity(0.65), .clear], startPoint: .top, endPoint: .bottom)
                             }
                     }
                     .contentShape(.rect)
@@ -125,12 +122,8 @@ struct ClassicSongCards: View {
                         .labelStyle(.titleAndIcon)
                 }
             }
-            CachedImage(url: model.artist?.artworkURL ?? track.largeArtworkURL, pixels: 1200) {
-                Rectangle().fill(Color.primary.opacity(0.08))
-            }
-            .frame(maxWidth: .infinity)
-            .frame(height: 150)
-            .clipShape(.rect(cornerRadius: 8))
+            FilledPhoto(url: model.artist?.artworkURL ?? track.largeArtworkURL, height: 150)
+                .clipShape(.rect(cornerRadius: 8))
             VStack(alignment: .leading, spacing: 3) {
                 Text(artistName)
                     .font(.subheadline.weight(.bold))
@@ -257,6 +250,23 @@ struct ClassicSongCards: View {
                 .contentShape(.capsule)
         }
         .buttonStyle(.plain)
+    }
+}
+
+/// A photo filling the card's width at a set height, cropped. The photo never sizes the layout: an
+/// artist's picture is 1440 pixels wide, and as a plain fill it made the whole player page that wide,
+/// cutting off its right side.
+private struct FilledPhoto: View {
+    let url: URL?
+    let height: CGFloat
+
+    var body: some View {
+        Rectangle()
+            .fill(Color.primary.opacity(0.08))
+            .frame(maxWidth: .infinity)
+            .frame(height: height)
+            .overlay { CachedImage(url: url, pixels: 1200) { Color.clear } }
+            .clipped()
     }
 }
 
