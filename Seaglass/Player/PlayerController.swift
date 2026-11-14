@@ -1596,7 +1596,9 @@ final class PlayerController: ObservableObject {
         // With AutoMix, a stage for its live transitions out of this song (idle until one is armed).
         let stage = mixesTransitions && !track.isPodcastEpisode && Preferences.liveMixEnabled ? SegueStage() : nil
         let effects = await AudioEffects.mix(for: item, gain: gain, segue: stage)
-        return (effects.mix, gain, effects.fader, effects.segue)
+        // The gain the item really plays with: none without an audio mix (its tracks couldn't be read).
+        // AutoMix makes its mix at this gain, so that it takes over at the level that is heard.
+        return (effects.mix, effects.mix == nil ? 1 : gain, effects.fader, effects.segue)
     }
 
     /// Keeps what the current item now plays with. A mix into the next song made at another gain
