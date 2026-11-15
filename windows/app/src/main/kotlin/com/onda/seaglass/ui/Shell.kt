@@ -2,6 +2,7 @@ package com.onda.seaglass.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -47,6 +48,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -282,9 +286,19 @@ private fun PlayerBar(queueOpen: Boolean, onToggleQueue: () -> Unit) {
     val isLiked = player.track?.let { t -> liked.any { it.videoId == t.videoId } } == true
     Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
         if (player.durationSec > 0) {
+            var barWidth by remember { mutableStateOf(1) }
             LinearProgressIndicator(
                 progress = { (player.positionSec / player.durationSec).toFloat().coerceIn(0f, 1f) },
-                modifier = Modifier.fillMaxWidth().height(3.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(8.dp)
+                    .onSizeChanged { barWidth = it.width.coerceAtLeast(1) }
+                    .pointerInput(player.durationSec, barWidth) {
+                        detectTapGestures { offset ->
+                            val fraction = (offset.x / barWidth).coerceIn(0f, 1f)
+                            PlayerController.seek(player.durationSec * fraction)
+                        }
+                    },
             )
         }
         Row(
@@ -600,6 +614,7 @@ private fun LibraryPage() {
 private fun SettingsPage() {
     val scope = rememberCoroutineScope()
     val status by AppUpdater.status.collectAsState()
+    val playerSettings by PlayerController.state.collectAsState()
     Column(Modifier.verticalScroll(rememberScrollState())) {
         Text("Impostazioni", fontSize = 28.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(16.dp))
@@ -629,6 +644,18 @@ private fun SettingsPage() {
                     Text(if (selected) "✓ $label" else label)
                 }
             }
+        }
+        Spacer(Modifier.height(24.dp))
+        Text("Timer di spegnimento", fontWeight = FontWeight.SemiBold)
+        Text(
+            playerSettings.sleepMinutesLeft?.let { "Attivo: $it min rimasti" } ?: "Disattivato",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Row {
+            listOf(15, 30, 45, 60).forEach { m ->
+                TextButton(onClick = { PlayerController.setSleepTimer(m) }) { Text("${m}m") }
+            }
+            TextButton(onClick = { PlayerController.setSleepTimer(null) }) { Text("Off") }
         }
         Spacer(Modifier.height(24.dp))
         Text("Account", fontWeight = FontWeight.SemiBold)

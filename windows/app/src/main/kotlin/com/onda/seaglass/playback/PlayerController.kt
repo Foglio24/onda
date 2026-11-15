@@ -13,9 +13,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.concurrent.CountDownLatch
@@ -40,6 +42,8 @@ object PlayerController {
         val volume: Double = 1.0,
         val shuffle: Boolean = false,
         val repeatQueue: Boolean = false,
+        /** Minutes left on the sleep timer, or null when off. */
+        val sleepMinutesLeft: Int? = null,
     )
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -48,6 +52,7 @@ object PlayerController {
 
     private var player: MediaPlayer? = null
     private var loadJob: Job? = null
+    private var sleepJob: Job? = null
     private val fxReady = AtomicBoolean(false)
 
     init {
@@ -109,6 +114,28 @@ object PlayerController {
 
     fun toggleRepeat() {
         _state.value = _state.value.copy(repeatQueue = !_state.value.repeatQueue)
+    }
+
+    /** [minutes] null clears; positive starts a countdown that pauses playback when it hits zero. */
+    fun setSleepTimer(minutes: Int?) {
+        sleepJob?.cancel()
+        if (minutes == null || minutes <= 0) {
+            _state.value = _state.value.copy(sleepMinutesLeft = null)
+            return
+        }
+        _state.value = _state.value.copy(sleepMinutesLeft = minutes)
+        sleepJob = scope.launch {
+            var left = minutes
+            while (isActive && left > 0) {
+                delay(60_000)
+                left -= 1
+                _state.value = _state.value.copy(sleepMinutesLeft = left)
+            }
+            if (isActive) {
+                runOnFx { player?.pause() }
+                _state.value = _state.value.copy(playing = false, sleepMinutesLeft = null)
+            }
+        }
     }
 
     fun previous() {
