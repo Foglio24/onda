@@ -18,12 +18,13 @@ sealed interface LyricsState {
     data class Plain(val text: String) : LyricsState
 }
 
-/** Lyrics from LRCLIB, as on the other apps. */
+/** Lyrics from LRCLIB (https://lrclib.net), a free and open lyrics database, as on the iPhone. */
 object Lyrics {
     private data class Record(val duration: Double?, val instrumental: Boolean, val plain: String?, val synced: String?)
 
-    fun lyrics(track: Track): LyricsState {
+    suspend fun lyrics(track: Track): LyricsState {
         var record: Record? = null
+        // The exact-match endpoint needs album and duration.
         if (track.album != null && track.duration != null) {
             record = runCatching {
                 fetch(
@@ -59,18 +60,15 @@ object Lyrics {
         synced = json.optString("syncedLyrics").takeIf { it.isNotEmpty() && it != "null" },
     )
 
-    private fun fetch(path: String, query: Map<String, String>): String? {
+    private suspend fun fetch(path: String, query: Map<String, String>): String? {
         val url = "https://lrclib.net/api/$path".toHttpUrl().newBuilder().apply {
             query.forEach { (key, value) -> addQueryParameter(key, value) }
         }.build()
-        val request = Request.Builder().url(url).header("User-Agent", "Seaglass/0.1 (Windows)").build()
-        return try {
-            Http.client.newCall(request).execute().use { if (it.isSuccessful) it.body?.string() else null }
-        } catch (_: Exception) {
-            null
-        }
+        val request = Request.Builder().url(url).header("User-Agent", "Seaglass/1.0 (personal Android build)").build()
+        return Http.send(request) { if (it.code == 200) it.body.string() else null }
     }
 
+    /** Lower is better: synced lyrics first, then the closest duration. */
     private fun rank(record: Record, track: Track): Double {
         var score = 0.0
         if (record.synced == null) score += 1_000
@@ -79,9 +77,11 @@ object Lyrics {
         return score
     }
 
+    /** "Song (feat. X) [Remastered]" -> "Song", which LRCLIB matches more reliably. */
     private fun cleanTitle(title: String): String =
         title.replace(Regex("""\s*[(\[][^)\]]*[)\]]"""), "").trim().ifEmpty { title }
 
+    /** Parses "[mm:ss.xx] text" lines; a line may carry several timestamps. */
     fun parseLrc(lrc: String): List<LyricLine> {
         val stamp = Regex("""\[(\d+):(\d+(?:[.:]\d+)?)]""")
         val timed = mutableListOf<Pair<Double, String>>()

@@ -1,47 +1,43 @@
 package com.onda.seaglass.core
 
-import okhttp3.MediaType.Companion.toMediaType
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
+import okhttp3.Call
+import okhttp3.Callback
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import java.io.IOException
 import java.util.concurrent.TimeUnit
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 class HttpException(val status: Int) : IOException("HTTP $status")
 
-/** Shared HTTP client with the same spirit as the other apps (timeouts, no tracking). */
+/** One OkHttp client for the whole app (API calls, artwork and audio share its connections). */
 object Http {
     val client: OkHttpClient = OkHttpClient.Builder()
-        .connectTimeout(20, TimeUnit.SECONDS)
-        .readTimeout(60, TimeUnit.SECONDS)
-        .writeTimeout(60, TimeUnit.SECONDS)
-        .callTimeout(90, TimeUnit.SECONDS)
+        .connectTimeout(10, TimeUnit.SECONDS)
+        .readTimeout(20, TimeUnit.SECONDS)
         .retryOnConnectionFailure(true)
         .build()
 
-    private val jsonType = "application/json; charset=utf-8".toMediaType()
-
-    fun text(request: Request): String {
-        client.newCall(request).execute().use { response ->
-            return readText(response)
+    /** Runs [request] off the main thread; the response body is read by [read]. */
+    suspend fun <T> send(request: Request, read: (Response) -> T): T = withContext(Dispatchers.IO) {
+        val call = client.newCall(request)
+        val response = suspendCancellableCoroutine { continuation ->
+            continuation.invokeOnCancellation { call.cancel() }
+            call.enqueue(object : Callback {
+                override fun onFailure(call: Call, e: IOException) = continuation.resumeWithException(e)
+                override fun onResponse(call: Call, response: Response) = continuation.resume(response)
+            })
         }
+        response.use(read)
     }
 
-    fun readText(response: Response): String {
-        val body = response.body?.string().orEmpty()
+    suspend fun text(request: Request): String = send(request) { response ->
         if (!response.isSuccessful) throw HttpException(response.code)
-        return body
-    }
-
-    fun jsonRequest(url: String, method: String = "GET", json: String? = null, bearer: String? = null): Request {
-        val builder = Request.Builder().url(url).header("Accept", "application/json")
-        if (bearer != null) builder.header("Authorization", "Bearer $bearer")
-        when (method) {
-            "GET" -> builder.get()
-            "DELETE" -> builder.delete()
-            else -> builder.method(method, (json ?: "{}").toRequestBody(jsonType))
-        }
-        return builder.build()
+        response.body.string()
     }
 }
