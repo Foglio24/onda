@@ -18,6 +18,12 @@ A Cloudflare Worker with a D1 database. It gives Seaglass accounts, as Spotify d
   Only the artist's name comes in (the app works out which concerts are near on the device), the
   answer is kept at Cloudflare's edge for six hours, and lookups that miss it are limited to 30 a
   minute per address.
+- **Lyrics translations** (`POST /v1/translate` with `{lines, target}`, signed in, Premium when
+  Premium can be bought): for the Windows app, which has no translator of its own (the iPhone and
+  Android apps translate on the device). The song's language is recognised from its script and
+  commonest words; Workers AI's `@cf/meta/m2m100-1.2b` translates each different line once (the
+  deploy adds the `AI` binding; it uses the account's Workers AI allowance). Each song's
+  translation is kept at Cloudflare's edge for a week.
 
 ## Layout
 
@@ -28,6 +34,7 @@ A Cloudflare Worker with a D1 database. It gives Seaglass accounts, as Spotify d
 | `src/sync.mjs` | Synced records, with revisions: a stale write gets `409` and the current record |
 | `src/patreon.mjs` | Patreon's OAuth link and its signed webhook |
 | `src/events.mjs` | An artist's concerts, from Ticketmaster |
+| `src/translate.mjs` | Lyrics translations for the Windows app (Workers AI) |
 | `public/` | The account page (Italian and English) |
 | `migrations/` | The D1 schema |
 | `scripts/cloudflare.mjs` | Finds the domain and the database for the deploy workflow and the app's build |

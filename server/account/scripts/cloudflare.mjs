@@ -127,6 +127,9 @@ async function main() {
   // Resend (free) when its key is there; otherwise Cloudflare's Email Service (Workers Paid).
   const resend = Boolean(process.env.RESEND_API_KEY);
   if (sender && !resend) config.send_email = [{ name: "EMAIL", allowed_sender_addresses: [address] }];
+  // Workers AI, for the Windows app's lyrics translations (translate.mjs). Only in the deployed
+  // Worker: the local copy the tests run has a stand-in instead.
+  config.ai = { binding: "AI" };
   config.vars = {
     ...config.vars,
     PUBLIC_ORIGIN: origin,

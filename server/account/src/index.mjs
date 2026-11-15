@@ -6,17 +6,20 @@ import { HttpError, json, readJson, respond, unix } from "./http.mjs";
 import { artistEvents } from "./events.mjs";
 import { disconnectPatreon, finishPatreon, patreonConfigured, patreonWebhook, startPatreon, membership } from "./patreon.mjs";
 import { pullLibrary, pullSync, writeSync } from "./sync.mjs";
+import { translateLyrics } from "./translate.mjs";
 
 // Seaglass's account service: sign-in for the app and the account page, the library and
 // preferences the app syncs, and Seaglass Premium (a Patreon membership). Everything about the
 // account is managed on the page (as on Spotify): the app only signs in, shows it and signs out.
-// It also looks up artists' concerts for the classic player (events.mjs), signed in or not.
+// It also looks up artists' concerts for the classic player (events.mjs), signed in or not, and
+// translates lyrics for the Windows app (translate.mjs), for Premium members.
 
 const recordPath = /^\/v1\/sync\/(profile|playlist|history|favorites|preferences|library)\/([a-z0-9-]+)$/;
 const authenticated = new Set([
   "GET /v1/account", "DELETE /v1/account", "POST /v1/account/password", "DELETE /v1/session", "DELETE /v1/sessions",
   "POST /v1/auth/web-link",
   "GET /v1/sync", "GET /v1/sync/library", "GET /v1/premium", "POST /v1/patreon/connect", "POST /v1/patreon/disconnect",
+  "POST /v1/translate",
 ]);
 const deletionPhrase = "ELIMINA IL MIO ACCOUNT";
 
@@ -122,6 +125,7 @@ async function route(request, env, context) {
     case "POST /v1/auth/web-link": return createWebLink(request, env, session);
     case "POST /v1/patreon/connect": return startPatreon(env, session.accountId);
     case "POST /v1/patreon/disconnect": return disconnectPatreon(env, session.accountId);
+    case "POST /v1/translate": return translateLyrics(request, env, session);
     case "DELETE /v1/account": {
       const body = await readJson(request);
       if (body.confirm !== deletionPhrase) throw new HttpError(400, "confirmation_required");

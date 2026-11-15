@@ -1,7 +1,7 @@
 // The account service end to end, on a local copy of the Worker and its database (Miniflare,
 // through Wrangler): signing up (confirming the address) and in from the page and from the app,
 // syncing, the profile, Patreon's webhook, changing and resetting the password, signing out and
-// deleting the account, and an artist's concerts. Emails go to a stand-in for Resend's API on this
+// deleting the account, an artist's concerts and lyrics translations. Emails go to a stand-in for Resend's API on this
 // machine, concerts come from a stand-in for Ticketmaster's.
 // Run with `npm test` from server/account. Nothing here reaches Cloudflare, Patreon, Resend or Ticketmaster.
 
@@ -78,6 +78,20 @@ const ticketmaster = createServer((request, response) => {
   response.end(JSON.stringify(body));
 });
 await new Promise((resolve) => ticketmaster.listen(0, "127.0.0.1", resolve));
+// Workers AI's translation model, as far as the Worker can tell: "[it] line" for each line it's
+// given. `translations` keeps what reached it.
+const translations = [];
+const translator = createServer((request, response) => {
+  let body = "";
+  request.on("data", (chunk) => { body += chunk; });
+  request.on("end", () => {
+    const input = JSON.parse(body);
+    translations.push(input);
+    response.writeHead(200, { "Content-Type": "application/json" });
+    response.end(JSON.stringify({ translated_text: `[${input.target_lang}] ${input.text}` }));
+  });
+});
+await new Promise((resolve) => translator.listen(0, "127.0.0.1", resolve));
 process.env.NO_PROXY = [process.env.NO_PROXY, "127.0.0.1", "localhost"].filter(Boolean).join(",");
 const lastEmail = () => emails.at(-1);
 
@@ -95,6 +109,7 @@ const worker = await unstable_startWorker({
     AUTH_EMAIL_READY: { type: "plain_text", value: "true" },
     TICKETMASTER_API_KEY: { type: "plain_text", value: "test-ticketmaster" },
     TICKETMASTER_ENDPOINT: { type: "plain_text", value: `http://127.0.0.1:${ticketmaster.address().port}/discovery/v2` },
+    TRANSLATE_ENDPOINT: { type: "plain_text", value: `http://127.0.0.1:${translator.address().port}/translate` },
   },
   dev: { persist: state, server: { port: 0, secure: true }, inspector: false, logLevel: "error" },
 });
@@ -325,12 +340,36 @@ try {
   });
   response = await call("GET", "/v1/premium", { bearer: token });
   check(response.data.premium === false && response.data.status === "former_patron", "membership ended", response.data);
+  // Lyrics translations (the Windows app): for Premium members only, once Premium can be bought.
+  const lyrics = ["I love you baby", "", "and you know it's true", "I love you baby", "oh oh oh what can I do", "when you call my name"];
+  response = await call("POST", "/v1/translate", { bearer: token, origin: null, body: { lines: lyrics, target: "it" } });
+  check(response.status === 403 && response.data.error === "premium_required", "translations need Premium", response.data);
+  response = await call("POST", "/v1/translate", { origin: null, body: { lines: lyrics, target: "it" } });
+  check(response.status === 401, "translations need an account", response.status);
   response = await call("POST", "/v1/patreon/disconnect", { cookies: browser, body: {} });
   check(response.status === 204, "patreon unlinked", response.status);
   sql(`UPDATE accounts SET premium_lifetime = 1 WHERE id = '${accountId}'`);
   response = await call("GET", "/v1/premium", { bearer: token });
   check(response.data.premium === true && response.data.lifetime === true && response.data.linked === false,
     "premium for life without Patreon", response.data);
+  response = await call("POST", "/v1/translate", { bearer: token, origin: null, body: { lines: lyrics, target: "it" } });
+  check(response.status === 200 && response.data.source === "en" && response.data.target === "it" &&
+    JSON.stringify(response.data.lines) === JSON.stringify(["[it] I love you baby", "", "[it] and you know it's true", "[it] I love you baby",
+      "[it] oh oh oh what can I do", "[it] when you call my name"]), "lyrics translated line by line", response.data);
+  check(translations.length === 4 && translations.every((input) => input.source_lang === "en" && input.target_lang === "it"),
+    "each different line translated once, from the language recognised", translations);
+  response = await call("POST", "/v1/translate", { bearer: token, origin: null, body: { lines: ["Ti amo e non ti lascio più", "sei la mia vita, amore mio", "come il mare che non dorme"], target: "it" } });
+  check(response.status === 409 && response.data.error === "same_language" && response.data.source === "it", "lyrics already in the language", response.data);
+  response = await call("POST", "/v1/translate", { bearer: token, origin: null, body: { lines: ["Te quiero más que a nada", "eres mi vida y mi amor", "no me dejes nunca"], target: "en" } });
+  check(response.status === 200 && response.data.source === "es", "Spanish recognised", response.data);
+  response = await call("POST", "/v1/translate", { bearer: token, origin: null, body: { lines: ["君の名前を呼んでいる", "夜空に光る星のように"], target: "it" } });
+  check(response.status === 200 && response.data.source === "ja", "Japanese recognised", response.data);
+  response = await call("POST", "/v1/translate", { bearer: token, origin: null, body: { lines: ["na na na", "la la la"], target: "it" } });
+  check(response.status === 422 && response.data.error === "language_unknown", "no language to recognise", response.data);
+  response = await call("POST", "/v1/translate", { bearer: token, origin: null, body: { lines: lyrics, target: "xx" } });
+  check(response.status === 400 && response.data.error === "unsupported_language", "unknown target language", response.data);
+  response = await call("POST", "/v1/translate", { bearer: token, origin: null, body: { lines: Array(401).fill("hello"), target: "it" } });
+  check(response.status === 400 && response.data.error === "invalid_lines", "too many lines", response.data);
   sql(`UPDATE accounts SET premium_lifetime = 0 WHERE id = '${accountId}'`);
 
   // A new password ends the other sessions (the app's), not this one.
@@ -401,6 +440,7 @@ try {
   await worker.dispose();
   resend.close();
   ticketmaster.close();
+  translator.close();
   rmSync(state, { recursive: true, force: true });
 }
 
