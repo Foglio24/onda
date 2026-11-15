@@ -54,6 +54,8 @@ object Player {
         val sleepAt: Long = 0,
         /** The sleep timer waits for the song to end. */
         val sleepAtEnd: Boolean = false,
+        /** AutoMix's plan for the next song ("a tempo, 8 battute"), when there is one. */
+        val nextMix: String? = null,
     ) {
         val current: Track? get() = queue.getOrNull(index)?.track
         val upcoming: List<QueueEntry> get() = if (index < 0) queue else queue.drop(index + 1)
@@ -105,8 +107,16 @@ object Player {
     }
 
     private fun applyCrossfade() {
-        engine.crossfade = if (Prefs.transition.value == "crossfade") Prefs.crossfadeSeconds.value.coerceIn(1.0, 12.0) else 0.0
+        engine.crossfade = when (Prefs.transition.value) {
+            "crossfade" -> Prefs.crossfadeSeconds.value.coerceIn(1.0, 12.0)
+            // AutoMix without a plan (a song it couldn't analyse): a plain crossfade.
+            "automix" -> 6.0
+            else -> 0.0
+        }
     }
+
+    /** AutoMix is on (and unlocked: a Premium feature, as on the iPhone). */
+    private val autoMix: Boolean get() = Prefs.transition.value == "automix" && com.onda.seaglass.account.Account.unlocks()
 
     // MARK: Playing
 
@@ -386,14 +396,37 @@ object Player {
             return
         }
         if (entry.id == preparedFor && engine.next != null) return
+        val playing = _state.value.queue.getOrNull(_state.value.index)
         prepareJob = scope.launch {
-            // Opened in the last half minute of the song, not the moment it starts.
+            // Opened in the last half minute of the song (AutoMix: 75 s, to analyse both ends first).
+            val lead = if (autoMix) 75 else 30
             while (isActive) {
                 val left = _state.value.duration - engine.position
-                if (_state.value.duration > 0 && left <= 30) break
+                if (_state.value.duration > 0 && left <= lead) break
                 delay(1_000)
             }
-            val opened = runCatching { withContext(Dispatchers.IO) { open(entry) } }.getOrNull() ?: return@launch
+            var transition: com.onda.seaglass.audio.automix.Transition? = null
+            var startAt = 0.0
+            if (autoMix && playing != null && entry.track.videoId != playing.track.videoId) {
+                runCatching {
+                    withContext(Dispatchers.IO) {
+                        val outgoingSource = sourceFor(playing.track)
+                        val incomingSource = sourceFor(entry.track)
+                        val outgoing = com.onda.seaglass.audio.automix.AutoMix.analyze(playing.track.videoId, outgoingSource)
+                        val incoming = com.onda.seaglass.audio.automix.AutoMix.analyze(entry.track.videoId, incomingSource)
+                        if (outgoing != null && incoming != null) {
+                            val plan = com.onda.seaglass.audio.automix.AutoMix.plan(outgoing, incoming)
+                            // A plan for where the song already is: too late for this one.
+                            if (plan.outStart > engine.position + 1) {
+                                transition = com.onda.seaglass.audio.automix.Transition(plan, outgoing.tail.tempo)
+                                startAt = plan.inStart
+                                _state.value = _state.value.copy(nextMix = plan.description)
+                            }
+                        }
+                    }
+                }
+            }
+            val opened = runCatching { withContext(Dispatchers.IO) { open(entry, startAt) } }.getOrNull() ?: return@launch
             if (!isActive) {
                 opened.first.close()
                 return@launch
@@ -401,9 +434,17 @@ object Player {
             withContext(Dispatchers.Main) {
                 preparedFor = entry.id
                 preparedFormat = opened.second
-                engine.queue(opened.first)
+                engine.queue(opened.first, transition)
             }
         }
+    }
+
+    /** Opens the song's bytes for AutoMix's analysis: its file when it has one, else its stream. */
+    private suspend fun sourceFor(track: Track): () -> ByteSource {
+        val file = LocalMusic.file(track) ?: Downloads.file(track.videoId) ?: SongCache.file(track.videoId)
+        if (file != null) return { FileSource(file) }
+        val rendition = Streams.resolve(track.videoId).rendition
+        return { StreamSource(rendition.url, rendition.size) }
     }
 
     @Volatile private var preparedFormat: String? = null
@@ -442,6 +483,7 @@ object Player {
             duration = next.duration,
             format = preparedFormat,
             isLoading = false,
+            nextMix = null,
         )
         preparedFor = -1
         _state.value.current?.let { if (!it.isLocal) Library.recordPlay(it) }

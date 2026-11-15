@@ -179,7 +179,14 @@ fun SettingsPage() {
                 listOf("max" to tr("Massima"), "high" to tr("Alta"), "medium" to tr("Media"), "low" to tr("Risparmio dati")),
             ) { Prefs.quality.value = it }
             Toggle(tr("Volume uniforme"), tr("Tutti i brani allo stesso volume, come su iPhone."), normalize) { Prefs.normalizeVolume.value = it }
-            Choice(tr("Passaggio tra i brani"), transition, listOf("none" to tr("Senza pause"), "crossfade" to tr("Dissolvenza incrociata"))) { Prefs.transition.value = it }
+            Choice(
+                tr("Passaggio tra i brani"), transition,
+                listOf("none" to tr("Senza pause"), "crossfade" to tr("Dissolvenza incrociata"), "automix" to tr("AutoMix")),
+                detail = if (transition == "automix") tr("Il brano successivo entra a tempo, con i bassi che passano da un brano all'altro, come farebbe un DJ.") else null,
+            ) {
+                // AutoMix is a Premium feature, as on the iPhone.
+                if (it == "automix" && !Account.unlocks()) Nav.premium = tr("AutoMix") else Prefs.transition.value = it
+            }
             if (transition == "crossfade") {
                 SettingRow(tr("Dissolvenza incrociata: %lld s", crossfade.toInt())) {
                     Slider(

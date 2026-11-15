@@ -103,6 +103,7 @@ class Deck(
     companion object {
         const val SECONDS = 8
         private const val BLOCK = 2048
+        private const val SOURCE = 4096
     }
 
     private val capacity = Decoder.RATE * SECONDS
@@ -136,7 +137,7 @@ class Deck(
     val seeking: Boolean get() = seekGeneration != ready
 
     /** Seconds played, as handed to the mix (the sink's delay is the engine's to subtract). */
-    val position: Double get() = (baseFrame + read.get()) / Decoder.RATE.toDouble()
+    val position: Double get() = (baseFrame + read.get() - pendingSource) / Decoder.RATE.toDouble()
 
     val buffered: Int get() = (written.get() - read.get()).toInt()
 
@@ -150,9 +151,14 @@ class Deck(
     }
 
     /** On the audio thread: up to [frames] frames into [into]; 0 when there are none (yet). */
-    fun read(into: FloatArray, frames: Int): Int {
+    fun read(into: FloatArray, frames: Int): Int = readInto(into, 0, frames)
+
+    private fun readInto(into: FloatArray, offsetFrames: Int, frames: Int): Int {
         if (seeking) {
             acknowledged = seekGeneration
+            // What was being resampled belongs to the old place.
+            sourceFrames = 0
+            sourcePosition = 1.0
             return 0
         }
         val start = read.get()
@@ -161,14 +167,118 @@ class Deck(
         if (count <= 0) return 0
         val offset = (start % capacity).toInt()
         val first = minOf(count, capacity - offset)
-        System.arraycopy(ring, offset * 2, into, 0, first * 2)
-        if (count > first) System.arraycopy(ring, 0, into, first * 2, (count - first) * 2)
+        System.arraycopy(ring, offset * 2, into, offsetFrames * 2, first * 2)
+        if (count > first) System.arraycopy(ring, 0, into, (offsetFrames + first) * 2, (count - first) * 2)
         read.set(start + count)
         return count
     }
 
+    // Playing at another speed (AutoMix's tempo glide): the audio thread interpolates between the
+    // song's samples (cubic Hermite), from a small buffer it owns. Allocates nothing.
+    private val source = FloatArray(SOURCE * 2)
+    /** Frames in [source], and where the reading is (index 0 is the frame before the first). */
+    @Volatile private var sourceFrames = 0
+    @Volatile private var sourcePosition = 1.0
+
+    /**
+     * On the audio thread: [frames] frames at [rate] times the song's speed (its pitch follows, as
+     * a turntable's), or fewer when the song's samples aren't there yet. At 1 it ends up a plain
+     * [read]: the reading is first brought onto a whole sample (at a speed off by a few
+     * hundred-thousandths), then the buffer is played out as it is, so after a glide the song is
+     * heard untouched, never through the interpolation (which would dull its highest sounds).
+     */
+    fun readAt(into: FloatArray, frames: Int, rate: Double): Int {
+        if (seeking) return read(into, frames)
+        if (sourceFrames == 0) {
+            if (rate == 1.0) return read(into, frames)
+            // Start: the first frame twice, so the interpolation has a frame before it.
+            val got = readInto(source, 1, SOURCE / 2)
+            if (got == 0) return 0
+            source[0] = source[2]
+            source[1] = source[3]
+            sourceFrames = got + 1
+            sourcePosition = 1.0
+        }
+        var position = sourcePosition
+        var out = 0
+        if (rate == 1.0 && position == Math.floor(position)) {
+            // On a whole sample at the song's speed: what's buffered as it is, then the ring.
+            val i = position.toInt()
+            val count = minOf(frames, sourceFrames - i)
+            if (count > 0) System.arraycopy(source, i * 2, into, 0, count * 2)
+            out = maxOf(0, count)
+            position += out
+            if (position >= sourceFrames) {
+                sourceFrames = 0
+                sourcePosition = 1.0
+                return out + readInto(into, out, frames - out)
+            }
+            sourcePosition = position
+            return out
+        }
+        // Back at the song's speed between two samples: onto the next whole one over this block.
+        val step = if (rate == 1.0) 1.0 + (Math.ceil(position) - position) / frames else rate
+        while (out < frames) {
+            var i = position.toInt()
+            if (i + 2 >= sourceFrames) {
+                // Keep the frame before the reading point, drop the rest, fill up again.
+                val keep = i - 1
+                if (keep > 0) {
+                    System.arraycopy(source, keep * 2, source, 0, (sourceFrames - keep) * 2)
+                    sourceFrames -= keep
+                    position -= keep
+                    i -= keep
+                }
+                sourceFrames += readInto(source, sourceFrames, SOURCE - sourceFrames)
+                if (i + 2 >= sourceFrames) {
+                    // The song's end (or the network's): the last frame as it is.
+                    if (ended && buffered == 0 && i + 1 < sourceFrames) {
+                        into[out * 2] = source[(i + 1) * 2]
+                        into[out * 2 + 1] = source[(i + 1) * 2 + 1]
+                        out++
+                        position = (i + 2).toDouble()
+                    }
+                    break
+                }
+            }
+            val t = (position - i).toFloat()
+            for (channel in 0 until 2) {
+                val y0 = source[(i - 1) * 2 + channel]
+                val y1 = source[i * 2 + channel]
+                val y2 = source[(i + 1) * 2 + channel]
+                val y3 = source[(i + 2) * 2 + channel]
+                val c1 = 0.5f * (y2 - y0)
+                val c2 = y0 - 2.5f * y1 + 2f * y2 - 0.5f * y3
+                val c3 = 0.5f * (y3 - y0) + 1.5f * (y1 - y2)
+                into[out * 2 + channel] = ((c3 * t + c2) * t + c1) * t + y1
+            }
+            out++
+            position += step
+        }
+        // Rounding error aside, the settling lands on a whole sample.
+        val whole = Math.rint(position)
+        if (rate == 1.0 && Math.abs(position - whole) < 1e-6) position = whole
+        sourcePosition = position
+        return out
+    }
+
+    /**
+     * On the audio thread: how many frames [readAt] can give at [rate] right now. A song that has
+     * ended can give silence for as long as asked.
+     */
+    fun available(rate: Double): Int {
+        if (seeking) return 0
+        if (finished) return Int.MAX_VALUE
+        val frames = buffered + (if (sourceFrames > 0) (sourceFrames - sourcePosition - 2).toInt() else 0)
+        if (ended && buffered == 0) return Int.MAX_VALUE
+        return if (rate == 1.0 && sourceFrames == 0) frames else maxOf(0, ((frames - 3) / rate).toInt())
+    }
+
+    /** Frames taken from the ring for interpolation but not heard yet. */
+    private val pendingSource: Double get() = if (sourceFrames == 0) 0.0 else maxOf(0.0, sourceFrames - sourcePosition)
+
     /** Nothing left to hear: the decoder is done and the ring is empty. */
-    val finished: Boolean get() = ended && !seeking && buffered == 0
+    val finished: Boolean get() = ended && !seeking && buffered == 0 && pendingSource < 1.0
 
     private fun decodeLoop() {
         val block = FloatArray(BLOCK * 2)
@@ -290,7 +400,9 @@ class Engine(private val sinkFactory: () -> AudioSink) : Closeable {
     fun play(deck: Deck) {
         val old = current
         val queued = next
+        nextTransition = null
         next = null
+        mixing = false
         current = deck
         fading = false
         flushRequested = true
@@ -299,13 +411,24 @@ class Engine(private val sinkFactory: () -> AudioSink) : Closeable {
         if (queued != null && queued !== deck) events.execute { queued.close() }
     }
 
-    /** What plays after the current deck: gapless, or faded in by [crossfade]. Replaces an earlier one. */
-    fun queue(deck: Deck?) {
+    /**
+     * What plays after the current deck: gapless, faded in by [crossfade], or as an AutoMix
+     * [transition] (the deck already at the plan's start). Replaces an earlier one.
+     */
+    fun queue(deck: Deck?, transition: com.onda.seaglass.audio.automix.Transition? = null) {
         val old = next
         if (fading && old != null) return
+        nextTransition = if (deck == null) null else transition
         next = deck
         if (old != null && old !== deck) events.execute { old.close() }
     }
+
+    /** The AutoMix plan for [next], if it has one. */
+    @Volatile var nextTransition: com.onda.seaglass.audio.automix.Transition? = null
+        private set
+    /** True while a planned (AutoMix) mix plays, for the player. */
+    @Volatile var mixing = false
+        private set
 
     fun pause() {
         playing = false
@@ -358,6 +481,7 @@ class Engine(private val sinkFactory: () -> AudioSink) : Closeable {
     private fun renderLoop() {
         val mix = FloatArray(BLOCK * 2)
         val scratch = FloatArray(BLOCK * 2)
+        val scratch2 = FloatArray(BLOCK * 2)
         val bytes = ByteArray(BLOCK * 4)
         var wasPlaying = false
         while (!closed) {
@@ -382,7 +506,7 @@ class Engine(private val sinkFactory: () -> AudioSink) : Closeable {
                 output.resume()
                 wasPlaying = true
             }
-            val frames = render(deck, mix, scratch)
+            val frames = render(deck, mix, scratch, scratch2)
             if (frames == 0) {
                 // Waiting for the network or a seek: nothing to write yet.
                 LockSupport.parkNanos(2_000_000)
@@ -426,7 +550,7 @@ class Engine(private val sinkFactory: () -> AudioSink) : Closeable {
     }
 
     /** Mixes one block into [mix]; returns its frames (0: nothing to play right now). */
-    private fun render(deck: Deck, mix: FloatArray, scratch: FloatArray): Int {
+    private fun render(deck: Deck, mix: FloatArray, scratch: FloatArray, scratch2: FloatArray): Int {
         val failure = deck.failure
         if (failure != null && deck.buffered == 0) {
             playing = false
@@ -434,18 +558,32 @@ class Engine(private val sinkFactory: () -> AudioSink) : Closeable {
             events.execute { listener?.failed(deck, failure) }
             return 0
         }
-        val frames = deck.read(scratch, BLOCK)
         val following = next
-        // The crossfade starts when the song has that long left and the next one is ready.
-        val fadeSeconds = crossfade
-        if (!fading && following != null && fadeSeconds > 0 && deck.duration > 0 && following.isReady) {
-            val left = deck.duration - deck.position
-            if (left <= fadeSeconds && left > 0.05) {
-                fading = true
-                fadeDone = 0
-                fadeLength = (left * Decoder.RATE).toInt().coerceAtLeast(BLOCK)
+        val planned = nextTransition
+        if (!fading && following != null && following.isReady) {
+            if (planned != null) {
+                // AutoMix: the mix starts where the plan says (or at the song's very end, if late).
+                val position = deck.position
+                if (position >= planned.outStart - 0.0005 || (deck.duration > 0 && position >= deck.duration - 0.05) || deck.finished) {
+                    fading = true
+                    mixing = true
+                    filterState.fill(0.0)
+                }
+            } else if (crossfade > 0 && deck.duration > 0) {
+                // The crossfade starts when the song has that long left and the next one is ready.
+                val left = deck.duration - deck.position
+                if (left <= crossfade && left > 0.05) {
+                    fading = true
+                    fadeDone = 0
+                    fadeLength = (left * Decoder.RATE).toInt().coerceAtLeast(BLOCK)
+                }
             }
         }
+        if (fading && following != null && planned != null) return renderPlanned(deck, following, planned, mix, scratch, scratch2)
+        // During a crossfade, as much of each as both have (see renderPlanned).
+        val want = if (fading && following != null) minOf(BLOCK, deck.available(1.0), following.available(1.0)) else BLOCK
+        if (want <= 0) return 0
+        val frames = deck.readAt(scratch, want, 1.0)
         if (fading && following != null) {
             // The song going out: cos²+sin² = 1, so the two together keep the loudness.
             for (frame in 0 until frames) {
@@ -455,12 +593,12 @@ class Engine(private val sinkFactory: () -> AudioSink) : Closeable {
                 mix[frame * 2 + 1] = scratch[frame * 2 + 1] * out
             }
             for (i in frames * 2 until BLOCK * 2) mix[i] = 0f
-            val incoming = following.read(scratch, BLOCK)
+            val incoming = following.readAt(scratch2, want, 1.0)
             for (frame in 0 until incoming) {
                 val x = ((fadeDone + frame).toFloat() / fadeLength).coerceIn(0f, 1f)
                 val gain = sin(x * PI / 2).toFloat() * following.gain
-                mix[frame * 2] += scratch[frame * 2] * gain
-                mix[frame * 2 + 1] += scratch[frame * 2 + 1] * gain
+                mix[frame * 2] += scratch2[frame * 2] * gain
+                mix[frame * 2 + 1] += scratch2[frame * 2 + 1] * gain
             }
             fadeDone += maxOf(frames, incoming)
             if (deck.finished || fadeDone >= fadeLength) takeOver(deck, following)
@@ -473,10 +611,10 @@ class Engine(private val sinkFactory: () -> AudioSink) : Closeable {
         if (frames < BLOCK && deck.finished) {
             if (following != null && following.isReady) {
                 // Gapless: the next song goes on in the same block.
-                val more = following.read(scratch, BLOCK - frames)
+                val more = following.readAt(scratch2, BLOCK - frames, 1.0)
                 for (frame in 0 until more) {
-                    mix[(frames + frame) * 2] = scratch[frame * 2] * following.gain
-                    mix[(frames + frame) * 2 + 1] = scratch[frame * 2 + 1] * following.gain
+                    mix[(frames + frame) * 2] = scratch2[frame * 2] * following.gain
+                    mix[(frames + frame) * 2 + 1] = scratch2[frame * 2 + 1] * following.gain
                 }
                 takeOver(deck, following)
                 return frames + more
@@ -489,10 +627,83 @@ class Engine(private val sinkFactory: () -> AudioSink) : Closeable {
         return frames
     }
 
+    // AutoMix's filters: per song, a 150 Hz low-pass whose output is taken away to cut the bass,
+    // and for the song going out a low-pass with a rising cutoff, taken away as a high-pass sweep.
+    // Two values of memory per filter and channel; coefficients worked out per block.
+    private val filterState = DoubleArray(3 * 2 * 2)
+    private val bass = lowPass(150.0)
+    private val sweep = DoubleArray(5)
+    private val levelsStart = FloatArray(5)
+    private val levelsEnd = FloatArray(5)
+
+    private fun lowPass(frequency: Double, into: DoubleArray = DoubleArray(5)): DoubleArray {
+        val w = 2 * PI * frequency / Decoder.RATE
+        val alpha = sin(w) / (2 * 0.7071)
+        val c = cos(w)
+        val a0 = 1 + alpha
+        into[0] = (1 - c) / 2 / a0
+        into[1] = (1 - c) / a0
+        into[2] = (1 - c) / 2 / a0
+        into[3] = -2 * c / a0
+        into[4] = (1 - alpha) / a0
+        return into
+    }
+
+    /** One sample through a biquad ([k] coefficients) with its memory at [m] in [filterState]. */
+    private fun biquad(k: DoubleArray, m: Int, x: Double): Double {
+        val y = k[0] * x + filterState[m]
+        filterState[m] = k[1] * x - k[3] * y + filterState[m + 1]
+        filterState[m + 1] = k[2] * x - k[4] * y
+        return y
+    }
+
+    /** One block of an AutoMix mix: both songs at the plan's tempo, levels and filters. */
+    private fun renderPlanned(
+        deck: Deck, following: Deck, plan: com.onda.seaglass.audio.automix.Transition,
+        mix: FloatArray, scratch: FloatArray, scratch2: FloatArray,
+    ): Int {
+        val p0 = plan.progress(deck.position)
+        val outgoingRate = plan.outgoingRate(p0)
+        val incomingRate = plan.incomingRate(p0)
+        // As much of each as both have: one waiting for the network never leaves a gap in the other.
+        val want = minOf(BLOCK, deck.available(outgoingRate), following.available(incomingRate))
+        if (want <= 0) return 0
+        val outgoing = deck.readAt(scratch, want, outgoingRate)
+        val incoming = following.readAt(scratch2, want, incomingRate)
+        val frames = maxOf(outgoing, incoming)
+        if (frames == 0) return 0
+        val p1 = plan.progress(deck.position)
+        plan.levels(p0, levelsStart)
+        plan.levels(p1, levelsEnd)
+        val highPass = levelsEnd[4]
+        if (highPass > 0f) lowPass(40.0 * Math.pow(40.0, highPass.toDouble()), sweep)
+        for (frame in 0 until frames) {
+            val f = (frame + 1).toFloat() / frames
+            val outGain = (levelsStart[0] + (levelsEnd[0] - levelsStart[0]) * f) * deck.gain
+            val inGain = (levelsStart[1] + (levelsEnd[1] - levelsStart[1]) * f) * following.gain
+            val outCut = levelsStart[2] + (levelsEnd[2] - levelsStart[2]) * f
+            val inCut = levelsStart[3] + (levelsEnd[3] - levelsStart[3]) * f
+            val sweepAmount = levelsStart[4] + (levelsEnd[4] - levelsStart[4]) * f
+            for (channel in 0 until 2) {
+                val i = frame * 2 + channel
+                var outSample = if (frame < outgoing) scratch[i].toDouble() else 0.0
+                outSample -= outCut * biquad(bass, channel * 2, outSample)
+                if (highPass > 0f) outSample -= sweepAmount * biquad(sweep, 8 + channel * 2, outSample)
+                var inSample = if (frame < incoming) scratch2[i].toDouble() else 0.0
+                inSample -= inCut * biquad(bass, 4 + channel * 2, inSample)
+                mix[i] = (outSample * outGain + inSample * inGain).toFloat()
+            }
+        }
+        if (p1 >= 1.0 || deck.finished) takeOver(deck, following)
+        return frames
+    }
+
     private fun takeOver(old: Deck, new: Deck) {
         current = new
+        nextTransition = null
         next = null
         fading = false
+        mixing = false
         events.execute {
             old.close()
             listener?.advanced(new)

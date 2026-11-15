@@ -69,6 +69,7 @@ fun QueuePanel() {
             Text(tr("Da: %@", state.source!!), color = palette.tertiary, fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp))
         }
         Text(tr("Prossimi brani"), color = palette.tertiary, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 16.dp, bottom = 6.dp))
+        state.nextMix?.let { mix -> Text(tr("AutoMix") + " · " + mix, color = palette.accent, fontSize = 12.sp, modifier = Modifier.padding(bottom = 6.dp)) }
         LazyColumn(Modifier.weight(1f)) {
             itemsIndexed(state.upcoming, key = { _, entry -> entry.id }) { offset, entry ->
                 val index = state.index + 1 + offset
