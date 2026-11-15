@@ -98,7 +98,10 @@ fun PlaylistsPage() {
         Title(tr("Playlist"))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             PillButton(tr("Nuova playlist"), Icons.Rounded.Add, prominent = true) { creating = true }
-            PillButton(tr("Importa da un link"), Icons.Rounded.Link) { importing = true }
+            PillButton(tr("Importa da un link"), Icons.Rounded.Link) {
+                // A Premium feature, as on the iPhone.
+                if (com.onda.seaglass.account.Account.unlocks()) importing = true else Nav.premium = tr("Importa playlist da link")
+            }
         }
         if (playlists.isEmpty()) {
             EmptyState(Icons.AutoMirrored.Rounded.QueueMusic, tr("Nessuna playlist"))

@@ -105,6 +105,7 @@ fun Shell() {
             }
         }
         AddToPlaylistDialog()
+        PremiumDialog()
     }
 }
 

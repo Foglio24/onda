@@ -92,6 +92,9 @@ object Account {
     val lastSync: StateFlow<Long?> = _lastSync
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error
+    private val _premiumEnabled = MutableStateFlow(false)
+    /** Premium can be bought (the service says so): only then are Premium features locked, as on the iPhone. */
+    val premiumEnabled: StateFlow<Boolean> = _premiumEnabled
     private val _waiting = MutableStateFlow(false)
     /** The browser is open on the sign-in page. */
     val waiting: StateFlow<Boolean> = _waiting
@@ -106,7 +109,12 @@ object Account {
 
     fun init() {
         _signedIn.value = token != null
-        _lastSync.value = readState().optLong("lastSync").takeIf { it > 0 }
+        val stored = readState()
+        _lastSync.value = stored.optLong("lastSync").takeIf { it > 0 }
+        // The last answers, so an offline launch locks and unlocks as before.
+        _premiumEnabled.value = stored.optBoolean("premiumEnabled", false)
+        if (stored.optBoolean("premium", false) && _signedIn.value) _details.value = Details("", null, null, premium = true)
+        scope.launch { refreshStatus() }
         if (_signedIn.value) {
             scope.launch {
                 refresh()
@@ -164,6 +172,17 @@ object Account {
         }
     }
 
+    /** Whether a Premium feature can be used: Premium isn't on sale yet, or this account has it. */
+    fun unlocks(): Boolean = !_premiumEnabled.value || (_signedIn.value && _details.value?.premium == true)
+
+    private suspend fun refreshStatus() {
+        runCatching {
+            val enabled = JSONObject(send("v1/status", "GET", null, null)).optBoolean("premiumEnabled", false)
+            _premiumEnabled.value = enabled
+            writeState(readState().put("premiumEnabled", enabled))
+        }
+    }
+
     suspend fun refresh() {
         val token = token ?: return
         try {
@@ -178,18 +197,20 @@ object Account {
                 plan = membership?.optString("status")?.takeIf { it.isNotBlank() },
                 premium = membership?.optBoolean("premium") == true,
             )
+            writeState(readState().put("premium", _details.value?.premium == true))
         } catch (e: HttpException) {
             if (e.status == 401) endSession()
         } catch (_: Exception) {
         }
     }
 
-    /** The account page in the browser, signed in (a link that works once, within a minute). */
-    fun openAccountPage() {
+    /** The account page in the browser, signed in (a link that works once, within a minute); [premium] opens its Premium part. */
+    fun openAccountPage(premium: Boolean = false) {
         scope.launch {
             val token = token
+            val body = JSONObject().apply { if (premium) put("view", "premium") }.toString()
             val url = token?.let {
-                runCatching { JSONObject(send("v1/auth/web-link", "POST", JSONObject().toString(), it)).optString("url") }.getOrNull()
+                runCatching { JSONObject(send("v1/auth/web-link", "POST", body, it)).optString("url") }.getOrNull()
             }?.takeIf { it.startsWith("$ORIGIN/") } ?: "$ORIGIN/account"
             runCatching { Desktop.getDesktop().browse(URI(url)) }
         }
@@ -208,7 +229,7 @@ object Account {
         _signedIn.value = false
         _details.value = null
         // The library stays on this computer; only the record of what was last agreed goes.
-        writeState(JSONObject())
+        writeState(JSONObject().put("premiumEnabled", _premiumEnabled.value))
     }
 
     // MARK: Sync

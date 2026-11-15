@@ -83,6 +83,9 @@ object Nav {
     /** "Aggiungi a una playlist" for this song (the dialog shows while it's set). */
     var addToPlaylist by mutableStateOf<List<Track>?>(null)
 
+    /** The Premium feature asked for without Premium (its name): the Premium dialog shows while it's set. */
+    var premium by mutableStateOf<String?>(null)
+
     /** A short message at the bottom of the window. */
     var toast by mutableStateOf<String?>(null)
     private var toastId = 0

@@ -37,6 +37,8 @@ import androidx.compose.material.icons.rounded.Radio
 import androidx.compose.material.icons.rounded.RemoveCircleOutline
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material.icons.rounded.SkipNext
+import androidx.compose.material.icons.rounded.WorkspacePremium
+import kotlinx.coroutines.launch
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -384,4 +386,41 @@ fun EmptyState(icon: ImageVector, title: String, message: String? = null) {
         Text(title, color = palette.text, fontWeight = FontWeight.SemiBold, fontSize = 17.sp, modifier = Modifier.padding(top = 12.dp))
         if (message != null) Text(message, color = palette.secondary, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
     }
+}
+
+/**
+ * What a Premium feature shows without Premium, as on the iPhone: what Premium unlocks and where to
+ * get it. It's bought on the account page (Patreon), not in the app.
+ */
+@Composable
+fun PremiumDialog() {
+    val feature = Nav.premium ?: return
+    val palette = LocalPalette.current
+    val signedIn by com.onda.seaglass.account.Account.signedIn.collectAsState()
+    AlertDialog(
+        onDismissRequest = { Nav.premium = null },
+        icon = { Icon(Icons.Rounded.WorkspacePremium, null, tint = palette.accent, modifier = Modifier.size(40.dp)) },
+        title = { Text("Seaglass Premium") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(tr("%@ fa parte di Premium.", feature), fontWeight = FontWeight.SemiBold)
+                listOf("AutoMix", "Importa playlist da link", "Riconosci un brano", "Traduci i testi", "Karaoke AI", "Tempo").forEach {
+                    Text("• " + tr(it), color = if (tr(it) == feature) palette.accent else palette.text, fontSize = 13.sp)
+                }
+                Text(tr("Premium è l'abbonamento a Seaglass su Patreon: si attiva e si gestisce sul sito di Seaglass e vale su iPhone, iPad, Mac e Windows."), color = palette.secondary, fontSize = 12.sp)
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                Nav.premium = null
+                if (signedIn) com.onda.seaglass.account.Account.openAccountPage(premium = true) else com.onda.seaglass.account.Account.signIn()
+            }) { Text(if (signedIn) tr("Passa a Premium") else tr("Accedi per usare Premium")) }
+        },
+        dismissButton = {
+            TextButton(onClick = {
+                Nav.premium = null
+                if (signedIn) kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch { com.onda.seaglass.account.Account.refresh() }
+            }) { Text(if (signedIn) tr("Ho già Premium") else tr("Annulla")) }
+        },
+    )
 }
