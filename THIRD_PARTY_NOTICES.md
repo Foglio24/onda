@@ -56,6 +56,7 @@ All under the Apache License 2.0:
 - [OkHttp](https://github.com/square/okhttp) (Square): networking.
 - [Kotlin coroutines](https://github.com/Kotlin/kotlinx.coroutines) (JetBrains).
 - [org.json](https://github.com/stleary/JSON-java) (Public Domain / JSON License): JSON parsing.
+- [OpenJFX](https://openjfx.io/) (GPL-2.0 with Classpath exception): JavaFX Media for AAC playback.
 
 ## Used at build time only (not included in the app)
 - [coremltools](https://github.com/apple/coremltools) (BSD-3-Clause), [PyTorch](https://github.com/pytorch/pytorch)

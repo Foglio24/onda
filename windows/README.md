@@ -1,7 +1,8 @@
 # Seaglass for Windows 11
 
-Compose Multiplatform Desktop app. Same Seaglass account as iPhone/Mac/Android (sign-in through
-the website, library sync). **Automatic updates** like on the Mac: looks for `windows-vX.Y.Z` on
+Compose Multiplatform Desktop app. Lives on the git branch **`windows`** so its release line stays
+separate from iPhone/Mac on `main`. Same Seaglass account as the other apps (sign-in through the
+website, library sync). **Automatic updates** like on the Mac: looks for `windows-vX.Y.Z` on
 GitHub (never "Latest"), downloads `Seaglass-windows.zip`, checks size and SHA-256, stages it and
 installs on restart or when quitting.
 

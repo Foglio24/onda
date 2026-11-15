@@ -19,9 +19,10 @@ import java.security.MessageDigest
 import java.util.zip.ZipInputStream
 
 /**
- * Automatic updates like on the Mac: look for a newer `windows-vX.Y.Z` release on GitHub (never
- * "Latest" — that stays the iPhone app), download its zip, check size and SHA-256, stage the new
- * app beside this one, then install on restart or when Seaglass quits normally.
+ * Automatic updates like on the Mac, on a **separate release line**: only `windows-vX.Y.Z` tags
+ * (published from the `windows` git branch). Never reads repository "Latest" (that stays the
+ * iPhone/Mac app on `main`). Downloads the zip, checks size and SHA-256, stages it, then installs
+ * on restart or when Seaglass quits normally.
  */
 object AppUpdater {
     data class Release(

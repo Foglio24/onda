@@ -21,10 +21,11 @@ iPad, Mac and Windows apps keep the library in sync. It comes in three apps:
   and checked, in the iOS build too) or `#if targetEnvironment(macCatalyst)`.
 - **Android**: Kotlin, Jetpack Compose and Media3, in `android/`, for Android 10 or later. It is
   distributed as APKs on GitHub Releases, tagged `android-vX.Y.Z`, not on Google Play.
-- **Windows**: Kotlin and Compose Multiplatform Desktop, in `windows/`, for Windows 11. It is
+- **Windows**: Kotlin and Compose Multiplatform Desktop, in `windows/`, for Windows 11. It lives
+  on the dedicated git branch **`windows`** (not on the iPhone/Mac `main` release line). It is
   distributed as `Seaglass-windows.zip` on GitHub Releases, tagged `windows-vX.Y.Z`, never
-  "Latest". Automatic updates work like on the Mac: the app checks those tags, verifies size and
-  SHA-256, stages the zip and installs on restart or when quitting.
+  "Latest". Automatic updates work like on the Mac: the app checks those tags only, verifies size
+  and SHA-256, stages the zip and installs on restart or when quitting.
 
 Other folders:
 
@@ -96,8 +97,9 @@ confirmation, in every session. Once a change is done and its checks are green:
    first when the bots have moved it), never with a force push.
 2. Release what changed: iOS and Mac with a `build.yml` run on `main` and `release=true` (it becomes
    "Latest"), then refresh the AltStore source; Android with `android.yml` and `release=true` (never
-   "Latest"); Windows with `windows.yml` and `release=true` (never "Latest"); the account page and
-   the website deploy from `main` by themselves.
+   "Latest"); Windows from the **`windows`** branch with `windows.yml` and `release=true` (tag
+   `windows-v*`, never "Latest" — do not bump or tag Windows from an iOS release on `main`); the
+   account page and the website deploy from `main` by themselves.
 3. Check the result (release assets, "Latest", AltStore version) and tell the owner in Italian.
 
 The guardrails stay: no release while a check is red (a live-service check that skipped itself is not

@@ -113,7 +113,8 @@ Treat a change that breaks any of these as **P0** (secrets, updates) or **P1** (
   does it replace the app, and it is never run before that. Don't drop or loosen any of these
   checks.
 - The Windows updater (`windows/.../AppUpdater.kt`) installs updates itself the same way: it
-  reads only that repository's `windows-v*` releases and downloads only that release's own
+  reads only that repository's `windows-v*` releases (published from the dedicated `windows`
+  git branch, never from the iPhone/Mac `main` line) and downloads only that release's own
   `Seaglass-windows.zip` from `https://github.com/Foglio24/onda/releases/download/`. The file's
   size and SHA-256 must match what the GitHub API gives for that asset. Once unzipped, the
   archive must contain `Seaglass.exe` (zip-slip rejected). Only then does it replace the

@@ -4,7 +4,11 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.Response
+import java.io.IOException
 import java.util.concurrent.TimeUnit
+
+class HttpException(val status: Int) : IOException("HTTP $status")
 
 /** Shared HTTP client with the same spirit as the other apps (timeouts, no tracking). */
 object Http {
@@ -13,16 +17,21 @@ object Http {
         .readTimeout(60, TimeUnit.SECONDS)
         .writeTimeout(60, TimeUnit.SECONDS)
         .callTimeout(90, TimeUnit.SECONDS)
+        .retryOnConnectionFailure(true)
         .build()
 
     private val jsonType = "application/json; charset=utf-8".toMediaType()
 
     fun text(request: Request): String {
         client.newCall(request).execute().use { response ->
-            val body = response.body?.string().orEmpty()
-            if (!response.isSuccessful) error("HTTP ${response.code}: ${body.take(200)}")
-            return body
+            return readText(response)
         }
+    }
+
+    fun readText(response: Response): String {
+        val body = response.body?.string().orEmpty()
+        if (!response.isSuccessful) throw HttpException(response.code)
+        return body
     }
 
     fun jsonRequest(url: String, method: String = "GET", json: String? = null, bearer: String? = null): Request {

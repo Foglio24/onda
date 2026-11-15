@@ -13,6 +13,13 @@ kotlin {
     }
 }
 
+val javafxVersion = "21.0.5"
+val javafxClassifier = when {
+    System.getProperty("os.name").orEmpty().contains("win", ignoreCase = true) -> "win"
+    System.getProperty("os.name").orEmpty().contains("mac", ignoreCase = true) -> "mac"
+    else -> "linux"
+}
+
 dependencies {
     implementation(compose.desktop.currentOs)
     implementation(compose.material3)
@@ -21,6 +28,9 @@ dependencies {
     implementation(libs.json)
     implementation(libs.coroutines.core)
     implementation(libs.coroutines.swing)
+    implementation("org.openjfx:javafx-base:$javafxVersion:$javafxClassifier")
+    implementation("org.openjfx:javafx-graphics:$javafxVersion:$javafxClassifier")
+    implementation("org.openjfx:javafx-media:$javafxVersion:$javafxClassifier")
     testImplementation(kotlin("test-junit"))
 }
 

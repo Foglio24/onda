@@ -13,12 +13,15 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LibraryMusic
-import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SystemUpdate
@@ -26,6 +29,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -39,12 +43,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.onda.seaglass.BuildConfig
 import com.onda.seaglass.account.Account
+import com.onda.seaglass.data.InnerTube
+import com.onda.seaglass.model.Track
+import com.onda.seaglass.model.formatDuration
+import com.onda.seaglass.playback.PlayerController
 import com.onda.seaglass.update.AppUpdater
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.awt.Desktop
 import java.net.URI
 
@@ -60,11 +71,7 @@ fun ClassicShell() {
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         UpdateBanner()
         Row(Modifier.weight(1f).fillMaxWidth().padding(8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            LibraryPanel(
-                width = libraryWidth,
-                page = page,
-                onSelect = { page = it },
-            )
+            LibraryPanel(width = libraryWidth, page = page, onSelect = { page = it })
             Box(
                 Modifier
                     .weight(1f)
@@ -80,9 +87,7 @@ fun ClassicShell() {
                     Page.Settings -> SettingsPage()
                 }
             }
-            if (queueOpen) {
-                QueuePanel(width = queueWidth)
-            }
+            if (queueOpen) QueuePanel(width = queueWidth)
         }
         PlayerBar(queueOpen = queueOpen, onToggleQueue = { queueOpen = !queueOpen })
     }
@@ -93,38 +98,26 @@ private fun UpdateBanner() {
     val status by AppUpdater.status.collectAsState()
     val scope = rememberCoroutineScope()
     when (val s = status) {
-        is AppUpdater.Status.Available -> {
-            Banner(
-                text = "Seaglass ${s.release.version} è disponibile",
-                action = "Installa",
-                onAction = { scope.launch { AppUpdater.downloadAndStage(s.release) } },
-            )
-        }
+        is AppUpdater.Status.Available -> Banner(
+            text = "Seaglass ${s.release.version} è disponibile",
+            action = "Installa",
+            onAction = { scope.launch { AppUpdater.downloadAndStage(s.release) } },
+        )
         is AppUpdater.Status.Downloading -> {
             Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).padding(8.dp)) {
                 Text("Download aggiornamento…", color = MaterialTheme.colorScheme.onSurface)
                 LinearProgressIndicator(
-                    progress = {
-                        if (s.total > 0) (s.received.toFloat() / s.total).coerceIn(0f, 1f) else 0f
-                    },
+                    progress = { if (s.total > 0) (s.received.toFloat() / s.total).coerceIn(0f, 1f) else 0f },
                     modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
                 )
             }
         }
-        is AppUpdater.Status.Ready -> {
-            Banner(
-                text = "Seaglass ${s.release.version} è pronto",
-                action = "Riavvia e installa",
-                onAction = {
-                    if (AppUpdater.installAndRelaunch()) {
-                        kotlin.system.exitProcess(0)
-                    }
-                },
-            )
-        }
-        is AppUpdater.Status.Failed -> {
-            Banner(text = "Aggiornamento: ${s.message}", action = null, onAction = {})
-        }
+        is AppUpdater.Status.Ready -> Banner(
+            text = "Seaglass ${s.release.version} è pronto",
+            action = "Riavvia e installa",
+            onAction = { if (AppUpdater.installAndRelaunch()) kotlin.system.exitProcess(0) },
+        )
+        is AppUpdater.Status.Failed -> Banner(text = "Aggiornamento: ${s.message}", action = null, onAction = {})
         else -> Unit
     }
 }
@@ -138,21 +131,15 @@ private fun Banner(text: String, action: String?, onAction: () -> Unit) {
         Icon(Icons.Default.SystemUpdate, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
         Spacer(Modifier.width(8.dp))
         Text(text, Modifier.weight(1f), color = MaterialTheme.colorScheme.onBackground)
-        if (action != null) {
-            TextButton(onClick = onAction) { Text(action) }
-        }
+        if (action != null) TextButton(onClick = onAction) { Text(action) }
     }
 }
 
 @Composable
-private fun LibraryPanel(width: androidx.compose.ui.unit.Dp, page: Page, onSelect: (Page) -> Unit) {
+private fun LibraryPanel(width: Dp, page: Page, onSelect: (Page) -> Unit) {
     Column(
-        Modifier
-            .width(width)
-            .fillMaxHeight()
-            .clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.surface)
-            .padding(12.dp)
+        Modifier.width(width).fillMaxHeight().clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surface).padding(12.dp)
     ) {
         Text("Seaglass", fontWeight = FontWeight.Bold, fontSize = 22.sp, color = MaterialTheme.colorScheme.primary)
         Spacer(Modifier.height(16.dp))
@@ -166,15 +153,15 @@ private fun LibraryPanel(width: androidx.compose.ui.unit.Dp, page: Page, onSelec
 }
 
 @Composable
-private fun NavItem(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, selected: Boolean, onClick: () -> Unit) {
+private fun NavItem(
+    label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
     val bg = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surface
     Row(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(bg)
-            .clickable(onClick = onClick)
-            .padding(10.dp),
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(bg).clickable(onClick = onClick).padding(10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface)
@@ -221,14 +208,11 @@ private fun AccountChip() {
 }
 
 @Composable
-private fun QueuePanel(width: androidx.compose.ui.unit.Dp) {
+private fun QueuePanel(width: Dp) {
+    val player by PlayerController.state.collectAsState()
     Column(
-        Modifier
-            .width(width)
-            .fillMaxHeight()
-            .clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.surface)
-            .padding(16.dp)
+        Modifier.width(width).fillMaxHeight().clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surface).padding(16.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.AutoMirrored.Filled.QueueMusic, contentDescription = null)
@@ -237,31 +221,63 @@ private fun QueuePanel(width: androidx.compose.ui.unit.Dp) {
         }
         Spacer(Modifier.height(12.dp))
         Text("Stai ascoltando", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
-        Text("—", fontWeight = FontWeight.SemiBold)
+        Text(player.track?.title ?: "—", fontWeight = FontWeight.SemiBold)
+        Text(player.track?.artist.orEmpty(), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
         Spacer(Modifier.height(16.dp))
         Text("In coda", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
-        Text("Nessun brano. Avvia la riproduzione dalla Home o da Cerca.")
+        if (player.queue.isEmpty()) {
+            Text("Nessun brano. Cerca qualcosa e avvia la radio.")
+        } else {
+            LazyColumn {
+                itemsIndexed(player.queue) { index, track ->
+                    TrackRow(
+                        track = track,
+                        selected = index == player.index,
+                        onClick = { PlayerController.play(player.queue, index) },
+                    )
+                }
+            }
+        }
     }
 }
 
 @Composable
 private fun PlayerBar(queueOpen: Boolean, onToggleQueue: () -> Unit) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .height(72.dp)
-            .background(MaterialTheme.colorScheme.surface)
-            .padding(horizontal = 16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(Modifier.weight(1f)) {
-            Text("Seaglass per Windows", fontWeight = FontWeight.SemiBold)
-            Text("v${BuildConfig.VERSION_NAME}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+    val player by PlayerController.state.collectAsState()
+    Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
+        if (player.durationSec > 0) {
+            LinearProgressIndicator(
+                progress = { (player.positionSec / player.durationSec).toFloat().coerceIn(0f, 1f) },
+                modifier = Modifier.fillMaxWidth().height(3.dp),
+            )
         }
-        Text("▶  ⏮  ⏭", fontSize = 18.sp)
-        Spacer(Modifier.weight(1f))
-        TextButton(onClick = onToggleQueue) {
-            Text(if (queueOpen) "Nascondi coda" else "Coda")
+        Row(
+            Modifier.fillMaxWidth().height(72.dp).padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(player.track?.title ?: "Seaglass per Windows", fontWeight = FontWeight.SemiBold)
+                val sub = when {
+                    player.loading -> "Caricamento…"
+                    player.error != null -> player.error
+                    player.track != null -> listOfNotNull(player.track?.artist, player.format).joinToString(" · ")
+                    else -> "v${BuildConfig.VERSION_NAME}"
+                }
+                Text(sub.orEmpty(), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+            }
+            TextButton(onClick = { PlayerController.previous() }) { Text("⏮") }
+            TextButton(onClick = { PlayerController.toggle() }) { Text(if (player.playing) "⏸" else "▶") }
+            TextButton(onClick = { PlayerController.next() }) { Text("⏭") }
+            Spacer(Modifier.width(8.dp))
+            Text(
+                "${formatDuration(player.positionSec)} / ${formatDuration(player.durationSec.takeIf { it > 0 })}",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.weight(0.3f))
+            TextButton(onClick = onToggleQueue) {
+                Text(if (queueOpen) "Nascondi coda" else "Coda")
+            }
         }
     }
 }
@@ -272,19 +288,75 @@ private fun HomePage() {
         Text("Home", fontSize = 28.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(8.dp))
         Text(
-            "Benvenuto su Seaglass per Windows 11. Accedi con lo stesso account del sito per sincronizzare libreria e preferenze con iPhone, iPad e Mac.",
+            "Seaglass per Windows 11: cerca su YouTube Music, avvia una radio, sincronizza l’account. Gli aggiornamenti arrivano da windows-v* (ramo windows), separati da iPhone e Mac.",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        Spacer(Modifier.height(16.dp))
+        Text("Apri Cerca e digita un artista o un brano.", color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
 @Composable
 private fun SearchPage() {
-    Column {
+    var query by remember { mutableStateOf("") }
+    var loading by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var songs by remember { mutableStateOf<List<Track>>(emptyList()) }
+    val scope = rememberCoroutineScope()
+
+    Column(Modifier.fillMaxSize()) {
         Text("Cerca", fontSize = 28.sp, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(8.dp))
-        Text("La ricerca YouTube Music arriva nella prossima build (stesso motore di Android).", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(12.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                modifier = Modifier.weight(1f),
+                singleLine = true,
+                placeholder = { Text("Brani, artisti…") },
+            )
+            Spacer(Modifier.width(8.dp))
+            Button(
+                enabled = query.isNotBlank() && !loading,
+                onClick = {
+                    scope.launch {
+                        loading = true
+                        error = null
+                        songs = emptyList()
+                        val result = withContext(Dispatchers.IO) {
+                            runCatching { InnerTube.searchSongs(query.trim()) }
+                        }
+                        loading = false
+                        result.onSuccess { songs = it }
+                            .onFailure { error = it.message ?: it.toString() }
+                    }
+                },
+            ) { Text(if (loading) "…" else "Cerca") }
+        }
+        Spacer(Modifier.height(12.dp))
+        error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        LazyColumn {
+            items(songs, key = { it.videoId }) { track ->
+                TrackRow(track = track, selected = false, onClick = { PlayerController.playRadio(track) })
+            }
+        }
     }
+}
+
+@Composable
+private fun TrackRow(track: Track, selected: Boolean, onClick: () -> Unit) {
+    val bg = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surface
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(bg).clickable(onClick = onClick).padding(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(track.title, fontWeight = FontWeight.SemiBold)
+            Text(track.subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+        }
+        Text(formatDuration(track.duration), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+    Spacer(Modifier.height(4.dp))
 }
 
 @Composable
@@ -304,7 +376,10 @@ private fun SettingsPage() {
         Text("Impostazioni", fontSize = 28.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(16.dp))
         Text("Aggiornamenti", fontWeight = FontWeight.SemiBold)
-        Text("Come sul Mac: Seaglass cerca `windows-v*` su GitHub e installa da sola.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            "Canale separato da iPhone/Mac: solo tag windows-v* dal ramo windows, mai Latest. Come sul Mac: download automatico, verifica SHA-256, installa al riavvio.",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         Spacer(Modifier.height(8.dp))
         Button(onClick = { scope.launch { AppUpdater.check(userInitiated = true) } }) {
             Text("Cerca aggiornamenti")
