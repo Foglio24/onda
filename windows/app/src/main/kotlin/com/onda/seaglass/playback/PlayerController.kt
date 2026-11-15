@@ -1,6 +1,7 @@
 package com.onda.seaglass.playback
 
 import com.onda.seaglass.data.InnerTube
+import com.onda.seaglass.data.Library
 import com.onda.seaglass.data.NoStreamException
 import com.onda.seaglass.data.Streams
 import com.onda.seaglass.model.Track
@@ -142,6 +143,7 @@ object PlayerController {
             player = mp
             mp.setOnReady {
                 val dur = mp.totalDuration?.toSeconds()?.takeIf { !it.isNaN() } ?: track.duration ?: 0.0
+                Library.recordPlay(track)
                 _state.value = _state.value.copy(
                     loading = false,
                     playing = true,

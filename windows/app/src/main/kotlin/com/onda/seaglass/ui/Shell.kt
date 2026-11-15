@@ -2,6 +2,7 @@ package com.onda.seaglass.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,10 +17,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Search
@@ -27,12 +32,14 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -42,13 +49,21 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.onda.seaglass.BuildConfig
 import com.onda.seaglass.account.Account
+import com.onda.seaglass.account.LibrarySync
 import com.onda.seaglass.data.InnerTube
+import com.onda.seaglass.data.Library
+import com.onda.seaglass.data.Mood
+import com.onda.seaglass.data.Recommendations
+import com.onda.seaglass.model.CatalogResults
+import com.onda.seaglass.model.MusicItem
 import com.onda.seaglass.model.Track
 import com.onda.seaglass.model.formatDuration
 import com.onda.seaglass.playback.PlayerController
@@ -64,30 +79,44 @@ enum class Page { Home, Search, Library, Settings }
 @Composable
 fun ClassicShell() {
     var page by remember { mutableStateOf(Page.Home) }
-    var libraryWidth by remember { mutableStateOf(260.dp) }
-    var queueWidth by remember { mutableStateOf(300.dp) }
+    var catalog by remember { mutableStateOf<CatalogRoute>(CatalogRoute.None) }
     var queueOpen by remember { mutableStateOf(true) }
+    var showLyrics by remember { mutableStateOf(false) }
 
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         UpdateBanner()
         Row(Modifier.weight(1f).fillMaxWidth().padding(8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            LibraryPanel(width = libraryWidth, page = page, onSelect = { page = it })
+            LibraryPanel(
+                width = 260.dp,
+                page = page,
+                onSelect = {
+                    page = it
+                    catalog = CatalogRoute.None
+                },
+            )
             Box(
                 Modifier
                     .weight(1f)
                     .fillMaxHeight()
                     .clip(RoundedCornerShape(12.dp))
                     .background(MaterialTheme.colorScheme.surface)
-                    .padding(20.dp)
+                    .padding(20.dp),
             ) {
-                when (page) {
-                    Page.Home -> HomePage()
-                    Page.Search -> SearchPage()
-                    Page.Library -> LibraryPage()
-                    Page.Settings -> SettingsPage()
+                when (val route = catalog) {
+                    is CatalogRoute.Artist -> ArtistPageView(route.id, onBack = { catalog = CatalogRoute.None }, onOpen = { catalog = it })
+                    is CatalogRoute.Album -> AlbumPageView(route.id, onBack = { catalog = CatalogRoute.None })
+                    is CatalogRoute.Playlist -> PlaylistPageView(route.id, onBack = { catalog = CatalogRoute.None })
+                    CatalogRoute.None -> when (page) {
+                        Page.Home -> HomePage(onOpen = { catalog = it })
+                        Page.Search -> SearchPage(onOpen = { catalog = it })
+                        Page.Library -> LibraryPage()
+                        Page.Settings -> SettingsPage()
+                    }
                 }
             }
-            if (queueOpen) QueuePanel(width = queueWidth)
+            if (queueOpen) {
+                QueuePanel(width = 300.dp, showLyrics = showLyrics, onToggleLyrics = { showLyrics = !showLyrics })
+            }
         }
         PlayerBar(queueOpen = queueOpen, onToggleQueue = { queueOpen = !queueOpen })
     }
@@ -139,7 +168,7 @@ private fun Banner(text: String, action: String?, onAction: () -> Unit) {
 private fun LibraryPanel(width: Dp, page: Page, onSelect: (Page) -> Unit) {
     Column(
         Modifier.width(width).fillMaxHeight().clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.surface).padding(12.dp)
+            .background(MaterialTheme.colorScheme.surface).padding(12.dp),
     ) {
         Text("Seaglass", fontWeight = FontWeight.Bold, fontSize = 22.sp, color = MaterialTheme.colorScheme.primary)
         Spacer(Modifier.height(16.dp))
@@ -153,12 +182,7 @@ private fun LibraryPanel(width: Dp, page: Page, onSelect: (Page) -> Unit) {
 }
 
 @Composable
-private fun NavItem(
-    label: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
+private fun NavItem(label: String, icon: ImageVector, selected: Boolean, onClick: () -> Unit) {
     val bg = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surface
     Row(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(bg).clickable(onClick = onClick).padding(10.dp),
@@ -176,6 +200,7 @@ private fun AccountChip() {
     val signedIn by Account.isSignedIn.collectAsState()
     val details by Account.details.collectAsState()
     val error by Account.signInError.collectAsState()
+    val sync by Account.syncState.collectAsState()
     val scope = rememberCoroutineScope()
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -195,10 +220,16 @@ private fun AccountChip() {
         if (signedIn) {
             TextButton(onClick = {
                 scope.launch {
-                    val url = Account.signedInManageUrl()
-                    Desktop.getDesktop().browse(URI(url))
+                    Desktop.getDesktop().browse(URI(Account.signedInManageUrl()))
                 }
             }) { Text("Gestisci sul sito") }
+            TextButton(onClick = { scope.launch { LibrarySync.pushAndPull() } }) {
+                Text(when (sync) {
+                    is Account.SyncState.Syncing -> "Sincronizzo…"
+                    is Account.SyncState.Failed -> "Riprova sync"
+                    else -> "Sincronizza"
+                })
+            }
             TextButton(onClick = { Account.signOut() }) { Text("Esci") }
         } else {
             Button(onClick = { scope.launch { Account.signIn() } }) { Text("Accedi con il sito") }
@@ -208,33 +239,34 @@ private fun AccountChip() {
 }
 
 @Composable
-private fun QueuePanel(width: Dp) {
+private fun QueuePanel(width: Dp, showLyrics: Boolean, onToggleLyrics: () -> Unit) {
     val player by PlayerController.state.collectAsState()
     Column(
         Modifier.width(width).fillMaxHeight().clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.surface).padding(16.dp)
+            .background(MaterialTheme.colorScheme.surface).padding(16.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.AutoMirrored.Filled.QueueMusic, contentDescription = null)
             Spacer(Modifier.width(8.dp))
-            Text("Coda", fontWeight = FontWeight.Bold)
+            Text("Coda", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            TextButton(onClick = onToggleLyrics) { Text(if (showLyrics) "Coda" else "Testo") }
         }
         Spacer(Modifier.height(12.dp))
-        Text("Stai ascoltando", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
-        Text(player.track?.title ?: "—", fontWeight = FontWeight.SemiBold)
-        Text(player.track?.artist.orEmpty(), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
-        Spacer(Modifier.height(16.dp))
-        Text("In coda", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
-        if (player.queue.isEmpty()) {
-            Text("Nessun brano. Cerca qualcosa e avvia la radio.")
+        if (showLyrics) {
+            LyricsPanel(player.track, player.positionSec)
         } else {
-            LazyColumn {
-                itemsIndexed(player.queue) { index, track ->
-                    TrackRow(
-                        track = track,
-                        selected = index == player.index,
-                        onClick = { PlayerController.play(player.queue, index) },
-                    )
+            Text("Stai ascoltando", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+            Text(player.track?.title ?: "—", fontWeight = FontWeight.SemiBold)
+            Text(player.track?.artist.orEmpty(), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+            Spacer(Modifier.height(16.dp))
+            Text("In coda", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+            if (player.queue.isEmpty()) {
+                Text("Nessun brano. Cerca qualcosa e avvia la radio.")
+            } else {
+                LazyColumn {
+                    itemsIndexed(player.queue) { index, track ->
+                        TrackListRow(track, onClick = { PlayerController.play(player.queue, index) })
+                    }
                 }
             }
         }
@@ -244,6 +276,8 @@ private fun QueuePanel(width: Dp) {
 @Composable
 private fun PlayerBar(queueOpen: Boolean, onToggleQueue: () -> Unit) {
     val player by PlayerController.state.collectAsState()
+    val liked by Library.liked.collectAsState()
+    val isLiked = player.track?.let { t -> liked.any { it.videoId == t.videoId } } == true
     Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
         if (player.durationSec > 0) {
             LinearProgressIndicator(
@@ -252,9 +286,11 @@ private fun PlayerBar(queueOpen: Boolean, onToggleQueue: () -> Unit) {
             )
         }
         Row(
-            Modifier.fillMaxWidth().height(72.dp).padding(horizontal = 16.dp),
+            Modifier.fillMaxWidth().height(80.dp).padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            Artwork(player.track?.mediumArtwork, size = 56.dp)
+            Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(player.track?.title ?: "Seaglass per Windows", fontWeight = FontWeight.SemiBold)
                 val sub = when {
@@ -265,6 +301,15 @@ private fun PlayerBar(queueOpen: Boolean, onToggleQueue: () -> Unit) {
                 }
                 Text(sub.orEmpty(), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
             }
+            player.track?.let { track ->
+                IconButton(onClick = { Library.toggleLike(track) }) {
+                    Icon(
+                        if (isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                        contentDescription = null,
+                        tint = if (isLiked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                    )
+                }
+            }
             TextButton(onClick = { PlayerController.previous() }) { Text("⏮") }
             TextButton(onClick = { PlayerController.toggle() }) { Text(if (player.playing) "⏸" else "▶") }
             TextButton(onClick = { PlayerController.next() }) { Text("⏭") }
@@ -274,7 +319,7 @@ private fun PlayerBar(queueOpen: Boolean, onToggleQueue: () -> Unit) {
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Spacer(Modifier.weight(0.3f))
+            Spacer(Modifier.width(12.dp))
             TextButton(onClick = onToggleQueue) {
                 Text(if (queueOpen) "Nascondi coda" else "Coda")
             }
@@ -283,25 +328,70 @@ private fun PlayerBar(queueOpen: Boolean, onToggleQueue: () -> Unit) {
 }
 
 @Composable
-private fun HomePage() {
-    Column {
-        Text("Home", fontSize = 28.sp, fontWeight = FontWeight.Bold)
+private fun HomePage(onOpen: (CatalogRoute) -> Unit) {
+    var picks by remember { mutableStateOf<List<Track>>(emptyList()) }
+    var loading by remember { mutableStateOf(true) }
+    var error by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+    fun load(refresh: Boolean) {
+        scope.launch {
+            loading = true
+            error = null
+            runCatching { Recommendations.quickPicks(refresh) }
+                .onSuccess { picks = it }
+                .onFailure { error = it.message }
+            loading = false
+        }
+    }
+    LaunchedEffect(Unit) { load(false) }
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Home", fontSize = 28.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            TextButton(onClick = { load(true) }) { Text("Aggiorna") }
+        }
         Spacer(Modifier.height(8.dp))
-        Text(
-            "Seaglass per Windows 11: cerca su YouTube Music, avvia una radio, sincronizza l’account. Gli aggiornamenti arrivano da windows-v* (ramo windows), separati da iPhone e Mac.",
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(Modifier.height(16.dp))
-        Text("Apri Cerca e digita un artista o un brano.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("Scelti per te", fontWeight = FontWeight.SemiBold)
+        if (loading) Text("Caricamento…", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        picks.forEachIndexed { index, track ->
+            TrackListRow(track) { PlayerController.play(picks, index) }
+        }
+        Spacer(Modifier.height(20.dp))
+        Text("Umore", fontWeight = FontWeight.SemiBold)
+        Spacer(Modifier.height(8.dp))
+        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Recommendations.moods.forEach { mood ->
+                MoodChip(mood) {
+                    scope.launch {
+                        runCatching { withContext(Dispatchers.IO) { Recommendations.moodTracks(mood) } }
+                            .onSuccess { if (it.isNotEmpty()) PlayerController.play(it, 0) }
+                    }
+                }
+            }
+        }
     }
 }
 
 @Composable
-private fun SearchPage() {
+private fun MoodChip(mood: Mood, onClick: () -> Unit) {
+    Box(
+        Modifier
+            .clip(RoundedCornerShape(10.dp))
+            .background(Color(mood.tint).copy(alpha = 0.35f))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+    ) {
+        Text(mood.title, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+@Composable
+private fun SearchPage(onOpen: (CatalogRoute) -> Unit) {
     var query by remember { mutableStateOf("") }
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var songs by remember { mutableStateOf<List<Track>>(emptyList()) }
+    var catalog by remember { mutableStateOf(CatalogResults()) }
     val scope = rememberCoroutineScope()
 
     Column(Modifier.fillMaxSize()) {
@@ -323,12 +413,13 @@ private fun SearchPage() {
                         loading = true
                         error = null
                         songs = emptyList()
-                        val result = withContext(Dispatchers.IO) {
-                            runCatching { InnerTube.searchSongs(query.trim()) }
-                        }
+                        catalog = CatalogResults()
+                        val q = query.trim()
+                        val songResult = withContext(Dispatchers.IO) { runCatching { InnerTube.searchSongs(q) } }
+                        val catalogResult = withContext(Dispatchers.IO) { runCatching { InnerTube.searchCatalog(q) } }
                         loading = false
-                        result.onSuccess { songs = it }
-                            .onFailure { error = it.message ?: it.toString() }
+                        songResult.onSuccess { songs = it }.onFailure { error = it.message }
+                        catalogResult.onSuccess { catalog = it }
                     }
                 },
             ) { Text(if (loading) "…" else "Cerca") }
@@ -336,35 +427,100 @@ private fun SearchPage() {
         Spacer(Modifier.height(12.dp))
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         LazyColumn {
-            items(songs, key = { it.videoId }) { track ->
-                TrackRow(track = track, selected = false, onClick = { PlayerController.playRadio(track) })
+            catalog.top?.let { top ->
+                item {
+                    Text("Risultato principale", fontWeight = FontWeight.SemiBold)
+                    CatalogItemRow(top) { openCatalogItem(top, onOpen) }
+                    Spacer(Modifier.height(8.dp))
+                }
+            }
+            if (songs.isNotEmpty()) {
+                item { Text("Brani", fontWeight = FontWeight.SemiBold) }
+                items(songs, key = { it.videoId }) { track ->
+                    TrackListRow(track) { PlayerController.playRadio(track) }
+                }
+            }
+            if (catalog.artists.isNotEmpty()) {
+                item { Text("Artisti", fontWeight = FontWeight.SemiBold) }
+                items(catalog.artists, key = { it.id }) { item ->
+                    CatalogItemRow(item) { openCatalogItem(item, onOpen) }
+                }
+            }
+            if (catalog.albums.isNotEmpty()) {
+                item { Text("Album", fontWeight = FontWeight.SemiBold) }
+                items(catalog.albums, key = { it.id }) { item ->
+                    CatalogItemRow(item) { openCatalogItem(item, onOpen) }
+                }
+            }
+            if (catalog.playlists.isNotEmpty()) {
+                item { Text("Playlist", fontWeight = FontWeight.SemiBold) }
+                items(catalog.playlists, key = { it.id }) { item ->
+                    CatalogItemRow(item) { openCatalogItem(item, onOpen) }
+                }
             }
         }
     }
 }
 
-@Composable
-private fun TrackRow(track: Track, selected: Boolean, onClick: () -> Unit) {
-    val bg = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surface
-    Row(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(bg).clickable(onClick = onClick).padding(10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(Modifier.weight(1f)) {
-            Text(track.title, fontWeight = FontWeight.SemiBold)
-            Text(track.subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
-        }
-        Text(formatDuration(track.duration), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+private fun openCatalogItem(item: MusicItem, onOpen: (CatalogRoute) -> Unit) {
+    when (item.kind) {
+        MusicItem.Kind.ARTIST -> onOpen(CatalogRoute.Artist(item.id))
+        MusicItem.Kind.ALBUM -> onOpen(CatalogRoute.Album(item.id))
+        MusicItem.Kind.PLAYLIST -> onOpen(CatalogRoute.Playlist(item.id))
+        MusicItem.Kind.SONG -> item.track?.let { PlayerController.playRadio(it) }
+        else -> Unit
     }
-    Spacer(Modifier.height(4.dp))
 }
 
 @Composable
 private fun LibraryPage() {
-    Column {
+    val liked by Library.liked.collectAsState()
+    val history by Library.history.collectAsState()
+    val playlists by Library.playlists.collectAsState()
+    var section by remember { mutableStateOf(0) }
+    Column(Modifier.fillMaxSize()) {
         Text("La tua libreria", fontSize = 28.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(8.dp))
-        Text("Brani che ti piacciono, playlist e cronologia si sincronizzano con l’account.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row {
+            TextButton(onClick = { section = 0 }) { Text("Preferiti") }
+            TextButton(onClick = { section = 1 }) { Text("Cronologia") }
+            TextButton(onClick = { section = 2 }) { Text("Playlist") }
+        }
+        when (section) {
+            0 -> {
+                if (liked.isEmpty()) Text("Nessun preferito. Tocca ♥ sul player.")
+                else LazyColumn {
+                    itemsIndexed(liked) { index, track ->
+                        TrackListRow(track) { PlayerController.play(liked, index) }
+                    }
+                }
+            }
+            1 -> {
+                Row {
+                    Text("Ascoltati di recente", fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                    TextButton(onClick = { Library.clearHistory() }) { Text("Svuota") }
+                }
+                if (history.isEmpty()) Text("Ancora nessun ascolto.")
+                else LazyColumn {
+                    itemsIndexed(history) { index, track ->
+                        TrackListRow(track) { PlayerController.play(history, index) }
+                    }
+                }
+            }
+            else -> {
+                if (playlists.isEmpty()) Text("Nessuna playlist. Arrivano con l’account o creale qui dopo.")
+                else LazyColumn {
+                    items(playlists, key = { it.id }) { playlist ->
+                        Column(Modifier.fillMaxWidth().clickable {
+                            if (playlist.tracks.isNotEmpty()) PlayerController.play(playlist.tracks, 0)
+                        }.padding(vertical = 8.dp)) {
+                            Text(playlist.name, fontWeight = FontWeight.SemiBold)
+                            Text("${playlist.tracks.size} brani", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -372,19 +528,19 @@ private fun LibraryPage() {
 private fun SettingsPage() {
     val scope = rememberCoroutineScope()
     val status by AppUpdater.status.collectAsState()
-    Column {
+    Column(Modifier.verticalScroll(rememberScrollState())) {
         Text("Impostazioni", fontSize = 28.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(16.dp))
         Text("Aggiornamenti", fontWeight = FontWeight.SemiBold)
         Text(
-            "Canale separato da iPhone/Mac: solo tag windows-v* dal ramo windows, mai Latest. Come sul Mac: download automatico, verifica SHA-256, installa al riavvio.",
+            "Canale separato: solo windows-v* dal ramo windows, mai Latest. Download automatico, SHA-256, installa al riavvio.",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(Modifier.height(8.dp))
         Button(onClick = { scope.launch { AppUpdater.check(userInitiated = true) } }) {
             Text("Cerca aggiornamenti")
         }
-        Text("Stato: ${status::class.simpleName}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("Stato: ${status::class.simpleName} · v${BuildConfig.VERSION_NAME}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(24.dp))
         Text("Account", fontWeight = FontWeight.SemiBold)
         Text("Gestito su ${Account.manageUrl}", color = MaterialTheme.colorScheme.onSurfaceVariant)

@@ -6,6 +6,7 @@ import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import com.onda.seaglass.account.Account
 import com.onda.seaglass.account.ProtocolRegistrar
+import com.onda.seaglass.data.Library
 import com.onda.seaglass.ui.ClassicShell
 import com.onda.seaglass.ui.theme.SeaglassTheme
 import com.onda.seaglass.update.AppUpdater
@@ -28,6 +29,7 @@ fun main(args: Array<String>) {
         }
     }
 
+    Library.reload()
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     scope.launch { Account.refresh() }
     scope.launch { AppUpdater.checkIfDue(force = true) }
