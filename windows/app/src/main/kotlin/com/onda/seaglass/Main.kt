@@ -98,9 +98,12 @@ fun main(args: Array<String>) {
             onPreviewKeyEvent = { event ->
                 if (event.type != KeyEventType.KeyDown) return@Window false
                 when {
-                    event.key == Key.MediaPlayPause -> { Player.toggle(); true }
-                    event.key == Key.MediaNext -> { Player.next(); true }
-                    event.key == Key.MediaPrevious -> { Player.previous(); true }
+                    // On Windows the media keys are taken by the keyboard hook whatever has the focus
+                    // (WindowsIntegration): handled here too, they would count twice.
+                    !WindowsIntegration.isWindows && event.key == Key.MediaPlayPause -> { Player.toggle(); true }
+                    !WindowsIntegration.isWindows && event.key == Key.MediaNext -> { Player.next(); true }
+                    !WindowsIntegration.isWindows && event.key == Key.MediaPrevious -> { Player.previous(); true }
+                    WindowsIntegration.isWindows && event.key in setOf(Key.MediaPlayPause, Key.MediaNext, Key.MediaPrevious) -> true
                     event.isCtrlPressed && event.key == Key.DirectionRight -> { Player.next(); true }
                     event.isCtrlPressed && event.key == Key.DirectionLeft -> { Player.previous(); true }
                     event.isCtrlPressed && event.key == Key.DirectionUp -> { Player.setVolume(Prefs.volume.value + 0.05); true }
