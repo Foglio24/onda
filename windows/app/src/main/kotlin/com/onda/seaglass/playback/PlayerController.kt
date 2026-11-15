@@ -37,6 +37,9 @@ object PlayerController {
         val format: String? = null,
         val error: String? = null,
         val loading: Boolean = false,
+        val volume: Double = 1.0,
+        val shuffle: Boolean = false,
+        val repeatQueue: Boolean = false,
     )
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -83,11 +86,29 @@ object PlayerController {
 
     fun next() {
         val s = _state.value
-        if (s.index + 1 < s.queue.size) {
-            val i = s.index + 1
-            _state.value = s.copy(index = i)
-            loadAndPlay(s.queue[i])
+        if (s.queue.isEmpty()) return
+        val i = when {
+            s.shuffle -> s.queue.indices.random()
+            s.index + 1 < s.queue.size -> s.index + 1
+            s.repeatQueue -> 0
+            else -> return
         }
+        _state.value = s.copy(index = i)
+        loadAndPlay(s.queue[i])
+    }
+
+    fun setVolume(value: Double) {
+        val v = value.coerceIn(0.0, 1.0)
+        _state.value = _state.value.copy(volume = v)
+        runOnFx { player?.volume = v }
+    }
+
+    fun toggleShuffle() {
+        _state.value = _state.value.copy(shuffle = !_state.value.shuffle)
+    }
+
+    fun toggleRepeat() {
+        _state.value = _state.value.copy(repeatQueue = !_state.value.repeatQueue)
     }
 
     fun previous() {
@@ -141,6 +162,7 @@ object PlayerController {
             val media = Media(url)
             val mp = MediaPlayer(media)
             player = mp
+            mp.volume = _state.value.volume
             mp.setOnReady {
                 val dur = mp.totalDuration?.toSeconds()?.takeIf { !it.isNaN() } ?: track.duration ?: 0.0
                 Library.recordPlay(track)

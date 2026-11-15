@@ -310,15 +310,26 @@ private fun PlayerBar(queueOpen: Boolean, onToggleQueue: () -> Unit) {
                     )
                 }
             }
+            TextButton(onClick = { PlayerController.toggleShuffle() }) {
+                Text(if (player.shuffle) "🔀✓" else "🔀")
+            }
             TextButton(onClick = { PlayerController.previous() }) { Text("⏮") }
             TextButton(onClick = { PlayerController.toggle() }) { Text(if (player.playing) "⏸" else "▶") }
             TextButton(onClick = { PlayerController.next() }) { Text("⏭") }
+            TextButton(onClick = { PlayerController.toggleRepeat() }) {
+                Text(if (player.repeatQueue) "🔁✓" else "🔁")
+            }
             Spacer(Modifier.width(8.dp))
             Text(
                 "${formatDuration(player.positionSec)} / ${formatDuration(player.durationSec.takeIf { it > 0 })}",
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            Spacer(Modifier.width(8.dp))
+            Text("Vol", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            TextButton(onClick = { PlayerController.setVolume(player.volume - 0.1) }) { Text("−") }
+            Text("${(player.volume * 100).toInt()}%", fontSize = 11.sp)
+            TextButton(onClick = { PlayerController.setVolume(player.volume + 0.1) }) { Text("+") }
             Spacer(Modifier.width(12.dp))
             TextButton(onClick = onToggleQueue) {
                 Text(if (queueOpen) "Nascondi coda" else "Coda")
@@ -508,14 +519,60 @@ private fun LibraryPage() {
                 }
             }
             else -> {
-                if (playlists.isEmpty()) Text("Nessuna playlist. Arrivano con l’account o creale qui dopo.")
+                var newName by remember { mutableStateOf("") }
+                var importLink by remember { mutableStateOf("") }
+                var importError by remember { mutableStateOf<String?>(null) }
+                val importScope = rememberCoroutineScope()
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = newName,
+                        onValueChange = { newName = it },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                        placeholder = { Text("Nuova playlist") },
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Button(enabled = newName.isNotBlank(), onClick = {
+                        Library.createPlaylist(newName.trim())
+                        newName = ""
+                    }) { Text("Crea") }
+                }
+                Spacer(Modifier.height(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = importLink,
+                        onValueChange = { importLink = it },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                        placeholder = { Text("Link playlist YouTube Music") },
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Button(enabled = importLink.isNotBlank(), onClick = {
+                        importScope.launch {
+                            importError = null
+                            val id = InnerTube.playlistId(importLink) ?: importLink.trim()
+                            runCatching { withContext(Dispatchers.IO) { InnerTube.playlist(id) } }
+                                .onSuccess { page ->
+                                    Library.createPlaylist(page.title.ifBlank { "Playlist" }, page.tracks)
+                                    importLink = ""
+                                }
+                                .onFailure { importError = it.message }
+                        }
+                    }) { Text("Importa") }
+                }
+                importError?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 12.sp) }
+                Spacer(Modifier.height(8.dp))
+                if (playlists.isEmpty()) Text("Nessuna playlist. Creane una o sincronizza l’account.")
                 else LazyColumn {
                     items(playlists, key = { it.id }) { playlist ->
-                        Column(Modifier.fillMaxWidth().clickable {
-                            if (playlist.tracks.isNotEmpty()) PlayerController.play(playlist.tracks, 0)
-                        }.padding(vertical = 8.dp)) {
-                            Text(playlist.name, fontWeight = FontWeight.SemiBold)
-                            Text("${playlist.tracks.size} brani", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                        Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f).clickable {
+                                if (playlist.tracks.isNotEmpty()) PlayerController.play(playlist.tracks, 0)
+                            }) {
+                                Text(playlist.name, fontWeight = FontWeight.SemiBold)
+                                Text("${playlist.tracks.size} brani", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                            }
+                            TextButton(onClick = { Library.deletePlaylist(playlist.id) }) { Text("Elimina") }
                         }
                     }
                 }
