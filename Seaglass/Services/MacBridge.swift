@@ -217,6 +217,23 @@ final class MacBridge {
         }
     }
 
+    /// Stages a DMG with the same checks as the legacy ZIP updater.
+    func stage(dmg: URL, version: String) async throws -> URL {
+        guard let plugIn else { throw UpdateError.invalid }
+        return try await withCheckedThrowingContinuation { continuation in
+            let completion: @convention(block) (NSString?, NSString?) -> Void = { path, _ in
+                if let path {
+                    continuation.resume(returning: URL(fileURLWithPath: path as String))
+                } else {
+                    continuation.resume(throwing: UpdateError.invalid)
+                }
+            }
+            let request: [String: Any] = ["dmg": dmg.path, "version": version,
+                                          "completion": unsafeBitCast(completion, to: AnyObject.self)]
+            _ = plugIn.perform(NSSelectorFromString("stageDMGUpdate:"), with: request as NSDictionary)
+        }
+    }
+
     /// Puts a staged update in place of the app and, with `relaunch`, quits and opens the new one.
     /// Returns an error's description when it couldn't.
     func install(app: URL, relaunch: Bool) -> String? {
