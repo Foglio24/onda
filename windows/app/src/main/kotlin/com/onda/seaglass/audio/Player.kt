@@ -519,11 +519,37 @@ object Player {
         }
     }
 
+    // Last.fm: the song is scrobbled once it has been listened to for half its length or 4 minutes.
+    private var listeningTo: String? = null
+    private var listened = 0.0
+    private var startedAt = 0L
+    private var scrobbled = false
+
+    private fun listening(position: Double) {
+        val track = _state.value.current ?: return
+        if (track.videoId != listeningTo) {
+            listeningTo = track.videoId
+            listened = 0.0
+            startedAt = System.currentTimeMillis()
+            scrobbled = false
+            com.onda.seaglass.data.LastFM.nowPlaying(track)
+        }
+        val step = position - _position.value
+        if (_state.value.isPlaying && step > 0 && step < 1.5) listened += step
+        val length = _state.value.duration
+        if (!scrobbled && length > 30 && listened >= minOf(length / 2, 240.0)) {
+            scrobbled = true
+            com.onda.seaglass.data.LastFM.scrobble(track, startedAt)
+        }
+    }
+
     private fun startTicker() {
         if (ticker?.isActive == true) return
         ticker = scope.launch {
             while (isActive) {
-                _position.value = engine.position
+                val now = engine.position
+                listening(now)
+                _position.value = now
                 if (engine.outputFailure != null && _state.value.error == null) {
                     _state.value = _state.value.copy(error = tr("Nessuna uscita audio disponibile."))
                 }

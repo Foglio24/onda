@@ -53,6 +53,7 @@ fun main(args: Array<String>) {
     Player.init()
     NowPlayingLyrics.init()
     Account.init()
+    com.onda.seaglass.data.LastFM.init()
     AppUpdater.start()
     WindowsIntegration.startMediaKeys()
     args.firstOrNull { it.startsWith(Account.CALLBACK) }?.let(Account::handleCallback)

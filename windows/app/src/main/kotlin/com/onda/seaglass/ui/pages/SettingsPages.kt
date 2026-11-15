@@ -66,6 +66,7 @@ import com.onda.seaglass.ui.SectionHeader
 import com.onda.seaglass.update.AppUpdater
 import com.onda.seaglass.WindowsIntegration
 import kotlin.math.log10
+import kotlinx.coroutines.launch
 
 @Composable
 private fun Group(content: @Composable ColumnScope.() -> Unit) {
@@ -201,6 +202,9 @@ fun SettingsPage() {
             }
             SettingRow(tr("Equalizzatore"), if (Equalizer.state.value.isOn) Equalizer.state.value.preset.title else tr("Disattivato"), onClick = { Nav.open(Route.Equalizer) })
         }
+
+        SectionHeader(tr("Last.fm"))
+        Group { LastFMSettings() }
 
         SectionHeader(tr("Catalogo"))
         Group {
@@ -361,4 +365,66 @@ fun AccountPage() {
             PillButton(tr("Esci")) { Account.signOut() }
         }
     }
+}
+
+/** Last.fm, as on the iPhone: the user's own API key, then the account authorised in the browser. */
+@Composable
+private fun LastFMSettings() {
+    val palette = LocalPalette.current
+    val username by com.onda.seaglass.data.LastFM.username.collectAsState()
+    val pending by com.onda.seaglass.data.LastFM.pending.collectAsState()
+    val scrobbling by com.onda.seaglass.data.LastFM.scrobbling.state.collectAsState()
+    val scope = rememberCoroutineScope()
+    var editing by remember { mutableStateOf(!com.onda.seaglass.data.LastFM.hasCredentials) }
+    var key by remember { mutableStateOf(com.onda.seaglass.data.LastFM.apiKey) }
+    var secret by remember { mutableStateOf("") }
+    var waiting by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    if (username != null) {
+        SettingRow(tr("Account"), username)
+        Toggle(tr("Scrobbling"), tr("Serve una API key gratuita di Last.fm. Un brano viene registrato dopo metà ascolto o 4 minuti."), scrobbling) {
+            com.onda.seaglass.data.LastFM.scrobbling.value = it
+        }
+        if (pending > 0) SettingRow(tr("Scrobble in attesa"), pending.toString())
+        SettingRow(tr("Disconnetti"), onClick = { com.onda.seaglass.data.LastFM.signOut() })
+        return
+    }
+    if (editing) {
+        androidx.compose.material3.OutlinedTextField(key, { key = it }, label = { Text(tr("API key")) }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+        androidx.compose.material3.OutlinedTextField(
+            secret, { secret = it }, label = { Text(tr("Shared secret")) }, singleLine = true,
+            visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+        )
+        Row(Modifier.padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            PillButton(tr("Salva chiavi"), prominent = true) {
+                if (key.isNotBlank() && secret.isNotBlank()) {
+                    com.onda.seaglass.data.LastFM.saveCredentials(key, secret)
+                    secret = ""
+                    editing = false
+                }
+            }
+            PillButton(tr("Crea una API key su last.fm")) { runCatching { java.awt.Desktop.getDesktop().browse(java.net.URI("https://www.last.fm/api/account/create")) } }
+        }
+        return
+    }
+    SettingRow(tr("Connetti account Last.fm"), if (waiting) tr("Consenti l'accesso a Seaglass nella pagina di Last.fm aperta nel browser, poi torna qui e fai clic su OK.") else error, onClick = {
+        error = null
+        scope.launch {
+            runCatching { com.onda.seaglass.data.LastFM.beginAuth() }
+                .onSuccess { url ->
+                    runCatching { java.awt.Desktop.getDesktop().browse(java.net.URI(url)) }
+                    waiting = true
+                }
+                .onFailure { error = it.message }
+        }
+    }) {
+        if (waiting) PillButton(tr("OK"), prominent = true) {
+            scope.launch {
+                runCatching { com.onda.seaglass.data.LastFM.completeAuth() }.onFailure { error = it.message }
+                waiting = false
+            }
+        }
+    }
+    SettingRow(tr("Modifica chiavi API"), onClick = { editing = true })
 }

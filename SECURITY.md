@@ -97,9 +97,10 @@ Treat a change that breaks any of these as **P0** (secrets, updates) or **P1** (
 - Credentials the user enters (Last.fm) and the account's session token go in the Keychain on
   iOS (the login keychain on a Mac),
   never in `UserDefaults`, files in Documents, logs or diagnostics. The same applies on Android when Last.fm arrives:
-  encrypted storage, never plain preferences or logs. On Windows the account's session token is
-  protected with DPAPI (`SecureStore`: readable only by that Windows user on that computer), never
-  written in the clear; off Windows (tests) it is kept in memory only.
+  encrypted storage, never plain preferences or logs. On Windows the account's session token, the
+  Last.fm shared secret and the Last.fm session key are protected with DPAPI (`SecureStore`:
+  readable only by that Windows user on that computer), never written in the clear; off Windows
+  (tests) they are kept in memory only.
 
 ### Updates
 
