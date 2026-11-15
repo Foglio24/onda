@@ -66,7 +66,12 @@ object InnerTube {
 
     suspend fun searchSongs(query: String): List<Track> {
         val json = post("search", jsonOf("query" to query, "params" to SONGS_FILTER))
-        return J.findAll("musicResponsiveListItemRenderer", json.opt("contents")).mapNotNull(::parseListItem).uniqued()
+        val songs = J.findAll("musicResponsiveListItemRenderer", json.opt("contents")).mapNotNull(::parseListItem).uniqued()
+        if (songs.isNotEmpty()) return songs
+        // The songs filter sometimes answers "no results" (seen from some networks): the plain
+        // search's song rows instead, which carry the same data.
+        val plain = post("search", jsonOf("query" to query))
+        return J.findAll("musicResponsiveListItemRenderer", plain.opt("contents")).mapNotNull(::parseListItem).uniqued()
     }
 
     /** The radio YouTube Music builds when you start a song: the song itself followed by similar ones. */

@@ -113,3 +113,15 @@ compose.desktop {
 tasks.register("printVersion") {
     doLast { println(appVersion) }
 }
+
+// Runs the app from the build for development and CI screenshots: -Phome=<folder> keeps its
+// settings and library there, -Pheadless=true plays to no sound card.
+tasks.register<JavaExec>("runDev") {
+    mainClass.set("com.onda.seaglass.MainKt")
+    classpath = sourceSets.main.get().runtimeClasspath
+    jvmArgs("-Dfile.encoding=UTF-8")
+    (findProperty("home") as String?)?.let { systemProperty("seaglass.home", it) }
+    (findProperty("headless") as String?)?.let { systemProperty("seaglass.headless", it) }
+    (findProperty("language") as String?)?.let { systemProperty("user.language", it) }
+    (findProperty("args") as String?)?.let { args(it.split(" ")) }
+}

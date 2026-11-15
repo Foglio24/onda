@@ -89,6 +89,9 @@ object Prefs {
     val autoUpdate = bool("app.autoUpdate", true)
 
     val sleepMinutes = int("player.sleep", 0)
+    /** Leave out hour-long compilations uploaded as songs, as on the iPhone. */
+    val skipLongMixes = bool("catalog.skipLongMixes", true)
+    const val LONG_MIX_THRESHOLD = 20 * 60.0
 
     /** YouTube's visitor ID: the same one serves every song, so it is kept between launches. */
     var visitorData: String?
