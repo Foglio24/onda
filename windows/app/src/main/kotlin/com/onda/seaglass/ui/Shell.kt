@@ -277,6 +277,8 @@ private fun QueuePanel(width: Dp, showLyrics: Boolean, onToggleLyrics: () -> Uni
 private fun PlayerBar(queueOpen: Boolean, onToggleQueue: () -> Unit) {
     val player by PlayerController.state.collectAsState()
     val liked by Library.liked.collectAsState()
+    val playlists by Library.playlists.collectAsState()
+    var addPlaylistOpen by remember { mutableStateOf(false) }
     val isLiked = player.track?.let { t -> liked.any { it.videoId == t.videoId } } == true
     Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
         if (player.durationSec > 0) {
@@ -308,6 +310,19 @@ private fun PlayerBar(queueOpen: Boolean, onToggleQueue: () -> Unit) {
                         contentDescription = null,
                         tint = if (isLiked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                     )
+                }
+                if (playlists.isNotEmpty()) {
+                    TextButton(onClick = { addPlaylistOpen = !addPlaylistOpen }) {
+                        Text(if (addPlaylistOpen) "Chiudi +" else "+ Playlist")
+                    }
+                    if (addPlaylistOpen) {
+                        playlists.take(5).forEach { pl ->
+                            TextButton(onClick = {
+                                Library.toggleInPlaylist(track, pl.id)
+                                addPlaylistOpen = false
+                            }) { Text(pl.name.take(18)) }
+                        }
+                    }
                 }
             }
             TextButton(onClick = { PlayerController.toggleShuffle() }) {
@@ -598,6 +613,23 @@ private fun SettingsPage() {
             Text("Cerca aggiornamenti")
         }
         Text("Stato: ${status::class.simpleName} · v${BuildConfig.VERSION_NAME}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(24.dp))
+        Text("Qualità audio", fontWeight = FontWeight.SemiBold)
+        Text("Su Windows si preferisce AAC per il player desktop.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(8.dp))
+        Row {
+            listOf(
+                com.onda.seaglass.data.AudioQuality.LOW to "Risparmio",
+                com.onda.seaglass.data.AudioQuality.MEDIUM to "Media",
+                com.onda.seaglass.data.AudioQuality.HIGH to "Alta",
+                com.onda.seaglass.data.AudioQuality.MAX to "Massima",
+            ).forEach { (q, label) ->
+                val selected = com.onda.seaglass.data.Prefs.streamingQuality == q
+                TextButton(onClick = { com.onda.seaglass.data.Prefs.streamingQuality = q }) {
+                    Text(if (selected) "✓ $label" else label)
+                }
+            }
+        }
         Spacer(Modifier.height(24.dp))
         Text("Account", fontWeight = FontWeight.SemiBold)
         Text("Gestito su ${Account.manageUrl}", color = MaterialTheme.colorScheme.onSurfaceVariant)
