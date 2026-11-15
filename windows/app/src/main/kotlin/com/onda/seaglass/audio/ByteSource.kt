@@ -89,7 +89,7 @@ class StreamSource(
             } catch (e: Exception) {
                 pending.remove(index, future)
                 attempt += 1
-                if (attempt >= 3) throw IOException("Couldn't load part of the song", e)
+                if (attempt >= 3) throw IOException(com.onda.seaglass.core.tr("Errore di rete"), e)
                 Thread.sleep(400L * attempt)
             }
         }

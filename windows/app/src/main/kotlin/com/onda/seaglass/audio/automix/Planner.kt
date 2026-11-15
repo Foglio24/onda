@@ -4,6 +4,7 @@ import com.onda.seaglass.core.tr
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
+import kotlin.math.ln
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -95,73 +96,72 @@ data class TransitionPlan(
 
 /**
  * Chooses the transition between two songs from the end of one and the start of the other, as the
- * iPhone app's planner does in its main lines: beats matched over 8 or 4 bars when both have a
- * steady beat at close tempos, the bass passing from one to the other half way; otherwise a long
- * crossfade (into the song's own fade-out when it has one), with no silence left between them.
+ * iPhone app's planner does in its main lines: beats matched when both have a steady beat at tempos
+ * up to 12 % apart (counting half and double time), over 16 bars when the tempos are close, 8 or 4
+ * otherwise, the bass passing from one to the other on a downbeat half way; otherwise a crossfade on
+ * the song's ending (longer into its own fade-out, on a downbeat when it has a beat), with no silence
+ * left between them.
  */
 object Planner {
-    /** Tempos closer than this (or at double or half of each other) are matched. */
-    private const val MAX_TEMPO_CHANGE = 0.06
+    /** Tempos further apart than this are crossfaded, not matched (the iPhone's limit for AutoMix). */
+    private const val MAX_TEMPO_CHANGE = 0.12
+    /** Tempos this close get the longest mixes. */
+    private const val CLOSE_TEMPO = 0.06
+    /** The longest beat-matched overlap, in seconds (as on the iPhone). */
+    private const val LONGEST_OVERLAP = 48.0
 
     fun plan(outgoing: WindowAnalysis, duration: Double, incoming: WindowAnalysis): TransitionPlan {
         val soundEnd = min(outgoing.soundEnd, duration)
         val soundStart = max(0.0, incoming.soundStart)
-        beatMatched(outgoing, soundEnd, incoming, soundStart)?.let { return it }
-
-        val fade = fadeOut(outgoing, soundEnd)
-        if (fade != null) {
-            // The song fades out by itself: the next one comes in during the fade.
-            val (fadeStart, fadeEnd) = fade
-            val start = fadeStart + (fadeEnd - fadeStart) * 0.35
-            return TransitionPlan(
-                style = TransitionPlan.Style.FADE,
-                outStart = start, outEnd = fadeEnd, inStart = soundStart, incomingRate = 1.0,
-                fadeInFrom = 0.0, fadeIn = 0.6, fadeOutFrom = 0.3,
-            )
-        }
-        // A blend: up to 10 s, on the last of the sound, filtered when the song has a beat.
-        val length = min(10.0, max(4.0, (soundEnd - outgoing.start) / 3))
-        if (soundEnd - length < outgoing.start) {
-            return TransitionPlan(TransitionPlan.Style.GAPLESS, soundEnd, soundEnd, soundStart, 1.0)
-        }
-        return TransitionPlan(
-            style = TransitionPlan.Style.BLEND,
-            outStart = soundEnd - length, outEnd = soundEnd, inStart = soundStart, incomingRate = 1.0,
-            filterOut = if (outgoing.hasBeat) 0.5 else null,
-        )
+        beatMatched(outgoing, duration, soundEnd, incoming, soundStart)?.let { return it }
+        return blend(outgoing, duration, soundEnd, incoming, soundStart)
     }
 
-    private fun beatMatched(outgoing: WindowAnalysis, soundEnd: Double, incoming: WindowAnalysis, soundStart: Double): TransitionPlan? {
+    /** The next song's tempo as heard against this one's: the ratio to play it at (half or double folded in). */
+    fun tempoRatio(outgoing: WindowAnalysis, incoming: WindowAnalysis): Double? {
+        if (outgoing.tempo <= 0 || incoming.tempo <= 0) return null
+        return listOf(1.0, 2.0, 0.5)
+            .map { multiple -> outgoing.tempo / (incoming.tempo * multiple) }
+            .minByOrNull { abs(ln(it)) }
+            ?.takeIf { abs(ln(it)) <= ln(1 + MAX_TEMPO_CHANGE) }
+    }
+
+    private fun beatMatched(
+        outgoing: WindowAnalysis, duration: Double, soundEnd: Double, incoming: WindowAnalysis, soundStart: Double,
+    ): TransitionPlan? {
         if (!outgoing.hasBeat || !incoming.hasBeat) return null
-        // The next song's tempo as heard against this one's (a song at half or double tempo has the same pulse).
-        val rate = listOf(1.0, 2.0, 0.5)
-            .map { multiple -> outgoing.tempo / (incoming.tempo * multiple) to multiple }
-            .minByOrNull { abs(it.first - 1) }
-            ?.takeIf { abs(it.first - 1) <= MAX_TEMPO_CHANGE }
-            ?: return null
-        val incomingRate = rate.first
+        val incomingRate = tempoRatio(outgoing, incoming) ?: return null
         val beat = 60 / outgoing.tempo
         val bar = beat * 4
-        // The last downbeat before the sound ends (one beat of margin) ends the mix.
+        // The last downbeat before the sound ends (half a beat of margin) ends the mix.
         val downbeats = outgoing.downbeats.filter { it <= soundEnd - beat * 0.5 }
         if (downbeats.size < 5) return null
         // The next song's first downbeat with sound, and enough of its beats to keep in step.
         val entry = incoming.downbeats.firstOrNull { it >= soundStart - beat * 0.25 } ?: return null
-        for (bars in listOf(8, 4)) {
+        val close = abs(ln(incomingRate)) <= ln(1 + CLOSE_TEMPO)
+        for (bars in if (close) listOf(16, 8, 4) else listOf(8, 4)) {
             val endIndex = downbeats.size - 1
             val startIndex = endIndex - bars
             if (startIndex < 0) continue
             val outStart = downbeats[startIndex]
             val outEnd = downbeats[endIndex]
-            // The whole mix inside the analysed minute, and the next song's part too.
-            if (outStart < outgoing.start + 2 || outEnd - outStart < bar * bars * 0.9) continue
-            val incomingNeeded = (outEnd - outStart) / incomingRate
+            val overlap = outEnd - outStart
+            // The whole mix inside the analysed minute, on a steady grid, and at most 48 s long.
+            if (outStart < outgoing.start + 2 || overlap < bar * bars * 0.9 || overlap > bar * bars * 1.1 || overlap > LONGEST_OVERLAP) continue
+            // The song keeps at least its first half.
+            if (outStart < duration * 0.5) continue
+            val incomingNeeded = overlap / incomingRate
             if (entry + incomingNeeded > incoming.end) continue
+            // The bass passes over in one beat, on the downbeat half way through.
+            val swapStart = ((downbeats[startIndex + bars / 2] - outStart) / overlap).coerceIn(0.2, 0.8)
+            val swapEnd = min(1.0, swapStart + beat / overlap)
             return TransitionPlan(
                 style = TransitionPlan.Style.BEAT_MATCHED,
                 outStart = outStart, outEnd = outEnd, inStart = entry, incomingRate = incomingRate,
                 bars = bars,
-                swapStart = 0.45, swapEnd = 0.6,
+                swapStart = swapStart, swapEnd = swapEnd,
+                // The next song is fully in by the swap; the one leaving goes over the whole mix.
+                fadeInFrom = 0.0, fadeIn = swapStart, fadeOutFrom = 0.0,
                 filterOut = 0.75,
                 beatLength = beat,
             )
@@ -169,22 +169,67 @@ object Planner {
         return null
     }
 
-    /** Where the song's own fade-out starts and ends, when the level falls steadily by 12 dB or more. */
-    private fun fadeOut(outgoing: WindowAnalysis, soundEnd: Double): Pair<Double, Double>? {
-        if (outgoing.energy.size < 40) return null
-        // The level a few seconds before the end, against the last 30 s's loud parts.
+    /**
+     * A crossfade on the song's ending, as the iPhone's: into its own fade-out when it has one
+     * (6 to 12 s, the next song fully in within 3 s), otherwise 8 s (more under a quiet intro); the
+     * next song starts on a downbeat when this one has a beat, the bass passing over and this song
+     * filtered away.
+     */
+    private fun blend(
+        outgoing: WindowAnalysis, duration: Double, soundEnd: Double, incoming: WindowAnalysis, soundStart: Double,
+    ): TransitionPlan {
         val step = WindowAnalysis.ENERGY_STEP
-        val endIndex = ((soundEnd - outgoing.start) / step).toInt().coerceAtMost(outgoing.energy.size - 1)
+        val end = soundEnd
+        val inStart = max(0.0, soundStart - 0.01)
+        // How long the song has been fading: back from its end to the last moment at nearly full loudness.
+        val body = bodyLoudness(outgoing, end)
+        var fadeStart = end
+        var time = end - 1
+        while (time >= max(outgoing.start, end - 20)) {
+            if (outgoing.level(time) >= body - 3) break
+            fadeStart = time
+            time -= step
+        }
+        val fade = end - fadeStart
+        // A quiet start of the next song can come in earlier, under this one's ending.
+        val incomingBody = bodyLoudness(incoming, incoming.end)
+        var softIntro = 0.0
+        var probe = soundStart
+        while (probe < soundStart + 6 && incoming.level(probe) < incomingBody - 10) {
+            softIntro += step
+            probe += step
+        }
+        val rhythmic = outgoing.hasBeat
+        val style = if (fade >= 4) TransitionPlan.Style.FADE else TransitionPlan.Style.BLEND
+        var overlap = if (style == TransitionPlan.Style.FADE) min(12.0, max(6.0, fade)) else min(12.0, 8 + softIntro)
+        // Short songs keep their first ten seconds and half; the overlap stays inside the analysed minute.
+        overlap = min(overlap, max(0.0, end - max(outgoing.start + 1, duration * 0.5)))
+        if (overlap < 1) return TransitionPlan(TransitionPlan.Style.GAPLESS, end, end, inStart, 1.0)
+        var outStart = end - overlap
+        if (rhythmic) {
+            // On a steady beat, the next song starts on a downbeat: the one giving at least that overlap.
+            val earliest = max(outgoing.start + 1, duration * 0.5)
+            outgoing.downbeats.lastOrNull { it <= outStart && it >= earliest }?.let { outStart = it }
+        }
+        val length = end - outStart
+        return TransitionPlan(
+            style = style,
+            outStart = outStart, outEnd = end, inStart = inStart, incomingRate = 1.0,
+            swapStart = if (rhythmic) 0.45 else null, swapEnd = if (rhythmic) 0.55 else null,
+            fadeInFrom = 0.0, fadeIn = if (style == TransitionPlan.Style.FADE) min(1.0, 3 / length) else 0.5,
+            fadeOutFrom = 0.0,
+            filterOut = if (rhythmic) 0.4 else null,
+            beatLength = if (outgoing.tempo > 0) 60 / outgoing.tempo else 0.5,
+        )
+    }
+
+    /** The song's loud parts (the 80th percentile of its level) over the 30 s before [end]. */
+    private fun bodyLoudness(analysis: WindowAnalysis, end: Double): Float {
+        val step = WindowAnalysis.ENERGY_STEP
+        if (analysis.energy.isEmpty()) return -90f
+        val endIndex = ((end - analysis.start) / step).toInt().coerceIn(1, analysis.energy.size)
         val from = max(0, endIndex - (30 / step).toInt())
-        val body = outgoing.energy.subList(from, max(from + 1, endIndex - (10 / step).toInt())).sorted()
-        if (body.isEmpty()) return null
-        val loud = body[(body.size * 0.8).toInt().coerceAtMost(body.size - 1)]
-        // Walk back from the end while it's quieter than the body by 2 dB or more.
-        var start = endIndex
-        while (start > from && outgoing.energy[start] < loud - 2) start--
-        val fadeStart = outgoing.start + start * step
-        val length = soundEnd - fadeStart
-        val depth = loud - outgoing.energy[max(0, endIndex - 4)]
-        return if (length in 5.0..20.0 && depth >= 12) fadeStart to soundEnd else null
+        val body = analysis.energy.subList(from, endIndex).sorted()
+        return body[(body.size * 0.8).toInt().coerceAtMost(body.size - 1)]
     }
 }

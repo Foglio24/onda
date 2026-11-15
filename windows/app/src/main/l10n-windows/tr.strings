@@ -100,3 +100,22 @@
 "Windows" = "Windows";
 "Premium è l'abbonamento a Seaglass su Patreon: si attiva e si gestisce sul sito di Seaglass e vale su iPhone, iPad, Mac e Windows." = "Premium, Patreon'daki Seaglass üyeliğidir: Seaglass web sitesinde başlatılır ve yönetilir; iPhone, iPad, Mac ve Windows'ta geçerlidir.";
 "Il brano successivo entra a tempo, con i bassi che passano da un brano all'altro, come farebbe un DJ." = "Sonraki şarkı ritimle girer, baslar bir şarkıdan diğerine geçer; tıpkı bir DJ gibi.";
+
+/* Windows 1.2.0: the Spotify-like window, the full player, translations, Tempo, the log. */
+"Riduci la libreria" = "Kitaplığını daralt";
+"Espandi la libreria" = "Kitaplığını genişlet";
+"Più lento" = "Daha yavaş";
+"Più veloce" = "Daha hızlı";
+"Apri cartella" = "Klasörü aç";
+"Apri coda" = "Sırayı aç";
+"Schermo intero" = "Tam ekran";
+"Analisi dei brani…" = "Şarkılar analiz ediliyor…";
+"Se qualcosa non va, invia questo file insieme a uno screenshot." = "Bir sorun olursa bu dosyayı bir ekran görüntüsüyle birlikte gönder.";
+"Traduci" = "Çevir";
+"Accedi" = "Giriş yap";
+"Accedi con il tuo account Seaglass per tradurre i testi." = "Şarkı sözlerini çevirmek için Seaglass hesabınla giriş yap.";
+"Traduzione dei testi" = "Şarkı sözü çevirisi";
+"Prossimi da: %@" = "Sıradakiler, %@ içinden";
+"Registro dell'app" = "Uygulama günlüğü";
+"Scegli un brano da ascoltare." = "Dinlemek için bir şarkı seç.";
+"Prossimo in coda" = "Sırada sonraki";

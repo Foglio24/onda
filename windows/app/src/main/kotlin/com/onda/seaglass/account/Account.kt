@@ -313,6 +313,20 @@ object Account {
         writeState(readState().put("base", record.toJson()).put("baseAccount", accountId))
     }
 
+    /**
+     * Lyrics in [target] (the account service translates them, as the iPhone does on the device):
+     * the HTTP status and the service's answer; 0 when not signed in.
+     */
+    fun translate(lines: List<String>, target: String): Pair<Int, JSONObject?> {
+        val token = token ?: return 0 to null
+        val body = JSONObject().put("lines", org.json.JSONArray(lines)).put("target", target).toString()
+        val request = Request.Builder().url("$ORIGIN/v1/translate").header("Accept", "application/json")
+            .header("Authorization", "Bearer $token").post(body.toRequestBody("application/json".toMediaType())).build()
+        Http.client.newCall(request).execute().use { response ->
+            return response.code to runCatching { JSONObject(response.body.string()) }.getOrNull()
+        }
+    }
+
     // MARK: Requests and storage
 
     private fun send(path: String, method: String, body: String?, token: String?): String {

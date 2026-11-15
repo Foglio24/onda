@@ -62,6 +62,7 @@ import com.onda.seaglass.model.formatDuration
 import com.onda.seaglass.ui.EmptyState
 import com.onda.seaglass.ui.ItemCard
 import com.onda.seaglass.ui.LocalPalette
+import com.onda.seaglass.ui.forWhiteText
 import com.onda.seaglass.ui.Nav
 import com.onda.seaglass.ui.PageHeader
 import com.onda.seaglass.ui.PillButton
@@ -79,7 +80,7 @@ import java.time.LocalTime
 /** A page's scrolling column, with the window's margins. */
 @Composable
 fun Page(content: @Composable ColumnScope.() -> Unit) {
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 32.dp).padding(bottom = 32.dp), content = content)
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 28.dp).padding(top = 16.dp, bottom = 32.dp), content = content)
 }
 
 /** What a page shows while it loads, or when it couldn't. */
@@ -148,7 +149,7 @@ fun HomePage() {
         FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Recommendations.moods.forEach { mood ->
                 Box(
-                    Modifier.width(180.dp).height(84.dp).clip(RoundedCornerShape(10.dp)).background(Color(mood.tint))
+                    Modifier.width(180.dp).height(84.dp).clip(RoundedCornerShape(8.dp)).background(Color(mood.tint).forWhiteText())
                         .clickable {
                             scope.launch {
                                 runCatching { Recommendations.moodTracks(mood) }

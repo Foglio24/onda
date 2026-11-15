@@ -10,6 +10,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 import com.onda.seaglass.core.L10n
@@ -30,16 +31,25 @@ enum class Accent(val key: String, val color: Color) {
     }
 }
 
-/** Colours beyond Material's: the window's layers, as the Mac app's sidebar, page and player bar. */
+/**
+ * Colours beyond Material's, laid out as Spotify's window: black around the three panels (the
+ * library, the page, the panel on the right) and under the player bar, the panels dark grey and
+ * rounded. Text colours keep a contrast of at least 4.5:1 on the panels (WCAG AA), the tertiary
+ * one included.
+ */
 data class Palette(
     val dark: Boolean,
     val accent: Color,
+    /** Readable on the accent (black on light accents, white on dark ones). */
+    val onAccent: Color,
     val window: Color,
     val sidebar: Color,
     val page: Color,
     val bar: Color,
     val card: Color,
     val cardHover: Color,
+    /** Menus, the search field, the buttons on the panels. */
+    val elevated: Color,
     val separator: Color,
     val text: Color,
     val secondary: Color,
@@ -48,20 +58,37 @@ data class Palette(
 
 val LocalPalette = staticCompositionLocalOf { palette(true, Accent.PINK.color) }
 
-fun palette(dark: Boolean, accent: Color) = if (dark) {
-    Palette(
-        dark = true, accent = accent,
-        window = Color(0xFF101014), sidebar = Color(0xFF17171C), page = Color(0xFF121216), bar = Color(0xFF1B1B21),
-        card = Color(0xFF1F1F26), cardHover = Color(0xFF2A2A33), separator = Color(0x22FFFFFF),
-        text = Color(0xFFF4F4F6), secondary = Color(0xFFA9A9B3), tertiary = Color(0xFF6E6E78),
-    )
-} else {
-    Palette(
-        dark = false, accent = accent,
-        window = Color(0xFFF4F4F7), sidebar = Color(0xFFEAEAEF), page = Color(0xFFFAFAFC), bar = Color(0xFFF0F0F4),
-        card = Color(0xFFFFFFFF), cardHover = Color(0xFFEDEDF2), separator = Color(0x1A000000),
-        text = Color(0xFF151518), secondary = Color(0xFF5F5F68), tertiary = Color(0xFF9A9AA3),
-    )
+/** WCAG's contrast ratio between two colours. */
+fun contrast(a: Color, b: Color): Float {
+    val la = a.luminance() + 0.05f
+    val lb = b.luminance() + 0.05f
+    return if (la > lb) la / lb else lb / la
+}
+
+fun palette(dark: Boolean, chosen: Color): Palette {
+    // On the light theme a light accent (green, orange, teal…) is darkened until text in it reads
+    // on white (4.5:1), so links and the playing song stay legible.
+    var accent = chosen
+    if (!dark) {
+        var steps = 0
+        while (contrast(accent, Color.White) < 4.5f && steps++ < 20) accent = Color(accent.red * 0.92f, accent.green * 0.92f, accent.blue * 0.92f)
+    }
+    val onAccent = if (contrast(accent, Color.Black) > contrast(accent, Color.White)) Color.Black else Color.White
+    return if (dark) {
+        Palette(
+            dark = true, accent = accent, onAccent = onAccent,
+            window = Color(0xFF000000), sidebar = Color(0xFF121212), page = Color(0xFF121212), bar = Color(0xFF000000),
+            card = Color(0xFF181818), cardHover = Color(0xFF2A2A2A), elevated = Color(0xFF1F1F1F), separator = Color(0x29FFFFFF),
+            text = Color(0xFFFFFFFF), secondary = Color(0xFFB3B3B3), tertiary = Color(0xFF9A9A9A),
+        )
+    } else {
+        Palette(
+            dark = false, accent = accent, onAccent = onAccent,
+            window = Color(0xFFE3E3E8), sidebar = Color(0xFFFFFFFF), page = Color(0xFFFFFFFF), bar = Color(0xFFE3E3E8),
+            card = Color(0xFFF3F3F6), cardHover = Color(0xFFE6E6EB), elevated = Color(0xFFEDEDF1), separator = Color(0x22000000),
+            text = Color(0xFF111114), secondary = Color(0xFF4E4E57), tertiary = Color(0xFF66666F),
+        )
+    }
 }
 
 @Composable
@@ -77,15 +104,15 @@ fun SeaglassTheme(content: @Composable () -> Unit) {
     val colors = palette(dark, accent)
     val scheme = if (dark) {
         darkColorScheme(
-            primary = accent, onPrimary = Color.White, background = colors.page, surface = colors.card,
+            primary = colors.accent, background = colors.page, surface = colors.card,
             onBackground = colors.text, onSurface = colors.text, surfaceVariant = colors.cardHover, onSurfaceVariant = colors.secondary,
-            secondary = accent, outline = colors.separator, surfaceContainer = colors.bar, surfaceContainerHigh = colors.cardHover,
+            secondary = colors.accent, outline = colors.separator, surfaceContainer = colors.elevated, surfaceContainerHigh = colors.cardHover, onPrimary = colors.onAccent,
         )
     } else {
         lightColorScheme(
-            primary = accent, onPrimary = Color.White, background = colors.page, surface = colors.card,
+            primary = colors.accent, background = colors.page, surface = colors.card,
             onBackground = colors.text, onSurface = colors.text, surfaceVariant = colors.cardHover, onSurfaceVariant = colors.secondary,
-            secondary = accent, outline = colors.separator, surfaceContainer = colors.bar, surfaceContainerHigh = colors.cardHover,
+            secondary = colors.accent, outline = colors.separator, surfaceContainer = colors.elevated, surfaceContainerHigh = colors.cardHover, onPrimary = colors.onAccent,
         )
     }
     CompositionLocalProvider(
@@ -95,4 +122,12 @@ fun SeaglassTheme(content: @Composable () -> Unit) {
     ) {
         MaterialTheme(colorScheme = scheme, content = content)
     }
+}
+
+/** This colour darkened until white text on it reads (4.5:1): coloured tiles and headers. */
+fun Color.forWhiteText(): Color {
+    var color = this
+    var steps = 0
+    while (contrast(color, Color.White) < 4.5f && steps++ < 24) color = Color(color.red * 0.9f, color.green * 0.9f, color.blue * 0.9f, color.alpha)
+    return color
 }

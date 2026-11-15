@@ -82,7 +82,19 @@ object Prefs {
     /** The output device's name, null for Windows's default. */
     val outputDevice = text("audio.device", null)
 
+    /** Tempo's key lock, as on the iPhone: on, voices keep their pitch at any tempo; off, as a turntable. */
+    val tempoKeyLock = bool("tempo.keyLock", true)
+    /** How far Tempo's fader goes either way: 0.08, 0.15, 0.25 or 0.5 (as the iPhone's). */
+    val tempoRange = double("tempo.range", 0.15)
+    /** Panel widths, as the user dragged them (the library on the left, the panel on the right). */
+    val leftPanelWidth = double("ui.leftWidth", 300.0)
+    val rightPanelWidth = double("ui.rightWidth", 340.0)
+    /** The right panel ("now", "queue", "lyrics" or "none"), as it was left. */
+    val rightPanel = Setting("ui.rightPanel", "now") { s, k, d -> s.string(k) ?: d }
+
     val lyricsTranslate = bool("lyrics.translate", false)
+    /** The language lyrics are translated into; empty for the app's. */
+    val translationTarget = Setting("lyrics.translationTarget", "") { s, k, d -> s.string(k) ?: d }
     /** Keep playing in the notification area when the window is closed (as the Mac app does). */
     val keepPlayingInTray = bool("app.tray", true)
     val startWithWindows = bool("app.autostart", false)

@@ -1,5 +1,6 @@
 package com.onda.seaglass.audio
 
+import com.onda.seaglass.core.Log
 import com.onda.seaglass.core.Prefs
 import com.onda.seaglass.core.tr
 import com.onda.seaglass.data.Downloads
@@ -70,10 +71,12 @@ object Player {
     /** Seconds into the song, four times a second while it plays (for the scrubber and lyrics). */
     val position: StateFlow<Double> = _position
 
-    val engine = Engine { if (headless) NullSink() else JavaSoundSink(Prefs.outputDevice.value) }
+    val engine = Engine { if (headless) NullSink(headlessSpeed) else JavaSoundSink(Prefs.outputDevice.value) }
 
     /** Tests and CI screenshots: no sound card. */
     @Volatile var headless = System.getProperty("seaglass.headless") == "true"
+    /** Tests: how many times faster than real time the sound card-less output goes. */
+    @Volatile var headlessSpeed = 1.0
 
     private var loadJob: Job? = null
     private var prepareJob: Job? = null
@@ -86,6 +89,7 @@ object Player {
 
     fun init() {
         engine.volume = Prefs.volume.value.toFloat()
+        engine.keyLock = Prefs.tempoKeyLock.value
         _state.value = _state.value.copy(shuffle = Prefs.shuffle.value, repeat = Repeat.entries.firstOrNull { it.key == Prefs.repeat.value } ?: Repeat.OFF)
         engine.listener = object : Engine.Listener {
             override fun advanced(next: Deck) {
@@ -275,13 +279,45 @@ object Player {
     }
 
     private val _tempo = MutableStateFlow(1.0)
-    /** Tempo (Premium): 0.85…1.15, the pitch kept; back to 1 at each launch, as on the iPhone. */
+    /**
+     * Tempo (Premium), as a DJ app's fader: 1 ± the range set (15 % unless chosen otherwise), to
+     * the nearest 0.1 %, values close to 1 back on 1; back to 1 at each launch, as on the iPhone.
+     */
     val tempo: StateFlow<Double> = _tempo
 
     fun setTempo(value: Double) {
-        val clamped = Math.round(value.coerceIn(0.85, 1.15) * 100) / 100.0
-        _tempo.value = clamped
-        engine.tempo = clamped
+        val range = Prefs.tempoRange.value.takeIf { it in listOf(0.08, 0.15, 0.25, 0.5) } ?: 0.15
+        val change = Math.round((value - 1).coerceIn(-range, range) * 1000) / 1000.0
+        val snapped = if (Math.abs(change) < 0.003) 1.0 else 1 + change
+        _tempo.value = snapped
+        engine.tempo = snapped
+    }
+
+    fun setKeyLock(on: Boolean) {
+        Prefs.tempoKeyLock.value = on
+        engine.keyLock = on
+    }
+
+    /** A narrower range brings the tempo inside it. */
+    fun setTempoRange(range: Double) {
+        Prefs.tempoRange.value = range
+        setTempo(_tempo.value)
+    }
+
+    private val _songBpm = MutableStateFlow<Pair<String, Double>?>(null)
+    /** The playing song's own tempo (its ID and BPM), once AutoMix's analysis has measured it. */
+    val songBpm: StateFlow<Pair<String, Double>?> = _songBpm
+    private var bpmJob: Job? = null
+
+    /** Measures the playing song's BPM (Tempo's display), from the analysis AutoMix keeps. */
+    fun measureBpm() {
+        val track = _state.value.current ?: return
+        if (_songBpm.value?.first == track.videoId || bpmJob?.isActive == true) return
+        bpmJob = scope.launch(Dispatchers.IO) {
+            val analysis = runCatching { com.onda.seaglass.audio.automix.AutoMix.analyze(track.videoId, sourceFor(track)) }.getOrNull()
+            val bpm = analysis?.head?.takeIf { it.hasBeat }?.tempo ?: analysis?.tail?.takeIf { it.hasBeat }?.tempo
+            if (bpm != null && _state.value.current?.videoId == track.videoId) _songBpm.value = track.videoId to bpm
+        }
     }
 
     fun setVolume(value: Double) {
@@ -418,23 +454,34 @@ object Player {
             var transition: com.onda.seaglass.audio.automix.Transition? = null
             var startAt = 0.0
             if (autoMix && playing != null && entry.track.videoId != playing.track.videoId) {
-                runCatching {
+                _state.value = _state.value.copy(nextMix = tr("Analisi dei brani…"))
+                val result = runCatching {
                     withContext(Dispatchers.IO) {
                         val outgoingSource = sourceFor(playing.track)
                         val incomingSource = sourceFor(entry.track)
                         val outgoing = com.onda.seaglass.audio.automix.AutoMix.analyze(playing.track.videoId, outgoingSource)
                         val incoming = com.onda.seaglass.audio.automix.AutoMix.analyze(entry.track.videoId, incomingSource)
-                        if (outgoing != null && incoming != null) {
-                            val plan = com.onda.seaglass.audio.automix.AutoMix.plan(outgoing, incoming)
-                            // A plan for where the song already is: too late for this one.
-                            if (plan.outStart > engine.position + 1) {
-                                transition = com.onda.seaglass.audio.automix.Transition(plan, outgoing.tail.tempo)
-                                startAt = plan.inStart
-                                _state.value = _state.value.copy(nextMix = plan.description)
-                            }
+                        if (outgoing == null || incoming == null) {
+                            Log.warn("AutoMix: couldn't analyse ${if (outgoing == null) "the playing song" else "the next song"}; a crossfade instead")
+                            return@withContext
+                        }
+                        val plan = com.onda.seaglass.audio.automix.AutoMix.plan(outgoing, incoming)
+                        Log.info(
+                            "AutoMix: ${plan.style} %.1f–%.1f s, next from %.1f s at %.3f×, tempos %.1f → %.1f BPM"
+                                .format(plan.outStart, plan.outEnd, plan.inStart, plan.incomingRate, outgoing.tail.tempo, incoming.head.tempo),
+                        )
+                        // A plan for where the song already is: too late for this one.
+                        if (plan.outStart > engine.position + 1) {
+                            transition = com.onda.seaglass.audio.automix.Transition(plan, outgoing.tail.tempo)
+                            startAt = plan.inStart
+                        } else {
+                            Log.info("AutoMix: the song is already past where the mix would start; a crossfade instead")
                         }
                     }
                 }
+                if (!isActive) return@launch
+                result.exceptionOrNull()?.let { Log.warn("AutoMix: analysis failed", it) }
+                _state.value = _state.value.copy(nextMix = transition?.plan?.description ?: tr("dissolvenza di %lld s", 6))
             }
             val opened = runCatching { withContext(Dispatchers.IO) { open(entry, startAt) } }.getOrNull() ?: return@launch
             if (!isActive) {
@@ -480,7 +527,13 @@ object Player {
 
     // MARK: The engine's events
 
+    private var reportedMisses = 0
+
     private fun onAdvanced(next: Deck) {
+        if (engine.missedMixes != reportedMisses) {
+            reportedMisses = engine.missedMixes
+            Log.warn("AutoMix: the next song wasn't ready when the mix was due; it came in with a crossfade")
+        }
         val current = _state.value
         val entry = next.tag as? QueueEntry
         val index = when {
@@ -517,6 +570,7 @@ object Player {
     }
 
     private fun onFailed(error: Exception) {
+        Log.warn("Couldn't play ${_state.value.current?.videoId ?: "a song"}", error)
         val message = error.message?.takeIf { error !is java.io.IOException || "HTTP" !in it } ?: tr("Impossibile riprodurre il brano.")
         _state.value = _state.value.copy(isLoading = false, isPlaying = false, error = message)
         stopTicker()

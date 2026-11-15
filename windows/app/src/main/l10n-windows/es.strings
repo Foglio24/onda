@@ -100,3 +100,22 @@
 "Windows" = "Windows";
 "Premium è l'abbonamento a Seaglass su Patreon: si attiva e si gestisce sul sito di Seaglass e vale su iPhone, iPad, Mac e Windows." = "Premium es la suscripción a Seaglass en Patreon: se activa y se gestiona en la web de Seaglass y vale en iPhone, iPad, Mac y Windows.";
 "Il brano successivo entra a tempo, con i bassi che passano da un brano all'altro, come farebbe un DJ." = "La siguiente canción entra a tempo, con los graves pasando de una canción a otra, como haría un DJ.";
+
+/* Windows 1.2.0: the Spotify-like window, the full player, translations, Tempo, the log. */
+"Riduci la libreria" = "Contraer tu biblioteca";
+"Espandi la libreria" = "Expandir tu biblioteca";
+"Più lento" = "Más lento";
+"Più veloce" = "Más rápido";
+"Apri cartella" = "Abrir carpeta";
+"Apri coda" = "Abrir cola";
+"Schermo intero" = "Pantalla completa";
+"Analisi dei brani…" = "Analizando las canciones…";
+"Se qualcosa non va, invia questo file insieme a uno screenshot." = "Si algo va mal, envía este archivo junto con una captura de pantalla.";
+"Traduci" = "Traducir";
+"Accedi" = "Iniciar sesión";
+"Accedi con il tuo account Seaglass per tradurre i testi." = "Inicia sesión con tu cuenta de Seaglass para traducir las letras.";
+"Traduzione dei testi" = "Traducción de letras";
+"Prossimi da: %@" = "A continuación de: %@";
+"Registro dell'app" = "Registro de la app";
+"Scegli un brano da ascoltare." = "Elige una canción para escuchar.";
+"Prossimo in coda" = "Siguiente en la cola";

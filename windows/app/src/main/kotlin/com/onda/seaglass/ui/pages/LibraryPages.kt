@@ -304,10 +304,15 @@ fun LocalSongsPage() {
         }
         if (scanning) LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = 12.dp))
         LocalMusic.folders.forEach { folder ->
-            Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            // The path on one line, shortened in the middle if it's long; "Rimuovi" always whole beside it.
+            Row(Modifier.fillMaxWidth().padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Rounded.Folder, null, Modifier.size(16.dp), tint = palette.secondary)
-                Text(folder, color = palette.secondary, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 8.dp))
-                Text(tr("Rimuovi"), color = palette.accent, fontSize = 12.sp, modifier = Modifier.clickable { scope.launch { LocalMusic.removeFolder(folder) } })
+                Text(
+                    middleEllipsis(folder, 90), color = palette.secondary, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false).padding(horizontal = 8.dp),
+                )
+                Text(tr("Rimuovi"), color = palette.accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false,
+                    modifier = Modifier.clip(RoundedCornerShape(4.dp)).clickable { scope.launch { LocalMusic.removeFolder(folder) } }.padding(4.dp))
             }
         }
         if (tracks.isEmpty() && !scanning) {
@@ -326,3 +331,7 @@ private fun chooseFolder(): File? {
     }
     return if (chooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) chooser.selectedFile else null
 }
+
+/** A long path with its middle left out ("C:\Users\…\Music"), so its start and end both show. */
+private fun middleEllipsis(text: String, max: Int): String =
+    if (text.length <= max) text else text.take(max / 2 - 1) + "…" + text.takeLast(max / 2 - 1)

@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -41,6 +42,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
@@ -63,6 +71,7 @@ import com.onda.seaglass.ui.Nav
 import com.onda.seaglass.ui.PillButton
 import com.onda.seaglass.ui.Route
 import com.onda.seaglass.ui.SectionHeader
+import com.onda.seaglass.ui.ThinSlider
 import com.onda.seaglass.update.AppUpdater
 import com.onda.seaglass.WindowsIntegration
 import kotlin.math.log10
@@ -167,7 +176,7 @@ fun SettingsPage() {
                         Box(
                             Modifier.size(22.dp).clip(CircleShape).background(option.color).clickable { Prefs.accent.value = option.key },
                             contentAlignment = Alignment.Center,
-                        ) { if (option.key == accent) Icon(Icons.Rounded.Check, null, Modifier.size(14.dp), tint = Color.White) }
+                        ) { if (option.key == accent) Icon(Icons.Rounded.Check, null, Modifier.size(14.dp), tint = if (option.color.luminance() > 0.4f) Color.Black else Color.White) }
                     }
                 }
             }
@@ -190,18 +199,17 @@ fun SettingsPage() {
             }
             if (transition == "crossfade") {
                 SettingRow(tr("Dissolvenza incrociata: %lld s", crossfade.toInt())) {
-                    Slider(
-                        crossfade.toFloat(), { Prefs.crossfadeSeconds.value = it.toDouble() }, valueRange = 1f..12f, steps = 10,
-                        modifier = Modifier.width(220.dp), colors = SliderDefaults.colors(thumbColor = palette.accent, activeTrackColor = palette.accent),
-                    )
+                    ThinSlider(crossfade.toFloat(), 1f..12f, Modifier.width(220.dp), step = 1f) { Prefs.crossfadeSeconds.value = it.toDouble() }
                 }
             }
             Choice(tr("Uscita audio"), device, listOf<Pair<String?, String>>(null to tr("Predefinita di Windows")) + JavaSoundSink.devices().map { it to it }) {
                 Prefs.outputDevice.value = it
                 Player.engine.reopenOutput()
             }
-            SettingRow(tr("Equalizzatore"), if (Equalizer.state.value.isOn) Equalizer.state.value.preset.title else tr("Disattivato"), onClick = { Nav.open(Route.Equalizer) })
         }
+
+        SectionHeader(tr("Equalizzatore"))
+        Group { EqualizerSection() }
 
         SectionHeader(tr("Last.fm"))
         Group { LastFMSettings() }
@@ -258,6 +266,12 @@ fun SettingsPage() {
         SectionHeader(tr("Informazioni"))
         Group {
             SettingRow("Seaglass ${BuildConfig.VERSION}", tr("Seaglass non è un'app ufficiale e non è affiliata a YouTube o Google."))
+            // What the app noted (songs that couldn't play, AutoMix's choices), to send when something goes wrong.
+            SettingRow(tr("Registro dell'app"), tr("Se qualcosa non va, invia questo file insieme a uno screenshot.")) {
+                PillButton(tr("Apri cartella")) {
+                    runCatching { java.awt.Desktop.getDesktop().open(com.onda.seaglass.core.Log.file.parentFile) }
+                }
+            }
         }
     }
 }
@@ -267,56 +281,102 @@ private fun languageName(code: String): String {
     return locale.getDisplayLanguage(locale).replaceFirstChar { it.uppercase() }
 }
 
-/** The equalizer, as on the iPhone: the curve, the six bands and Spotify's presets. */
+/** The equalizer, in Settings as on the iPhone: on or off, the curve, the six bands and Spotify's presets. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun EqualizerPage() {
+private fun EqualizerSection() {
     val palette = LocalPalette.current
     val state by Equalizer.state.collectAsState()
-    Page {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(tr("Equalizzatore"), fontSize = 34.sp, fontWeight = FontWeight.Bold, color = palette.text, modifier = Modifier.weight(1f))
-            Switch(state.isOn, { Equalizer.setOn(it) }, colors = SwitchDefaults.colors(checkedTrackColor = palette.accent))
-        }
+    Column(Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
+        Toggle(tr("Equalizzatore"), if (state.isOn) state.preset.title else tr("Disattivato"), state.isOn) { Equalizer.setOn(it) }
         val gains = state.gains
-        // The curve: the whole equalizer's response from 20 Hz to 20 kHz.
-        Canvas(Modifier.fillMaxWidth().height(180.dp).padding(top = 16.dp).clip(RoundedCornerShape(10.dp)).background(palette.card)) {
-            val zero = size.height / 2
-            drawLine(palette.separator, Offset(0f, zero), Offset(size.width, zero))
-            val path = Path()
-            val steps = 200
-            for (i in 0..steps) {
-                val frequency = 20.0 * Math.pow(1000.0, i / steps.toDouble())
-                val db = Equalizer.response(gains, frequency).coerceIn(-15.0, 15.0)
-                val x = (log10(frequency / 20) / 3).toFloat() * size.width
-                val y = zero - (db / 15.0 * zero * 0.9).toFloat()
-                if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+        // As Spotify's: the six bands as points on a curve, each dragged up or down (or clicked
+        // where it should go); the gain over the point while it moves.
+        var dragging by remember { mutableStateOf<Int?>(null) }
+        val line = if (state.isOn) palette.accent else palette.tertiary
+        BoxWithConstraints(Modifier.fillMaxWidth().height(200.dp).padding(top = 8.dp).clip(RoundedCornerShape(8.dp)).background(palette.page)) {
+            val bandAt = { x: Float, width: Float -> ((x / width) * EqualizerBands.COUNT).toInt().coerceIn(0, EqualizerBands.COUNT - 1) }
+            fun gainAt(y: Float, height: Float): Float {
+                val zero = height / 2
+                return ((zero - y) / (zero * 0.8f) * EqualizerBands.LIMIT).coerceIn(-EqualizerBands.LIMIT, EqualizerBands.LIMIT)
             }
-            drawPath(path, if (state.isOn) palette.accent else palette.tertiary, style = Stroke(width = 3f))
-        }
-        Row(Modifier.fillMaxWidth().padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            for (band in 0 until EqualizerBands.COUNT) {
-                // Each band takes an equal share of the width, so they fit beside the queue too.
-                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("%+.1f dB".format(gains[band]), color = palette.secondary, fontSize = 11.sp, maxLines = 1)
-                    Slider(
-                        gains[band], { Equalizer.setGain(band, it) }, valueRange = -EqualizerBands.LIMIT..EqualizerBands.LIMIT,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = SliderDefaults.colors(thumbColor = palette.accent, activeTrackColor = palette.accent),
-                    )
-                    Text(EqualizerBands.labels[band] + " Hz", color = palette.text, fontSize = 12.sp, maxLines = 1)
+            fun set(band: Int, gain: Float) {
+                if (!Equalizer.state.value.isOn) Equalizer.setOn(true)
+                // Whole half-decibels, and 0 easy to land on.
+                val rounded = Math.round(gain * 2) / 2f
+                Equalizer.setGain(band, if (kotlin.math.abs(rounded) < 0.5f) 0f else rounded)
+            }
+            Canvas(
+                Modifier.fillMaxSize()
+                    .pointerInput(Unit) {
+                        detectTapGestures { offset -> set(bandAt(offset.x, size.width.toFloat()), gainAt(offset.y, size.height.toFloat())) }
+                    }
+                    .pointerInput(Unit) {
+                        detectDragGestures(
+                            onDragStart = { offset -> dragging = bandAt(offset.x, size.width.toFloat()) },
+                            onDragEnd = { dragging = null },
+                            onDragCancel = { dragging = null },
+                        ) { change, _ ->
+                            dragging?.let { band -> set(band, gainAt(change.position.y, size.height.toFloat())) }
+                            change.consume()
+                        }
+                    },
+            ) {
+                val zero = size.height / 2
+                val step = size.width / EqualizerBands.COUNT
+                val points = (0 until EqualizerBands.COUNT).map { band ->
+                    Offset(step * (band + 0.5f), zero - gains[band] / EqualizerBands.LIMIT * zero * 0.8f)
+                }
+                // The grid: 0 dB across, and each band's line.
+                drawLine(palette.separator, Offset(0f, zero), Offset(size.width, zero), strokeWidth = 1.5f)
+                points.forEach { drawLine(palette.separator, Offset(it.x, 12f), Offset(it.x, size.height - 12f)) }
+                // A smooth line through the points, the space under it filled.
+                val curve = Path()
+                curve.moveTo(0f, points.first().y)
+                curve.lineTo(points.first().x, points.first().y)
+                for (i in 1 until points.size) {
+                    val a = points[i - 1]
+                    val b = points[i]
+                    val middle = (a.x + b.x) / 2
+                    curve.cubicTo(middle, a.y, middle, b.y, b.x, b.y)
+                }
+                curve.lineTo(size.width, points.last().y)
+                val fill = Path().apply {
+                    addPath(curve)
+                    lineTo(size.width, size.height)
+                    lineTo(0f, size.height)
+                    close()
+                }
+                drawPath(fill, Brush.verticalGradient(listOf(line.copy(alpha = 0.35f), line.copy(alpha = 0.02f))))
+                drawPath(curve, line, style = Stroke(width = 3f))
+                points.forEachIndexed { band, point ->
+                    drawCircle(Color.White, radius = if (dragging == band) 10f else 7f, center = point)
+                    drawCircle(line, radius = if (dragging == band) 10f else 7f, center = point, style = Stroke(width = 2f))
+                }
+            }
+            // The gains over the points, the frequencies under them.
+            Row(Modifier.fillMaxWidth().align(Alignment.BottomCenter).padding(bottom = 4.dp)) {
+                for (band in 0 until EqualizerBands.COUNT) {
+                    Text(EqualizerBands.labels[band] + " Hz", color = palette.secondary, fontSize = 11.sp, maxLines = 1,
+                        textAlign = TextAlign.Center, modifier = Modifier.weight(1f))
+                }
+            }
+            Row(Modifier.fillMaxWidth().align(Alignment.TopCenter).padding(top = 4.dp)) {
+                for (band in 0 until EqualizerBands.COUNT) {
+                    Text("%+.1f dB".format(gains[band]), color = if (dragging == band) palette.text else palette.tertiary, fontSize = 11.sp, maxLines = 1,
+                        textAlign = TextAlign.Center, modifier = Modifier.weight(1f))
                 }
             }
         }
-        SectionHeader(tr("Preimpostazioni"))
+        Text(tr("Preimpostazioni"), color = palette.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 16.dp, bottom = 8.dp))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             EqualizerPreset.entries.filter { it != EqualizerPreset.CUSTOM || Equalizer.state.value.custom.any { gain -> gain != 0f } }.forEach { preset ->
                 val selected = state.isOn && state.preset == preset
                 Text(
                     preset.title,
-                    color = if (selected) Color.White else palette.text,
+                    color = if (selected) palette.onAccent else palette.text,
                     fontSize = 13.sp,
-                    modifier = Modifier.clip(RoundedCornerShape(50)).background(if (selected) palette.accent else palette.card)
+                    modifier = Modifier.clip(RoundedCornerShape(50)).background(if (selected) palette.accent else palette.cardHover)
                         .clickable { Equalizer.select(preset) }.padding(horizontal = 14.dp, vertical = 8.dp),
                 )
             }

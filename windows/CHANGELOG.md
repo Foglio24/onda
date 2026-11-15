@@ -1,5 +1,20 @@
 # Seaglass for Windows changelog
 
+## 1.2.0 (2026-11-15)
+
+### Changed
+- **A new look, close to Spotify's**: black around three rounded panels, each border dragged to resize them (sizes kept from one launch to the next): "La tua libreria" on the left (liked songs, downloads, history, your songs and your playlists, shrunk to its covers when dragged narrow or when its title is clicked), the page in the middle, and on the right "In riproduzione" (the cover large, the song, "Informazioni sul brano", what comes next and AutoMix's plan), the queue or the lyrics. Home and the search sit in the middle of the top bar; settings and the account on the right. The player bar is laid out as Spotify's, and fits narrow windows (the song's title gives way, never the buttons).
+- **Readable everywhere**: every text colour reads at least 4.5:1 on its background, the Mood tiles are darkened under their white names, light accents are darkened on the light theme, text on the accent is black or white as reads best, and long folder paths no longer push "Rimuovi" into a column of single letters.
+- **The full player** (the cover in the bar, or the new full-screen button): the cover's colour behind it, previous, play or pause and next large in the middle with shuffle and repeat, the progress, and the buttons for the lyrics, their translation, the queue, Tempo, the sleep timer and the volume; the lyrics or the queue beside the cover.
+- **The equalizer is in Settings**, drawn as Spotify's: six points on a curve, each dragged up or down.
+- **AutoMix mixes much more often**: its plan follows the iPhone's, matching beats when the tempos are up to 12 % apart (they had to be within 6 %, so most pairs of songs got a plain fade), over 16 bars when they're close, the next song fully in by the bass swap on the middle downbeat; the mix starts on its planned downbeat to the sample (it could start up to 21 ms late, enough to hear the two kicks apart); if the next song isn't ready in time (the network), a crossfade instead of a mix out of step. Crossfades follow the iPhone's too: longer into a song's own fade-out, on a downbeat. The queue, the "In riproduzione" panel and the full player show what AutoMix is doing ("Analisi dei brani…", "a tempo, 8 battute", "dissolvenza di 9 s").
+- **Tempo** as the iPhone's: the song's BPM, the change to a tenth of a percent (− and +), "Reimposta", the range (±8, 15, 25 or 50 %), and a real "Blocca tonalità" switch: on, voices keep their pitch; off, faster is higher, as on a turntable (before, the panel only said "Blocca tonalità").
+- Video thumbnails are shown without their black bands.
+
+### Added
+- **Lyrics translation** (Premium, as on the iPhone): "Traduci" by the lyrics (in the panel and in the full player) shows each line's translation under it, in the app's language or the one chosen. Windows has no translator of its own, so the Seaglass account service translates them; it needs you signed in.
+- **Registro dell'app** (Settings → Informazioni): a short diary of songs that couldn't play and of AutoMix's choices, to send with a screenshot when something goes wrong. It never holds tokens or addresses.
+
 ## 1.1.0 (2026-11-15)
 
 ### Added

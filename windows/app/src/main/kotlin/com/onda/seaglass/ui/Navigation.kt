@@ -22,7 +22,6 @@ sealed interface Route {
     data class RemotePlaylist(val id: String, val title: String) : Route
     data class SongInfo(val track: Track) : Route
     data object Settings : Route
-    data object Equalizer : Route
     data object Account : Route
 }
 
@@ -73,12 +72,33 @@ object Nav {
         }
     }
 
-    /** The right panel: the queue or the lyrics, or nothing. */
-    enum class Panel { NONE, QUEUE, LYRICS }
-    var panel by mutableStateOf(Panel.NONE)
+    /**
+     * The panel on the right, as Spotify's: what's playing (the cover, the song, what comes next),
+     * the queue or the lyrics, or none; it stays as it was left from one launch to the next.
+     */
+    enum class Panel(val key: String) { NONE("none"), NOW_PLAYING("now"), QUEUE("queue"), LYRICS("lyrics") }
+    private var panelState by mutableStateOf(Panel.entries.firstOrNull { it.key == com.onda.seaglass.core.Prefs.rightPanel.value } ?: Panel.NOW_PLAYING)
+    var panel: Panel
+        get() = panelState
+        set(value) {
+            panelState = value
+            com.onda.seaglass.core.Prefs.rightPanel.value = value.key
+        }
 
-    /** The player over the whole window (the cover large, the lyrics beside it). */
+    /** The panel's button: shows that panel, or hides it if it's the one showing. */
+    fun togglePanel(target: Panel) {
+        panel = if (panel == target) Panel.NONE else target
+    }
+
+    /** The library on the left shrunk to its covers (dragged narrow, or its title clicked). */
+    var libraryCollapsed by mutableStateOf(com.onda.seaglass.core.Prefs.leftPanelWidth.value < 120)
+
+    /** The player over the whole window (the cover large, the lyrics or the queue beside it). */
     var fullPlayer by mutableStateOf(false)
+
+    /** What the full player shows beside the cover. */
+    enum class FullSide { NONE, LYRICS, QUEUE }
+    var fullPlayerSide by mutableStateOf(FullSide.LYRICS)
 
     /** "Aggiungi a una playlist" for this song (the dialog shows while it's set). */
     var addToPlaylist by mutableStateOf<List<Track>?>(null)

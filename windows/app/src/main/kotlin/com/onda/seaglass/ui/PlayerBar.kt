@@ -4,18 +4,21 @@ package com.onda.seaglass.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -23,27 +26,33 @@ import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.automirrored.rounded.VolumeDown
 import androidx.compose.material.icons.automirrored.rounded.VolumeOff
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Bedtime
-import androidx.compose.material.icons.rounded.Equalizer
-import androidx.compose.material.icons.rounded.Favorite
-import androidx.compose.material.icons.rounded.FavoriteBorder
-import androidx.compose.material.icons.rounded.Lyrics
+import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.MoreHoriz
+import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.material.icons.rounded.OpenInFull
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material.icons.rounded.Repeat
 import androidx.compose.material.icons.rounded.RepeatOne
 import androidx.compose.material.icons.rounded.Shuffle
-import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
+import androidx.compose.material.icons.rounded.Speed
+import androidx.compose.material.icons.rounded.SpeakerNotes
+import androidx.compose.material.icons.rounded.ViewSidebar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -61,10 +70,10 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
+import com.onda.seaglass.account.Account
 import com.onda.seaglass.audio.Player
 import com.onda.seaglass.audio.isLocal
 import com.onda.seaglass.core.Prefs
@@ -72,91 +81,153 @@ import com.onda.seaglass.core.tr
 import com.onda.seaglass.data.Library
 import com.onda.seaglass.model.formatDuration
 
-/** The bar at the bottom of the window, as the Mac app's: the song, the controls, the volume and the panels. */
+/**
+ * The bar at the bottom of the window, as Spotify's: the song (its cover opens the full player)
+ * with its heart, the controls over the song's progress, and the panels, Tempo, the sleep timer,
+ * the volume and the full player on the right.
+ */
 @Composable
 fun PlayerBar() {
     val palette = LocalPalette.current
     val state by Player.state.collectAsState()
     val liked by Library.liked.collectAsState()
     val track = state.current
-    Row(
-        Modifier.fillMaxWidth().height(88.dp).background(palette.bar).padding(horizontal = 16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        // The song: a click on the cover opens the full player.
+    BoxWithConstraints(Modifier.fillMaxWidth().height(84.dp).background(palette.bar).padding(horizontal = 16.dp)) {
+    // In a narrow window the controls keep their room and the song's title gives way (shortened).
+    val compact = maxWidth < 1150.dp
+    val controlsWidth = (maxWidth * 0.4f).coerceIn(300.dp, 640.dp)
+    val icon = if (compact) 18 else 20
+    Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
+        // The song.
         Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
             if (track != null) {
-                RemoteImage(track.resized(226), Modifier.size(56.dp).clickable { Nav.fullPlayer = true }, RoundedCornerShape(6.dp))
-                Spacer(Modifier.width(12.dp))
+                Hoverable { hovered ->
+                    Box(contentAlignment = Alignment.TopEnd) {
+                        RemoteImage(track.resized(226), Modifier.size(56.dp).clickable { Nav.fullPlayer = true }, RoundedCornerShape(4.dp))
+                        if (hovered) {
+                            Box(Modifier.padding(4.dp).size(22.dp).clip(CircleShape).background(Color(0xCC000000)).clickable { Nav.fullPlayer = true }, contentAlignment = Alignment.Center) {
+                                Icon(Icons.Rounded.OpenInFull, tr("Schermo intero"), Modifier.size(13.dp), tint = Color.White)
+                            }
+                        }
+                    }
+                }
+                Spacer(Modifier.width(14.dp))
                 Column(Modifier.weight(1f, fill = false)) {
-                    Text(track.title, color = palette.text, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        track.title, color = palette.text, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.clickable { Nav.fullPlayer = true },
+                    )
                     Text(
                         track.artist, color = palette.secondary, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.clickable(enabled = !track.isLocal && track.primaryArtist.isNotEmpty()) { Nav.open(Route.Artist(track.artistId, track.primaryArtist)) },
                     )
                     val note = state.error ?: state.format
-                    if (note != null) Text(note, color = if (state.error != null) Color(0xFFFF6B6B) else palette.tertiary, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    if (note != null) Text(note, color = if (state.error != null) Color(0xFFFF7A7A) else palette.tertiary, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 if (!track.isLocal) {
                     val isLiked = liked.any { it.videoId == track.videoId }
-                    IconButton(onClick = { Library.toggleLike(track) }) {
-                        Icon(if (isLiked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, tr(if (isLiked) "Rimuovi dai preferiti" else "Aggiungi ai preferiti"), tint = if (isLiked) palette.accent else palette.secondary)
-                    }
+                    Spacer(Modifier.width(6.dp))
+                    BarButton(
+                        if (isLiked) Icons.Rounded.CheckCircle else Icons.Rounded.Add,
+                        tr(if (isLiked) "Rimuovi dai preferiti" else "Aggiungi ai preferiti"), active = isLiked, size = 20,
+                    ) { Library.toggleLike(track) }
                 }
             }
         }
-        // The controls and the scrubber.
-        Column(Modifier.width(520.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                BarButton(Icons.Rounded.Shuffle, tr("Casuale"), active = state.shuffle) { Player.setShuffle(!state.shuffle) }
-                BarButton(Icons.Rounded.SkipPrevious, tr("Precedente"), size = 30) { Player.previous() }
-                Box(
-                    Modifier.size(40.dp).clip(CircleShape).background(palette.text).clickable(enabled = track != null) { Player.toggle() },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    if (state.isLoading) {
-                        CircularProgressIndicator(Modifier.size(20.dp), color = palette.page, strokeWidth = 2.dp)
-                    } else {
-                        Icon(if (state.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, tr(if (state.isPlaying) "Pausa" else "Riproduci"), tint = palette.page)
-                    }
-                }
-                BarButton(Icons.Rounded.SkipNext, tr("Successivo"), size = 30) { Player.next() }
-                BarButton(
-                    if (state.repeat == Player.Repeat.ONE) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
-                    tr("Ripeti"), active = state.repeat != Player.Repeat.OFF,
-                ) { Player.cycleRepeat() }
-            }
-            Scrubber(Modifier.fillMaxWidth().padding(top = 4.dp))
+        // The controls and the progress.
+        Column(Modifier.width(controlsWidth).padding(horizontal = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Controls(small = true)
+            Scrubber(Modifier.fillMaxWidth().padding(top = 2.dp))
         }
-        // The panels, the equalizer, the sleep timer and the volume.
+        // The panels, Tempo, the timer, the volume, the full player.
         Row(Modifier.weight(1f), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
-            BarButton(Icons.Rounded.Lyrics, tr("Testo"), active = Nav.panel == Nav.Panel.LYRICS) {
-                Nav.panel = if (Nav.panel == Nav.Panel.LYRICS) Nav.Panel.NONE else Nav.Panel.LYRICS
+            BarButton(Icons.Rounded.ViewSidebar, tr("In riproduzione"), active = Nav.panel == Nav.Panel.NOW_PLAYING, size = icon) { Nav.togglePanel(Nav.Panel.NOW_PLAYING) }
+            BarButton(Icons.Rounded.SpeakerNotes, tr("Testo"), active = Nav.panel == Nav.Panel.LYRICS, size = icon) { Nav.togglePanel(Nav.Panel.LYRICS) }
+            BarButton(Icons.AutoMirrored.Rounded.QueueMusic, tr("Coda"), active = Nav.panel == Nav.Panel.QUEUE, size = icon) { Nav.togglePanel(Nav.Panel.QUEUE) }
+            TempoButton(size = icon)
+            SleepTimerButton(state.sleepAt > 0 || state.sleepAtEnd, size = icon)
+            VolumeControl(width = if (compact) 64.dp else 96.dp, iconSize = icon)
+            BarButton(Icons.Rounded.OpenInFull, tr("Schermo intero"), size = icon - 2, enabled = track != null) { Nav.fullPlayer = true }
+        }
+    }
+    }
+}
+
+/**
+ * Shuffle, previous, play or pause, next and repeat. [small] is the bar's; otherwise the full
+ * player's, larger and white on the cover's colour.
+ */
+@Composable
+fun Controls(small: Boolean, light: Boolean = false) {
+    val palette = LocalPalette.current
+    val state by Player.state.collectAsState()
+    val hasSong = state.current != null
+    val play = if (small) 34.dp else 64.dp
+    val skip = if (small) 26 else 38
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(if (small) 10.dp else 22.dp)) {
+        BarButton(Icons.Rounded.Shuffle, tr("Casuale"), active = state.shuffle, light = light, size = if (small) 20 else 26) { Player.setShuffle(!state.shuffle) }
+        BarButton(Icons.Rounded.SkipPrevious, tr("Precedente"), light = light, size = skip, enabled = hasSong, emphasised = true) { Player.previous() }
+        Hoverable { hovered ->
+            val scale = if (hovered && hasSong) 1.05f else 1f
+            Box(
+                Modifier.size(play * scale).clip(CircleShape).background(if (light) Color.White else palette.text).clickable(enabled = hasSong) { Player.toggle() },
+                contentAlignment = Alignment.Center,
+            ) {
+                val tint = if (light) Color.Black else palette.page
+                if (state.isLoading) {
+                    CircularProgressIndicator(Modifier.size(play * 0.5f), color = tint, strokeWidth = 2.dp)
+                } else {
+                    Icon(
+                        if (state.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, tr(if (state.isPlaying) "Pausa" else "Riproduci"),
+                        Modifier.size(play * 0.6f), tint = tint,
+                    )
+                }
             }
-            BarButton(Icons.AutoMirrored.Rounded.QueueMusic, tr("Coda"), active = Nav.panel == Nav.Panel.QUEUE) {
-                Nav.panel = if (Nav.panel == Nav.Panel.QUEUE) Nav.Panel.NONE else Nav.Panel.QUEUE
+        }
+        BarButton(Icons.Rounded.SkipNext, tr("Successivo"), light = light, size = skip, enabled = hasSong, emphasised = true) { Player.next() }
+        BarButton(
+            if (state.repeat == Player.Repeat.ONE) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
+            tr("Ripeti"), active = state.repeat != Player.Repeat.OFF, light = light, size = if (small) 20 else 26,
+        ) { Player.cycleRepeat() }
+    }
+}
+
+/**
+ * A button of the bar: grey, white when hovered, in the accent when it's on (with a dot under it,
+ * as Spotify marks what's on). [light] is for the full player, over the cover's colour.
+ */
+@Composable
+fun BarButton(
+    icon: ImageVector, label: String, active: Boolean = false, size: Int = 22, light: Boolean = false, enabled: Boolean = true,
+    emphasised: Boolean = false, onClick: () -> Unit,
+) {
+    val palette = LocalPalette.current
+    Hoverable { hovered ->
+        Box(contentAlignment = Alignment.BottomCenter) {
+            IconButton(onClick = onClick, Modifier.size((size + 16).dp), enabled = enabled) {
+                val idle = when {
+                    light -> Color.White.copy(alpha = if (emphasised) 0.95f else 0.75f)
+                    emphasised -> palette.text
+                    else -> palette.secondary
+                }
+                val tint = when {
+                    !enabled -> if (light) Color.White.copy(alpha = 0.35f) else palette.tertiary
+                    active -> palette.accent
+                    hovered -> if (light) Color.White else palette.text
+                    else -> idle
+                }
+                Icon(icon, label, Modifier.size(size.dp), tint = tint)
             }
-            BarButton(Icons.Rounded.Equalizer, tr("Equalizzatore"), active = Nav.current == Route.Equalizer) { Nav.open(Route.Equalizer) }
-            TempoButton()
-            SleepTimerButton(state.sleepAt > 0 || state.sleepAtEnd)
-            VolumeControl()
+            if (active) Box(Modifier.size(4.dp).clip(CircleShape).background(palette.accent))
         }
     }
 }
 
 @Composable
-fun BarButton(icon: ImageVector, label: String, active: Boolean = false, size: Int = 22, onClick: () -> Unit) {
-    val palette = LocalPalette.current
-    IconButton(onClick = onClick, Modifier.size(36.dp)) {
-        Icon(icon, label, Modifier.size(size.dp), tint = if (active) palette.accent else palette.secondary)
-    }
-}
-
-@Composable
-private fun SleepTimerButton(active: Boolean) {
+private fun SleepTimerButton(active: Boolean, light: Boolean = false, size: Int = 20) {
     var open by remember { mutableStateOf(false) }
     Box {
-        BarButton(Icons.Rounded.Bedtime, tr("Timer di spegnimento"), active = active) { open = true }
+        BarButton(Icons.Rounded.Bedtime, tr("Timer di spegnimento"), active = active, size = size, light = light) { open = true }
         DropdownMenu(open, { open = false }) {
             listOf(0 to tr("Disattivato"), 15 to tr("15 minuti"), 30 to tr("30 minuti"), 45 to tr("45 minuti"), 60 to tr("1 ora"), -1 to tr("Fine del brano"))
                 .forEach { (minutes, label) ->
@@ -169,6 +240,12 @@ private fun SleepTimerButton(active: Boolean) {
     }
 }
 
+@Composable
+fun FullPlayerSleepTimer() {
+    val state by Player.state.collectAsState()
+    SleepTimerButton(state.sleepAt > 0 || state.sleepAtEnd, light = true)
+}
+
 /** The song's progress: drag or click to move in it; the times either side. */
 @Composable
 fun Scrubber(modifier: Modifier = Modifier, light: Boolean = false) {
@@ -179,9 +256,11 @@ fun Scrubber(modifier: Modifier = Modifier, light: Boolean = false) {
     var hovered by remember { mutableStateOf(false) }
     val duration = state.duration
     val fraction = dragging ?: if (duration > 0) (position / duration).toFloat().coerceIn(0f, 1f) else 0f
-    val textColor = if (light) Color.White.copy(alpha = 0.7f) else palette.secondary
+    val textColor = if (light) Color.White.copy(alpha = 0.8f) else palette.secondary
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
-        Text(formatDuration(if (dragging != null) dragging!! * duration else position), color = textColor, fontSize = 11.sp, modifier = Modifier.width(44.dp))
+        Text(formatDuration(if (dragging != null) dragging!! * duration else position), color = textColor, fontSize = 12.sp, maxLines = 1,
+            modifier = Modifier.width(48.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)
+        Spacer(Modifier.width(8.dp))
         BoxWithConstraints(
             Modifier.weight(1f).height(16.dp)
                 .onPointerEvent(PointerEventType.Enter) { hovered = true }
@@ -206,22 +285,25 @@ fun Scrubber(modifier: Modifier = Modifier, light: Boolean = false) {
                 },
             contentAlignment = Alignment.CenterStart,
         ) {
-            val track = if (light) Color.White.copy(alpha = 0.25f) else palette.separator
-            val fill = if (light) Color.White else if (hovered || dragging != null) palette.accent else palette.text
+            val track = if (light) Color.White.copy(alpha = 0.3f) else if (palette.dark) Color(0xFF4D4D4D) else Color(0xFFC9C9CF)
+            val fill = if (hovered || dragging != null) palette.accent else if (light) Color.White else palette.text
             Box(Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)).background(track))
             Box(Modifier.fillMaxWidth(fraction).height(4.dp).clip(RoundedCornerShape(2.dp)).background(fill))
             if (hovered || dragging != null) {
-                Box(Modifier.padding(start = (maxWidth * fraction - 6.dp).coerceAtLeast(0.dp)).size(12.dp).clip(CircleShape).background(fill))
+                Box(Modifier.padding(start = (maxWidth * fraction - 6.dp).coerceAtLeast(0.dp)).size(12.dp).clip(CircleShape).background(if (light) Color.White else palette.text))
             }
         }
-        Text(formatDuration(duration), color = textColor, fontSize = 11.sp, modifier = Modifier.width(44.dp).padding(start = 8.dp))
+        Spacer(Modifier.width(8.dp))
+        Text(formatDuration(duration), color = textColor, fontSize = 12.sp, maxLines = 1, modifier = Modifier.width(48.dp))
     }
 }
 
+/** The volume: its icon mutes and unmutes; the bar is clicked, dragged or scrolled. */
 @Composable
-private fun VolumeControl() {
+fun VolumeControl(width: Dp, light: Boolean = false, iconSize: Int = 20) {
     val palette = LocalPalette.current
     val volume by Prefs.volume.state.collectAsState()
+    var hovered by remember { mutableStateOf(false) }
     Row(verticalAlignment = Alignment.CenterVertically) {
         val icon = when {
             volume <= 0.001 -> Icons.AutoMirrored.Rounded.VolumeOff
@@ -229,7 +311,7 @@ private fun VolumeControl() {
             else -> Icons.AutoMirrored.Rounded.VolumeUp
         }
         var before by remember { mutableStateOf(0.8) }
-        BarButton(icon, tr("Volume")) {
+        BarButton(icon, tr("Volume"), size = iconSize, light = light) {
             if (volume > 0.001) {
                 before = volume
                 Player.setVolume(0.0)
@@ -238,7 +320,9 @@ private fun VolumeControl() {
             }
         }
         BoxWithConstraints(
-            Modifier.width(110.dp).height(16.dp)
+            Modifier.width(width).height(16.dp)
+                .onPointerEvent(PointerEventType.Enter) { hovered = true }
+                .onPointerEvent(PointerEventType.Exit) { hovered = false }
                 .pointerInput(Unit) { detectTapGestures { Player.setVolume((it.x / size.width).toDouble()) } }
                 .pointerInput(Unit) { detectDragGestures { change, _ -> Player.setVolume((change.position.x / size.width).toDouble()) } }
                 // The mouse wheel moves it too.
@@ -248,8 +332,11 @@ private fun VolumeControl() {
                 },
             contentAlignment = Alignment.CenterStart,
         ) {
-            Box(Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)).background(palette.separator))
-            Box(Modifier.fillMaxWidth(volume.toFloat()).height(4.dp).clip(RoundedCornerShape(2.dp)).background(palette.text))
+            val track = if (light) Color.White.copy(alpha = 0.3f) else if (palette.dark) Color(0xFF4D4D4D) else Color(0xFFC9C9CF)
+            val fill = if (hovered) palette.accent else if (light) Color.White else palette.text
+            Box(Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)).background(track))
+            Box(Modifier.fillMaxWidth(volume.toFloat()).height(4.dp).clip(RoundedCornerShape(2.dp)).background(fill))
+            if (hovered) Box(Modifier.padding(start = (maxWidth * volume.toFloat() - 6.dp).coerceAtLeast(0.dp)).size(12.dp).clip(CircleShape).background(if (light) Color.White else palette.text))
         }
     }
 }
@@ -265,34 +352,94 @@ fun CurrentTrackMenuButton(tint: Color) {
     }
 }
 
+/**
+ * Tempo (Premium, as on the iPhone): a DJ app's tempo fader. The song's BPM (once measured) with
+ * the change in percent, the fader, − and + by 0.1 %, back to the song's own tempo, the fader's
+ * range, and the key lock: on, voices keep their pitch; off, faster is higher, as on a turntable.
+ */
 @Composable
-fun FullHeightSpacer() = Spacer(Modifier.fillMaxHeight())
-
-/** Tempo (Premium, as on the iPhone): the speed from -15 % to +15 %, the pitch kept. */
-@Composable
-private fun TempoButton() {
-    val palette = LocalPalette.current
+fun TempoButton(light: Boolean = false, size: Int = 20) {
     val tempo by Player.tempo.collectAsState()
     var open by remember { mutableStateOf(false) }
     Box {
-        BarButton(Icons.Rounded.Speed, tr("Tempo"), active = tempo != 1.0) {
-            if (com.onda.seaglass.account.Account.unlocks()) open = true else Nav.premium = tr("Tempo")
+        BarButton(Icons.Rounded.Speed, tr("Tempo"), active = tempo != 1.0, size = size, light = light) {
+            if (Account.unlocks()) open = true else Nav.premium = tr("Tempo")
         }
-        DropdownMenu(open, { open = false }) {
-            Column(Modifier.width(280.dp).padding(horizontal = 16.dp, vertical = 8.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(tr("Tempo"), color = palette.text, fontWeight = FontWeight.Bold, fontSize = 15.sp, modifier = Modifier.weight(1f))
-                    Text("%+d %%".format(Math.round((tempo - 1) * 100)), color = palette.accent, fontWeight = FontWeight.SemiBold)
-                }
-                androidx.compose.material3.Slider(
-                    tempo.toFloat(), { Player.setTempo(it.toDouble()) }, valueRange = 0.85f..1.15f, steps = 29,
-                    colors = androidx.compose.material3.SliderDefaults.colors(thumbColor = palette.accent, activeTrackColor = palette.accent),
+        DropdownMenu(open, { open = false }) { TempoPanel() }
+    }
+}
+
+@Composable
+private fun TempoPanel() {
+    val palette = LocalPalette.current
+    val tempo by Player.tempo.collectAsState()
+    val keyLock by Prefs.tempoKeyLock.state.collectAsState()
+    val range by Prefs.tempoRange.state.collectAsState()
+    val bpm by Player.songBpm.collectAsState()
+    val state by Player.state.collectAsState()
+    LaunchedEffect(state.current?.videoId) { Player.measureBpm() }
+    val measured = bpm?.takeIf { it.first == state.current?.videoId }?.second
+    Column(Modifier.width(320.dp).padding(horizontal = 18.dp, vertical = 10.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(tr("Tempo"), color = palette.text, fontWeight = FontWeight.Bold, fontSize = 16.sp, modifier = Modifier.weight(1f))
+            var rangeMenu by remember { mutableStateOf(false) }
+            Box {
+                Text(
+                    "±" + Math.round(range * 100) + " % ▾", color = palette.secondary, fontSize = 13.sp,
+                    modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable { rangeMenu = true }.padding(6.dp),
                 )
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(tr("Blocca tonalità"), color = palette.secondary, fontSize = 12.sp, modifier = Modifier.weight(1f))
-                    Text(tr("Ripristina"), color = palette.accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable { Player.setTempo(1.0) })
+                DropdownMenu(rangeMenu, { rangeMenu = false }) {
+                    Text(tr("Intervallo"), color = palette.secondary, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp))
+                    listOf(0.08, 0.15, 0.25, 0.5).forEach { option ->
+                        DropdownMenuItem(text = { Text("±" + Math.round(option * 100) + " %") }, onClick = {
+                            rangeMenu = false
+                            Player.setTempoRange(option)
+                        })
+                    }
                 }
             }
         }
+        // The BPM large when it's known, the change under it.
+        Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.Bottom) {
+            if (measured != null) {
+                Text("%.1f".format(measured * tempo), color = palette.text, fontSize = 34.sp, fontWeight = FontWeight.SemiBold)
+                Text(" BPM", color = palette.secondary, fontSize = 14.sp, modifier = Modifier.padding(bottom = 6.dp))
+                Spacer(Modifier.weight(1f))
+            }
+            Text(
+                "%+.1f %%".format((tempo - 1) * 100), color = if (tempo != 1.0) palette.accent else palette.secondary,
+                fontSize = if (measured == null) 34.sp else 16.sp, fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(bottom = if (measured == null) 0.dp else 6.dp),
+            )
+        }
+        ThinSlider(tempo.toFloat(), (1 - range).toFloat()..(1 + range).toFloat(), Modifier.fillMaxWidth().padding(top = 6.dp), step = 0.001f) {
+            Player.setTempo(it.toDouble())
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            BarButton(Icons.Rounded.Remove, tr("Più lento"), size = 20) { Player.setTempo(tempo - 0.001) }
+            BarButton(Icons.Rounded.Add, tr("Più veloce"), size = 20) { Player.setTempo(tempo + 0.001) }
+            Spacer(Modifier.weight(1f))
+            Text(
+                tr("Reimposta"), color = if (tempo != 1.0) palette.accent else palette.tertiary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable(enabled = tempo != 1.0) { Player.setTempo(1.0) }.padding(8.dp),
+            )
+        }
+        Row(
+            Modifier.fillMaxWidth().padding(top = 6.dp).clip(RoundedCornerShape(8.dp)).clickable { Player.setKeyLock(!keyLock) }.padding(vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(Icons.Rounded.MusicNote, null, Modifier.size(20.dp), tint = if (keyLock) palette.accent else palette.secondary)
+            Spacer(Modifier.width(10.dp))
+            Text(tr("Blocca tonalità"), color = palette.text, fontSize = 14.sp, modifier = Modifier.weight(1f))
+            Switch(keyLock, { Player.setKeyLock(it) }, colors = SwitchDefaults.colors(checkedTrackColor = palette.accent, checkedThumbColor = palette.onAccent))
+        }
+        Text(
+            tr("La voce resta alla sua altezza a qualsiasi tempo. Disattivato, cambia con il tempo come su un giradischi: più veloce è più acuta, più lenta è più grave."),
+            color = palette.secondary, fontSize = 12.sp, lineHeight = 16.sp,
+        )
+        Text(
+            tr("Con il tempo cambiato, AutoMix e la dissolvenza si fermano: i brani si susseguono senza mix."),
+            color = palette.tertiary, fontSize = 12.sp, lineHeight = 16.sp, modifier = Modifier.padding(top = 6.dp),
+        )
     }
 }

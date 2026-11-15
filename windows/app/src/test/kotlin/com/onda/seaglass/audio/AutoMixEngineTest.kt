@@ -206,4 +206,48 @@ class AutoMixEngineTest {
         assertEquals(TransitionPlan.Style.BEAT_MATCHED, plan.style, "plan: $plan")
         assertTrue(abs(plan.incomingRate - 120.0 / 124.0) < 0.02, "the next song slowed to the first's tempo: ${plan.incomingRate}")
     }
+
+    /** Clicks on every beat (a bass thump every bar) over a quiet tone, as a song at [bpm]. */
+    private fun beatSong(bpm: Double, seconds: Double = 70.0) = wav(seconds) { t ->
+        val beat = 60 / bpm
+        val inBeat = t % beat
+        val bar = (t / beat).toInt() % 4 == 0
+        val click = if (inBeat < 0.03) sin(2 * PI * (if (bar) 60.0 else 2000.0) * inBeat) * (1 - inBeat / 0.03) * 0.8 else 0.0
+        click + 0.05 * sin(2 * PI * 440 * t)
+    }
+
+    @Test
+    fun temposTenPercentApartAreStillMatchedAndFarOnesCrossfaded() {
+        // As on the iPhone: up to 12 % apart the beats are matched (most songs of a playlist), not only up to 6 %.
+        val first = AutoMix.analyze("local:cccc") { FileSource(beatSong(110.0)) } ?: error("no analysis")
+        val second = AutoMix.analyze("local:dddd") { FileSource(beatSong(100.0)) } ?: error("no analysis")
+        val plan = AutoMix.plan(first, second)
+        assertEquals(TransitionPlan.Style.BEAT_MATCHED, plan.style, "plan: $plan")
+        assertTrue(abs(plan.incomingRate - 1.1) < 0.02, "the next song brought to the first's tempo: ${plan.incomingRate}")
+        assertEquals(8, plan.bars, "tempos 10 % apart get 8 bars")
+        // Tempos far apart (and not at double or half): a crossfade, never a mix out of step.
+        val far = AutoMix.analyze("local:eeee") { FileSource(beatSong(140.0)) } ?: error("no analysis")
+        val crossfade = AutoMix.plan(far, second)
+        assertTrue(crossfade.style != TransitionPlan.Style.BEAT_MATCHED, "140 → 100 BPM isn't matched: $crossfade")
+        assertTrue(crossfade.outEnd - crossfade.outStart >= 4, "a real crossfade, not a cut: $crossfade")
+    }
+
+    @Test
+    fun theMixStartsOnItsVeryFrameNotAtTheNextBlock() {
+        // The song going out silent, the next one a steady level: the first sound heard is where the
+        // mix starts. A start rounded to the engine's blocks (21 ms) would put two songs' beats apart.
+        val silent = wav(70.0) { 0.0 }
+        val steady = wav(70.0) { 0.5 }
+        val startAt = 60.0
+        val outStart = 62.0107
+        val plan = TransitionPlan(
+            TransitionPlan.Style.BLEND, outStart = outStart, outEnd = 69.0, inStart = 1.0, incomingRate = 1.0,
+            fadeInFrom = 0.0, fadeIn = 0.0001,
+        )
+        val (capture, _) = play(plan, silent, steady, startAt, outgoingTempo = 0.0)
+        val first = (0 until capture.frames).first { capture.samples[it * 2].toInt() != 0 }
+        val expected = Math.ceil((outStart - startAt) * Decoder.RATE).toInt()
+        assertTrue(abs(first - expected) <= 2, "the next song comes in at frame $first, the plan's is $expected")
+    }
 }
+

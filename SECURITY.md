@@ -47,7 +47,10 @@ Out of scope:
   - the Seaglass account service (`account.<domain>`, set at build time), when the user
     signs in; and, signed in or not, for the concerts under the classic player, to which only
     the artist's name is sent (the service asks Ticketmaster with its own key, which the app
-    never has).
+    never has). The Windows app also sends it the lines of a song's lyrics and the language
+    to translate them into, signed in, when the user turns on their translation; the service
+    translates them with Cloudflare's Workers AI and keeps the translation at its edge for a
+    week, with nothing that says who asked.
   - Shazam (`amp.shazam.com`), only when the user starts song recognition on iPhone, iPad or
     Mac. Only a locally generated audio fingerprint is sent, not the recorded audio. Artwork
     and optional catalog links in the response are accepted only over HTTPS.
@@ -170,6 +173,10 @@ folder. For example, a YouTube video ID matches `[A-Za-z0-9_-]{11}`.
   Nothing typed is read, kept or logged.
 - Files from the user's folders are only read (FFmpeg decodes them; their tags are read), never
   written, moved or deleted, and nothing about them leaves the computer.
+- The app's log (`%LOCALAPPDATA%\Seaglass\Logs`, about 2 MB at most) notes songs that couldn't
+  play (their YouTube ID and the error's kind) and AutoMix's choices. It never holds tokens,
+  keys, stream addresses or the user's files' paths, and it never leaves the computer unless the
+  user sends it.
 
 ### Android components
 

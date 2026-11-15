@@ -64,7 +64,10 @@ fun main(args: Array<String>) {
 
     application(exitProcessOnExit = true) {
         var visible by remember { mutableStateOf(!background) }
-        val windowState = rememberWindowState(size = DpSize(1280.dp, 820.dp), position = WindowPosition(Alignment.Center))
+        // -Dseaglass.window=980x640 opens it at another size (screenshots at the smallest one).
+        val size = System.getProperty("seaglass.window")?.split("x")?.mapNotNull { it.toIntOrNull() }?.takeIf { it.size == 2 }
+            ?.let { DpSize(it[0].dp, it[1].dp) } ?: DpSize(1280.dp, 820.dp)
+        val windowState = rememberWindowState(size = size, position = WindowPosition(Alignment.Center))
         WindowsIntegration.showWindow = {
             visible = true
             windowState.isMinimized = false
@@ -110,7 +113,7 @@ fun main(args: Array<String>) {
                     event.isCtrlPressed && event.key == Key.DirectionUp -> { Player.setVolume(Prefs.volume.value + 0.05); true }
                     event.isCtrlPressed && event.key == Key.DirectionDown -> { Player.setVolume(Prefs.volume.value - 0.05); true }
                     event.isCtrlPressed && event.key == Key.P -> { Player.toggle(); true }
-                    event.isCtrlPressed && event.key == Key.L -> { Nav.panel = if (Nav.panel == Nav.Panel.LYRICS) Nav.Panel.NONE else Nav.Panel.LYRICS; true }
+                    event.isCtrlPressed && event.key == Key.L -> { Nav.togglePanel(Nav.Panel.LYRICS); true }
                     event.isCtrlPressed && event.key == Key.Comma -> { Nav.section(Route.Settings); true }
                     event.key == Key.Escape && Nav.fullPlayer -> { Nav.fullPlayer = false; true }
                     else -> false

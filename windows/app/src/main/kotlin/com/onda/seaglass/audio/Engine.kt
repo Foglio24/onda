@@ -379,6 +379,8 @@ class Engine(private val sinkFactory: () -> AudioSink) : Closeable {
      * another without a crossfade or a mix (both would change the speed while heard).
      */
     @Volatile var tempo = 1.0
+    /** Tempo's key lock: on, the speed changes with the pitch kept (time-stretched); off, as a turntable. */
+    @Volatile var keyLock = true
 
     private val stretch = TimeStretch()
     /** The deck the stretcher is reading (a new song starts it afresh). */
@@ -441,6 +443,9 @@ class Engine(private val sinkFactory: () -> AudioSink) : Closeable {
 
     /** The AutoMix plan for [next], if it has one. */
     @Volatile var nextTransition: com.onda.seaglass.audio.automix.Transition? = null
+        private set
+    /** AutoMix plans dropped because the next song wasn't ready in time (for the log). */
+    @Volatile var missedMixes = 0
         private set
     /** True while a planned (AutoMix) mix plays, for the player. */
     @Volatile var mixing = false
@@ -575,18 +580,31 @@ class Engine(private val sinkFactory: () -> AudioSink) : Closeable {
             return 0
         }
         val following = next
-        val planned = nextTransition
+        var planned = nextTransition
         val speed = tempo
-        if (!fading && following != null && following.isReady && speed == 1.0) {
-            if (planned != null) {
-                // AutoMix: the mix starts where the plan says (or at the song's very end, if late).
-                val position = deck.position
-                if (position >= planned.outStart - 0.0005 || (deck.duration > 0 && position >= deck.duration - 0.05) || deck.finished) {
+        // Frames this block may take before the mix has to start (so it starts on its very frame).
+        var limit = BLOCK
+        if (!fading && following != null && speed == 1.0 && planned != null) {
+            // AutoMix: the mix starts on the downbeat the plan says, to the frame, so the two songs'
+            // beats land together. The next song not ready by then (the network): a plain crossfade
+            // instead, never a mix out of step.
+            val late = deck.position - planned.outStart
+            if (late >= -0.5 / Decoder.RATE) {
+                if (following.isReady && late < 0.1) {
                     fading = true
                     mixing = true
                     filterState.fill(0.0)
+                } else if (late >= 0.1 || deck.finished) {
+                    nextTransition = null
+                    planned = null
+                    missedMixes++
                 }
-            } else if (crossfade > 0 && deck.duration > 0) {
+            } else if (following.isReady) {
+                limit = minOf(BLOCK, Math.ceil(-late * Decoder.RATE).toInt().coerceAtLeast(1))
+            }
+        }
+        if (!fading && following != null && following.isReady && speed == 1.0) {
+            if (planned == null && crossfade > 0 && deck.duration > 0) {
                 // The crossfade starts when the song has that long left and the next one is ready.
                 val left = deck.duration - deck.position
                 if (left <= crossfade && left > 0.05) {
@@ -598,14 +616,18 @@ class Engine(private val sinkFactory: () -> AudioSink) : Closeable {
         }
         if (fading && following != null && planned != null) return renderPlanned(deck, following, planned, mix, scratch, scratch2)
         // During a crossfade, as much of each as both have (see renderPlanned).
-        val want = if (fading && following != null) minOf(BLOCK, deck.available(1.0), following.available(1.0)) else BLOCK
+        val want = if (fading && following != null) minOf(BLOCK, deck.available(1.0), following.available(1.0)) else limit
         if (want <= 0) return 0
-        val frames = if (speed != 1.0 && !fading) {
+        val frames = if (speed != 1.0 && !fading && keyLock) {
             if (stretchDeck !== deck) {
                 stretch.reset()
                 stretchDeck = deck
             }
             stretch.process(scratch, want, speed, stretchSource)
+        } else if (speed != 1.0 && !fading) {
+            // Without the key lock: faster is higher, slower is lower, as on a turntable.
+            stretchDeck = null
+            deck.readAt(scratch, want, speed)
         } else {
             stretchDeck = null
             deck.readAt(scratch, want, 1.0)

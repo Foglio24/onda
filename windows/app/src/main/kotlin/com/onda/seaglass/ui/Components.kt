@@ -62,6 +62,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.isSecondaryPressed
 import androidx.compose.ui.input.pointer.onPointerEvent
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -111,8 +114,8 @@ fun PillButton(label: String, icon: ImageVector? = null, prominent: Boolean = fa
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        if (icon != null) Icon(icon, null, Modifier.size(18.dp), tint = if (prominent) Color.White else palette.text)
-        Text(label, color = if (prominent) Color.White else palette.text, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+        if (icon != null) Icon(icon, null, Modifier.size(18.dp), tint = if (prominent) palette.onAccent else palette.text)
+        Text(label, color = if (prominent) palette.onAccent else palette.text, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
     }
 }
 
@@ -308,8 +311,9 @@ fun TrackCard(track: Track, size: Dp = 168.dp, onClick: () -> Unit) {
             Box(contentAlignment = Alignment.BottomEnd) {
                 RemoteImage(track.resized(400), Modifier.size(size), RoundedCornerShape(8.dp))
                 if (hovered) {
-                    Box(Modifier.padding(8.dp).size(36.dp).clip(CircleShape).background(palette.accent), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Rounded.PlayArrow, tr("Riproduci"), tint = Color.White)
+                    // As Spotify's: a round play button in the accent, on the cover's corner.
+                    Box(Modifier.padding(8.dp).size(44.dp).clip(CircleShape).background(palette.accent), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Rounded.PlayArrow, tr("Riproduci"), Modifier.size(26.dp), tint = palette.onAccent)
                     }
                 }
                 TrackMenu(track, menu, { menu = false })
@@ -423,4 +427,43 @@ fun PremiumDialog() {
             }) { Text(if (signedIn) tr("Ho già Premium") else tr("Annulla")) }
         },
     )
+}
+
+/**
+ * A slider as the player bar's volume: a thin bar, filled to the value, with its knob on hover or
+ * while dragged (clicked, dragged or scrolled). Material's slider, with its notches and gap, read
+ * poorly in a narrow space.
+ */
+@Composable
+fun ThinSlider(value: Float, range: ClosedFloatingPointRange<Float>, modifier: Modifier = Modifier, step: Float = 0f, onChange: (Float) -> Unit) {
+    val palette = LocalPalette.current
+    var hovered by remember { mutableStateOf(false) }
+    var dragging by remember { mutableStateOf(false) }
+    fun valueAt(x: Float, width: Float): Float {
+        val raw = range.start + (x / width).coerceIn(0f, 1f) * (range.endInclusive - range.start)
+        return if (step > 0f) (Math.round((raw - range.start) / step) * step + range.start).coerceIn(range.start, range.endInclusive) else raw
+    }
+    val fraction = ((value - range.start) / (range.endInclusive - range.start)).coerceIn(0f, 1f)
+    androidx.compose.foundation.layout.BoxWithConstraints(
+        modifier.height(24.dp)
+            .onPointerEvent(PointerEventType.Enter) { hovered = true }
+            .onPointerEvent(PointerEventType.Exit) { hovered = false }
+            .pointerInput(range, step) { detectTapGestures { onChange(valueAt(it.x, size.width.toFloat())) } }
+            .pointerInput(range, step) {
+                detectDragGestures(
+                    onDragStart = { dragging = true },
+                    onDragEnd = { dragging = false },
+                    onDragCancel = { dragging = false },
+                ) { change, _ ->
+                    onChange(valueAt(change.position.x, size.width.toFloat()))
+                    change.consume()
+                }
+            },
+        contentAlignment = Alignment.CenterStart,
+    ) {
+        val active = hovered || dragging
+        Box(Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)).background(if (palette.dark) Color(0xFF4D4D4D) else Color(0xFFC9C9CF)))
+        Box(Modifier.fillMaxWidth(fraction).height(4.dp).clip(RoundedCornerShape(2.dp)).background(if (active) palette.accent else palette.text))
+        Box(Modifier.padding(start = (maxWidth * fraction - 7.dp).coerceAtLeast(0.dp)).size(14.dp).clip(CircleShape).background(palette.text))
+    }
 }

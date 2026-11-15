@@ -123,5 +123,6 @@ tasks.register<JavaExec>("runDev") {
     (findProperty("home") as String?)?.let { systemProperty("seaglass.home", it) }
     (findProperty("headless") as String?)?.let { systemProperty("seaglass.headless", it) }
     (findProperty("language") as String?)?.let { systemProperty("user.language", it) }
+    (findProperty("window") as String?)?.let { systemProperty("seaglass.window", it) }
     (findProperty("args") as String?)?.let { args(it.split(" ")) }
 }
