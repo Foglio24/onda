@@ -51,12 +51,19 @@ Also in the Android app, under Google's [ML Kit terms](https://developers.google
 the lyrics translation; each language's model is downloaded from Google the first time it's needed.
 
 ## Included in the Windows app
-All under the Apache License 2.0:
-- [Compose Multiplatform](https://www.jetbrains.com/lp/compose-multiplatform/) (JetBrains): the desktop interface.
-- [OkHttp](https://github.com/square/okhttp) (Square): networking.
-- [Kotlin coroutines](https://github.com/Kotlin/kotlinx.coroutines) (JetBrains).
-- [org.json](https://github.com/stleary/JSON-java) (Public Domain / JSON License): JSON parsing.
-- [OpenJFX](https://openjfx.io/) (GPL-2.0 with Classpath exception): JavaFX Media for AAC playback.
+- [Compose Multiplatform](https://www.jetbrains.com/lp/compose-multiplatform/) (JetBrains, Apache-2.0): the desktop interface.
+- [OkHttp](https://github.com/square/okhttp) (Square, Apache-2.0): networking.
+- [Kotlin coroutines](https://github.com/Kotlin/kotlinx.coroutines) (JetBrains, Apache-2.0).
+- [org.json](https://github.com/stleary/JSON-java) (Public Domain): JSON parsing.
+- [FFmpeg](https://ffmpeg.org) (LGPL-2.1-or-later), as built by the
+  [JavaCPP Presets](https://github.com/bytedeco/javacpp-presets) (Apache-2.0), with
+  [JavaCPP](https://github.com/bytedeco/javacpp) (Apache-2.0): decoding Opus, AAC, MP3, FLAC and the
+  other audio formats. FFmpeg's libraries are separate files in the app's folder, as the LGPL asks;
+  their source is at ffmpeg.org and in the JavaCPP Presets repository.
+- [JNA](https://github.com/java-native-access/jna) (Apache-2.0): Windows's DPAPI, registry and media keys.
+- A Java runtime from [Eclipse Temurin](https://adoptium.net) (GPL-2.0 with the Classpath Exception),
+  bundled by jpackage.
+- Installed with [Inno Setup](https://jrsoftware.org/isinfo.php) (Inno Setup License).
 
 ## Used at build time only (not included in the app)
 - [coremltools](https://github.com/apple/coremltools) (BSD-3-Clause), [PyTorch](https://github.com/pytorch/pytorch)

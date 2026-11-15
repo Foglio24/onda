@@ -1,26 +1,32 @@
-# Builds Seaglass for Windows 11 from the dedicated `windows` branch (never from main's
-# iPhone/Mac line). Publishes windows-vX.Y.Z only — never "Latest".
+# Seaglass for Windows, from the dedicated `windows` branch (never from main's iPhone/Mac line):
+# tests on Linux, then on Windows the app image, its installer (installer/Seaglass.iss) and a real
+# silent install of it, checked and uninstalled. With release=true it publishes windows-vX.Y.Z
+# (the first heading of windows/CHANGELOG.md) with Seaglass-Setup.exe — never "Latest", which is
+# the iPhone app's. The app's updater reads only these releases.
 name: Windows
 
 on:
   push:
-    branches: ["windows", "cursor/windows-*"]
-    paths: ["windows/**", ".github/workflows/windows.yml", "AGENTS.md", "SECURITY.md"]
-    tags: ["windows-v*"]
+    branches: ["windows"]
+    paths: ["windows/**", ".github/workflows/windows.yml"]
   workflow_dispatch:
     inputs:
       release:
-        description: "Publish windows/CHANGELOG.md as windows-vX.Y.Z (from the windows branch)"
+        description: "Publish windows/CHANGELOG.md's version as windows-vX.Y.Z (from the windows branch)"
         type: boolean
         default: false
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: windows-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -30,14 +36,23 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           build-root-directory: windows
-      - name: Unit tests
+      - name: Unit tests (engine, decoding, sync merge, updater)
         working-directory: windows
         run: ./gradlew :app:test --no-daemon
+
+      # Talks to the real YouTube Music: a failure means YouTube changed something (or refused the
+      # runner), so it is reported without blocking the build.
+      - name: YouTube Music (live)
+        continue-on-error: true
+        working-directory: windows
+        run: ./gradlew :app:test --no-daemon -Plive=true --tests '*LiveTest*'
 
   package:
     needs: test
     runs-on: windows-latest
-    timeout-minutes: 45
+    timeout-minutes: 50
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -47,101 +62,109 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           build-root-directory: windows
-      - name: Read version
-        id: ver
+
+      - name: Read the version
+        id: version
         shell: bash
         run: |
-          version=$(sed -n 's/^## \([0-9][0-9.]*\).*/\1/p' windows/CHANGELOG.md | head -1)
+          version=$(sed -n 's/^## \([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/p' windows/CHANGELOG.md | head -1)
+          test -n "$version"
           echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "Windows version $version (independent of iOS/Mac)"
-      - name: Create distributable
+          echo "Seaglass for Windows $version"
+
+      - name: Build the app image
         working-directory: windows
         shell: bash
-        run: |
-          ./gradlew :app:createReleaseDistributable \
-            -Pseaglass.version=${{ steps.ver.outputs.version }} \
-            --no-daemon
-      - name: Zip for the auto-updater
+        run: ./gradlew :app:createReleaseDistributable --no-daemon -Pnative=windows-x86_64
+
+      - name: Find the app image
+        id: image
         shell: pwsh
         run: |
+          $exe = Get-ChildItem -Path windows/app/build/compose/binaries -Recurse -Filter Seaglass.exe | Select-Object -First 1
+          if (-not $exe) { Write-Error "No Seaglass.exe under compose/binaries"; exit 1 }
+          "dir=$($exe.DirectoryName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          Get-ChildItem $exe.DirectoryName
+
+      - name: Build the installer (Inno Setup)
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress | Out-Null }
           New-Item -ItemType Directory -Force -Path dist | Out-Null
-          $appdir = Get-ChildItem -Path windows/app/build/compose/binaries -Recurse -Directory -Filter Seaglass |
-            Where-Object { Test-Path (Join-Path $_.FullName 'Seaglass.exe') } |
-            Select-Object -First 1
-          if (-not $appdir) {
-            Write-Error "No Seaglass app directory with Seaglass.exe under compose/binaries"
-            Get-ChildItem -Path windows/app/build/compose -Recurse -Directory | Select-Object -First 80 FullName
-            exit 1
-          }
-          $zip = Join-Path $PWD 'dist/Seaglass-windows.zip'
-          if (Test-Path $zip) { Remove-Item $zip }
-          Compress-Archive -Path (Join-Path $appdir.FullName '*') -DestinationPath $zip -CompressionLevel Optimal
+          & $iscc "/DAppVersion=${{ steps.version.outputs.version }}" "/DAppDir=${{ steps.image.outputs.dir }}" "/O$PWD\dist" windows\installer\Seaglass.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Get-ChildItem dist
-          Add-Type -AssemblyName System.IO.Compression.FileSystem
-          [IO.Compression.ZipFile]::OpenRead($zip).Entries | Select-Object -First 40 FullName
-      - name: Upload
-        uses: actions/upload-artifact@v4
+
+      # Installs it for real, as a user would (silently, with the desktop icon), then checks what it did.
+      - name: Install, check and uninstall
+        shell: pwsh
+        run: |
+          $setup = Start-Process -FilePath dist\Seaglass-Setup.exe -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/NOLAUNCH','/TASKS="desktopicon"' -Wait -PassThru
+          if ($setup.ExitCode -ne 0) { Write-Error "Setup exit code $($setup.ExitCode)"; exit 1 }
+          $app = "$env:LOCALAPPDATA\Programs\Seaglass\Seaglass.exe"
+          if (-not (Test-Path $app)) { Write-Error "Not installed at $app"; exit 1 }
+          $desktop = [Environment]::GetFolderPath('Desktop')
+          if (-not (Test-Path "$desktop\Seaglass.lnk")) { Write-Error "No desktop icon"; exit 1 }
+          if (-not (Test-Path 'HKCU:\Software\Classes\com.onda.player.auth\shell\open\command')) { Write-Error "Sign-in address not registered"; exit 1 }
+          $env:SEAGLASS_SELFTEST_OUT = "$PWD\selftest.txt"
+          $test = Start-Process -FilePath $app -ArgumentList '--self-test' -Wait -PassThru
+          Get-Content selftest.txt
+          if ($test.ExitCode -ne 0) { Write-Error "Self-test exit code $($test.ExitCode)"; exit 1 }
+          $uninstall = Start-Process -FilePath "$env:LOCALAPPDATA\Programs\Seaglass\unins000.exe" -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait -PassThru
+          Start-Sleep -Seconds 3
+          if (Test-Path $app) { Write-Error "Still there after uninstalling"; exit 1 }
+          if (Test-Path 'HKCU:\Software\Classes\com.onda.player.auth') { Write-Error "Sign-in address left behind"; exit 1 }
+          if (Test-Path "$desktop\Seaglass.lnk") { Write-Error "Desktop icon left behind"; exit 1 }
+          Write-Host "Installed, checked and uninstalled."
+
+      - uses: actions/upload-artifact@v4
         with:
           name: Seaglass-windows
-          path: dist/Seaglass-windows.zip
+          path: dist/Seaglass-Setup.exe
 
   release:
     needs: package
-    # Only the windows branch (or an explicit windows-v* tag) may publish — never main.
-    if: >
-      startsWith(github.ref, 'refs/tags/windows-v') ||
-      (inputs.release && (github.ref == 'refs/heads/windows' || startsWith(github.ref, 'refs/heads/cursor/windows-')))
+    # Only the windows branch publishes — never main.
+    if: ${{ inputs.release && github.ref == 'refs/heads/windows' }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           name: Seaglass-windows
-      - name: Notes and tag
-        id: notes
+      - name: Release notes
         env:
-          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.package.outputs.version }}
         run: |
-          if [[ "$GITHUB_REF" == refs/tags/windows-v* ]]; then
-            tag="$GITHUB_REF_NAME"
-          else
-            version=$(sed -n 's/^## \([0-9][0-9.]*\).*/\1/p' windows/CHANGELOG.md | head -1)
-            tag="windows-v$version"
-            if ! git rev-parse "$tag" >/dev/null 2>&1; then
-              git tag "$tag"
-              git push origin "$tag"
-            fi
-          fi
-          version="${tag#windows-v}"
-          python3 - <<PY
+          python3 - <<'PY'
+          import os
           from pathlib import Path
-          text = Path("windows/CHANGELOG.md").read_text()
-          lines = text.splitlines()
-          out = []
-          capture = False
-          for line in lines:
+          version = os.environ["VERSION"]
+          out, capture = [], False
+          for line in Path("windows/CHANGELOG.md").read_text().splitlines():
               if line.startswith("## "):
                   if capture:
                       break
-                  if line.startswith(f"## {version}"):
-                      capture = True
-                      continue
-              elif capture:
+                  capture = line.startswith(f"## {version}")
+                  continue
+              if capture:
                   out.append(line)
           Path("release-notes.md").write_text("\n".join(out).strip() + "\n")
           PY
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          echo "name=Seaglass for Windows $version" >> "$GITHUB_OUTPUT"
-          head -30 release-notes.md
-      - name: Publish
+          cat release-notes.md
+      - name: Publish windows-v${{ needs.package.outputs.version }}
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.notes.outputs.tag }}
-          name: ${{ steps.notes.outputs.name }}
+          tag_name: windows-v${{ needs.package.outputs.version }}
+          target_commitish: ${{ github.sha }}
+          name: Seaglass for Windows ${{ needs.package.outputs.version }}
           body_path: release-notes.md
-          files: Seaglass-windows.zip
+          files: Seaglass-Setup.exe
           make_latest: false
-      - name: Ensure Latest is still the iPhone release
+      - name: Keep the iPhone release as Latest
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

@@ -283,16 +283,17 @@ fun EqualizerPage() {
             }
             drawPath(path, if (state.isOn) palette.accent else palette.tertiary, style = Stroke(width = 3f))
         }
-        Row(Modifier.fillMaxWidth().padding(top = 18.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+        Row(Modifier.fillMaxWidth().padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             for (band in 0 until EqualizerBands.COUNT) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("%+.1f dB".format(gains[band]), color = palette.secondary, fontSize = 11.sp)
+                // Each band takes an equal share of the width, so they fit beside the queue too.
+                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("%+.1f dB".format(gains[band]), color = palette.secondary, fontSize = 11.sp, maxLines = 1)
                     Slider(
                         gains[band], { Equalizer.setGain(band, it) }, valueRange = -EqualizerBands.LIMIT..EqualizerBands.LIMIT,
-                        modifier = Modifier.width(130.dp),
+                        modifier = Modifier.fillMaxWidth(),
                         colors = SliderDefaults.colors(thumbColor = palette.accent, activeTrackColor = palette.accent),
                     )
-                    Text(EqualizerBands.labels[band] + " Hz", color = palette.text, fontSize = 12.sp)
+                    Text(EqualizerBands.labels[band] + " Hz", color = palette.text, fontSize = 12.sp, maxLines = 1)
                 }
             }
         }

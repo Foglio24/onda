@@ -82,7 +82,7 @@ fun LikedPage() {
                 PillButton(tr("Scarica"), Icons.Rounded.Download) { Downloads.download(liked) }
             }
         }
-        if (liked.isEmpty()) EmptyState(Icons.Rounded.Favorite, tr("Nessun brano preferito"), tr("Tocca il cuore di un brano per salvarlo qui."))
+        if (liked.isEmpty()) EmptyState(Icons.Rounded.Favorite, tr("Nessun brano preferito"), tr("Fai clic sul cuore di un brano per salvarlo qui."))
         else TrackList(liked, tr("Brani preferiti"))
     }
 }

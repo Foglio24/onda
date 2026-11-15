@@ -16,7 +16,7 @@ In scope:
 
 - the iPhone/iPad/Mac, Android and Windows apps;
 - this repository's workflows;
-- the published IPA, APKs and Windows zip;
+- the published IPA, APKs and Windows installer;
 - the AltStore source.
 
 Out of scope:
@@ -96,9 +96,10 @@ Treat a change that breaks any of these as **P0** (secrets, updates) or **P1** (
   `ANDROID_SIGNING_KEY` secret.
 - Credentials the user enters (Last.fm) and the account's session token go in the Keychain on
   iOS (the login keychain on a Mac),
-  never in `UserDefaults`, files in Documents, logs or diagnostics. The same applies on Android when Last.fm arrives,
-  and on Windows for the account session token (`SecureStore`, AES-GCM under AppData\Local\Seaglass):
-  encrypted storage, never plain preferences or logs.
+  never in `UserDefaults`, files in Documents, logs or diagnostics. The same applies on Android when Last.fm arrives:
+  encrypted storage, never plain preferences or logs. On Windows the account's session token is
+  protected with DPAPI (`SecureStore`: readable only by that Windows user on that computer), never
+  written in the clear; off Windows (tests) it is kept in memory only.
 
 ### Updates
 
@@ -112,14 +113,13 @@ Treat a change that breaks any of these as **P0** (secrets, updates) or **P1** (
   identifier and the release's version, and pass `codesign --verify --deep --strict`. Only then
   does it replace the app, and it is never run before that. Don't drop or loosen any of these
   checks.
-- The Windows updater (`windows/.../AppUpdater.kt`) installs updates itself the same way: it
-  reads only that repository's `windows-v*` releases (published from the dedicated `windows`
-  git branch, never from the iPhone/Mac `main` line) and downloads only that release's own
-  `Seaglass-windows.zip` from `https://github.com/Foglio24/onda/releases/download/`. The file's
-  size and SHA-256 must match what the GitHub API gives for that asset. Once unzipped, the
-  archive must contain `Seaglass.exe` (zip-slip rejected). Only then does it replace the
-  installed app, and the new binary is never run before that. Don't drop or loosen any of these
-  checks.
+- The Windows updater (`windows/.../update/AppUpdater.kt`) installs updates itself too: it reads
+  only that repository's `windows-v*` releases (published from the dedicated `windows` git branch,
+  never from the iPhone/Mac `main` line, never "Latest") and downloads only that release's own
+  `Seaglass-Setup.exe` from `https://github.com/Foglio24/onda/releases/download/<tag>/`. The file's
+  size and SHA-256 must match what the GitHub API gives for that asset, and the SHA-256 is checked
+  again right before the installer runs (silently, for the current user, without administrator
+  rights). It never runs before that. Don't drop or loosen any of these checks.
 - Never point any updater at another host, mirror or repository, and never install or run
   downloaded code any other way.
 - APKs are signed with the key whose certificate is `android/signing/seaglass-cert.pem`. The
@@ -152,6 +152,23 @@ unbounded recursion.
 When an ID or a title from such input is used in a file name or path (downloads, cached
 analyses, exported files), it must be validated, so `..` or `/` can never leave the app's
 folder. For example, a YouTube video ID matches `[A-Za-z0-9_-]{11}`.
+
+### Windows app
+
+- It installs per user (`%LOCALAPPDATA%\Programs\Seaglass`), without administrator rights; the
+  library and settings are in `%APPDATA%\Seaglass`, caches and downloads in
+  `%LOCALAPPDATA%\Seaglass`. Uninstalling leaves the library.
+- One instance at a time: a second launch passes one line to the running app over a loopback
+  socket (`127.0.0.1`, a port chosen by Windows). The line is either "show" or the account page's
+  `com.onda.player.auth:/callback` link, which the app accepts only for the sign-in it started
+  (its state, once, with its PKCE verifier). Nothing else is read from it.
+- The installer registers `com.onda.player.auth` for the current user only, pointing at the
+  installed `Seaglass.exe`; uninstalling removes it.
+- The keyboard's media keys work with the window closed through a low-level keyboard hook that
+  looks only at the four media keys (play/pause, next, previous, stop) and passes every key on.
+  Nothing typed is read, kept or logged.
+- Files from the user's folders are only read (FFmpeg decodes them; their tags are read), never
+  written, moved or deleted, and nothing about them leaves the computer.
 
 ### Android components
 

@@ -42,6 +42,7 @@ import java.awt.Dimension
 import kotlin.system.exitProcess
 
 fun main(args: Array<String>) {
+    if ("--self-test" in args) exitProcess(SelfTest.run())
     if (!WindowsIntegration.claimSingleInstance(args)) exitProcess(0)
     L10n.load(Prefs.language.value)
     Library.init()

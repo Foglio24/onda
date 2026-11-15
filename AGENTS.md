@@ -21,11 +21,13 @@ iPad, Mac and Windows apps keep the library in sync. It comes in three apps:
   and checked, in the iOS build too) or `#if targetEnvironment(macCatalyst)`.
 - **Android**: Kotlin, Jetpack Compose and Media3, in `android/`, for Android 10 or later. It is
   distributed as APKs on GitHub Releases, tagged `android-vX.Y.Z`, not on Google Play.
-- **Windows**: Kotlin and Compose Multiplatform Desktop, in `windows/`, for Windows 11. It lives
-  on the dedicated git branch **`windows`** (not on the iPhone/Mac `main` release line). It is
-  distributed as `Seaglass-windows.zip` on GitHub Releases, tagged `windows-vX.Y.Z`, never
-  "Latest". Automatic updates work like on the Mac: the app checks those tags only, verifies size
-  and SHA-256, stages the zip and installs on restart or when quitting.
+- **Windows**: Kotlin and Compose Multiplatform Desktop, in `windows/`, for Windows 10 (1809) and
+  11, x64. It lives on the dedicated git branch **`windows`** (not on the iPhone/Mac `main` line).
+  FFmpeg (JavaCPP) decodes the audio and the app's own engine plays it (`windows/app/.../audio/`:
+  two decks for gapless and crossfades, the equalizer, Java Sound output). It is distributed as
+  `Seaglass-Setup.exe` (Inno Setup, `windows/installer/Seaglass.iss`: per user, a desktop icon if
+  chosen) on GitHub Releases, tagged `windows-vX.Y.Z`, never "Latest". The app updates itself from
+  those releases only: it checks size and SHA-256 and runs the installer silently.
 
 Other folders:
 
@@ -56,8 +58,8 @@ Other folders:
 - **Versions.** iOS uses `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` in `project.yml`, with
   `CHANGELOG.md`. Android uses `versionCode` and `versionName` in `android/app/build.gradle.kts`,
   with `android/CHANGELOG.md`. `versionCode` must always increase. Windows uses the first
-  `## X.Y.Z` heading in `windows/CHANGELOG.md` (and `BuildConfig.VERSION_NAME` /
-  `VERSION_CODE` in `windows/app/.../BuildConfig.kt`); `VERSION_CODE` must always increase.
+  `## X.Y.Z` heading in `windows/CHANGELOG.md` (Gradle generates `BuildConfig.VERSION` from it);
+  it must always increase.
 - **Releases.** iOS releases (`vX.Y.Z`) are the repository's "Latest" release, which the iPhone
   app's updater, the AltStore source and the README's IPA link read. Android (`android-v*`) and
   Windows (`windows-v*`) releases are normal releases but never "Latest".
@@ -73,9 +75,13 @@ Other folders:
     the runner.
   - `./gradlew assembleRelease` builds the APKs, one per ABI.
 - **Windows** (JDK 21), from `windows/`:
-  - `./gradlew :app:test` runs the unit tests (version compare and related).
-  - Packaging the zip for updates needs a Windows host:
-    `./gradlew :app:createReleaseDistributable -Pseaglass.version=X.Y.Z`.
+  - `./gradlew :app:test` runs the tests (decoding, the engine, the sync merge, the updater, the
+    translations); `-Plive=true` adds the ones that talk to YouTube Music.
+  - `./gradlew :app:runDev -Phome=<folder> -Pheadless=true` runs the app from the build with its
+    own profile and no sound card (Linux with Xvfb works for screenshots).
+  - The installer needs Windows: `./gradlew :app:createReleaseDistributable` then Inno Setup's
+    `iscc` on `installer/Seaglass.iss` (`.github/workflows/windows.yml` does both, installs it
+    silently, runs `Seaglass.exe --self-test` and uninstalls it).
 - **Account service** (Node 22), from `server/account/`: `npm ci`, then `npm test` runs the
   whole service end to end on a local copy.
 - **Website** (Node 22), from `site/`: `npm ci`, `npx playwright install chromium`, then `npm test`;

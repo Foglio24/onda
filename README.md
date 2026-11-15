@@ -178,12 +178,12 @@ Updates install over the app, keeping its library; **Settings → Updates** find
 
 ## Windows
 
-**Seaglass is on Windows 11 too** (early build), in `windows/`: Compose Multiplatform Desktop with the Classic three-panel layout, Seaglass account sign-in through the website and library sync, and **automatic updates like on the Mac** (checks `windows-v*` on GitHub, never "Latest", verifies size and SHA-256, installs on restart or when quitting).
+**Seaglass is on Windows 10 and 11 too**, with the Mac app's layout: the sidebar, the pages, the player bar, the queue and the synced lyrics beside them, and the full player. It plays YouTube Music (Opus and AAC), your downloads and your own songs (MP3, FLAC, M4A, WAV, OGG…) without gaps or with a crossfade, with the equalizer, "Volume uniforme", the sleep timer, the keyboard's media keys and the notification area. With a Seaglass account the library is the same as on the iPhone and the Mac.
 
-1. Open the [Windows releases](https://github.com/Foglio24/onda/releases?q=windows-v&expanded=true) and download `Seaglass-windows.zip`.
-2. Extract it and run `Seaglass.exe`.
+1. Open the [Windows releases](https://github.com/Foglio24/onda/releases?q=windows-v&expanded=true) and download `Seaglass-Setup.exe`.
+2. Run it. It installs for your user only (no administrator rights) and asks whether to put an icon on the desktop. Windows may warn that the app is unrecognised, as it isn't signed with a paid certificate: choose **More info → Run anyway**.
 
-See the [Windows changelog](windows/CHANGELOG.md).
+Seaglass updates itself from its own Windows releases. See the [Windows changelog](windows/CHANGELOG.md).
 
 ## Frequently asked questions
 
@@ -200,7 +200,7 @@ No. It tries to favour transitions in time when they suit the songs, but can cho
 Some recordings may not be found or matched with sufficient confidence. Open the import report to see missing songs and choose available alternatives. For long Spotify playlists, use the file import described above.
 
 **What does the download counter measure?**  
-It adds every download of the app from published GitHub releases, on every platform: the iPhone and iPad IPA (`Onda.ipa`, `Seaglass.ipa`), the Mac app (`Seaglass-mac.zip`), the Android APKs and the Windows zip (`Seaglass-windows.zip`). It refreshes periodically and does not represent the number of users or installations.
+It adds every download of the app from published GitHub releases, on every platform: the iPhone and iPad IPA (`Onda.ipa`, `Seaglass.ipa`), the Mac app (`Seaglass-mac.zip`), the Android APKs and the Windows installer (`Seaglass-Setup.exe`). It refreshes periodically and does not represent the number of users or installations.
 
 **How can I report a problem?**  
 Open a [GitHub issue](https://github.com/Foglio24/onda/issues), including your app version, iPhone, iPad or Mac model and steps to reproduce the problem. When helpful, you can share a report from **Settings → Diagnostics**.
@@ -213,7 +213,7 @@ If Seaglass makes your listening better, you can support continued development t
 
 Seaglass is written in Swift and SwiftUI; the Android app, in `android/`, in Kotlin with Jetpack Compose and Media3; the Windows app, in `windows/`, in Kotlin with Compose Multiplatform Desktop. It uses YouTube Music for search and catalogue, YouTubeKit for audio links, LRCLIB for lyrics and Last.fm for scrobbling. Dependencies and acknowledgements are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
-GitHub Actions builds an unsigned IPA and the Mac app (Mac Catalyst, signed ad hoc): the **Build IPA** workflow produces both as downloadable artifacts. The **Windows** workflow builds `Seaglass-windows.zip`. Published releases and their notes are available on the [Releases page](https://github.com/Foglio24/onda/releases).
+GitHub Actions builds an unsigned IPA and the Mac app (Mac Catalyst, signed ad hoc): the **Build IPA** workflow produces both as downloadable artifacts. The **Windows** workflow builds `Seaglass-Setup.exe`. Published releases and their notes are available on the [Releases page](https://github.com/Foglio24/onda/releases).
 
 ## Licence and notices
 
