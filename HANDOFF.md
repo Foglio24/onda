@@ -37,7 +37,7 @@ Standing rules from the owner (on top of `AGENTS.md`):
 | --- | --- | --- | --- |
 | iPhone, iPad, Mac | 1.36.12 (build 91) | `v1.36.12`, the repository's "Latest"; AltStore source at 1.36.12 / 91 | `main` |
 | Android | 0.4.3 (versionCode 8) | `android-v0.4.3` | `main`, `android/` |
-| Windows | 1.2.0 | `windows-v1.2.0` (not Latest) | branch **`windows`**, `windows/` |
+| Windows | 1.3.0 | `windows-v1.3.0` (not Latest) | branch **`windows`**, `windows/` |
 | Account service | deployed | none | `main`, `server/account/` (deploys by itself) |
 | Website | deployed | none | `main`, `site/` (deploys by itself) |
 
@@ -97,7 +97,7 @@ Map (`windows/app/src/main/kotlin/com/onda/seaglass/`):
 | `audio/TimeStretch.kt` | WSOLA, Tempo with the key kept |
 | `audio/Player.kt` | Queue, shuffle/repeat, play next, radio at the end of the queue, sleep timer, picks local file / download / cache / stream, prepares AutoMix 75 s ahead |
 | `audio/automix/` | `Analyzer` and `Planner` copied from Android, `AutoMix.kt` (analysis cache, plan, `Transition`) |
-| `data/` | `InnerTube`, `Streams`, `Lyrics` (shared with Android), `LyricsTranslator` (through the account service's `POST /v1/translate`, Workers AI), `Library`, `Downloads` (+ `SongCache`), `LocalMusic`, `Recommendations`, `SongDetails`, `LastFM` |
+| `data/` | `InnerTube`, `Streams`, `Lyrics` (shared with Android), `PlaylistImport` (Spotify/Apple Music/YouTube links and CSV/JSON files, matched on YouTube Music with the iPhone's rules), `LyricsTranslator` (through the account service's `POST /v1/translate`, Workers AI), `Library`, `Downloads` (+ `SongCache`), `LocalMusic`, `Recommendations`, `SongDetails`, `LastFM` |
 | `account/` | Seaglass account: PKCE sign-in in the browser, callback through the `com.onda.player.auth:` protocol, token protected with DPAPI, sync (`LibraryMerge`, the iPhone's rules), Premium (`Account.unlocks()`) |
 | `update/AppUpdater.kt` | Updates from `windows-v*` releases only |
 | `ui/` | `Shell.kt` (top bar, the three resizable panels, library), `PlayerBar.kt` (bar, controls, Tempo panel), `Panels.kt` (now playing, queue, lyrics with translation, full player), `Theme.kt` (palette), pages, settings with the equalizer |
@@ -183,15 +183,12 @@ released as a new `windows-v` minor version.
    `Views/RecognitionView.swift`). Microphone through Java Sound `TargetDataLine`.
 4. **Podcasts**: `Seaglass/Services/InnerTube+Podcasts.swift`, `PodcastLibrary.swift`,
    `Views/PodcastViews.swift`.
-5. **Playlist import from Spotify and Apple Music links** (Premium; Windows imports only YouTube
-   Music links now): `Seaglass/Services/PlaylistImporter.swift`, `PlaylistImportFile.swift`,
-   `Views/PlaylistImportReview.swift`.
-6. **Classic style's player cards** (artist, events, credits; the window itself is already Spotify-like):
+5. **Classic style's player cards** (artist, events, credits; the window itself is already Spotify-like):
    `Seaglass/Views/InterfaceStyle.swift`, `ClassicSongCards.swift`.
-7. Smaller gaps: "what's new" after an update (`Services/ReleaseNotes.swift`), the playlist mix
+6. Smaller gaps: "what's new" after an update (`Services/ReleaseNotes.swift`), the playlist mix
    views (`Views/MixViews.swift`), and AutoMix quality: Windows uses Android's analysis; the
    iPhone's is better (`Player/BeatThis.swift`, `VocalDetector.swift`, `MixDesign.swift`).
-8. Nice to have: a smaller installer (list the
+7. Nice to have: a smaller installer (list the
    jlink modules instead of `includeAllModules`). The installer isn't code-signed, so Windows shows
    "unrecognized app"; there is no certificate, don't invent one.
 
@@ -205,6 +202,12 @@ released as a new `windows-v` minor version.
   `AutoMix-listening/CREDITS.txt`) played through `Engine` with a capture sink (see
   `AutoMixEngineTest`); never commit them. A local HTTP server answering `&range=a-b` stands in for
   YouTube's streams (`StreamSource`).
+- **Spotify import** reads Spotify's public embed page (first 100 songs, no account) and files
+  (Exportify's CSV, Spotify's Playlist1.json) for longer playlists, as the iPhone does. Logging in
+  to Spotify from the app was tried in a local session (an Edge window) and dropped: Spotify's Web
+  API needs a developer app the owner would register, and its web player's private token isn't
+  something to scrape. The owner's Mac may still hold that local commit (`afb8dda`, never pushed);
+  it isn't needed.
 - **Lyrics translation** was tested against a stand-in for Workers AI (the account service's
   tests); the live endpoint answers, but a real translation needs a Premium account's token.
 - Artist pages may come back reduced (no albums) from some IPs.

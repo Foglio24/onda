@@ -372,6 +372,7 @@ private fun LibraryPanel(collapsed: Boolean) {
     val local by LocalMusic.songs.collectAsState()
     val state by Player.state.collectAsState()
     var creating by remember { mutableStateOf(false) }
+    var importing by remember { mutableStateOf(false) }
     val entries = buildList {
         add(LibraryEntry("liked", tr("Brani preferiti"), tr("Playlist · %lld brani", liked.size), Route.Liked, icon = Icons.Rounded.Favorite,
             tile = Brush.linearGradient(listOf(Color(0xFF450AF5), Color(0xFFC4EFD9)))))
@@ -407,7 +408,31 @@ private fun LibraryPanel(collapsed: Boolean) {
                     }
                 }
             }
-            if (!collapsed) RoundButton(Icons.Rounded.Add, tr("Nuova playlist"), size = 32.dp) { creating = true }
+            if (!collapsed) {
+                // "+": a new playlist, or one brought in from Spotify, Apple Music or YouTube.
+                var menu by remember { mutableStateOf(false) }
+                Box {
+                    RoundButton(Icons.Rounded.Add, tr("Nuova playlist"), size = 32.dp) { menu = true }
+                    androidx.compose.material3.DropdownMenu(menu, { menu = false }) {
+                        androidx.compose.material3.DropdownMenuItem(
+                            text = { Text(tr("Nuova playlist")) }, leadingIcon = { Icon(Icons.Rounded.Add, null) },
+                            onClick = {
+                                menu = false
+                                creating = true
+                            },
+                        )
+                        androidx.compose.material3.DropdownMenuItem(
+                            text = { Text(tr("Importa da Spotify, Apple Music o YouTube")) },
+                            leadingIcon = { Icon(Icons.AutoMirrored.Rounded.QueueMusic, null) },
+                            onClick = {
+                                menu = false
+                                // A Premium feature, as on the iPhone.
+                                if (Account.unlocks()) importing = true else Nav.premium = tr("Importa playlist da link")
+                            },
+                        )
+                    }
+                }
+            }
         }
         Spacer(Modifier.height(8.dp))
         LazyColumn(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 8.dp)) {
@@ -423,6 +448,7 @@ private fun LibraryPanel(collapsed: Boolean) {
         creating = false
         Nav.section(Route.Playlist(created.id))
     }
+    if (importing) com.onda.seaglass.ui.pages.ImportPlaylistDialog { importing = false }
 }
 
 @Composable

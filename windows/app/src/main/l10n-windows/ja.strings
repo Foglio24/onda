@@ -119,3 +119,7 @@
 "Registro dell'app" = "アプリのログ";
 "Scegli un brano da ascoltare." = "聴きたい曲を選んでください。";
 "Prossimo in coda" = "次にキューで再生";
+
+/* Windows 1.3.0: importing playlists from Spotify, Apple Music and files. */
+"Su exportify.net accedi con Spotify e scarica il CSV della playlist: contiene tutti i brani." = "exportify.net で Spotify にサインインし、プレイリストの CSV をダウンロードしてください。すべての曲が入っています。";
+"Apri Exportify" = "Exportify を開く";

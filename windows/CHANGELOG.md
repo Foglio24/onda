@@ -1,5 +1,12 @@
 # Seaglass for Windows changelog
 
+## 1.3.0 (2026-11-16)
+
+### Added
+- **Playlists from Spotify and Apple Music** (Premium, as on the iPhone): "Importa da Spotify, Apple Music o YouTube" (in Playlist, and in the library's "+") takes the link of a public playlist or album of Spotify, Apple Music, YouTube or YouTube Music (also with text around it, as apps share them, and Spotify's short links). Each song is looked up on YouTube Music with the iPhone's rules (the same title and artist, the same version: no live or remix in its place, a similar length), four at a time, saying how far it got.
+- **Long Spotify playlists from a file**: Spotify's public page shows only the first 100 songs, so a whole playlist comes from a file, as on the iPhone: a CSV made by Exportify (the dialog opens exportify.net, where you sign in with Spotify and download any playlist whole) or Playlist1.json from Spotify's account data (you choose which of its playlists).
+- **The import summary**: the songs now in the playlist, the ones to check (not found, search failed, the same recording twice, podcast episodes, unavailable rows) and, for each one not found, YouTube Music's likely recordings to choose from; the chosen one goes where it stood in the original. When Spotify's page may have stopped at 100 songs, the summary says so.
+
 ## 1.2.0 (2026-11-15)
 
 ### Changed

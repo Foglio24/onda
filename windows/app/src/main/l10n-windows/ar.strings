@@ -119,3 +119,7 @@
 "Registro dell'app" = "سجل التطبيق";
 "Scegli un brano da ascoltare." = "اختر أغنية للاستماع إليها.";
 "Prossimo in coda" = "التالي في قائمة الانتظار";
+
+/* Windows 1.3.0: importing playlists from Spotify, Apple Music and files. */
+"Su exportify.net accedi con Spotify e scarica il CSV della playlist: contiene tutti i brani." = "على exportify.net، سجّل الدخول باستخدام Spotify ونزّل ملف CSV لقائمة التشغيل: يحتوي على كل الأغاني.";
+"Apri Exportify" = "فتح Exportify";

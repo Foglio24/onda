@@ -98,7 +98,7 @@ fun PlaylistsPage() {
         Title(tr("Playlist"))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             PillButton(tr("Nuova playlist"), Icons.Rounded.Add, prominent = true) { creating = true }
-            PillButton(tr("Importa da un link"), Icons.Rounded.Link) {
+            PillButton(tr("Importa da Spotify, Apple Music o YouTube"), Icons.Rounded.Link) {
                 // A Premium feature, as on the iPhone.
                 if (com.onda.seaglass.account.Account.unlocks()) importing = true else Nav.premium = tr("Importa playlist da link")
             }
@@ -122,49 +122,7 @@ fun PlaylistsPage() {
         creating = false
         Nav.open(Route.Playlist(created.id))
     }
-    if (importing) ImportDialog { importing = false }
-}
-
-/** A YouTube Music playlist's link copied into the library. */
-@Composable
-private fun ImportDialog(onDismiss: () -> Unit) {
-    val scope = rememberCoroutineScope()
-    var link by remember { mutableStateOf("") }
-    var working by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf<String?>(null) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(tr("Importa da un link")) },
-        text = {
-            Column {
-                Text(tr("Incolla il link di una playlist di YouTube Music o YouTube."), fontSize = 13.sp)
-                OutlinedTextField(link, { link = it; error = null }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 10.dp))
-                if (working) LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = 10.dp))
-                error?.let { Text(it, color = androidx.compose.ui.graphics.Color(0xFFFF6B6B), fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp)) }
-            }
-        },
-        confirmButton = {
-            TextButton(enabled = link.isNotBlank() && !working, onClick = {
-                val id = InnerTube.playlistId(link.trim())
-                if (id == null) {
-                    error = tr("Link non riconosciuto")
-                    return@TextButton
-                }
-                working = true
-                scope.launch {
-                    runCatching { InnerTube.playlist(id) }
-                        .onSuccess { page ->
-                            val created = Library.createPlaylist(page.title.ifBlank { tr("Playlist importata") }, page.tracks)
-                            onDismiss()
-                            Nav.open(Route.Playlist(created.id))
-                        }
-                        .onFailure { error = it.message ?: tr("Importazione non riuscita") }
-                    working = false
-                }
-            }) { Text(tr("Importa")) }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Annulla")) } },
-    )
+    if (importing) ImportPlaylistDialog { importing = false }
 }
 
 @Composable

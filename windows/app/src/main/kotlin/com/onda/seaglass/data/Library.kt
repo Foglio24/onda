@@ -97,6 +97,14 @@ object Library {
         }
     }
 
+    /** Puts [track] at [index] of the playlist (an imported song chosen by hand, where it stood). */
+    fun insertTrack(track: Track, index: Int, playlistId: String) = update(playlistId) { playlist ->
+        if (playlist.tracks.any { it.videoId == track.videoId }) return@update playlist
+        val tracks = playlist.tracks.toMutableList()
+        tracks.add(index.coerceIn(0, tracks.size), track)
+        playlist.copy(tracks = tracks)
+    }
+
     fun removeTrack(index: Int, playlistId: String) = update(playlistId) { playlist ->
         playlist.copy(tracks = playlist.tracks.filterIndexed { i, _ -> i != index })
     }
