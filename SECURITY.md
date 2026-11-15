@@ -175,6 +175,11 @@ folder. For example, a YouTube video ID matches `[A-Za-z0-9_-]{11}`.
 - Cloudflare, Patreon and Ticketmaster credentials are GitHub secrets, given to the deploy steps
   that use them. Ticketmaster's key stays a Worker secret: the concerts lookup takes only an
   artist's name, never a location, and never passes the key on.
+- Lyrics translations (`POST /v1/translate`, for the Windows app) need a session and, once Premium
+  can be bought, Premium. They take only the lyrics' lines and the target language, within fixed
+  limits (lines, line length, total size); the translation is cached by a hash of the two, with
+  nothing that says who asked. Workers AI is reached through the Worker's binding: no key exists
+  for it.
 
 ### iOS files
 

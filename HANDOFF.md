@@ -37,11 +37,11 @@ Standing rules from the owner (on top of `AGENTS.md`):
 | --- | --- | --- | --- |
 | iPhone, iPad, Mac | 1.36.12 (build 91) | `v1.36.12`, the repository's "Latest"; AltStore source at 1.36.12 / 91 | `main` |
 | Android | 0.4.3 (versionCode 8) | `android-v0.4.3` | `main`, `android/` |
-| Windows | 1.1.0 | `windows-v1.1.0` (not Latest) | branch **`windows`**, `windows/` |
+| Windows | 1.2.0 | `windows-v1.2.0` (not Latest) | branch **`windows`**, `windows/` |
 | Account service | deployed | none | `main`, `server/account/` (deploys by itself) |
 | Website | deployed | none | `main`, `site/` (deploys by itself) |
 
-`main` head: `45e33b9`. `windows` head: `fcdfb3a` (plus this file).
+See `git log` on `main` and `windows` for the heads; this file is updated with every release.
 
 **Waiting on the owner, not on code:** the GitHub secret `TICKETMASTER_API_KEY` (read by
 `.github/workflows/account.yml`). Without it the account service can't fetch concerts, so the
@@ -71,6 +71,16 @@ The owner asked for: a Windows app with **every feature of the iPhone/Mac app**,
 that only follow Windows releases, and a real installer that lets the user choose the desktop icon.
 The installer and the updater are done; feature parity is partly done (section 5).
 
+Since 1.2.0 the window looks **as close to Spotify's as possible without copying it** (the owner's
+request): black around three rounded panels whose borders are dragged to resize them (library on the
+left, page in the middle, "In riproduzione" / queue / lyrics on the right), Home and the search in
+the middle of the top bar, Spotify's player bar, a full player with every control (previous, play,
+next, shuffle, repeat, lyrics, translation, queue, Tempo, timer, volume), the equalizer inside
+Settings. The owner complained about **unreadable text**: keep every text colour at 4.5:1 on its
+background (`Theme.kt` has `contrast()` and `Color.forWhiteText()`), test the smallest window
+(`-Pwindow=980x640`) and look for text squeezed into columns (give the long text `weight` and
+`maxLines = 1`, never the button beside it).
+
 Stack: Kotlin 2.1 on JVM 21, Compose Multiplatform Desktop 1.8, Gradle wrapper, OkHttp 5,
 org.json, JNA (Windows APIs), JavaCPP FFmpeg 7.1 (decoding). Google's Maven Central mirror is
 first in `settings.gradle.kts` because Maven Central sometimes refuses CI.
@@ -87,11 +97,11 @@ Map (`windows/app/src/main/kotlin/com/onda/seaglass/`):
 | `audio/TimeStretch.kt` | WSOLA, Tempo with the key kept |
 | `audio/Player.kt` | Queue, shuffle/repeat, play next, radio at the end of the queue, sleep timer, picks local file / download / cache / stream, prepares AutoMix 75 s ahead |
 | `audio/automix/` | `Analyzer` and `Planner` copied from Android, `AutoMix.kt` (analysis cache, plan, `Transition`) |
-| `data/` | `InnerTube`, `Streams`, `Lyrics` (shared with Android), `Library`, `Downloads` (+ `SongCache`), `LocalMusic`, `Recommendations`, `SongDetails`, `LastFM` |
+| `data/` | `InnerTube`, `Streams`, `Lyrics` (shared with Android), `LyricsTranslator` (through the account service's `POST /v1/translate`, Workers AI), `Library`, `Downloads` (+ `SongCache`), `LocalMusic`, `Recommendations`, `SongDetails`, `LastFM` |
 | `account/` | Seaglass account: PKCE sign-in in the browser, callback through the `com.onda.player.auth:` protocol, token protected with DPAPI, sync (`LibraryMerge`, the iPhone's rules), Premium (`Account.unlocks()`) |
 | `update/AppUpdater.kt` | Updates from `windows-v*` releases only |
-| `ui/` | Sidebar, pages, player bar, queue and lyrics panels, full player, settings, equalizer, account |
-| `core/` | HTTP, JSON, translations (`L10n`, `tr("Italian key")`), paths, settings |
+| `ui/` | `Shell.kt` (top bar, the three resizable panels, library), `PlayerBar.kt` (bar, controls, Tempo panel), `Panels.kt` (now playing, queue, lyrics with translation, full player), `Theme.kt` (palette), pages, settings with the equalizer |
+| `core/` | HTTP, JSON, translations (`L10n`, `tr("Italian key")`), paths, settings, `Log` (the app's log the owner can send: `%LOCALAPPDATA%\Seaglass\Logs\seaglass.log`) |
 
 Rules the code depends on (break one and something fails in ways tests may not catch):
 
@@ -102,8 +112,12 @@ Rules the code depends on (break one and something fails in ways tests may not c
   concurrent decoding ("Unsupported audio file").
 - **Streams** are fetched as 512 KB ranged chunks (`&range=`), four ahead, and the whole song goes
   to `SongCache`. YouTube stream URLs are bound to the IP that requested them.
-- **AutoMix**: the incoming song's rate is exactly 1.0 when the transition ends; after a tempo
-  glide the deck settles on a whole sample and plays untouched. `AutoMixEngineTest` checks no step
+- **AutoMix**: the planner (`automix/Planner.kt`) follows the iPhone's: beats matched up to 12 %
+  apart (16 bars when within 6 %), otherwise a crossfade (longer into a song's own fade-out). The
+  engine starts the mix on its planned frame (it splits the block), and drops the plan for a
+  crossfade if the next song isn't ready by then. The incoming song's rate is exactly 1.0 when the
+  transition ends; after a tempo glide the deck settles on a whole sample and plays untouched.
+  AutoMix's decisions go to the app's log; when the owner says "AutoMix doesn't work", ask for it. `AutoMixEngineTest` checks no step
   beyond the songs' own, no loudness jump over 3 dB between 50 ms windows, exact samples after the
   mix. Keep it green and extend it with every AutoMix change.
 - **Media keys** are handled only by the keyboard hook on Windows; handling them in the window too
@@ -123,7 +137,9 @@ Rules the code depends on (break one and something fails in ways tests may not c
   `Localizable.strings` plus Windows-only ones in `windows/app/src/main/l10n-windows/<lang>.strings`.
   `L10nTest` fails if a `tr()` key is missing in any language or its specifiers differ.
 - **Premium** features are locked behind `Account.unlocks()` as on the iPhone (AutoMix, Tempo,
-  link import, and every Premium feature you add).
+  link import, lyrics translation, and every Premium feature you add).
+- **Tempo**: `Engine.keyLock` on uses `TimeStretch` (WSOLA, pitch kept); off uses the deck's
+  variable-rate reading (pitch follows, as a turntable). `TempoKeyLockTest` checks both.
 
 Build and check, from `windows/` (JDK 21):
 
@@ -162,31 +178,35 @@ released as a new `windows-v` minor version.
    `windows/gradle/libs.versions.toml`, unused so far). The model is downloaded on first use and its
    SHA-256 checked (`KaraokeModel.kt` has the URL and hash). Vocal slider as `Seaglass/Views/SingControl.swift`.
    No allocation on the render thread.
-3. **Lyrics translation** (Premium): port `android/.../data/LyricsTranslator.kt`.
-4. **Song recognition** (Premium): iPhone only so far (`Seaglass/Services/MusicRecognizer.swift`,
+3. **Song recognition** (Premium): iPhone only so far (`Seaglass/Services/MusicRecognizer.swift`,
    `RecognitionSignature.swift`, `RecognitionAPI.swift`, `RecognitionOperation.swift`,
    `Views/RecognitionView.swift`). Microphone through Java Sound `TargetDataLine`.
-5. **Podcasts**: `Seaglass/Services/InnerTube+Podcasts.swift`, `PodcastLibrary.swift`,
+4. **Podcasts**: `Seaglass/Services/InnerTube+Podcasts.swift`, `PodcastLibrary.swift`,
    `Views/PodcastViews.swift`.
-6. **Playlist import from Spotify and Apple Music links** (Premium; Windows imports only YouTube
+5. **Playlist import from Spotify and Apple Music links** (Premium; Windows imports only YouTube
    Music links now): `Seaglass/Services/PlaylistImporter.swift`, `PlaylistImportFile.swift`,
    `Views/PlaylistImportReview.swift`.
-7. **Classic (Spotify-like) style** with its player cards (artist, events, credits):
+6. **Classic style's player cards** (artist, events, credits; the window itself is already Spotify-like):
    `Seaglass/Views/InterfaceStyle.swift`, `ClassicSongCards.swift`.
-8. Smaller gaps: "what's new" after an update (`Services/ReleaseNotes.swift`), the playlist mix
+7. Smaller gaps: "what's new" after an update (`Services/ReleaseNotes.swift`), the playlist mix
    views (`Views/MixViews.swift`), and AutoMix quality: Windows uses Android's analysis; the
    iPhone's is better (`Player/BeatThis.swift`, `VocalDetector.swift`, `MixDesign.swift`).
-9. Nice to have: a log file the owner can send (there is none), a smaller installer (list the
+8. Nice to have: a smaller installer (list the
    jlink modules instead of `includeAllModules`). The installer isn't code-signed, so Windows shows
    "unrecognized app"; there is no certificate, don't invent one.
 
 ## 6. Not verified yet
 
-- **Streaming and sound on a real Windows PC have never been tested.** The development machine
-  couldn't play YouTube streams (URLs bound to another IP) and has no sound card; CI checks decoding,
-  install, DPAPI and the updater, not live playback. If the owner reports no sound or songs that don't
-  start, look first at `Streams.kt` (client, IP-bound URLs, `contentLength`), `ByteSource.kt`
-  (ranged requests) and `JavaSoundSink` in `Engine.kt` (output device, format 48 kHz/16-bit).
+- **Streaming and sound on a real Windows PC** are tested only by the owner (they use it). The
+  development machine couldn't play YouTube streams (URLs bound to another IP) and has no sound card;
+  CI checks decoding, install, DPAPI and the updater, not live playback. Test AutoMix and the engine
+  with real music from local files: Creative Commons songs from Jamendo
+  (`https://prod-1.storage.jamendo.com/download/track/<id>/mp32/`, ids in
+  `AutoMix-listening/CREDITS.txt`) played through `Engine` with a capture sink (see
+  `AutoMixEngineTest`); never commit them. A local HTTP server answering `&range=a-b` stands in for
+  YouTube's streams (`StreamSource`).
+- **Lyrics translation** was tested against a stand-in for Workers AI (the account service's
+  tests); the live endpoint answers, but a real translation needs a Premium account's token.
 - Artist pages may come back reduced (no albums) from some IPs.
 - Users of Cursor's `windows-v0.1.0` zip won't be updated automatically: they must install
   `Seaglass-Setup.exe` once.
@@ -199,6 +219,9 @@ released as a new `windows-v` minor version.
 - InnerTube's song-search filter sometimes returns nothing: fall back to the plain search.
 - `return@repeat` in Kotlin is a `continue`, not a `break` (it broke the sync loop).
 - Tests that run faster than real time race the player: the AutoMix test paces its sink at 20×.
+- A Kotlin parameter named `size` hides `PointerInputScope.size` inside `pointerInput { }`.
+- The screenshot helper must never `pkill -f seaglass`: it kills the shell running it (its command
+  line holds the path). Kill `seaglass.MainKt` instead.
 - Touch wording ("Tocca…") is wrong on a PC: use "Fai clic…".
 - iOS: `Tools/*Check` scripts run on macOS only; CI (`build.yml`) runs them.
 
