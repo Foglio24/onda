@@ -2,10 +2,10 @@
   <img src="docs/images/seaglass-banner.jpg" alt="Seaglass — your music, in motion" width="100%">
 </p>
 
-<h1 align="center">Seaglass — Make every playlist flow</h1>
+<h1 align="center">Seaglass (formerly Onda)</h1>
 
 <p align="center"><strong>More than press play.</strong><br>
-A hands-on music player for iPhone, iPad, <strong>Mac</strong> and Android, built for beat-aware transitions, tempo control, lyrics and a library you can shape.</p>
+A music player for iPhone, iPad, <strong>Mac</strong> and Android, with the YouTube Music catalogue, synced lyrics, offline downloads and beat-aware transitions.</p>
 
 <p align="center">
   <a href="https://github.com/Foglio24/onda/releases/latest/download/Seaglass.ipa"><img src="https://img.shields.io/badge/DOWNLOAD-Seaglass.ipa-EC3F8E?style=for-the-badge&amp;logo=apple&amp;logoColor=white" alt="Download Seaglass.ipa"></a>
@@ -18,11 +18,17 @@ A hands-on music player for iPhone, iPad, <strong>Mac</strong> and Android, buil
   <a href="https://buymeacoffee.com/foglio"><img src="https://img.shields.io/badge/BUY_ME_A_COFFEE-Support_Seaglass-FFDD00?style=for-the-badge&amp;logo=buymeacoffee&amp;logoColor=black" alt="Support Seaglass on Buy Me a Coffee"></a>
 </p>
 
+<p align="center"><img src="docs/images/seaglass-preview.gif" alt="A slideshow of Seaglass screens: player, Playlist Mix and Mac home" width="640"><br><sub>Preview made from app screenshots. AutoMix and Playlist Mix are beta features.</sub></p>
+
 <p align="center">
   <a href="https://seaglass.mystudioappweb.com">Website</a> · <a href="#discover-seaglass">Features</a> · <a href="#screenshots">Screenshots</a> ·
   <a href="#installation">Installation</a> · <a href="#mac">Mac</a> · <a href="#android">Android</a> · <a href="#frequently-asked-questions">FAQ</a> ·
   <a href="CHANGELOG.md">Changelog</a> · <a href="android/CHANGELOG.md">Android changelog</a>
 </p>
+
+**Choose your download:** [iPhone / iPad](#installation) · [Mac (Apple silicon)](#mac) · [Android](#android)
+
+**Before you install:** iPhone/iPad require iOS/iPadOS 26 or later and sideloading an unsigned IPA; Mac requires Apple silicon and macOS 26 or later; Android requires Android 10 or later. On iPhone, iPad and Mac, AutoMix, Playlist Mix and some other features require Seaglass Premium. [Installation and requirements](#installation) · [Premium details](#discover-seaglass)
 
 ## Why choose Seaglass?
 
