@@ -10,4 +10,5 @@ from the git branch **`windows`** as tags **`windows-vX.Y.Z`** only — never re
 - YouTube Music: home “Scelti per te” + moods, search (songs/artists/albums/playlists), artist/album/playlist pages, radio playback.
 - AAC streaming via JavaFX Media; synced lyrics (LRCLIB); artwork; likes, history and playlists with account sync.
 - Shuffle, repeat, volume; create/delete playlists; import a YouTube Music playlist from a link.
+- Seek by tapping the progress bar; sleep timer (15/30/45/60 min) in Settings.
 - **Automatic updates** like on the Mac on a separate channel: `windows-vX.Y.Z` from the `windows` branch only (never “Latest”), size + SHA-256, install on restart or quit.
