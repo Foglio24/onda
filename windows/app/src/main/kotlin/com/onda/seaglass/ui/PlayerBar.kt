@@ -34,6 +34,7 @@ import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Repeat
 import androidx.compose.material.icons.rounded.RepeatOne
 import androidx.compose.material.icons.rounded.Shuffle
+import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material3.CircularProgressIndicator
@@ -136,6 +137,7 @@ fun PlayerBar() {
                 Nav.panel = if (Nav.panel == Nav.Panel.QUEUE) Nav.Panel.NONE else Nav.Panel.QUEUE
             }
             BarButton(Icons.Rounded.Equalizer, tr("Equalizzatore"), active = Nav.current == Route.Equalizer) { Nav.open(Route.Equalizer) }
+            TempoButton()
             SleepTimerButton(state.sleepAt > 0 || state.sleepAtEnd)
             VolumeControl()
         }
@@ -265,3 +267,32 @@ fun CurrentTrackMenuButton(tint: Color) {
 
 @Composable
 fun FullHeightSpacer() = Spacer(Modifier.fillMaxHeight())
+
+/** Tempo (Premium, as on the iPhone): the speed from -15 % to +15 %, the pitch kept. */
+@Composable
+private fun TempoButton() {
+    val palette = LocalPalette.current
+    val tempo by Player.tempo.collectAsState()
+    var open by remember { mutableStateOf(false) }
+    Box {
+        BarButton(Icons.Rounded.Speed, tr("Tempo"), active = tempo != 1.0) {
+            if (com.onda.seaglass.account.Account.unlocks()) open = true else Nav.premium = tr("Tempo")
+        }
+        DropdownMenu(open, { open = false }) {
+            Column(Modifier.width(280.dp).padding(horizontal = 16.dp, vertical = 8.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(tr("Tempo"), color = palette.text, fontWeight = FontWeight.Bold, fontSize = 15.sp, modifier = Modifier.weight(1f))
+                    Text("%+d %%".format(Math.round((tempo - 1) * 100)), color = palette.accent, fontWeight = FontWeight.SemiBold)
+                }
+                androidx.compose.material3.Slider(
+                    tempo.toFloat(), { Player.setTempo(it.toDouble()) }, valueRange = 0.85f..1.15f, steps = 29,
+                    colors = androidx.compose.material3.SliderDefaults.colors(thumbColor = palette.accent, activeTrackColor = palette.accent),
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(tr("Blocca tonalità"), color = palette.secondary, fontSize = 12.sp, modifier = Modifier.weight(1f))
+                    Text(tr("Ripristina"), color = palette.accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable { Player.setTempo(1.0) })
+                }
+            }
+        }
+    }
+}

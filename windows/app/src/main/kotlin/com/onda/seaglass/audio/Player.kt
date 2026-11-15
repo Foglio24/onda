@@ -274,6 +274,16 @@ object Player {
         prepareNext()
     }
 
+    private val _tempo = MutableStateFlow(1.0)
+    /** Tempo (Premium): 0.85…1.15, the pitch kept; back to 1 at each launch, as on the iPhone. */
+    val tempo: StateFlow<Double> = _tempo
+
+    fun setTempo(value: Double) {
+        val clamped = Math.round(value.coerceIn(0.85, 1.15) * 100) / 100.0
+        _tempo.value = clamped
+        engine.tempo = clamped
+    }
+
     fun setVolume(value: Double) {
         val clamped = value.coerceIn(0.0, 1.0)
         engine.volume = clamped.toFloat()

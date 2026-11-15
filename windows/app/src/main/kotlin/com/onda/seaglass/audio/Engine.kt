@@ -374,6 +374,22 @@ class Engine(private val sinkFactory: () -> AudioSink) : Closeable {
     @Volatile var volume = 0.8f
     /** Seconds of the crossfade between songs; 0 = gapless. */
     @Volatile var crossfade = 0.0
+    /**
+     * Tempo (Premium, as on the iPhone): the speed, pitch kept, 0.85…1.15. Songs then follow one
+     * another without a crossfade or a mix (both would change the speed while heard).
+     */
+    @Volatile var tempo = 1.0
+
+    private val stretch = TimeStretch()
+    /** The deck the stretcher is reading (a new song starts it afresh). */
+    private var stretchDeck: Deck? = null
+    private val stretchScratch = FloatArray(BLOCK * 2)
+    private val stretchSource = TimeStretch.Frames { into, offset, max ->
+        val deck = stretchDeck ?: return@Frames 0
+        val count = deck.readAt(stretchScratch, minOf(max, BLOCK), 1.0)
+        System.arraycopy(stretchScratch, 0, into, offset * 2, count * 2)
+        count
+    }
     /** True while the next song is fading in. */
     @Volatile var fading = false
         private set
@@ -560,7 +576,8 @@ class Engine(private val sinkFactory: () -> AudioSink) : Closeable {
         }
         val following = next
         val planned = nextTransition
-        if (!fading && following != null && following.isReady) {
+        val speed = tempo
+        if (!fading && following != null && following.isReady && speed == 1.0) {
             if (planned != null) {
                 // AutoMix: the mix starts where the plan says (or at the song's very end, if late).
                 val position = deck.position
@@ -583,7 +600,16 @@ class Engine(private val sinkFactory: () -> AudioSink) : Closeable {
         // During a crossfade, as much of each as both have (see renderPlanned).
         val want = if (fading && following != null) minOf(BLOCK, deck.available(1.0), following.available(1.0)) else BLOCK
         if (want <= 0) return 0
-        val frames = deck.readAt(scratch, want, 1.0)
+        val frames = if (speed != 1.0 && !fading) {
+            if (stretchDeck !== deck) {
+                stretch.reset()
+                stretchDeck = deck
+            }
+            stretch.process(scratch, want, speed, stretchSource)
+        } else {
+            stretchDeck = null
+            deck.readAt(scratch, want, 1.0)
+        }
         if (fading && following != null) {
             // The song going out: cos²+sin² = 1, so the two together keep the loudness.
             for (frame in 0 until frames) {

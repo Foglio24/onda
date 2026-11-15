@@ -3,6 +3,7 @@
 ## 1.1.0 (2026-11-15)
 
 ### Added
+- **Tempo** (Premium, as on the iPhone): the player bar's speed button plays the music from 15 % slower to 15 % faster with the key locked (the note stays the same), until you reset it. While it's not at 0 % the songs follow without a crossfade or a mix, which would change the speed while heard.
 - **Last.fm**, as on the iPhone: Settings → Last.fm with your own free API key, the account authorised in the browser, "now playing", and each song scrobbled after half of it or 4 minutes; scrobbles that can't go wait (even with the app closed) and go later in batches. The shared secret and the session are protected by Windows (DPAPI).
 
 ## 1.0.0 (2026-11-15)
