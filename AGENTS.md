@@ -2,6 +2,9 @@
 
 Guidance for coding agents and automated code review (Codex) in this repository.
 
+If you are starting without the history of earlier sessions, read [HANDOFF.md](HANDOFF.md) first: the
+state of the work, what is left to do, and the owner's standing rules.
+
 ## The project
 
 Seaglass is a YouTube Music player. It talks to YouTube Music (InnerTube) directly from the
