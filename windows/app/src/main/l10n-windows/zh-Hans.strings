@@ -123,3 +123,18 @@
 /* Windows 1.3.0: importing playlists from Spotify, Apple Music and files. */
 "Su exportify.net accedi con Spotify e scarica il CSV della playlist: contiene tutti i brani." = "在 exportify.net 用 Spotify 登录并下载播放列表的 CSV：其中包含所有歌曲。";
 "Apri Exportify" = "打开 Exportify";
+
+/* Windows 1.3.1: signing in to Spotify to import its playlists. */
+"Importa da Spotify" = "从 Spotify 导入";
+"Accedi a Spotify in una finestra di Microsoft Edge: Seaglass legge le tue playlist, anche private o con più di 100 brani, e cerca ogni brano su YouTube Music." = "在 Microsoft Edge 窗口中登录 Spotify：Seaglass 会读取你的播放列表（包括私密的或超过 100 首歌曲的），并在 YouTube Music 上查找每首歌曲。";
+"Nessuna playlist trovata su Spotify." = "在 Spotify 上未找到播放列表。";
+"Accedi a Spotify" = "登录 Spotify";
+"Importa %lld playlist" = "导入 %lld 个播放列表";
+"Esci da Spotify" = "退出 Spotify";
+"Importate %lld playlist. %lld brani non trovati su YouTube Music." = "已导入 %lld 个播放列表。%lld 首歌曲在 YouTube Music 上未找到。";
+"Playlist %lld di %lld: %@" = "播放列表 %lld/%lld：%@";
+"Lettura delle playlist da Spotify…" = "正在从 Spotify 读取播放列表…";
+"Completa l'accesso nella finestra di Microsoft Edge…" = "请在 Microsoft Edge 窗口中完成登录…";
+"Microsoft Edge non è installato: serve per accedere a Spotify." = "未安装 Microsoft Edge：登录 Spotify 需要它。";
+"Accesso a Spotify annullato." = "已取消登录 Spotify。";
+"Spotify non ha risposto correttamente. Riprova più tardi." = "Spotify 未正确响应。请稍后再试。";

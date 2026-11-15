@@ -98,13 +98,47 @@ Filename: "{app}\Seaglass.exe"; Flags: nowait skipifnotsilent; Check: ShouldLaun
 Filename: "{cmd}"; Parameters: "/C reg delete HKCU\Software\Microsoft\Windows\CurrentVersion\Run /v Seaglass /f"; Flags: runhidden; RunOnceId: "RemoveAutostart"
 
 [Code]
-{ CI installs silently to test the installer with /NOLAUNCH: nothing is opened then. }
-function ShouldLaunch: Boolean;
+function HasParam(const Name: String): Boolean;
 var
   I: Integer;
 begin
-  Result := True;
+  Result := False;
   for I := 1 to ParamCount do
-    if CompareText(ParamStr(I), '/NOLAUNCH') = 0 then
-      Result := False;
+    if CompareText(ParamStr(I), Name) = 0 then
+      Result := True;
+end;
+
+{ CI installs silently to test the installer with /NOLAUNCH: nothing is opened then. }
+function ShouldLaunch: Boolean;
+begin
+  Result := not HasParam('/NOLAUNCH');
+end;
+
+{
+  The app's updater starts this installer from inside the app, and the app's launcher keeps its
+  processes in a Windows job that kills everything in it when the app exits. The installer closes
+  the app (/CLOSEAPPLICATIONS), so it was killed halfway through copying, leaving the app without
+  its files ("Error opening ... Seaglass.cfg"). So an update starts itself again through WMI, which
+  makes a process outside any job, and this copy stops. If that fails, it installs as before.
+}
+function InitializeSetup: Boolean;
+var
+  Exe, Arguments, Command: String;
+  ResultCode: Integer;
+begin
+  Result := True;
+  if (not HasParam('/SEAGLASSUPDATE=1')) or HasParam('/SEAGLASSDETACHED') then
+    Exit;
+  Exe := ExpandConstant('{srcexe}');
+  { A single quote in the path, doubled for PowerShell's single-quoted string. }
+  StringChangeEx(Exe, '''', '''''', True);
+  Arguments := ' /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS /SEAGLASSUPDATE=1 /SEAGLASSDETACHED';
+  if HasParam('/NOLAUNCH') then
+    Arguments := Arguments + ' /NOLAUNCH';
+  Command := '-NoProfile -NonInteractive -WindowStyle Hidden -Command "' +
+    '$line = [char]34 + ''' + Exe + ''' + [char]34 + ''' + Arguments + '''; ' +
+    '$result = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{ CommandLine = $line }; ' +
+    'exit [int]$result.ReturnValue"';
+  if Exec(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'), Command, '', SW_HIDE, ewWaitUntilTerminated, ResultCode) and (ResultCode = 0) then
+    Result := False;
 end;

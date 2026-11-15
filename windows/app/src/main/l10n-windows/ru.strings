@@ -123,3 +123,18 @@
 /* Windows 1.3.0: importing playlists from Spotify, Apple Music and files. */
 "Su exportify.net accedi con Spotify e scarica il CSV della playlist: contiene tutti i brani." = "На exportify.net войдите через Spotify и скачайте CSV плейлиста: в нём все песни.";
 "Apri Exportify" = "Открыть Exportify";
+
+/* Windows 1.3.1: signing in to Spotify to import its playlists. */
+"Importa da Spotify" = "Импорт из Spotify";
+"Accedi a Spotify in una finestra di Microsoft Edge: Seaglass legge le tue playlist, anche private o con più di 100 brani, e cerca ogni brano su YouTube Music." = "Войдите в Spotify в окне Microsoft Edge: Seaglass прочитает ваши плейлисты, в том числе закрытые или длиннее 100 треков, и найдёт каждый трек в YouTube Music.";
+"Nessuna playlist trovata su Spotify." = "В Spotify не найдено плейлистов.";
+"Accedi a Spotify" = "Войти в Spotify";
+"Importa %lld playlist" = "Импортировать плейлисты: %lld";
+"Esci da Spotify" = "Выйти из Spotify";
+"Importate %lld playlist. %lld brani non trovati su YouTube Music." = "Импортировано плейлистов: %lld. Не найдено в YouTube Music треков: %lld.";
+"Playlist %lld di %lld: %@" = "Плейлист %lld из %lld: %@";
+"Lettura delle playlist da Spotify…" = "Чтение плейлистов из Spotify…";
+"Completa l'accesso nella finestra di Microsoft Edge…" = "Завершите вход в окне Microsoft Edge…";
+"Microsoft Edge non è installato: serve per accedere a Spotify." = "Microsoft Edge не установлен: он нужен для входа в Spotify.";
+"Accesso a Spotify annullato." = "Вход в Spotify отменён.";
+"Spotify non ha risposto correttamente. Riprova più tardi." = "Spotify ответил некорректно. Повторите попытку позже.";

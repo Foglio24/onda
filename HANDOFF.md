@@ -37,7 +37,7 @@ Standing rules from the owner (on top of `AGENTS.md`):
 | --- | --- | --- | --- |
 | iPhone, iPad, Mac | 1.36.12 (build 91) | `v1.36.12`, the repository's "Latest"; AltStore source at 1.36.12 / 91 | `main` |
 | Android | 0.4.3 (versionCode 8) | `android-v0.4.3` | `main`, `android/` |
-| Windows | 1.3.0 | `windows-v1.3.0` (not Latest) | branch **`windows`**, `windows/` |
+| Windows | 1.3.1 | `windows-v1.3.1` (not Latest) | branch **`windows`**, `windows/` |
 | Account service | deployed | none | `main`, `server/account/` (deploys by itself) |
 | Website | deployed | none | `main`, `site/` (deploys by itself) |
 
@@ -97,7 +97,7 @@ Map (`windows/app/src/main/kotlin/com/onda/seaglass/`):
 | `audio/TimeStretch.kt` | WSOLA, Tempo with the key kept |
 | `audio/Player.kt` | Queue, shuffle/repeat, play next, radio at the end of the queue, sleep timer, picks local file / download / cache / stream, prepares AutoMix 75 s ahead |
 | `audio/automix/` | `Analyzer` and `Planner` copied from Android, `AutoMix.kt` (analysis cache, plan, `Transition`) |
-| `data/` | `InnerTube`, `Streams`, `Lyrics` (shared with Android), `PlaylistImport` (Spotify/Apple Music/YouTube links and CSV/JSON files, matched on YouTube Music with the iPhone's rules), `LyricsTranslator` (through the account service's `POST /v1/translate`, Workers AI), `Library`, `Downloads` (+ `SongCache`), `LocalMusic`, `Recommendations`, `SongDetails`, `LastFM` |
+| `data/` | `InnerTube`, `Streams`, `Lyrics` (shared with Android), `PlaylistImport` (Spotify/Apple Music/YouTube links and CSV/JSON files, matched on YouTube Music with the iPhone's rules; `spotify/` feeds it the playlists of the user's own Spotify account, read from Spotify's web player in an Edge window driven over DevTools, with a profile of its own), `LyricsTranslator` (through the account service's `POST /v1/translate`, Workers AI), `Library`, `Downloads` (+ `SongCache`), `LocalMusic`, `Recommendations`, `SongDetails`, `LastFM` |
 | `account/` | Seaglass account: PKCE sign-in in the browser, callback through the `com.onda.player.auth:` protocol, token protected with DPAPI, sync (`LibraryMerge`, the iPhone's rules), Premium (`Account.unlocks()`) |
 | `update/AppUpdater.kt` | Updates from `windows-v*` releases only |
 | `ui/` | `Shell.kt` (top bar, the three resizable panels, library), `PlayerBar.kt` (bar, controls, Tempo panel), `Panels.kt` (now playing, queue, lyrics with translation, full player), `Theme.kt` (palette), pages, settings with the equalizer |
@@ -128,6 +128,12 @@ Rules the code depends on (break one and something fails in ways tests may not c
   `https://github.com/Foglio24/onda/releases/download/windows-v…/`, size and GitHub's SHA-256
   digest checked (again right before running), run with
   `/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS` on restart or quit.
+  The jpackage launcher keeps the JVM and everything it starts in a kill-on-close Windows job, so
+  the installer would die with the app halfway through the copy (the app then fails with "Error
+  opening ... Seaglass.cfg"). `Seaglass.iss`'s `InitializeSetup` therefore restarts an update
+  (`/SEAGLASSUPDATE=1`) through WMI `Win32_Process.Create`, outside the job, with
+  `/SEAGLASSDETACHED`. Keep it: it is what makes every update, from any older version, finish.
+  The checksum is computed while downloading (`copyHashing`), so "Riavvia e aggiorna" follows the bar.
 - **Installer** (`windows/installer/Seaglass.iss`, Inno Setup 6): per user, no admin rights,
   `{localappdata}\Programs\Seaglass`; tasks "desktop icon" (checked) and "start with Windows"
   (unchecked); registers the sign-in protocol; uninstalling keeps the user's library.

@@ -44,4 +44,17 @@ class AppUpdaterTest {
         assertNull(AppUpdater.parse(JSONArray("[${release("windows-v2.0.0", asset = "Seaglass-windows.zip")}]")), "not the installer")
         assertNull(AppUpdater.parse(JSONArray("[${release("windows-vnext")}]")), "not a version")
     }
+
+    @Test
+    fun hashesWhileCopyingSoReadyFollowsTheFullBar() {
+        val bytes = ByteArray(300_000) { (it * 31).toByte() }
+        val out = java.io.ByteArrayOutputStream()
+        val seen = mutableListOf<Long>()
+        val hash = AppUpdater.copyHashing(java.io.ByteArrayInputStream(bytes), out) { seen += it }
+        val expected = java.security.MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
+        assertEquals(expected, hash)
+        assertTrue(bytes.contentEquals(out.toByteArray()))
+        assertEquals(bytes.size.toLong(), seen.last())
+        assertEquals(seen.sorted(), seen)
+    }
 }

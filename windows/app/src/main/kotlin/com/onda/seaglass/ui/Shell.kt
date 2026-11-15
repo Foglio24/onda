@@ -373,6 +373,7 @@ private fun LibraryPanel(collapsed: Boolean) {
     val state by Player.state.collectAsState()
     var creating by remember { mutableStateOf(false) }
     var importing by remember { mutableStateOf(false) }
+    var importingSpotify by remember { mutableStateOf(false) }
     val entries = buildList {
         add(LibraryEntry("liked", tr("Brani preferiti"), tr("Playlist · %lld brani", liked.size), Route.Liked, icon = Icons.Rounded.Favorite,
             tile = Brush.linearGradient(listOf(Color(0xFF450AF5), Color(0xFFC4EFD9)))))
@@ -448,7 +449,8 @@ private fun LibraryPanel(collapsed: Boolean) {
         creating = false
         Nav.section(Route.Playlist(created.id))
     }
-    if (importing) com.onda.seaglass.ui.pages.ImportPlaylistDialog { importing = false }
+    if (importing) com.onda.seaglass.ui.pages.ImportPlaylistDialog(onSpotifyAccount = { importing = false; importingSpotify = true }) { importing = false }
+    if (importingSpotify) com.onda.seaglass.ui.pages.SpotifyImportDialog { importingSpotify = false }
 }
 
 @Composable

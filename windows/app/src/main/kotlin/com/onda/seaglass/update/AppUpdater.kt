@@ -135,31 +135,42 @@ object AppUpdater {
             if (!response.isSuccessful) throw IOException("HTTP ${response.code}")
             val body = response.body
             val total = release.size.takeIf { it > 0 } ?: body.contentLength()
-            partial.outputStream().use { out ->
-                val input = body.byteStream()
-                val buffer = ByteArray(64 * 1024)
-                var done = 0L
-                while (true) {
-                    val count = input.read(buffer)
-                    if (count < 0) break
-                    out.write(buffer, 0, count)
-                    done += count
+            // The checksum is worked out while the file arrives: reading 130 MB again once the bar
+            // was full kept "Riavvia e aggiorna" waiting for seconds after it.
+            val hash = partial.outputStream().use { out ->
+                copyHashing(body.byteStream(), out) { done ->
                     if (total > 0) _state.value = State.Downloading(release.version, (done.toDouble() / total).toFloat())
                 }
             }
-        }
-        if (release.size > 0 && partial.length() != release.size) {
-            partial.delete()
-            throw IOException("The update's size doesn't match")
-        }
-        if (sha256(partial) != release.sha256) {
-            partial.delete()
-            throw IOException("The update's checksum doesn't match")
+            if (release.size > 0 && partial.length() != release.size) {
+                partial.delete()
+                throw IOException("The update's size doesn't match")
+            }
+            if (hash != release.sha256) {
+                partial.delete()
+                throw IOException("The update's checksum doesn't match")
+            }
         }
         Files.move(partial.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING)
         // Older installers are no longer needed.
         Paths.updates.listFiles()?.filter { it != target }?.forEach { it.delete() }
         return target
+    }
+
+    /** Copies [input] to [out], telling [progress] the bytes copied so far; returns their SHA-256. */
+    fun copyHashing(input: java.io.InputStream, out: java.io.OutputStream, progress: (Long) -> Unit = {}): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        val buffer = ByteArray(64 * 1024)
+        var done = 0L
+        while (true) {
+            val count = input.read(buffer)
+            if (count < 0) break
+            out.write(buffer, 0, count)
+            digest.update(buffer, 0, count)
+            done += count
+            progress(done)
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }
     }
 
     fun sha256(file: File): String {
@@ -183,17 +194,12 @@ object AppUpdater {
         val ready = _state.value as? State.Ready ?: return false
         if (!System.getProperty("os.name").orEmpty().lowercase().contains("win")) return false
         // Checked once more right before running: the file is ours, unchanged since the download.
-        val expected = latestChecked ?: return false
+        val expected = lastRelease?.sha256 ?: return false
         if (!ready.file.isFile || sha256(ready.file) != expected) return false
         ProcessBuilder(ready.file.absolutePath, "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/CLOSEAPPLICATIONS", "/SEAGLASSUPDATE=1")
             .inheritIO().start()
         return true
     }
-
-    /** The checksum of the release that was downloaded, kept for [installNow]'s last look. */
-    private val latestChecked: String?
-        get() = (_state.value as? State.Ready)?.let { ready -> runCatching { sha256(ready.file) }.getOrNull() }
-            ?.takeIf { lastRelease?.sha256 == it }
 
     @Volatile private var lastRelease: Release? = null
 }

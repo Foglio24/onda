@@ -94,6 +94,7 @@ fun PlaylistsPage() {
     val playlists by Library.playlists.collectAsState()
     var creating by remember { mutableStateOf(false) }
     var importing by remember { mutableStateOf(false) }
+    var importingSpotify by remember { mutableStateOf(false) }
     Page {
         Title(tr("Playlist"))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -122,7 +123,8 @@ fun PlaylistsPage() {
         creating = false
         Nav.open(Route.Playlist(created.id))
     }
-    if (importing) ImportPlaylistDialog { importing = false }
+    if (importing) ImportPlaylistDialog(onSpotifyAccount = { importing = false; importingSpotify = true }) { importing = false }
+    if (importingSpotify) SpotifyImportDialog { importingSpotify = false }
 }
 
 @Composable

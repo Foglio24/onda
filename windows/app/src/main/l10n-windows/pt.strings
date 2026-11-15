@@ -123,3 +123,18 @@
 /* Windows 1.3.0: importing playlists from Spotify, Apple Music and files. */
 "Su exportify.net accedi con Spotify e scarica il CSV della playlist: contiene tutti i brani." = "No exportify.net, entre com o Spotify e baixe o CSV da playlist: ele tem todas as músicas.";
 "Apri Exportify" = "Abrir o Exportify";
+
+/* Windows 1.3.1: signing in to Spotify to import its playlists. */
+"Importa da Spotify" = "Importar do Spotify";
+"Accedi a Spotify in una finestra di Microsoft Edge: Seaglass legge le tue playlist, anche private o con più di 100 brani, e cerca ogni brano su YouTube Music." = "Entre no Spotify numa janela do Microsoft Edge: o Seaglass lê as suas playlists, mesmo privadas ou com mais de 100 músicas, e procura cada música no YouTube Music.";
+"Nessuna playlist trovata su Spotify." = "Nenhuma playlist encontrada no Spotify.";
+"Accedi a Spotify" = "Entrar no Spotify";
+"Importa %lld playlist" = "Importar %lld playlists";
+"Esci da Spotify" = "Sair do Spotify";
+"Importate %lld playlist. %lld brani non trovati su YouTube Music." = "%lld playlists importadas. %lld músicas não encontradas no YouTube Music.";
+"Playlist %lld di %lld: %@" = "Playlist %lld de %lld: %@";
+"Lettura delle playlist da Spotify…" = "A ler as suas playlists do Spotify…";
+"Completa l'accesso nella finestra di Microsoft Edge…" = "Conclua o início de sessão na janela do Microsoft Edge…";
+"Microsoft Edge non è installato: serve per accedere a Spotify." = "O Microsoft Edge não está instalado: é necessário para entrar no Spotify.";
+"Accesso a Spotify annullato." = "Início de sessão no Spotify cancelado.";
+"Spotify non ha risposto correttamente. Riprova più tardi." = "O Spotify não respondeu corretamente. Tente novamente mais tarde.";

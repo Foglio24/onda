@@ -1,5 +1,14 @@
 # Seaglass for Windows changelog
 
+## 1.3.1 (2026-11-16)
+
+### Added
+- **Your whole Spotify account** (Premium): "Accedi a Spotify" in the import window signs you in to Spotify in a Microsoft Edge window (once; Seaglass keeps that Edge profile of its own, "Esci da Spotify" forgets it), lists your playlists, private ones and those in folders too, and imports the ones you tick, every song, past the 100 of a public link. The songs are looked up with the same rules as a link or a file; one playlist ends on the same summary.
+
+### Fixed
+- **An update could leave Seaglass unable to start** ("Error opening ... Seaglass.cfg"): the app's launcher closes everything it started when the app exits, the installer among them, so it was stopped halfway through replacing the app. An update now restarts its installer outside the app first, so it finishes. Updating from 1.3.0 goes through this new installer, so it is covered too. If Seaglass already won't start, run the installer from the releases again.
+- **"Riavvia e aggiorna" came seconds after the download bar was full**: the downloaded installer was read whole again to check it. It is now checked while it downloads, and the button comes with the full bar.
+
 ## 1.3.0 (2026-11-16)
 
 ### Added

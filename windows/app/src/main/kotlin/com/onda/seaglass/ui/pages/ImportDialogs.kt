@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Description
+import androidx.compose.material.icons.automirrored.rounded.Login
 import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material3.AlertDialog
@@ -75,11 +76,12 @@ private fun choosePlaylistFile(): File? {
 /**
  * "Importa playlist", as on the iPhone: a link to a public playlist or album of Spotify, Apple
  * Music, YouTube or YouTube Music, or a file for Spotify playlists over 100 songs (Exportify's CSV,
- * or Playlist1.json from Spotify's account data). While it works it says what it's doing; then
+ * or Playlist1.json from Spotify's account data), or the user's own Spotify account
+ * ([onSpotifyAccount]: every playlist, private ones too). While it works it says what it's doing; then
  * the summary shows what's in the playlist and what to check.
  */
 @Composable
-fun ImportPlaylistDialog(onDismiss: () -> Unit) {
+fun ImportPlaylistDialog(onSpotifyAccount: () -> Unit, onDismiss: () -> Unit) {
     val palette = LocalPalette.current
     val scope = rememberCoroutineScope()
     var link by remember { mutableStateOf("") }
@@ -155,6 +157,16 @@ fun ImportPlaylistDialog(onDismiss: () -> Unit) {
                     }
                 }
                 error?.let { Text(it, color = Color(0xFFFF7A7A), fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp)) }
+                // Spotify's own account: every playlist, private or long, read after signing in (Edge).
+                Column(Modifier.fillMaxWidth().padding(top = 16.dp).clip(RoundedCornerShape(8.dp)).background(palette.cardHover).padding(12.dp)) {
+                    Text(
+                        tr("Accedi a Spotify in una finestra di Microsoft Edge: Seaglass legge le tue playlist, anche private o con più di 100 brani, e cerca ogni brano su YouTube Music."),
+                        fontSize = 13.sp, lineHeight = 18.sp, color = palette.text,
+                    )
+                    Row(Modifier.padding(top = 10.dp)) {
+                        PillButton(tr("Accedi a Spotify"), Icons.AutoMirrored.Rounded.Login) { if (!working) onSpotifyAccount() }
+                    }
+                }
                 // Long Spotify playlists: a file, made by Exportify (or Spotify's data export).
                 Column(Modifier.fillMaxWidth().padding(top = 16.dp).clip(RoundedCornerShape(8.dp)).background(palette.cardHover).padding(12.dp)) {
                     Text(
@@ -198,7 +210,7 @@ fun ImportPlaylistDialog(onDismiss: () -> Unit) {
 
 /** What the import did: the songs in the new playlist, and each one to check, with alternatives to choose. */
 @Composable
-private fun ImportSummaryDialog(outcome: PlaylistImport.Outcome, onDone: () -> Unit) {
+internal fun ImportSummaryDialog(outcome: PlaylistImport.Outcome, onDone: () -> Unit) {
     val palette = LocalPalette.current
     val resolved = remember { mutableStateListOf<PlaylistImport.Entry>() }
     var open by remember { mutableStateOf<PlaylistImport.Entry?>(null) }

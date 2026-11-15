@@ -123,3 +123,18 @@
 /* Windows 1.3.0: importing playlists from Spotify, Apple Music and files. */
 "Su exportify.net accedi con Spotify e scarica il CSV della playlist: contiene tutti i brani." = "على exportify.net، سجّل الدخول باستخدام Spotify ونزّل ملف CSV لقائمة التشغيل: يحتوي على كل الأغاني.";
 "Apri Exportify" = "فتح Exportify";
+
+/* Windows 1.3.1: signing in to Spotify to import its playlists. */
+"Importa da Spotify" = "استيراد من Spotify";
+"Accedi a Spotify in una finestra di Microsoft Edge: Seaglass legge le tue playlist, anche private o con più di 100 brani, e cerca ogni brano su YouTube Music." = "سجّل الدخول إلى Spotify في نافذة Microsoft Edge: يقرأ Seaglass قوائم التشغيل الخاصة بك، حتى الخاصة منها أو التي تضم أكثر من 100 أغنية، ويبحث عن كل أغنية في YouTube Music.";
+"Nessuna playlist trovata su Spotify." = "لم يتم العثور على قوائم تشغيل في Spotify.";
+"Accedi a Spotify" = "تسجيل الدخول إلى Spotify";
+"Importa %lld playlist" = "استيراد %lld من قوائم التشغيل";
+"Esci da Spotify" = "تسجيل الخروج من Spotify";
+"Importate %lld playlist. %lld brani non trovati su YouTube Music." = "تم استيراد %lld من قوائم التشغيل. لم يتم العثور على %lld من الأغاني في YouTube Music.";
+"Playlist %lld di %lld: %@" = "قائمة التشغيل %lld من %lld: %@";
+"Lettura delle playlist da Spotify…" = "جارٍ قراءة قوائم التشغيل من Spotify…";
+"Completa l'accesso nella finestra di Microsoft Edge…" = "أكمل تسجيل الدخول في نافذة Microsoft Edge…";
+"Microsoft Edge non è installato: serve per accedere a Spotify." = "Microsoft Edge غير مثبّت: وهو مطلوب لتسجيل الدخول إلى Spotify.";
+"Accesso a Spotify annullato." = "تم إلغاء تسجيل الدخول إلى Spotify.";
+"Spotify non ha risposto correttamente. Riprova più tardi." = "لم يستجب Spotify بشكل صحيح. حاول مرة أخرى لاحقًا.";
