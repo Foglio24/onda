@@ -3,7 +3,8 @@
 ## Supported versions
 
 Security fixes go into the latest release of each app: the newest `vX.Y.Z` release for iPhone and
-iPad, and the newest `android-vX.Y.Z` release for Android.
+iPad, the newest `android-vX.Y.Z` release for Android, and the newest `windows-vX.Y.Z` release for
+Windows.
 
 ## Reporting a vulnerability
 
@@ -13,9 +14,9 @@ Don't open a public issue. Include the version, the device and steps to reproduc
 
 In scope:
 
-- the two apps;
+- the iPhone/iPad/Mac, Android and Windows apps;
 - this repository's workflows;
-- the published IPA and APKs;
+- the published IPA, APKs and Windows zip;
 - the AltStore source.
 
 Out of scope:
@@ -28,7 +29,7 @@ Out of scope:
 
 - **An optional account, no tracking.** Seaglass contains no analytics or tracking. Without an
   account, the library, playlists, downloads, listening history and settings stay on the device.
-  On iPhone, iPad and Mac the user can sign in to a Seaglass account (the service in
+  On iPhone, iPad, Mac and Windows the user can sign in to a Seaglass account (the service in
   `server/account`, on Cloudflare): liked songs, playlists (name and songs), the listening
   history and some listening preferences are then kept on it and synced between devices.
   Downloads, playlist covers and Mixes stay on each device. The account is managed on its web
@@ -95,7 +96,8 @@ Treat a change that breaks any of these as **P0** (secrets, updates) or **P1** (
   `ANDROID_SIGNING_KEY` secret.
 - Credentials the user enters (Last.fm) and the account's session token go in the Keychain on
   iOS (the login keychain on a Mac),
-  never in `UserDefaults`, files in Documents, logs or diagnostics. The same applies on Android when Last.fm arrives:
+  never in `UserDefaults`, files in Documents, logs or diagnostics. The same applies on Android when Last.fm arrives,
+  and on Windows for the account session token (`SecureStore`, AES-GCM under AppData\Local\Seaglass):
   encrypted storage, never plain preferences or logs.
 
 ### Updates
@@ -109,6 +111,13 @@ Treat a change that breaks any of these as **P0** (secrets, updates) or **P1** (
   what the GitHub API gives for that asset. Once unzipped, the app must have Seaglass's bundle
   identifier and the release's version, and pass `codesign --verify --deep --strict`. Only then
   does it replace the app, and it is never run before that. Don't drop or loosen any of these
+  checks.
+- The Windows updater (`windows/.../AppUpdater.kt`) installs updates itself the same way: it
+  reads only that repository's `windows-v*` releases and downloads only that release's own
+  `Seaglass-windows.zip` from `https://github.com/Foglio24/onda/releases/download/`. The file's
+  size and SHA-256 must match what the GitHub API gives for that asset. Once unzipped, the
+  archive must contain `Seaglass.exe` (zip-slip rejected). Only then does it replace the
+  installed app, and the new binary is never run before that. Don't drop or loosen any of these
   checks.
 - Never point any updater at another host, mirror or repository, and never install or run
   downloaded code any other way.

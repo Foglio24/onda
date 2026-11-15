@@ -5,12 +5,13 @@
 <h1 align="center">Seaglass — Make every playlist flow</h1>
 
 <p align="center"><strong>More than press play.</strong><br>
-A hands-on music player for iPhone, iPad, <strong>Mac</strong> and Android, built for beat-aware transitions, tempo control, lyrics and a library you can shape.</p>
+A hands-on music player for iPhone, iPad, <strong>Mac</strong>, Android and <strong>Windows</strong>, built for beat-aware transitions, tempo control, lyrics and a library you can shape.</p>
 
 <p align="center">
   <a href="https://github.com/Foglio24/onda/releases/latest/download/Seaglass.ipa"><img src="https://img.shields.io/badge/DOWNLOAD-Seaglass.ipa-EC3F8E?style=for-the-badge&amp;logo=apple&amp;logoColor=white" alt="Download Seaglass.ipa"></a>
   <a href="https://github.com/Foglio24/onda/releases/latest/download/Seaglass-mac.zip"><img src="https://img.shields.io/badge/DOWNLOAD-Mac_(Apple_silicon)-1F1F1F?style=for-the-badge&amp;logo=apple&amp;logoColor=white" alt="Download Seaglass for Mac"></a>
   <a href="https://github.com/Foglio24/onda/releases?q=android-v&amp;expanded=true"><img src="https://img.shields.io/badge/DOWNLOAD-Android_APK-34A853?style=for-the-badge&amp;logo=android&amp;logoColor=white" alt="Download Seaglass for Android"></a>
+  <a href="https://github.com/Foglio24/onda/releases?q=windows-v&amp;expanded=true"><img src="https://img.shields.io/badge/DOWNLOAD-Windows_11-0078D4?style=for-the-badge&amp;logo=windows&amp;logoColor=white" alt="Download Seaglass for Windows"></a>
   <a href="https://altdirect.app/?url=https%3A%2F%2Fraw.githubusercontent.com%2FFoglio24%2Fonda%2Fmain%2Faltstore-source.json&amp;r=altstore"><img src="https://img.shields.io/badge/ADD_TO-ALTSTORE_CLASSIC-7E4BD6?style=for-the-badge&amp;logo=apple&amp;logoColor=white" alt="Add Seaglass to AltStore Classic"></a>
   <a href="https://github.com/Foglio24/onda/releases/latest"><img src="https://img.shields.io/github/v/release/Foglio24/onda?style=for-the-badge&amp;label=RELEASE" alt="Latest release"></a>
   <a href="https://github.com/Foglio24/onda/releases"><img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FFoglio24%2Fonda%2Fdownload-stats%2Fdownload-count.json&amp;label=total%20downloads&amp;style=for-the-badge" alt="Total downloads (iPhone, iPad, Mac and Android)"></a>
@@ -20,8 +21,8 @@ A hands-on music player for iPhone, iPad, <strong>Mac</strong> and Android, buil
 
 <p align="center">
   <a href="https://seaglass.mystudioappweb.com">Website</a> · <a href="#discover-seaglass">Features</a> · <a href="#screenshots">Screenshots</a> ·
-  <a href="#installation">Installation</a> · <a href="#mac">Mac</a> · <a href="#android">Android</a> · <a href="#frequently-asked-questions">FAQ</a> ·
-  <a href="CHANGELOG.md">Changelog</a> · <a href="android/CHANGELOG.md">Android changelog</a>
+  <a href="#installation">Installation</a> · <a href="#mac">Mac</a> · <a href="#android">Android</a> · <a href="#windows">Windows</a> · <a href="#frequently-asked-questions">FAQ</a> ·
+  <a href="CHANGELOG.md">Changelog</a> · <a href="android/CHANGELOG.md">Android changelog</a> · <a href="windows/CHANGELOG.md">Windows changelog</a>
 </p>
 
 ## Why choose Seaglass?
@@ -175,6 +176,15 @@ Podcasts, Last.fm and Spotify/Apple Music import are coming next.
 
 Updates install over the app, keeping its library; **Settings → Updates** finds them. Seaglass for Android is not on Google Play. See the [Android changelog](android/CHANGELOG.md).
 
+## Windows
+
+**Seaglass is on Windows 11 too** (early build), in `windows/`: Compose Multiplatform Desktop with the Classic three-panel layout, Seaglass account sign-in through the website and library sync, and **automatic updates like on the Mac** (checks `windows-v*` on GitHub, never "Latest", verifies size and SHA-256, installs on restart or when quitting).
+
+1. Open the [Windows releases](https://github.com/Foglio24/onda/releases?q=windows-v&expanded=true) and download `Seaglass-windows.zip`.
+2. Extract it and run `Seaglass.exe`.
+
+See the [Windows changelog](windows/CHANGELOG.md).
+
 ## Frequently asked questions
 
 **Why is the audio format not always Opus?**  
@@ -190,7 +200,7 @@ No. It tries to favour transitions in time when they suit the songs, but can cho
 Some recordings may not be found or matched with sufficient confidence. Open the import report to see missing songs and choose available alternatives. For long Spotify playlists, use the file import described above.
 
 **What does the download counter measure?**  
-It adds every download of the app from published GitHub releases, on every platform: the iPhone and iPad IPA (`Onda.ipa`, `Seaglass.ipa`), the Mac app (`Seaglass-mac.zip`) and the Android APKs. It refreshes periodically and does not represent the number of users or installations.
+It adds every download of the app from published GitHub releases, on every platform: the iPhone and iPad IPA (`Onda.ipa`, `Seaglass.ipa`), the Mac app (`Seaglass-mac.zip`), the Android APKs and the Windows zip (`Seaglass-windows.zip`). It refreshes periodically and does not represent the number of users or installations.
 
 **How can I report a problem?**  
 Open a [GitHub issue](https://github.com/Foglio24/onda/issues), including your app version, iPhone, iPad or Mac model and steps to reproduce the problem. When helpful, you can share a report from **Settings → Diagnostics**.
@@ -201,9 +211,9 @@ If Seaglass makes your listening better, you can support continued development t
 
 ## Project details
 
-Seaglass is written in Swift and SwiftUI; the Android app, in `android/`, in Kotlin with Jetpack Compose and Media3. It uses YouTube Music for search and catalogue, YouTubeKit for audio links, LRCLIB for lyrics and Last.fm for scrobbling. Dependencies and acknowledgements are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+Seaglass is written in Swift and SwiftUI; the Android app, in `android/`, in Kotlin with Jetpack Compose and Media3; the Windows app, in `windows/`, in Kotlin with Compose Multiplatform Desktop. It uses YouTube Music for search and catalogue, YouTubeKit for audio links, LRCLIB for lyrics and Last.fm for scrobbling. Dependencies and acknowledgements are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
-GitHub Actions builds an unsigned IPA and the Mac app (Mac Catalyst, signed ad hoc): the **Build IPA** workflow produces both as downloadable artifacts. Published releases and their notes are available on the [Releases page](https://github.com/Foglio24/onda/releases).
+GitHub Actions builds an unsigned IPA and the Mac app (Mac Catalyst, signed ad hoc): the **Build IPA** workflow produces both as downloadable artifacts. The **Windows** workflow builds `Seaglass-windows.zip`. Published releases and their notes are available on the [Releases page](https://github.com/Foglio24/onda/releases).
 
 ## Licence and notices
 

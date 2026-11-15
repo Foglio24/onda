@@ -6,7 +6,7 @@ Guidance for coding agents and automated code review (Codex) in this repository.
 
 Seaglass is a YouTube Music player. It talks to YouTube Music (InnerTube) directly from the
 device; its only server is the optional account service (`server/account`), where the iPhone,
-iPad and Mac app keep the library in sync. It comes in two apps:
+iPad, Mac and Windows apps keep the library in sync. It comes in three apps:
 
 - **iPhone and iPad**: SwiftUI, iOS 26 or later. The Xcode project is generated from `project.yml`
   with XcodeGen. The sources are in `Seaglass/` (`App`, `Models`, `Player`, `Services`, `Views`,
@@ -21,13 +21,17 @@ iPad and Mac app keep the library in sync. It comes in two apps:
   and checked, in the iOS build too) or `#if targetEnvironment(macCatalyst)`.
 - **Android**: Kotlin, Jetpack Compose and Media3, in `android/`, for Android 10 or later. It is
   distributed as APKs on GitHub Releases, tagged `android-vX.Y.Z`, not on Google Play.
+- **Windows**: Kotlin and Compose Multiplatform Desktop, in `windows/`, for Windows 11. It is
+  distributed as `Seaglass-windows.zip` on GitHub Releases, tagged `windows-vX.Y.Z`, never
+  "Latest". Automatic updates work like on the Mac: the app checks those tags, verifies size and
+  SHA-256, stages the zip and installs on restart or when quitting.
 
 Other folders:
 
 - `Tools/` holds the iOS checks (one folder each, run with `bash Tools/<Name>/run.sh`) and the
   release, localization and download-count scripts.
-- `.github/workflows/` holds CI: `build.yml` (iOS), `android.yml`, the AltStore source and the
-  download counter.
+- `.github/workflows/` holds CI: `build.yml` (iOS), `android.yml`, `windows.yml`, the AltStore
+  source and the download counter.
 - `server/account/` holds the account service: a Cloudflare Worker with D1 and the account's web
   page, deployed by `.github/workflows/account.yml` (see its README). As on Spotify, the account
   is managed on the page; the app (`Seaglass/Services/Account.swift`) signs in, shows it and syncs
@@ -50,10 +54,12 @@ Other folders:
   format specifiers (`%@`, `%lld`, ...) as the key. `it.lproj` stays empty.
 - **Versions.** iOS uses `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` in `project.yml`, with
   `CHANGELOG.md`. Android uses `versionCode` and `versionName` in `android/app/build.gradle.kts`,
-  with `android/CHANGELOG.md`. `versionCode` must always increase.
+  with `android/CHANGELOG.md`. `versionCode` must always increase. Windows uses the first
+  `## X.Y.Z` heading in `windows/CHANGELOG.md` (and `BuildConfig.VERSION_NAME` /
+  `VERSION_CODE` in `windows/app/.../BuildConfig.kt`); `VERSION_CODE` must always increase.
 - **Releases.** iOS releases (`vX.Y.Z`) are the repository's "Latest" release, which the iPhone
-  app's updater, the AltStore source and the README's IPA link read. Android releases are normal
-  releases but never "Latest".
+  app's updater, the AltStore source and the README's IPA link read. Android (`android-v*`) and
+  Windows (`windows-v*`) releases are normal releases but never "Latest".
 - **Comments.** They explain why, in plain English. Keep them accurate when the code changes.
 - **Parity.** A feature described as "as on the iPhone" should behave the same on both apps. A
   deliberate difference belongs in the changelog.
@@ -65,6 +71,10 @@ Other folders:
     audio path, quality) talk to the real YouTube Music and skip themselves when YouTube refuses
     the runner.
   - `./gradlew assembleRelease` builds the APKs, one per ABI.
+- **Windows** (JDK 21), from `windows/`:
+  - `./gradlew :app:test` runs the unit tests (version compare and related).
+  - Packaging the zip for updates needs a Windows host:
+    `./gradlew :app:createReleaseDistributable -Pseaglass.version=X.Y.Z`.
 - **Account service** (Node 22), from `server/account/`: `npm ci`, then `npm test` runs the
   whole service end to end on a local copy.
 - **Website** (Node 22), from `site/`: `npm ci`, `npx playwright install chromium`, then `npm test`;
@@ -86,7 +96,8 @@ confirmation, in every session. Once a change is done and its checks are green:
    first when the bots have moved it), never with a force push.
 2. Release what changed: iOS and Mac with a `build.yml` run on `main` and `release=true` (it becomes
    "Latest"), then refresh the AltStore source; Android with `android.yml` and `release=true` (never
-   "Latest"); the account page and the website deploy from `main` by themselves.
+   "Latest"); Windows with `windows.yml` and `release=true` (never "Latest"); the account page and
+   the website deploy from `main` by themselves.
 3. Check the result (release assets, "Latest", AltStore version) and tell the owner in Italian.
 
 The guardrails stay: no release while a check is red (a live-service check that skipped itself is not
@@ -119,9 +130,9 @@ Treat these as **P1**:
 - **Fragile YouTube parsing.** InnerTube responses change without notice. Parsing must tolerate
   missing or unexpected fields: no force unwraps (`!`, `!!`, `as!`) or unchecked indexing on
   response data. A song, album or page that can't be parsed is skipped, not a crash.
-- **Releases.** A version bump without its changelog entry, an Android `versionCode` that
-  doesn't increase, an iOS release that wouldn't be "Latest", or an Android release that would
-  be.
+- **Releases.** A version bump without its changelog entry, an Android `versionCode` or Windows
+  `VERSION_CODE` that doesn't increase, an iOS release that wouldn't be "Latest", or an Android
+  or Windows release that would be.
 - **Security.** Anything that breaks the rules in [SECURITY.md](SECURITY.md).
 
 Also check:
