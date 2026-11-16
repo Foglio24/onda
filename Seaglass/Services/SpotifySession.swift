@@ -123,7 +123,21 @@ final class SpotifySession: NSObject, ObservableObject {
                 operations.values.filter { Self.isPlaylist($0.name) }.min { $0.name.count < $1.name.count }
             }
         }
+        // The player is still loading the playlist: a request sent now is cancelled when the page moves on.
+        try await settle()
         return SpotifyWeb(transport: self, headers: headers, library: libraryOperation, playlist: playlistOperation)
+    }
+
+    /// Waits (up to [seconds]) until the page has stopped loading for a second.
+    private func settle(seconds: Double = 20) async throws {
+        let deadline = Date().addingTimeInterval(seconds)
+        var idle = 0
+        while Date() < deadline {
+            try Task.checkCancellation()
+            idle = webView.isLoading ? 0 : idle + 1
+            if idle >= 4 { return }
+            try await Task.sleep(nanoseconds: 250_000_000)
+        }
     }
 
     private static func isLibrary(_ name: String) -> Bool {
@@ -169,8 +183,17 @@ extension SpotifySession: SpotifyTransport {
     func send(_ request: SpotifyHTTPRequest) async throws -> SpotifyHTTPResponse {
         var payload: [String: Any] = ["method": request.method, "url": request.url.absoluteString, "headers": request.headers]
         payload["body"] = request.body ?? NSNull()
-        let result = try await webView.callAsyncJavaScript(SpotifyHook.sendScript, arguments: ["request": payload],
-                                                           in: nil, contentWorld: .page)
+        var result: Any?
+        for attempt in 0..<3 {
+            do {
+                result = try await webView.callAsyncJavaScript(SpotifyHook.sendScript, arguments: ["request": payload],
+                                                               in: nil, contentWorld: .page)
+                break
+            } catch let error as WKError where error.code == .javaScriptExceptionOccurred && attempt < 2 {
+                // "Load failed": the page navigated while the request was in flight. Wait for it, then send again.
+                try await settle()
+            }
+        }
         guard let reply = result as? [String: Any], let status = (reply["status"] as? NSNumber)?.intValue else {
             throw SpotifyImportError.unavailable
         }

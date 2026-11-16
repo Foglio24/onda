@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.36.15 (2026-11-16)
+
+### Fixed
+- **"Importa dal tuo account Spotify" no longer ends with "Spotify non ha risposto correttamente"** (iPhone, iPad and Mac). After you signed in, the import read the first page of your playlists, opened one playlist in the web player and asked for the list again while that page was still loading; the page's move cancelled the request. Seaglass now waits for the page to settle and sends the request again if a page change interrupts it.
+
 ## 1.36.14 (2026-11-16)
 
 ### Added
