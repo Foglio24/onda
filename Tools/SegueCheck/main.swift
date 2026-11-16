@@ -608,6 +608,43 @@ for (rise, wanted) in [(4.0, SegueShape.filterOpen), (-4.0, SegueShape.echoTail)
     let shape = SeguePolicy.lockedShapeForCheck(bars: 8, rings: true, energyRise: rise)
     expect(shape == wanted, "Mix Lab by energy, \(rise > 0 ? "rising" : "falling"): \(wanted.rawValue) (\(shape.rawValue))")
 }
+// Short windows (4 bars) where voices would meet, or without the equaliser: never a cut. The two
+// songs cross over a bar on the downbeat, the faders moving smoothly, at equal power (a 4-bar
+// mix used to cut there over a quarter of a beat: the song stopped and the next one dropped in).
+expect(SeguePolicy.lockedShapeForCheck(bars: 4, rings: false, energyRise: nil, overlapRisk: true) == .cutOnBeat,
+       "a short window where voices would meet: the downbeat crossing")
+for exit in stride(from: 100.0, through: 140, by: 1.7) {
+    let shape = SeguePolicy.lockedShapeForCheck(bars: 4, rings: false, energyRise: nil, eq: false, exitTime: exit)
+    expect(shape == .bassSwap, "a short window without the equaliser: the level swap, not picked by chance for a cut (\(shape.rawValue))")
+}
+do {
+    let beat = 1.0 / 16  // a 4-bar window
+    let lanes = SegueCompiler(tuning: SegueTuning()).locked(.cutOnBeat, swap: 0.5, beatShare: beat, matchA: 1, matchB: 1)
+    if let out = lanes.first(where: { $0.side == .outgoing && $0.target == .level }),
+       let into = lanes.first(where: { $0.side == .incoming && $0.target == .level }) {
+        func gain(_ lane: SegueLane, _ x: Double) -> Double { lane.isSilent(at: x) ? 0 : pow(10, lane.value(at: x) / 20) }
+        var worstStep = 0.0, highestSum = 0.0, lowestSum = 2.0
+        var previous = (gain(out, 0), gain(into, 0))
+        for step in 1...800 {
+            let x = Double(step) / 800
+            let now = (gain(out, x), gain(into, x))
+            worstStep = max(worstStep, abs(now.0 - previous.0), abs(now.1 - previous.1))
+            // Beats matched, the two add up in phase on every beat: their faders' sum is what's heard.
+            highestSum = max(highestSum, now.0 + now.1)
+            lowestSum = min(lowestSum, now.0 + now.1)
+            previous = now
+        }
+        // 1/800 of a 4-bar window at 120 BPM is 10 ms: a fader moving more than 0.03 in it is a cut.
+        expect(worstStep <= 0.03, "the downbeat crossing: no fader jumps (largest step \(format(worstStep, 3)) per 10 ms)")
+        expect(lowestSum >= 0.95 && highestSum <= 1.1 + 1e-6, "the downbeat crossing: the loudness holds (faders' sum \(format(lowestSum, 2))…\(format(highestSum, 2)))")
+        let outBy = (0...800).map { Double($0) / 800 }.first { gain(out, $0) < 0.05 } ?? 1
+        let inFrom = (0...800).map { Double($0) / 800 }.first { gain(into, $0) > 0.05 } ?? 0
+        expect((outBy - inFrom) / beat >= 2.5, "the downbeat crossing: the two sound together for most of a bar (\(format((outBy - inFrom) / beat, 1)) beats)")
+    } else {
+        expect(false, "the downbeat crossing: a level lane per side")
+    }
+}
+
 let beatFade = decideWith(a, b) { $0.families = [.fade]; $0.fadeOnBeat = true }
 if let plan = beatFade.plan {
     let onBar = SegueSong(a, voices: nil).barStarts.contains { abs($0 - plan.outgoingStart) < 0.001 }

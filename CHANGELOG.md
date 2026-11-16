@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.36.13 (2026-11-16)
+
+### Fixed
+- **Short AutoMix mixes no longer cut from one song to the other.** Where a beat-matched mix was short (4 bars, or 2) and the two voices would have met, or randomly in half of the short mixes with Mix Lab's equaliser off, the songs changed over with a cut on the downbeat, over a quarter of a beat (about a tenth of a second): it sounded as if the song stopped and the next one was dropped in. They now cross over a whole bar centred on that downbeat, in step, the faders moving smoothly and the loudness steady, short enough to keep two voices from singing over each other for long. Short mixes without the equaliser now always swap the levels across the window instead. The "Taglio" style, chosen as such, still cuts. Checked (SegueCheck): no fader moves by more than 0.03 in 10 ms across the crossing, the two together stay as loud as one, and they overlap for most of a bar.
+
 ## 1.36.12 (2026-11-14)
 
 ### Fixed

@@ -543,8 +543,9 @@ enum SeguePolicy {
     }
 
     /// The beat-matched shape for a window of `bars`, as the policy picks it (for Tools/SegueCheck).
-    static func lockedShapeForCheck(bars: Int, rings: Bool, energyRise: Double?) -> SegueShape {
-        Run.lockedShape(exitTime: 100, entryTime: 10, bars: bars, overlapRisk: false, rings: rings, energyRise: energyRise)
+    static func lockedShapeForCheck(bars: Int, rings: Bool, energyRise: Double?, overlapRisk: Bool = false, eq: Bool = true,
+                                    exitTime: Double = 100) -> SegueShape {
+        Run.lockedShape(exitTime: exitTime, entryTime: 10, bars: bars, overlapRisk: overlapRisk, eq: eq, rings: rings, energyRise: energyRise)
     }
 
     private struct Point {
@@ -963,17 +964,19 @@ enum SeguePolicy {
             return Double(section ?? bars / 2) / Double(bars)
         }
 
-        /// The locked shape: a cut when voices would meet in a short window, otherwise one of the
-        /// shapes chosen from the pair itself, so a pair always sounds the same and a playlist varies.
-        /// Without the equaliser only the levels move (a bass swap of levels, or a cut); the echo needs
-        /// room after the window for its repeats.
+        /// The locked shape: a crossing on one downbeat (`cutOnBeat`, a bar long) when voices would
+        /// meet in a short window, otherwise one of the shapes chosen from the pair itself, so a pair
+        /// always sounds the same and a playlist varies. Without the equaliser only the levels move (a
+        /// bass swap of levels); the echo needs room after the window for its repeats.
         static func lockedShape(exitTime: Double, entryTime: Double, bars: Int, overlapRisk: Bool, eq: Bool = true,
                                 rings: Bool = false, bassHandover: Bool = true, echoes: Bool = true,
                                 energyRise: Double? = nil) -> SegueShape {
             if overlapRisk && bars <= 4 { return .cutOnBeat }
             let hash = Int((exitTime * 1000).rounded()) &* 31 &+ Int((entryTime * 1000).rounded())
             var shapes: [SegueShape] = bars >= 8 ? [.bassSwap, .threeBand, .filterOpen, .riseOut] : [.bassSwap, .filterOpen]
-            if !eq { shapes = bars >= 8 ? [.bassSwap] : [.bassSwap, .cutOnBeat] }
+            // A short window without the equaliser: the level swap, never picked by chance for the
+            // downbeat crossing, which is for voices that would meet.
+            if !eq { shapes = [.bassSwap] }
             if eq, echoes, rings, bars >= 4 { shapes.append(.echoTail) }
             if !bassHandover {
                 shapes.removeAll { $0 == .bassSwap }

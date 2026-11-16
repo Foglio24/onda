@@ -77,7 +77,7 @@ struct SegueCompiler {
     func locked(_ shape: SegueShape, swap: Double, beatShare: Double, matchA: Double, matchB: Double) -> [SegueLane] {
         switch shape {
         case .threeBand: return threeBand(swap: swap, beatShare: beatShare, matchA: matchA, matchB: matchB)
-        case .cutOnBeat: return cut(at: swap, ramp: max(0.002, beatShare * 0.25))
+        case .cutOnBeat: return beatCrossing(at: swap, beatShare: beatShare, matchA: matchA, matchB: matchB)
         case .filterOpen:
             return bassSwap(swap: swap, beatShare: beatShare, matchA: matchA, matchB: matchB)
                 + [lane(.incoming, .lowPass, [knot(0, t.sweepClosedHz), knot(swap, nil, .exponential), knot(1, nil)])]
@@ -147,7 +147,25 @@ struct SegueCompiler {
         return lanes
     }
 
-    /// One song, then the other, at `at` (0…1), each over a ramp of `ramp` against clicks.
+    /// One song, then the other, on a shared downbeat (`at`, 0…1): the two cross at equal power over
+    /// one bar centred on it (two beats either side), the beats matched. Short windows (4 or 2 bars)
+    /// chose this where voices would meet, or without the equaliser; it used to be a cut over a
+    /// quarter of a beat, heard as the song stopped and the next one dropped in. A bar is short
+    /// enough to keep two voices from singing over each other for long, and long enough to be a mix.
+    private func beatCrossing(at x: Double, beatShare: Double, matchA: Double, matchB: Double) -> [SegueLane] {
+        let half = min(0.25, max(0.02, beatShare * 2))
+        let from = max(0, x - half), to = min(1, x + half)
+        let span = max(0.001, to - from)
+        // Knots across the crossing, so its curve is followed closely, not only at the window's 16.
+        let crossing = (0...12).map { from + span * Double($0) / 12 }
+        return levels(extra: crossing + [x]) { position in
+            let u = smooth((position - from) / span)
+            return matched(position, swap: x, matchA: matchA, matchB: matchB, cos(Double.pi / 2 * u), sin(Double.pi / 2 * u))
+        }
+    }
+
+    /// One song, then the other, at `at` (0…1), each over a ramp of `ramp` against clicks (the
+    /// "Taglio" style's cut, chosen as such).
     func cut(at x: Double, ramp: Double) -> [SegueLane] {
         let half = max(0.0005, ramp / 2)
         return [
