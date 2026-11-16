@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.36.16 (2026-11-17)
+
+### Fixed
+- **The Spotify account import now also recovers when a page change tears down the request itself** (iPhone, iPad and Mac). 1.36.15 sent the request again only when the page answered it with "Load failed"; when the page changed so fast that WebKit dropped the request without an answer, the import still ended with "Spotify non ha risposto correttamente". Seaglass now sends it again in both cases, after waiting for the page to settle, and that wait now lasts a full second, as intended, instead of three quarters of one.
+
 ## 1.36.15 (2026-11-16)
 
 ### Fixed

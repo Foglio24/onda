@@ -128,15 +128,13 @@ final class SpotifySession: NSObject, ObservableObject {
         return SpotifyWeb(transport: self, headers: headers, library: libraryOperation, playlist: playlistOperation)
     }
 
-    /// Waits (up to [seconds]) until the page has stopped loading for a second.
+    /// Waits (up to [seconds]) until the page has stopped loading for a second. Gives up quietly at the deadline.
     private func settle(seconds: Double = 20) async throws {
-        let deadline = Date().addingTimeInterval(seconds)
         var idle = 0
-        while Date() < deadline {
-            try Task.checkCancellation()
+        // The first check runs before any sleep, so five quiet checks are four sleeps: one second.
+        _ = try await poll(seconds: seconds) { [self] () -> Bool? in
             idle = webView.isLoading ? 0 : idle + 1
-            if idle >= 4 { return }
-            try await Task.sleep(nanoseconds: 250_000_000)
+            return idle >= 5 ? true : nil
         }
     }
 
@@ -150,13 +148,20 @@ final class SpotifySession: NSObject, ObservableObject {
     }
 
     private func waitFor<T>(seconds: Double, _ found: () -> T?) async throws -> T {
+        guard let value = try await poll(seconds: seconds, found) else { throw SpotifyImportError.unavailable }
+        return value
+    }
+
+    /// Checks every 250 ms until [found] returns a value (returned) or [seconds] pass (nil).
+    /// Cancelling the task still throws, so a caller can tell a timeout from a cancel.
+    private func poll<T>(seconds: Double, _ found: () -> T?) async throws -> T? {
         let deadline = Date().addingTimeInterval(seconds)
         while Date() < deadline {
             try Task.checkCancellation()
             if let value = found() { return value }
             try await Task.sleep(nanoseconds: 250_000_000)
         }
-        throw SpotifyImportError.unavailable
+        return nil
     }
 
     /// Headers worth replaying: not the ones the connection itself sets.
@@ -189,8 +194,10 @@ extension SpotifySession: SpotifyTransport {
                 result = try await webView.callAsyncJavaScript(SpotifyHook.sendScript, arguments: ["request": payload],
                                                                in: nil, contentWorld: .page)
                 break
-            } catch let error as WKError where error.code == .javaScriptExceptionOccurred && attempt < 2 {
-                // "Load failed": the page navigated while the request was in flight. Wait for it, then send again.
+            } catch let error as WKError where error.code != .webViewInvalidated && attempt < 2 {
+                // The page navigated while the request was in flight: either the fetch fails with "Load failed"
+                // (a JavaScript exception) or its document is torn down and WebKit reports the call as unreachable,
+                // a code the SDK does not name. Either way, wait for the page to settle, then send again.
                 try await settle()
             }
         }
