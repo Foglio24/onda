@@ -4,12 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Seaglass — Make every playlist flow</title>
-  <meta name="description" content="Seaglass is a hands-on music player for iPhone, iPad, Mac and Android: beat-aware AutoMix transitions, tempo control, synced lyrics, AI karaoke and a library you can shape.">
+  <meta name="description" content="Seaglass is a hands-on music player for iPhone, iPad, Mac, Android and Windows: beat-aware AutoMix transitions, tempo control, synced lyrics, AI karaoke and a library you can shape.">
   <meta name="theme-color" content="#14001c">
   <meta name="color-scheme" content="dark">
   <meta property="og:type" content="website">
   <meta property="og:title" content="Seaglass — Make every playlist flow">
-  <meta property="og:description" content="A hands-on music player for iPhone, iPad, Mac and Android: beat-aware transitions, tempo control, synced lyrics and a library you can shape.">
+  <meta property="og:description" content="A hands-on music player for iPhone, iPad, Mac, Android and Windows: beat-aware transitions, tempo control, synced lyrics and a library you can shape.">
   <meta property="og:image" content="assets/social.jpg">
   <meta name="twitter:card" content="summary_large_image">
   <link rel="icon" type="image/png" href="assets/favicon.png">
@@ -65,7 +65,7 @@
       <div class="aurora" aria-hidden="true"><i></i><i></i><i></i></div>
       <div class="wrap hero-in">
         <div class="hero-copy">
-          <p class="eyebrow">iPhone · iPad · Mac · Android</p>
+          <p class="eyebrow">iPhone · iPad · Mac · Android · Windows</p>
           <h1 id="hero-title">Make every playlist <em>flow</em>.</h1>
           <p class="lead">Seaglass is a hands-on music player: beat-aware transitions, tempo control, synced lyrics and a library you can shape.</p>
           <div class="cta">
@@ -76,6 +76,7 @@
             <li><a href="https://github.com/Foglio24/onda/releases/latest/download/Seaglass.ipa">iPhone &amp; iPad</a></li>
             <li><a href="https://github.com/Foglio24/onda/releases/latest/download/Seaglass-mac.zip">Mac</a></li>
             <li><a href="https://github.com/Foglio24/onda/releases?q=android-v&amp;expanded=true">Android</a></li>
+            <li><a href="https://github.com/Foglio24/onda/releases?q=windows-v&amp;expanded=true" data-windows-download>Windows</a></li>
           </ul>
           <p class="fine">An unofficial, independent project: not affiliated with Google, YouTube, Spotify or Apple.</p>
         </div>
@@ -92,7 +93,7 @@
 
       <div class="wrap">
         <ul class="stats">
-          <li class="reveal"><b>4</b><span>apps: iPhone, iPad, Mac, Android</span></li>
+          <li class="reveal"><b>5</b><span>apps: iPhone, iPad, Mac, Android, Windows</span></li>
           <li class="reveal"><b>11</b><span>languages, Arabic right to left</span></li>
           <li class="reveal"><b>±15%</b><span>tempo, with key lock</span></li>
         </ul>
@@ -255,7 +256,7 @@
           <li class="card reveal"><svg class="ic" aria-hidden="true"><use href="#i-mic"/></svg><h3>Podcasts</h3><p>Follow shows, pick up each episode where you left it, change the speed, skip 15 or 30 seconds and jump between chapters.</p></li>
           <li class="card reveal"><svg class="ic" aria-hidden="true"><use href="#i-history"/></svg><h3>Last.fm</h3><p>Connect Last.fm to scrobble what you play and get more from your listening.</p></li>
           <li class="card reveal"><svg class="ic" aria-hidden="true"><use href="#i-wave"/></svg><h3>Song recognition</h3><p>Tap to identify what's playing nearby, then save it to your favourites, downloads or a playlist.</p><span class="chip">iPhone, iPad &amp; Mac</span></li>
-          <li class="card reveal"><svg class="ic" aria-hidden="true"><use href="#i-sync"/></svg><h3>One account, every device</h3><p>An optional Seaglass account keeps favourites, playlists, history and listening preferences the same on iPhone, iPad and Mac.</p><span class="chip">iPhone, iPad &amp; Mac</span></li>
+          <li class="card reveal"><svg class="ic" aria-hidden="true"><use href="#i-sync"/></svg><h3>One account, every device</h3><p>An optional Seaglass account keeps favourites, playlists, history and listening preferences the same on iPhone, iPad, Mac and Windows.</p><span class="chip">iPhone, iPad, Mac &amp; Windows</span></li>
         </ul>
       </div>
     </section>
@@ -265,13 +266,14 @@
       <div class="wrap">
         <div class="head reveal">
           <h2 id="devices-title">One player, everywhere</h2>
-          <p class="lead">The same catalogue and the same ideas on the phone in your pocket, the tablet, the Mac and Android.</p>
+          <p class="lead">The same catalogue and the same ideas on the phone in your pocket, the tablet, the Mac, Android and Windows.</p>
         </div>
         <div class="tabs reveal" id="tabs">
           <div class="seg big" role="tablist" aria-label="Choose a device">
             <button type="button" role="tab" id="tab-ios" aria-controls="panel-ios" aria-selected="true">iPhone &amp; iPad</button>
             <button type="button" role="tab" id="tab-mac" aria-controls="panel-mac" aria-selected="false" tabindex="-1">Mac</button>
             <button type="button" role="tab" id="tab-android" aria-controls="panel-android" aria-selected="false" tabindex="-1">Android</button>
+            <button type="button" role="tab" id="tab-windows" aria-controls="panel-windows" aria-selected="false" tabindex="-1">Windows</button>
           </div>
 
           <div class="panel" role="tabpanel" id="panel-ios" aria-labelledby="tab-ios">
@@ -305,6 +307,14 @@
               <img src="assets/shots/android-lyrics.webp" alt="Lyrics with translation on Android" width="380" height="844" loading="lazy" decoding="async">
               <img src="assets/shots/android-automix.webp" alt="AutoMix in the playback settings on Android" width="380" height="844" loading="lazy" decoding="async">
               <img src="assets/shots/android-equalizer.webp" alt="Equaliser on Android" width="380" height="844" loading="lazy" decoding="async">
+            </div>
+          </div>
+
+          <div class="panel" role="tabpanel" id="panel-windows" aria-labelledby="tab-windows" hidden>
+            <p class="panel-text">Windows 10 (1809) or 11, 64-bit, laid out like Spotify on the computer: your library, the page and what's playing side by side, each one resized by dragging its edge. AutoMix (beta) on the beat, Tempo with key lock, lyrics with translation, the equaliser, downloads, your own music files, Spotify and Apple Music playlists, and the music keeps playing in the notification area. A real installer, and updates install themselves.</p>
+            <div class="duo">
+              <img src="assets/shots/windows-home.webp" alt="A playlist and what's playing on Windows" width="1024" height="656" loading="lazy" decoding="async">
+              <img src="assets/shots/windows-player.webp" alt="The full-screen player with synced lyrics on Windows" width="1024" height="656" loading="lazy" decoding="async">
             </div>
           </div>
           <p class="fine center">Screenshots from the simulators. Artwork, names and music belong to their rights holders.</p>
@@ -342,7 +352,7 @@
       <div class="wrap">
         <div class="head reveal">
           <h2 id="install-title">Install Seaglass</h2>
-          <p class="lead">Seaglass isn't on the App Store or Google Play: it comes straight from GitHub.</p>
+          <p class="lead">Seaglass isn't on the App Store, Google Play or the Microsoft Store: it comes straight from GitHub.</p>
         </div>
         <div class="grid four">
           <article class="card install reveal">
@@ -370,6 +380,12 @@
             <p>Android 10 or later.</p>
             <ol><li>Download the latest Seaglass APK from the releases.</li><li>Open it and allow installs from your browser when Android asks.</li><li>Updates install over the app and keep your library.</li></ol>
             <a class="btn" href="https://github.com/Foglio24/onda/releases?q=android-v&amp;expanded=true"><svg class="ic" aria-hidden="true"><use href="#i-download"/></svg><span>Android releases</span></a>
+          </article>
+          <article class="card install reveal">
+            <h3>Windows</h3>
+            <p>Windows 10 (1809) or 11, 64-bit.</p>
+            <ol><li>Download Seaglass-Setup.exe and open it.</li><li>If Windows says it doesn't recognise the app, choose More info, then Run anyway.</li><li>Choose whether to put an icon on the desktop. Updates install themselves.</li></ol>
+            <a class="btn" href="https://github.com/Foglio24/onda/releases?q=windows-v&amp;expanded=true" data-windows-download><svg class="ic" aria-hidden="true"><use href="#i-download"/></svg><span>Download for Windows</span></a>
           </article>
         </div>
       </div>
@@ -400,6 +416,7 @@
           <li><a href="https://github.com/Foglio24/onda/releases">Releases</a></li>
           <li><a href="https://github.com/Foglio24/onda/blob/main/CHANGELOG.md">Changelog</a></li>
           <li><a href="https://github.com/Foglio24/onda/blob/main/android/CHANGELOG.md">Android changelog</a></li>
+          <li><a href="https://github.com/Foglio24/onda/blob/windows/windows/CHANGELOG.md">Windows changelog</a></li>
           <li><a href="https://github.com/Foglio24/onda/issues">Report a problem</a></li>
           <li><a href="https://github.com/Foglio24/onda/blob/main/LICENSE">Licence</a></li>
         </ul>

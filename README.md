@@ -5,23 +5,24 @@
 <h1 align="center">Seaglass — Make every playlist flow</h1>
 
 <p align="center"><strong>More than press play.</strong><br>
-A hands-on music player for iPhone, iPad, <strong>Mac</strong> and Android, built for beat-aware transitions, tempo control, lyrics and a library you can shape.</p>
+A hands-on music player for iPhone, iPad, <strong>Mac</strong>, Android and <strong>Windows</strong>, built for beat-aware transitions, tempo control, lyrics and a library you can shape.</p>
 
 <p align="center">
   <a href="https://github.com/Foglio24/onda/releases/latest/download/Seaglass.ipa"><img src="https://img.shields.io/badge/DOWNLOAD-Seaglass.ipa-EC3F8E?style=for-the-badge&amp;logo=apple&amp;logoColor=white" alt="Download Seaglass.ipa"></a>
   <a href="https://github.com/Foglio24/onda/releases/latest/download/Seaglass-mac.zip"><img src="https://img.shields.io/badge/DOWNLOAD-Mac_(Apple_silicon)-1F1F1F?style=for-the-badge&amp;logo=apple&amp;logoColor=white" alt="Download Seaglass for Mac"></a>
   <a href="https://github.com/Foglio24/onda/releases?q=android-v&amp;expanded=true"><img src="https://img.shields.io/badge/DOWNLOAD-Android_APK-34A853?style=for-the-badge&amp;logo=android&amp;logoColor=white" alt="Download Seaglass for Android"></a>
+  <a href="https://github.com/Foglio24/onda/releases?q=windows-v&amp;expanded=true"><img src="https://img.shields.io/badge/DOWNLOAD-Windows_10_%26_11-0078D4?style=for-the-badge&amp;logo=windows&amp;logoColor=white" alt="Download Seaglass for Windows"></a>
   <a href="https://altdirect.app/?url=https%3A%2F%2Fraw.githubusercontent.com%2FFoglio24%2Fonda%2Fmain%2Faltstore-source.json&amp;r=altstore"><img src="https://img.shields.io/badge/ADD_TO-ALTSTORE_CLASSIC-7E4BD6?style=for-the-badge&amp;logo=apple&amp;logoColor=white" alt="Add Seaglass to AltStore Classic"></a>
   <a href="https://github.com/Foglio24/onda/releases/latest"><img src="https://img.shields.io/github/v/release/Foglio24/onda?style=for-the-badge&amp;label=RELEASE" alt="Latest release"></a>
-  <a href="https://github.com/Foglio24/onda/releases"><img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FFoglio24%2Fonda%2Fdownload-stats%2Fdownload-count.json&amp;label=total%20downloads&amp;style=for-the-badge" alt="Total downloads (iPhone, iPad, Mac and Android)"></a>
+  <a href="https://github.com/Foglio24/onda/releases"><img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FFoglio24%2Fonda%2Fdownload-stats%2Fdownload-count.json&amp;label=total%20downloads&amp;style=for-the-badge" alt="Total downloads (iPhone, iPad, Mac, Android and Windows)"></a>
   <a href="https://github.com/sponsors/Foglio24"><img src="https://img.shields.io/badge/SPONSOR-Seaglass-DB61A2?style=for-the-badge&amp;logo=githubsponsors&amp;logoColor=white" alt="Sponsor Seaglass on GitHub"></a>
   <a href="https://buymeacoffee.com/foglio"><img src="https://img.shields.io/badge/BUY_ME_A_COFFEE-Support_Seaglass-FFDD00?style=for-the-badge&amp;logo=buymeacoffee&amp;logoColor=black" alt="Support Seaglass on Buy Me a Coffee"></a>
 </p>
 
 <p align="center">
   <a href="https://seaglass.mystudioappweb.com">Website</a> · <a href="#discover-seaglass">Features</a> · <a href="#screenshots">Screenshots</a> ·
-  <a href="#installation">Installation</a> · <a href="#mac">Mac</a> · <a href="#android">Android</a> · <a href="#frequently-asked-questions">FAQ</a> ·
-  <a href="CHANGELOG.md">Changelog</a> · <a href="android/CHANGELOG.md">Android changelog</a>
+  <a href="#installation">Installation</a> · <a href="#mac">Mac</a> · <a href="#android">Android</a> · <a href="#windows">Windows</a> · <a href="#frequently-asked-questions">FAQ</a> ·
+  <a href="CHANGELOG.md">Changelog</a> · <a href="android/CHANGELOG.md">Android changelog</a> · <a href="https://github.com/Foglio24/onda/blob/windows/windows/CHANGELOG.md">Windows changelog</a>
 </p>
 
 ## Why choose Seaglass?
@@ -37,7 +38,7 @@ Your choice is about the listening experience: more control over transitions, te
 
 ## Discover Seaglass
 
-**Seaglass**, formerly known as Onda, is a music app for iPhone, iPad, Mac and Android that uses the YouTube Music catalogue. It brings together background playback, a personal library and tools for transitioning between songs: an independent alternative for listeners who want a customisable experience.
+**Seaglass**, formerly known as Onda, is a music app for iPhone, iPad, Mac, Android and Windows that uses the YouTube Music catalogue. It brings together background playback, a personal library and tools for transitioning between songs: an independent alternative for listeners who want a customisable experience.
 
 ### Your music, in motion
 
@@ -59,7 +60,7 @@ AutoMix and the playlist Mix are **beta features**: they work, but they are stil
 - Public Spotify links may expose only the first 100 songs. For longer playlists, import a Spotify JSON or CSV file from **Library → Import playlist from file**.
 - Discover radio stations and personalised mixes; connect Last.fm for scrobbling and more features based on your listening.
 - **Podcasts** from YouTube Music: follow shows, pick up each episode where you left it, change the speed, skip 15/30 seconds and jump between chapters.
-- **A Seaglass account** (optional, iPhone, iPad and Mac) keeps favourites, playlists, history and listening preferences the same on every device. As on Spotify, the account itself (name, password, subscription, deleting it) is managed on its web page; the app shows it and signs in or out.
+- **A Seaglass account** (optional, iPhone, iPad, Mac and Windows) keeps favourites, playlists, history and listening preferences the same on every device. As on Spotify, the account itself (name, password, subscription, deleting it) is managed on its web page; the app shows it and signs in or out.
 - **Seaglass Premium**, a subscription on Patreon linked to the account, unlocks AutoMix and playlist Mixes (both beta features), importing playlists from links, song recognition, lyrics translation, AI karaoke and Tempo on iPhone, iPad and Mac.
 
 ### Follow along and sing
@@ -175,6 +176,30 @@ Podcasts, Last.fm and Spotify/Apple Music import are coming next.
 
 Updates install over the app, keeping its library; **Settings → Updates** finds them. Seaglass for Android is not on Google Play. See the [Android changelog](android/CHANGELOG.md).
 
+## Windows
+
+**Seaglass for Windows** (Windows 10 version 1809 or later, and Windows 11, 64-bit) is laid out as Spotify on the computer: your library on the left, the page in the middle and what's playing on the right, each panel resized by dragging its edge, with the player bar along the bottom and a full-screen player with synced lyrics on the cover's colours.
+
+- **AutoMix (beta)** on the beat, crossfade or gapless playback, with a banner that shows the mix coming.
+- **Tempo** with key lock, as on the iPhone, and the **equaliser** with Spotify's presets.
+- Synced **lyrics with translation**, **downloads**, your own music files, history, radios and a sleep timer.
+- **Playlists from Spotify and Apple Music**: from a link, from your Spotify account, or from a file for the longest ones.
+- The **Seaglass account** keeps favourites, playlists and history the same as on your iPhone, iPad and Mac; **Last.fm** scrobbling.
+- The music goes on in the notification area with the window closed; the keyboard's media keys control it.
+
+1. Open the [Windows releases](https://github.com/Foglio24/onda/releases?q=windows-v&expanded=true) and download `Seaglass-Setup.exe` from the newest one.
+2. Open it. The installer isn't signed, so Windows may say it doesn't recognise the app: choose **More info**, then **Run anyway**.
+3. Choose whether to put an icon on the desktop (and whether to start Seaglass with Windows). It installs for your user only, without administrator rights.
+
+<table>
+  <tr>
+    <td align="center"><img src="docs/screenshots/windows/home.jpg" width="420" alt="A playlist and what's playing on Windows"><br><sub>Library, playlist and what's playing</sub></td>
+    <td align="center"><img src="docs/screenshots/windows/player.jpg" width="420" alt="The full-screen player with synced lyrics on Windows"><br><sub>Full-screen player with lyrics</sub></td>
+  </tr>
+</table>
+
+**Updates install themselves**: Seaglass checks for a new Windows version, verifies it (its size and SHA-256 as GitHub gives them) and installs it when you quit or restart, keeping your library. Uninstall it from Windows's Settings like any app; your library stays. See the [Windows changelog](https://github.com/Foglio24/onda/blob/windows/windows/CHANGELOG.md); the app's code is on the [`windows` branch](https://github.com/Foglio24/onda/tree/windows/windows).
+
 ## Frequently asked questions
 
 **Why is the audio format not always Opus?**  
@@ -190,7 +215,7 @@ No. It tries to favour transitions in time when they suit the songs, but can cho
 Some recordings may not be found or matched with sufficient confidence. Open the import report to see missing songs and choose available alternatives. For long Spotify playlists, use the file import described above.
 
 **What does the download counter measure?**  
-It adds every download of the app from published GitHub releases, on every platform: the iPhone and iPad IPA (`Onda.ipa`, `Seaglass.ipa`), the Mac app (`Seaglass-mac.zip`) and the Android APKs. It refreshes periodically and does not represent the number of users or installations.
+It adds every download of the app from published GitHub releases, on every platform: the iPhone and iPad IPA (`Onda.ipa`, `Seaglass.ipa`), the Mac app (`Seaglass-mac.zip`), the Android APKs and the Windows installer (`Seaglass-Setup.exe`). It refreshes periodically and does not represent the number of users or installations.
 
 **How can I report a problem?**  
 Open a [GitHub issue](https://github.com/Foglio24/onda/issues), including your app version, iPhone, iPad or Mac model and steps to reproduce the problem. When helpful, you can share a report from **Settings → Diagnostics**.

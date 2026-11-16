@@ -99,6 +99,8 @@ jobs:
         env:
           SITE_ORIGIN: ${{ steps.cloudflare.outputs.origin }}
           ACCOUNT_URL: ${{ steps.cloudflare.outputs.account_url }}
+          # The build looks up the newest Windows release, for the page's direct download.
+          GITHUB_TOKEN: ${{ github.token }}
         run: node scripts/build.mjs
 
       - name: Deploy the Worker
