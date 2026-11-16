@@ -37,7 +37,7 @@ Standing rules from the owner (on top of `AGENTS.md`):
 | --- | --- | --- | --- |
 | iPhone, iPad, Mac | 1.36.12 (build 91) | `v1.36.12`, the repository's "Latest"; AltStore source at 1.36.12 / 91 | `main` |
 | Android | 0.4.3 (versionCode 8) | `android-v0.4.3` | `main`, `android/` |
-| Windows | 1.3.1 | `windows-v1.3.1` (not Latest) | branch **`windows`**, `windows/` |
+| Windows | 1.3.2 | `windows-v1.3.2` (not Latest; `windows-v1.3.1` is marked pre-release: its installer broke updates) | branch **`windows`**, `windows/` |
 | Account service | deployed | none | `main`, `server/account/` (deploys by itself) |
 | Website | deployed | none | `main`, `site/` (deploys by itself) |
 
@@ -133,6 +133,9 @@ Rules the code depends on (break one and something fails in ways tests may not c
   opening ... Seaglass.cfg"). `Seaglass.iss`'s `InitializeSetup` therefore restarts an update
   (`/SEAGLASSUPDATE=1`) through WMI `Win32_Process.Create`, outside the job, with
   `/SEAGLASSDETACHED`. Keep it: it is what makes every update, from any older version, finish.
+  That copy then waits (up to two minutes) until Seaglass.exe can be opened exclusively, i.e. the
+  app has quit: Restart Manager can't close Seaglass (it asks for a reboot), and without the wait the
+  install stopped on the files the quitting app still held, after deleting the rest.
   The checksum is computed while downloading (`copyHashing`), so "Riavvia e aggiorna" follows the bar.
 - **Installer** (`windows/installer/Seaglass.iss`, Inno Setup 6): per user, no admin rights,
   `{localappdata}\Programs\Seaglass`; tasks "desktop icon" (checked) and "start with Windows"
