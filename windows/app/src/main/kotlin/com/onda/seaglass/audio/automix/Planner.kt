@@ -97,14 +97,18 @@ data class TransitionPlan(
 /**
  * Chooses the transition between two songs from the end of one and the start of the other, as the
  * iPhone app's planner does in its main lines: beats matched when both have a steady beat at tempos
- * up to 12 % apart (counting half and double time), over 16 bars when the tempos are close, 8 or 4
+ * up to about 25 % apart (counting half and double time: each song changes by at most 12 %, both
+ * meeting halfway, as on the iPhone), over 16 bars when the tempos are close, 8 or 4
  * otherwise, the bass passing from one to the other on a downbeat half way; otherwise a crossfade on
  * the song's ending (longer into its own fade-out, on a downbeat when it has a beat), with no silence
  * left between them.
  */
 object Planner {
-    /** Tempos further apart than this are crossfaded, not matched (the iPhone's limit for AutoMix). */
-    private const val MAX_TEMPO_CHANGE = 0.12
+    /**
+     * How much each song may change its speed (the iPhone's `maximumRateChange`): the two meet
+     * halfway, so tempos up to (1.12)², about 25 %, apart are matched; further apart, crossfaded.
+     */
+    const val MAX_TEMPO_CHANGE = 0.12
     /** Tempos this close get the longest mixes. */
     private const val CLOSE_TEMPO = 0.06
     /** The longest beat-matched overlap, in seconds (as on the iPhone). */
@@ -123,7 +127,7 @@ object Planner {
         return listOf(1.0, 2.0, 0.5)
             .map { multiple -> outgoing.tempo / (incoming.tempo * multiple) }
             .minByOrNull { abs(ln(it)) }
-            ?.takeIf { abs(ln(it)) <= ln(1 + MAX_TEMPO_CHANGE) }
+            ?.takeIf { abs(ln(it)) <= 2 * ln(1 + MAX_TEMPO_CHANGE) + 1e-9 }
     }
 
     private fun beatMatched(
@@ -150,7 +154,8 @@ object Planner {
             if (outStart < outgoing.start + 2 || overlap < bar * bars * 0.9 || overlap > bar * bars * 1.1 || overlap > LONGEST_OVERLAP) continue
             // The song keeps at least its first half.
             if (outStart < duration * 0.5) continue
-            val incomingNeeded = overlap / incomingRate
+            // The next song moves on by incomingRate of its seconds for each of this one's.
+            val incomingNeeded = overlap * incomingRate
             if (entry + incomingNeeded > incoming.end) continue
             // The bass passes over in one beat, on the downbeat half way through.
             val swapStart = ((downbeats[startIndex + bars / 2] - outStart) / overlap).coerceIn(0.2, 0.8)

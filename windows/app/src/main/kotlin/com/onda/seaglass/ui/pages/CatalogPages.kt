@@ -1,6 +1,17 @@
 package com.onda.seaglass.ui.pages
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.isSecondaryPressed
+import androidx.compose.ui.input.pointer.onPointerEvent
+import com.onda.seaglass.data.RecentSearches
+import com.onda.seaglass.ui.Hoverable
+import com.onda.seaglass.ui.TrackMenu
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -175,9 +186,15 @@ fun SearchPage(route: Route.Search) {
     val palette = LocalPalette.current
     val query = route.query.trim()
     if (query.isEmpty()) {
+        val recent by RecentSearches.entries.collectAsState()
         Page {
             Text(tr("Cerca"), fontSize = 34.sp, fontWeight = FontWeight.Bold, color = palette.text)
-            EmptyState(Icons.Rounded.Search, tr("Cerca brani, artisti, album e playlist"), tr("Scrivi nel campo in alto a sinistra."))
+            if (recent.isEmpty()) {
+                EmptyState(Icons.Rounded.Search, tr("Cerca brani, artisti, album e playlist"), tr("Scrivi nel campo in alto a sinistra."))
+            } else {
+                SectionHeader(tr("Ricerche recenti"), tr("Cancella ricerche recenti")) { RecentSearches.clear() }
+                recent.forEach { entry -> RecentSearchRow(entry) }
+            }
         }
         return
     }
@@ -199,26 +216,103 @@ fun SearchPage(route: Route.Search) {
             catalog.top?.let { top ->
                 SectionHeader(tr("Risultato principale"))
                 ItemCard(top, size = 200.dp) {
+                    RecentSearches.remember(top)
                     if (top.kind == MusicItem.Kind.SONG && top.track != null) Player.play(listOf(top.track!!)) else Nav.open(top)
                 }
             }
             if (songs.isNotEmpty()) {
                 SectionHeader(tr("Brani"))
-                TrackList(songs.take(8), query)
+                TrackList(songs.take(8), query, onPlay = { RecentSearches.remember(it) })
             }
             if (catalog.artists.isNotEmpty()) {
                 SectionHeader(tr("Artisti"))
-                Shelf { catalog.artists.forEach { ItemCard(it, 150.dp) { Nav.open(it) } } }
+                Shelf { catalog.artists.forEach { ItemCard(it, 150.dp) { RecentSearches.remember(it); Nav.open(it) } } }
             }
             if (catalog.albums.isNotEmpty()) {
                 SectionHeader(tr("Album"))
-                Shelf { catalog.albums.forEach { ItemCard(it) { Nav.open(it) } } }
+                Shelf { catalog.albums.forEach { ItemCard(it) { RecentSearches.remember(it); Nav.open(it) } } }
             }
             val allPlaylists = (catalog.playlists + playlists).distinctBy { it.id }
             if (allPlaylists.isNotEmpty()) {
                 SectionHeader(tr("Playlist"))
-                Shelf { allPlaylists.forEach { ItemCard(it) { Nav.open(it) } } }
+                Shelf { allPlaylists.forEach { ItemCard(it) { RecentSearches.remember(it); Nav.open(it) } } }
             }
+        }
+    }
+}
+
+/**
+ * One recent search: a song plays (from the recent songs) with a click and has its menu on
+ * right-click, as in any list; an artist, album or playlist opens; a search is run again. The ×
+ * removes it.
+ */
+@OptIn(ExperimentalComposeUiApi::class)
+@Composable
+private fun RecentSearchRow(entry: RecentSearches.Entry) {
+    val palette = LocalPalette.current
+    var menu by remember { mutableStateOf(false) }
+    fun open() {
+        val track = entry.track
+        val item = entry.item
+        when {
+            track != null -> {
+                RecentSearches.remember(track)
+                Player.play(listOf(track))
+            }
+            item != null -> {
+                RecentSearches.remember(item)
+                Nav.open(item)
+            }
+            else -> {
+                RecentSearches.remember(entry.title)
+                Nav.replace(Route.Search(entry.title))
+            }
+        }
+    }
+    Hoverable { hovered ->
+        Row(
+            Modifier.fillMaxWidth().height(60.dp).clip(RoundedCornerShape(8.dp))
+                .background(if (hovered) palette.cardHover else Color.Transparent)
+                .clickable { open() }
+                .onPointerEvent(PointerEventType.Press) { if (it.buttons.isSecondaryPressed) menu = true }
+                .padding(horizontal = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box {
+                when (entry.kind) {
+                    RecentSearches.Kind.QUERY -> Box(Modifier.size(44.dp).clip(RoundedCornerShape(6.dp)).background(palette.elevated), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Rounded.Search, null, tint = palette.secondary)
+                    }
+                    RecentSearches.Kind.ARTIST -> RemoteImage(entry.artworkUrl, Modifier.size(44.dp), CircleShape)
+                    else -> RemoteImage(entry.artworkUrl, Modifier.size(44.dp), RoundedCornerShape(5.dp))
+                }
+                val track = entry.track
+                if (track != null) {
+                    TrackMenu(track, menu, { menu = false }) { close ->
+                        DropdownMenuItem(text = { Text(tr("Rimuovi dalla cronologia")) }, leadingIcon = { Icon(Icons.Rounded.Close, null) }, onClick = { close(); RecentSearches.remove(entry) })
+                    }
+                } else {
+                    DropdownMenu(menu, { menu = false }) {
+                        DropdownMenuItem(text = { Text(tr("Rimuovi dalla cronologia")) }, leadingIcon = { Icon(Icons.Rounded.Close, null) }, onClick = { menu = false; RecentSearches.remove(entry) })
+                    }
+                }
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(entry.title, color = palette.text, fontWeight = FontWeight.Medium, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                val subtitle = when (entry.kind) {
+                    RecentSearches.Kind.QUERY -> ""
+                    RecentSearches.Kind.SONG -> tr("Brano · %@", entry.subtitle)
+                    RecentSearches.Kind.ARTIST -> tr("Artista")
+                    else -> entry.subtitle
+                }
+                if (subtitle.isNotBlank()) Text(subtitle, color = palette.secondary, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            Icon(
+                Icons.Rounded.Close, tr("Rimuovi dalla cronologia"),
+                Modifier.size(30.dp).clip(CircleShape).clickable { RecentSearches.remove(entry) }.padding(6.dp),
+                tint = if (hovered) palette.text else palette.secondary,
+            )
         }
     }
 }

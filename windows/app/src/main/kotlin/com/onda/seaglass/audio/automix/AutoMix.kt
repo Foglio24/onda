@@ -8,6 +8,7 @@ import java.io.File
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
+import kotlin.math.sqrt
 
 /** What AutoMix knows of a song: its length and both ends. */
 data class SongAnalysis(val id: String, val duration: Double, val head: WindowAnalysis, val tail: WindowAnalysis) {
@@ -88,29 +89,51 @@ object AutoMix {
 
 /**
  * A [TransitionPlan] as the audio thread plays it: everything worked out beforehand, the levels
- * written into an array it owns, nothing allocated. In a beat-matched mix the tempo moves
- * gradually from the outgoing song's to the incoming one's across the mix, both songs following
- * it (their beats stay together): the outgoing one starts at its own speed, the incoming one ends
- * at its own, so nothing changes once the mix is over (as on the iPhone since 1.36.9).
+ * written into an array it owns, nothing allocated. A beat-matched mix goes as on the iPhone: the
+ * two songs meet halfway between their tempos (each changing by at most 12 %). Over the 16 beats
+ * before the mix the outgoing song glides to that tempo ([rateBefore]); during the mix both play at
+ * it, so their beats stay together ([outgoingRate], [incomingRate]); over the 16 beats after it the
+ * incoming song glides back to its own tempo ([rateAfter]), then plays untouched.
  */
 class Transition(val plan: TransitionPlan, outgoingTempo: Double) {
     val outStart = plan.outStart
     val outEnd = plan.outEnd
     private val matched = plan.style == TransitionPlan.Style.BEAT_MATCHED && outgoingTempo > 0 && plan.incomingRate > 0
-    private val tempoOut = outgoingTempo
-    /** The incoming song's tempo as heard against the outgoing one's (half or double already folded in). */
-    private val tempoIn = if (matched) outgoingTempo / plan.incomingRate else 0.0
+    /** The rates of the two songs while together: the incoming one's over the outgoing one's is the plan's ratio. */
+    val mixOutgoingRate = if (matched) 1 / sqrt(plan.incomingRate) else 1.0
+    val mixIncomingRate = if (matched) sqrt(plan.incomingRate) else 1.0
+    /** Where (in the outgoing song) its glide to the meeting tempo starts: 16 of its beats before the mix. */
+    val glideStart = if (matched) maxOf(0.0, outStart - 16 * plan.beatLength) else outStart
+    /** How long (in the incoming song) its glide back to its own tempo lasts: 16 of its own beats. */
+    val settleLength = if (matched && mixIncomingRate != 1.0) 16 * plan.beatLength * plan.incomingRate else 0.0
 
     fun progress(outgoingTime: Double): Double = plan.progress(outgoingTime)
 
-    private fun tempo(p: Double): Double {
-        val x = p.coerceIn(0.0, 1.0)
-        return tempoOut + (tempoIn - tempoOut) * (x * x * (3 - 2 * x))
+    /**
+     * The outgoing song's rate at [position] before the mix: 1, then gliding to the meeting tempo.
+     * A plan that arrived after [glideStart] glides from where the song was then ([from]), shorter.
+     */
+    fun rateBefore(position: Double, from: Double = glideStart): Double {
+        val start = maxOf(glideStart, from)
+        if (!matched || position <= start) return 1.0
+        if (position >= outStart || start >= outStart) return mixOutgoingRate
+        val x = (position - start) / (outStart - start)
+        return 1.0 + (mixOutgoingRate - 1.0) * (x * x * (3 - 2 * x))
     }
 
-    fun outgoingRate(p: Double): Double = if (matched) tempo(p) / tempoOut else 1.0
-    /** Exactly 1 at the mix's end, so the song then plays untouched (see [com.onda.seaglass.audio.Deck.readAt]). */
-    fun incomingRate(p: Double): Double = if (matched && p < 1.0) tempo(p) / tempoIn else 1.0
+    fun outgoingRate(p: Double): Double = mixOutgoingRate
+    fun incomingRate(p: Double): Double = mixIncomingRate
+
+    /**
+     * The incoming song's rate [played] seconds of it after the mix: from the mix's rate back to 1,
+     * exactly 1 once the glide is over (so the song then plays untouched, see
+     * [com.onda.seaglass.audio.Deck.readAt]).
+     */
+    fun rateAfter(played: Double): Double {
+        if (settleLength <= 0 || played >= settleLength || played < 0) return 1.0
+        val x = played / settleLength
+        return mixIncomingRate + (1.0 - mixIncomingRate) * (x * x * (3 - 2 * x))
+    }
 
     /**
      * The levels at progress [p], into [into]: outgoing volume, incoming volume, outgoing bass

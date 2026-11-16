@@ -138,3 +138,11 @@
 "Microsoft Edge non è installato: serve per accedere a Spotify." = "Microsoft Edge не установлен: он нужен для входа в Spotify.";
 "Accesso a Spotify annullato." = "Вход в Spotify отменён.";
 "Spotify non ha risposto correttamente. Riprova più tardi." = "Spotify ответил некорректно. Повторите попытку позже.";
+
+/* Windows 1.4.0: the mix banner, "Salva in" after "+". */
+"Mix tra %lld s" = "Микс через %lld с";
+"Mix in corso" = "Идёт микс";
+"Dissolvenza in corso" = "Идёт плавный переход";
+"Aggiunto a Brani preferiti" = "Добавлено в «Любимые песни»";
+"Rimosso da Brani preferiti" = "Удалено из «Любимых песен»";
+"Salva in" = "Сохранить в";

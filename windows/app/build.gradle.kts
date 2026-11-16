@@ -44,6 +44,8 @@ dependencies {
     runtimeOnly(variantOf(libs.javacpp) { classifier(native) })
     runtimeOnly(variantOf(libs.ffmpeg) { classifier(native) })
     testImplementation(kotlin("test-junit"))
+    // Compose UI tests: right-click menus and the like, in a window that is never shown.
+    testImplementation(compose.desktop.uiTestJUnit4)
 }
 
 // The app's version, for the updater and Settings.

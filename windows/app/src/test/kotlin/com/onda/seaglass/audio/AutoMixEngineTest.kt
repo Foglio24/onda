@@ -64,7 +64,7 @@ class AutoMixEngineTest {
         return file
     }
 
-    private fun play(plan: TransitionPlan, a: File, b: File, startAt: Double, outgoingTempo: Double): Pair<Capture, Deck> {
+    private fun play(plan: TransitionPlan, a: File, b: File, startAt: Double, outgoingTempo: Double, after: Double = 4.0): Pair<Capture, Deck> {
         val capture = Capture()
         val advanced = CountDownLatch(1)
         val next = AtomicReference<Deck>()
@@ -81,9 +81,9 @@ class AutoMixEngineTest {
             engine.play(first)
             engine.queue(second, Transition(plan, outgoingTempo))
             assertTrue(advanced.await(30, TimeUnit.SECONDS), "the next song took over")
-            // A few seconds of the next song alone after the mix.
-            val until = System.nanoTime() + 3_000_000_000
-            while (capture.frames < (plan.outEnd - startAt + 4) * Decoder.RATE && System.nanoTime() < until) Thread.sleep(5)
+            // A few seconds of the next song alone after the mix (its glide back to its tempo included).
+            val until = System.nanoTime() + 10_000_000_000
+            while (capture.frames < (plan.outEnd - startAt + after) * Decoder.RATE && System.nanoTime() < until) Thread.sleep(5)
             engine.pause()
         }
         return capture to next.get()
@@ -104,6 +104,8 @@ class AutoMixEngineTest {
 
     @Test
     fun aBeatMatchedMixGlidesWithoutJumpsAndEndsOnTheUntouchedSong() {
+        // From before the outgoing song's glide to the meeting tempo (16 beats before the mix) to
+        // after the incoming song's glide back to its own (16 of its beats after).
         // Two tones of the same loudness, uncorrelated, as two songs.
         val a = wav(70.0) { t -> 0.25 * sin(2 * PI * 220 * t) }
         val b = wav(70.0) { t -> 0.25 * sin(2 * PI * 331 * t + 1.0) }
@@ -111,9 +113,11 @@ class AutoMixEngineTest {
             style = TransitionPlan.Style.BEAT_MATCHED, outStart = 62.0, outEnd = 69.0, inStart = 2.0, incomingRate = 1.04,
             bars = 4, swapStart = 0.45, swapEnd = 0.6, filterOut = 0.75, beatLength = 0.5,
         )
-        val (capture, next) = play(plan, a, b, startAt = 60.0, outgoingTempo = 120.0)
+        val startAt = 52.0
+        val transition = Transition(plan, 120.0)
+        val (capture, next) = play(plan, a, b, startAt = startAt, outgoingTempo = 120.0, after = transition.settleLength + 4)
         val frames = capture.frames
-        assertTrue(frames > 10 * Decoder.RATE, "captured ${frames / Decoder.RATE} s")
+        assertTrue(frames > (plan.outEnd - startAt + transition.settleLength + 3) * Decoder.RATE, "captured ${frames / Decoder.RATE} s")
         // Each song alone moves by at most 2π·f·A per sample: 0.25·sin at 331 Hz → about 0.011 of full scale.
         val ownStep = (2 * PI * 331 * 1.05 / Decoder.RATE * 0.25 * 32767).toInt()
         val step = largestStep(capture.samples, 1, frames)
@@ -130,9 +134,9 @@ class AutoMixEngineTest {
             at += window
         }
         assertTrue(worst < 3.0, "loudness jumps by $worst dB between 50 ms windows")
-        // After the mix: the next song's own samples, one for one (back at its speed, through nothing).
-        val takeOverFrame = ((plan.outEnd - 60.0) * Decoder.RATE).toInt()
-        val check = takeOverFrame + Decoder.RATE / 2
+        // After the mix and the glide back: the next song's own samples, one for one (at its speed, through nothing).
+        val takeOverFrame = ((plan.outEnd - startAt) * 1.02 * Decoder.RATE).toInt()
+        val check = takeOverFrame + ((transition.settleLength + 1) * Decoder.RATE).toInt()
         val expected = Decoder(FileSource(b)).use { decoder ->
             // Where the next song was at that moment: find the alignment by matching a stretch.
             val all = FloatArray(Decoder.RATE * 70 * 2)
@@ -160,7 +164,7 @@ class AutoMixEngineTest {
         for (k in 0 until Decoder.RATE) {
             if (abs((expected[(match + k) * 2] * 32767).toInt() - capture.samples[(check + k) * 2]) > 1) mismatches++
         }
-        assertEquals(0, mismatches, "a second after the mix, every sample is the next song's own")
+        assertEquals(0, mismatches, "after the glide back, every sample is the next song's own")
     }
 
     @Test
@@ -249,5 +253,38 @@ class AutoMixEngineTest {
         val expected = Math.ceil((outStart - startAt) * Decoder.RATE).toInt()
         assertTrue(abs(first - expected) <= 2, "the next song comes in at frame $first, the plan's is $expected")
     }
-}
 
+    @Test
+    fun eachSongChangesByAtMostTwelvePercentMeetingHalfway() {
+        // 120 and 100 BPM: 20 % apart. Each song moves by about 9.5 %, never more than 12 %.
+        val plan = TransitionPlan(
+            style = TransitionPlan.Style.BEAT_MATCHED, outStart = 100.0, outEnd = 116.0, inStart = 1.0, incomingRate = 1.2,
+            bars = 8, swapStart = 0.5, swapEnd = 0.55, filterOut = 0.75, beatLength = 0.5,
+        )
+        val transition = Transition(plan, 120.0)
+        assertEquals(1.2, transition.mixIncomingRate / transition.mixOutgoingRate, 1e-9, "the beats meet")
+        val rates = listOf(transition.mixOutgoingRate, transition.mixIncomingRate) +
+            (0..100).map { transition.rateBefore(90.0 + it * 0.1) } + (0..100).map { transition.rateAfter(it * 0.1) }
+        for (rate in rates) assertTrue(abs(kotlin.math.ln(rate)) <= kotlin.math.ln(1.12) + 1e-9, "rate $rate changes the song by more than 12 %")
+        // Untouched before the glide, at the meeting tempo when the mix starts, back to exactly 1 after.
+        assertEquals(1.0, transition.rateBefore(transition.glideStart - 0.01))
+        assertEquals(transition.mixOutgoingRate, transition.rateBefore(plan.outStart), 1e-12)
+        assertEquals(transition.mixIncomingRate, transition.rateAfter(0.0), 1e-12)
+        assertEquals(1.0, transition.rateAfter(transition.settleLength))
+        assertEquals(92.0, transition.glideStart, 1e-9, "16 beats before the mix")
+        // A plan that arrives late glides from where the song is, never from the middle of its glide.
+        assertEquals(1.0, transition.rateBefore(97.0, from = 97.0))
+        assertEquals(transition.mixOutgoingRate, transition.rateBefore(plan.outStart, from = 97.0), 1e-12)
+        assertEquals(9.6, transition.settleLength, 1e-9, "16 of the next song's beats")
+    }
+
+    @Test
+    fun temposTwentyPercentApartAreMatchedNow() {
+        // 120 → 100 BPM was a plain crossfade (only 12 % in all was allowed); meeting halfway, as on the iPhone, it's a mix.
+        val first = AutoMix.analyze("local:ffff") { FileSource(beatSong(120.0)) } ?: error("no analysis")
+        val second = AutoMix.analyze("local:a1a1") { FileSource(beatSong(100.0)) } ?: error("no analysis")
+        val plan = AutoMix.plan(first, second)
+        assertEquals(TransitionPlan.Style.BEAT_MATCHED, plan.style, "plan: $plan")
+        assertTrue(abs(plan.incomingRate - 1.2) < 0.02, "ratio: ${plan.incomingRate}")
+    }
+}

@@ -138,3 +138,11 @@
 "Microsoft Edge non è installato: serve per accedere a Spotify." = "未安装 Microsoft Edge：登录 Spotify 需要它。";
 "Accesso a Spotify annullato." = "已取消登录 Spotify。";
 "Spotify non ha risposto correttamente. Riprova più tardi." = "Spotify 未正确响应。请稍后再试。";
+
+/* Windows 1.4.0: the mix banner, "Salva in" after "+". */
+"Mix tra %lld s" = "%lld 秒后混音";
+"Mix in corso" = "正在混音";
+"Dissolvenza in corso" = "正在淡入淡出";
+"Aggiunto a Brani preferiti" = "已添加到喜欢的歌曲";
+"Rimosso da Brani preferiti" = "已从喜欢的歌曲中移除";
+"Salva in" = "保存到";

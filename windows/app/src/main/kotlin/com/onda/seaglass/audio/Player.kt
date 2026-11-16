@@ -71,6 +71,14 @@ object Player {
     /** Seconds into the song, four times a second while it plays (for the scrubber and lyrics). */
     val position: StateFlow<Double> = _position
 
+    /**
+     * The mix the player bar shows: an AutoMix mix coming ([startsIn] seconds, in its last 15) or a
+     * mix or crossfade playing ([progress], 0 to 1); [beatMatched] when the beats are matched.
+     */
+    data class Mix(val startsIn: Int?, val progress: Float, val beatMatched: Boolean, val next: Track?, val description: String?)
+    private val _mix = MutableStateFlow<Mix?>(null)
+    val mix: StateFlow<Mix?> = _mix
+
     val engine = Engine { if (headless) NullSink(headlessSpeed) else JavaSoundSink(Prefs.outputDevice.value) }
 
     /** Tests and CI screenshots: no sound card. */
@@ -614,12 +622,25 @@ object Player {
                 val now = engine.position
                 listening(now)
                 _position.value = now
+                _mix.value = mixNow(now)
                 if (engine.outputFailure != null && _state.value.error == null) {
                     _state.value = _state.value.copy(error = tr("Nessuna uscita audio disponibile."))
                 }
                 delay(250)
             }
         }
+    }
+
+    private fun mixNow(position: Double): Mix? {
+        val next = _state.value.upcoming.firstOrNull()?.track
+        val playing = engine.mixProgress
+        val planned = engine.nextTransition
+        val beatMatched = planned?.plan?.style == com.onda.seaglass.audio.automix.TransitionPlan.Style.BEAT_MATCHED
+        if (playing >= 0) return Mix(null, playing.toFloat(), engine.mixing && beatMatched, next, planned?.plan?.description)
+        if (planned == null || engine.next == null || !_state.value.isPlaying) return null
+        val left = planned.outStart - position
+        if (left <= 0 || left > 15) return null
+        return Mix(kotlin.math.ceil(left).toInt(), 0f, beatMatched, next, planned.plan.description)
     }
 
     private fun stopTicker() {

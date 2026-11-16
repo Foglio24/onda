@@ -421,6 +421,7 @@ class Engine(private val sinkFactory: () -> AudioSink) : Closeable {
         nextTransition = null
         next = null
         mixing = false
+        mixProgress = -1.0
         current = deck
         fading = false
         flushRequested = true
@@ -450,6 +451,54 @@ class Engine(private val sinkFactory: () -> AudioSink) : Closeable {
     /** True while a planned (AutoMix) mix plays, for the player. */
     @Volatile var mixing = false
         private set
+    /** How far the mix or crossfade playing has gone, 0 to 1; -1 when none is (the player's mix bar). */
+    @Volatile var mixProgress = -1.0
+        private set
+
+    // AutoMix's tempo around a mix, on the audio thread only (see Transition): the deck these are
+    // for, the rate a dropped plan's glide had reached (kept, never a jump back), and the incoming
+    // song's glide back to its own tempo after a mix (the plan, the deck, where the glide began).
+    private var rateDeck: Deck? = null
+    private var heldRate = 1.0
+    private var plannedRate = Double.NaN
+    private var ratePlan: com.onda.seaglass.audio.automix.Transition? = null
+    private var glideFrom = 0.0
+    private var settlePlan: com.onda.seaglass.audio.automix.Transition? = null
+    private var settleDeck: Deck? = null
+    private var settleStart = 0.0
+
+    /** The rate [deck] plays at alone, at the song's own speed setting: AutoMix's glides around a mix, otherwise 1. */
+    private fun soloRate(deck: Deck, planned: com.onda.seaglass.audio.automix.Transition?): Double {
+        if (deck !== rateDeck) {
+            rateDeck = deck
+            heldRate = 1.0
+            plannedRate = Double.NaN
+            ratePlan = null
+        }
+        val settle = settlePlan
+        if (settle != null && settleDeck === deck) {
+            val rate = settle.rateAfter(deck.position - settleStart)
+            if (rate != 1.0) return rate
+            settlePlan = null
+            settleDeck = null
+        }
+        if (planned != null) {
+            // A plan first seen here glides from here (never a jump to the middle of its glide).
+            if (planned !== ratePlan) {
+                ratePlan = planned
+                glideFrom = deck.position
+            }
+            plannedRate = planned.rateBefore(deck.position, glideFrom)
+            return plannedRate
+        }
+        // The plan dropped (the next song late, the queue changed): the song keeps the speed it had reached.
+        if (!plannedRate.isNaN()) {
+            heldRate = plannedRate
+            plannedRate = Double.NaN
+        }
+        ratePlan = null
+        return heldRate
+    }
 
     fun pause() {
         playing = false
@@ -600,7 +649,9 @@ class Engine(private val sinkFactory: () -> AudioSink) : Closeable {
                     missedMixes++
                 }
             } else if (following.isReady) {
-                limit = minOf(BLOCK, Math.ceil(-late * Decoder.RATE).toInt().coerceAtLeast(1))
+                // The song may be gliding to the mix's tempo: frames at that rate.
+                val rate = if (planned === ratePlan) planned.rateBefore(deck.position, glideFrom) else 1.0
+                limit = minOf(BLOCK, Math.ceil(-late * Decoder.RATE / rate).toInt().coerceAtLeast(1))
             }
         }
         if (!fading && following != null && following.isReady && speed == 1.0) {
@@ -615,8 +666,9 @@ class Engine(private val sinkFactory: () -> AudioSink) : Closeable {
             }
         }
         if (fading && following != null && planned != null) return renderPlanned(deck, following, planned, mix, scratch, scratch2)
+        val rate = if (speed == 1.0) soloRate(deck, planned) else 1.0
         // During a crossfade, as much of each as both have (see renderPlanned).
-        val want = if (fading && following != null) minOf(BLOCK, deck.available(1.0), following.available(1.0)) else limit
+        val want = if (fading && following != null) minOf(BLOCK, deck.available(rate), following.available(1.0)) else limit
         if (want <= 0) return 0
         val frames = if (speed != 1.0 && !fading && keyLock) {
             if (stretchDeck !== deck) {
@@ -630,7 +682,7 @@ class Engine(private val sinkFactory: () -> AudioSink) : Closeable {
             deck.readAt(scratch, want, speed)
         } else {
             stretchDeck = null
-            deck.readAt(scratch, want, 1.0)
+            deck.readAt(scratch, want, rate)
         }
         if (fading && following != null) {
             // The song going out: cos²+sin² = 1, so the two together keep the loudness.
@@ -649,6 +701,7 @@ class Engine(private val sinkFactory: () -> AudioSink) : Closeable {
                 mix[frame * 2 + 1] += scratch2[frame * 2 + 1] * gain
             }
             fadeDone += maxOf(frames, incoming)
+            mixProgress = (fadeDone.toDouble() / fadeLength).coerceIn(0.0, 1.0)
             if (deck.finished || fadeDone >= fadeLength) takeOver(deck, following)
             return maxOf(frames, incoming)
         }
@@ -742,7 +795,16 @@ class Engine(private val sinkFactory: () -> AudioSink) : Closeable {
                 mix[i] = (outSample * outGain + inSample * inGain).toFloat()
             }
         }
-        if (p1 >= 1.0 || deck.finished) takeOver(deck, following)
+        mixProgress = p1.coerceIn(0.0, 1.0)
+        if (p1 >= 1.0 || deck.finished) {
+            // The next song glides back to its own tempo from here (see soloRate).
+            if (plan.settleLength > 0) {
+                settlePlan = plan
+                settleDeck = following
+                settleStart = following.position
+            }
+            takeOver(deck, following)
+        }
         return frames
     }
 
@@ -752,6 +814,7 @@ class Engine(private val sinkFactory: () -> AudioSink) : Closeable {
         next = null
         fading = false
         mixing = false
+        mixProgress = -1.0
         events.execute {
             old.close()
             listener?.advanced(new)

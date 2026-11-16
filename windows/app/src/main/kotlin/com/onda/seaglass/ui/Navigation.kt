@@ -106,15 +106,20 @@ object Nav {
     /** The Premium feature asked for without Premium (its name): the Premium dialog shows while it's set. */
     var premium by mutableStateOf<String?>(null)
 
-    /** A short message at the bottom of the window. */
-    var toast by mutableStateOf<String?>(null)
+    /** A short message at the bottom of the window, with a button when it has an [action] ("Cambia"). */
+    data class Toast(val message: String, val action: String? = null, val onAction: (() -> Unit)? = null)
+    var toast by mutableStateOf<Toast?>(null)
     private var toastId = 0
-    fun toast(message: String) {
-        toast = message
+    fun toast(message: String, action: String? = null, onAction: (() -> Unit)? = null) {
+        toast = Toast(message, action, onAction)
         val id = ++toastId
         Thread {
-            Thread.sleep(2_500)
+            // Longer with a button, to have time to press it.
+            Thread.sleep(if (action != null) 5_000 else 2_500)
             if (toastId == id) toast = null
         }.apply { isDaemon = true }.start()
     }
+
+    /** "Salva in" for this song: Brani preferiti and the playlists, ticked where it is (the dialog shows while it's set). */
+    var saveTo by mutableStateOf<Track?>(null)
 }

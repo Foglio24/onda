@@ -64,6 +64,8 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.pointer.PointerIcon
@@ -156,20 +158,29 @@ fun Shell() {
                     }
                 }
             }
+            MixBanner()
             PlayerBar()
         }
         AnimatedVisibility(Nav.fullPlayer, enter = fadeIn(), exit = fadeOut()) { FullPlayer() }
-        Nav.toast?.let { message ->
+        Nav.toast?.let { toast ->
             Box(Modifier.fillMaxSize().padding(bottom = 110.dp), contentAlignment = Alignment.BottomCenter) {
-                Text(
-                    message,
-                    color = Color.Black,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(Color.White).padding(horizontal = 18.dp, vertical = 10.dp),
-                )
+                Row(
+                    Modifier.clip(RoundedCornerShape(8.dp)).background(Color.White).padding(start = 18.dp, end = if (toast.action != null) 8.dp else 18.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(toast.message, color = Color.Black, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(vertical = 10.dp))
+                    if (toast.action != null) {
+                        Text(
+                            toast.action, color = Color.Black, fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(start = 16.dp).clip(RoundedCornerShape(6.dp))
+                                .clickable { Nav.toast = null; toast.onAction?.invoke() }.padding(horizontal = 10.dp, vertical = 10.dp),
+                        )
+                    }
+                }
             }
         }
         AddToPlaylistDialog()
+        SaveToDialog()
         PremiumDialog()
     }
 }
@@ -270,8 +281,10 @@ private fun SearchField() {
     val palette = LocalPalette.current
     val route = Nav.current
     var text by remember { mutableStateOf((route as? Route.Search)?.query.orEmpty()) }
-    // Leaving the search empties the field, as on Spotify.
-    LaunchedEffect(route is Route.Search) { if (route !is Route.Search) text = "" }
+    // Leaving the search empties the field, as on Spotify; a recent search picked fills it.
+    LaunchedEffect(route) {
+        if (route !is Route.Search) text = "" else if (route.query != text) text = route.query
+    }
     var focused by remember { mutableStateOf(false) }
     Hoverable { hovered ->
         Row(
@@ -300,6 +313,10 @@ private fun SearchField() {
                         .onKeyEvent { event ->
                             if (event.key == Key.Escape) {
                                 text = ""
+                                true
+                            } else if ((event.key == Key.Enter || event.key == Key.NumPadEnter) && event.type == KeyEventType.KeyUp) {
+                                // Enter keeps the search in "Ricerche recenti", as sending it does on the iPhone.
+                                com.onda.seaglass.data.RecentSearches.remember(text)
                                 true
                             } else {
                                 false

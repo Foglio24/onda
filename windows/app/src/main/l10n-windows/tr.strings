@@ -138,3 +138,11 @@
 "Microsoft Edge non è installato: serve per accedere a Spotify." = "Microsoft Edge yüklü değil: Spotify'a giriş yapmak için gerekli.";
 "Accesso a Spotify annullato." = "Spotify girişi iptal edildi.";
 "Spotify non ha risposto correttamente. Riprova più tardi." = "Spotify doğru yanıt vermedi. Daha sonra tekrar deneyin.";
+
+/* Windows 1.4.0: the mix banner, "Salva in" after "+". */
+"Mix tra %lld s" = "%lld sn sonra miks";
+"Mix in corso" = "Miks yapılıyor";
+"Dissolvenza in corso" = "Geçiş yapılıyor";
+"Aggiunto a Brani preferiti" = "Beğenilen şarkılara eklendi";
+"Rimosso da Brani preferiti" = "Beğenilen şarkılardan kaldırıldı";
+"Salva in" = "Şuraya kaydet";

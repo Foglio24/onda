@@ -19,6 +19,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -164,9 +166,14 @@ fun TrackRow(
     number: Int? = null,
     showArtwork: Boolean = true,
     extraMenu: (@Composable (close: () -> Unit) -> Unit)? = null,
+    onPlay: ((Track) -> Unit)? = null,
 ) {
     val palette = LocalPalette.current
     val state by Player.state.collectAsState()
+    fun play() {
+        onPlay?.invoke(track)
+        Player.play(tracks, index, source)
+    }
     val liked by Library.liked.collectAsState()
     val isCurrent = state.current?.videoId == track.videoId
     var menu by remember { mutableStateOf(false) }
@@ -174,7 +181,7 @@ fun TrackRow(
         Row(
             Modifier.fillMaxWidth().height(56.dp).clip(RoundedCornerShape(8.dp))
                 .background(if (hovered) palette.cardHover else Color.Transparent)
-                .combinedClickable(onDoubleClick = { Player.play(tracks, index, source) }, onClick = {})
+                .combinedClickable(onDoubleClick = { play() }, onClick = {})
                 .onPointerEvent(PointerEventType.Press) { if (it.buttons.isSecondaryPressed) menu = true }
                 .padding(horizontal = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -182,7 +189,7 @@ fun TrackRow(
             if (number != null) {
                 Box(Modifier.width(28.dp), contentAlignment = Alignment.Center) {
                     if (hovered) {
-                        Icon(Icons.Rounded.PlayArrow, tr("Riproduci"), Modifier.size(20.dp).clickable { Player.play(tracks, index, source) }, tint = palette.text)
+                        Icon(Icons.Rounded.PlayArrow, tr("Riproduci"), Modifier.size(20.dp).clickable { play() }, tint = palette.text)
                     } else {
                         Text("$number", color = if (isCurrent) palette.accent else palette.secondary, fontSize = 13.sp)
                     }
@@ -193,7 +200,7 @@ fun TrackRow(
                 Box(contentAlignment = Alignment.Center) {
                     RemoteImage(track.resized(120), Modifier.size(40.dp), RoundedCornerShape(5.dp))
                     if (hovered && number == null) {
-                        Box(Modifier.size(40.dp).clip(RoundedCornerShape(5.dp)).background(Color(0x88000000)).clickable { Player.play(tracks, index, source) }, contentAlignment = Alignment.Center) {
+                        Box(Modifier.size(40.dp).clip(RoundedCornerShape(5.dp)).background(Color(0x88000000)).clickable { play() }, contentAlignment = Alignment.Center) {
                             Icon(Icons.Rounded.PlayArrow, tr("Riproduci"), tint = Color.White)
                         }
                     }
@@ -212,7 +219,7 @@ fun TrackRow(
                 Icon(
                     if (isLiked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
                     tr(if (isLiked) "Rimuovi dai preferiti" else "Aggiungi ai preferiti"),
-                    Modifier.size(18.dp).clickable { Library.toggleLike(track) },
+                    Modifier.size(18.dp).clickable { toggleLikeWithMessage(track) },
                     tint = if (isLiked) palette.accent else palette.secondary,
                 )
             } else {
@@ -248,7 +255,7 @@ fun TrackMenu(track: Track, expanded: Boolean, onDismiss: () -> Unit, extra: (@C
             item(tr("Avvia radio"), Icons.Rounded.Radio) { Player.play(listOf(track), 0, track.title); }()
             item(tr("Aggiungi a una playlist"), Icons.AutoMirrored.Rounded.PlaylistAdd) { Nav.addToPlaylist = listOf(track) }()
             val isLiked = liked.any { it.videoId == track.videoId }
-            item(tr(if (isLiked) "Rimuovi dai preferiti" else "Aggiungi ai preferiti"), if (isLiked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder) { Library.toggleLike(track) }()
+            item(tr(if (isLiked) "Rimuovi dai preferiti" else "Aggiungi ai preferiti"), if (isLiked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder) { toggleLikeWithMessage(track) }()
             val download = downloads[track.videoId]
             if (download == null) {
                 item(tr("Scarica"), Icons.Rounded.Download) { Downloads.download(listOf(track)) }()
@@ -269,10 +276,13 @@ fun TrackMenu(track: Track, expanded: Boolean, onDismiss: () -> Unit, extra: (@C
 
 /** A song list with its column headers. */
 @Composable
-fun TrackList(tracks: List<Track>, source: String, numbered: Boolean = false, showArtwork: Boolean = true, extraMenu: ((Track, Int) -> (@Composable (close: () -> Unit) -> Unit)?)? = null) {
+fun TrackList(
+    tracks: List<Track>, source: String, numbered: Boolean = false, showArtwork: Boolean = true,
+    extraMenu: ((Track, Int) -> (@Composable (close: () -> Unit) -> Unit)?)? = null, onPlay: ((Track) -> Unit)? = null,
+) {
     Column {
         tracks.forEachIndexed { index, track ->
-            TrackRow(track, index, tracks, source, if (numbered) index + 1 else null, showArtwork, extraMenu?.invoke(track, index))
+            TrackRow(track, index, tracks, source, if (numbered) index + 1 else null, showArtwork, extraMenu?.invoke(track, index), onPlay)
         }
     }
 }
@@ -281,14 +291,21 @@ fun TrackList(tracks: List<Track>, source: String, numbered: Boolean = false, sh
 @Composable
 fun ItemCard(item: MusicItem, size: Dp = 168.dp, onClick: () -> Unit) {
     val palette = LocalPalette.current
+    // A song (a search's top result) has its menu on right-click, as everywhere else.
+    var menu by remember { mutableStateOf(false) }
     Hoverable { hovered ->
         Column(
             Modifier.width(size + 16.dp).clip(RoundedCornerShape(10.dp))
                 .background(if (hovered) palette.cardHover else Color.Transparent)
-                .clickable(onClick = onClick).padding(8.dp),
+                .clickable(onClick = onClick)
+                .onPointerEvent(PointerEventType.Press) { if (it.buttons.isSecondaryPressed && item.track != null) menu = true }
+                .padding(8.dp),
         ) {
             val round = item.kind == MusicItem.Kind.ARTIST
-            RemoteImage(item.artworkUrl, Modifier.size(size), if (round) CircleShape else RoundedCornerShape(8.dp))
+            Box {
+                RemoteImage(item.artworkUrl, Modifier.size(size), if (round) CircleShape else RoundedCornerShape(8.dp))
+                item.track?.let { TrackMenu(it, menu, { menu = false }) }
+            }
             Text(item.title, color = palette.text, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 8.dp))
             if (item.subtitle.isNotBlank()) Text(item.subtitle, color = palette.secondary, fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
@@ -328,6 +345,84 @@ fun TrackCard(track: Track, size: Dp = 168.dp, onClick: () -> Unit) {
 @Composable
 fun Shelf(content: @Composable RowScope.() -> Unit) {
     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp), content = content)
+}
+
+/**
+ * The heart or the "+": the song saved to Brani preferiti (or taken out), said at the bottom of the
+ * window; "Cambia" then chooses where it's saved, as on Spotify.
+ */
+fun toggleLikeWithMessage(track: Track) {
+    val adding = !Library.isLiked(track)
+    Library.toggleLike(track)
+    if (adding) Nav.toast(tr("Aggiunto a Brani preferiti"), tr("Cambia")) { Nav.saveTo = track }
+    else Nav.toast(tr("Rimosso da Brani preferiti"))
+}
+
+/** "Salva in": Brani preferiti and each playlist, ticked where the song is; "Fine" saves the changes. */
+@Composable
+fun SaveToDialog() {
+    val track = Nav.saveTo ?: return
+    val palette = LocalPalette.current
+    val playlists by Library.playlists.collectAsState()
+    var liked by remember(track) { mutableStateOf(Library.isLiked(track)) }
+    var chosen by remember(track) { mutableStateOf(playlists.filter { Library.contains(track, it.id) }.map { it.id }.toSet()) }
+    var creating by remember(track) { mutableStateOf(false) }
+    var name by remember(track) { mutableStateOf("") }
+    @Composable
+    fun Choice(label: String, checked: Boolean, artwork: @Composable () -> Unit, onToggle: () -> Unit) {
+        Row(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(6.dp)).clickable(onClick = onToggle).padding(horizontal = 6.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            artwork()
+            Spacer(Modifier.width(12.dp))
+            Text(label, color = palette.text, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            androidx.compose.material3.Checkbox(checked, onCheckedChange = { onToggle() })
+        }
+    }
+    AlertDialog(
+        onDismissRequest = { Nav.saveTo = null },
+        title = { Text(tr("Salva in")) },
+        text = {
+            Column(Modifier.width(380.dp).heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
+                if (creating) {
+                    OutlinedTextField(name, { name = it }, label = { Text(tr("Nome")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    TextButton(enabled = name.isNotBlank(), onClick = {
+                        val created = Library.createPlaylist(name)
+                        chosen = chosen + created.id
+                        creating = false
+                        name = ""
+                    }) { Text(tr("Crea")) }
+                } else {
+                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(6.dp)).clickable { creating = true }.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, null, tint = palette.accent)
+                        Spacer(Modifier.width(10.dp))
+                        Text(tr("Nuova playlist"), color = palette.accent, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+                Choice(tr("Brani preferiti"), liked, {
+                    Box(Modifier.size(36.dp).clip(RoundedCornerShape(4.dp)).background(palette.accent), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Rounded.Favorite, null, Modifier.size(18.dp), tint = palette.onAccent)
+                    }
+                }) { liked = !liked }
+                playlists.forEach { playlist ->
+                    Choice(playlist.name, playlist.id in chosen, {
+                        RemoteImage(playlist.tracks.firstOrNull()?.resized(120), Modifier.size(36.dp), RoundedCornerShape(4.dp))
+                    }) { chosen = if (playlist.id in chosen) chosen - playlist.id else chosen + playlist.id }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                if (liked != Library.isLiked(track)) Library.toggleLike(track)
+                playlists.forEach { playlist ->
+                    if ((playlist.id in chosen) != Library.contains(track, playlist.id)) Library.toggle(track, playlist.id)
+                }
+                Nav.saveTo = null
+            }) { Text(tr("Fine")) }
+        },
+        dismissButton = { TextButton(onClick = { Nav.saveTo = null }) { Text(tr("Annulla")) } },
+    )
 }
 
 /** "Aggiungi a una playlist": the user's playlists, or a new one. */

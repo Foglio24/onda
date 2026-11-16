@@ -7,6 +7,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.ui.draw.alpha
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -129,8 +133,11 @@ fun PlayerBar() {
                     Spacer(Modifier.width(6.dp))
                     BarButton(
                         if (isLiked) Icons.Rounded.CheckCircle else Icons.Rounded.Add,
-                        tr(if (isLiked) "Rimuovi dai preferiti" else "Aggiungi ai preferiti"), active = isLiked, size = 20,
-                    ) { Library.toggleLike(track) }
+                        tr(if (isLiked) "Salva in" else "Aggiungi ai preferiti"), active = isLiked, size = 20,
+                    ) {
+                        // As on Spotify: "+" saves it to Brani preferiti (with "Cambia"); the tick opens "Salva in".
+                        if (isLiked) Nav.saveTo = track else toggleLikeWithMessage(track)
+                    }
                 }
             }
         }
@@ -441,5 +448,54 @@ private fun TempoPanel() {
             tr("Con il tempo cambiato, AutoMix e la dissolvenza si fermano: i brani si susseguono senza mix."),
             color = palette.tertiary, fontSize = 12.sp, lineHeight = 16.sp, modifier = Modifier.padding(top = 6.dp),
         )
+    }
+}
+
+/**
+ * Over the player bar while a mix comes and plays, so its start is seen: "Mix tra 8 s" (pulsing)
+ * in the last seconds before an AutoMix mix, then a bar filling with the mix's progress, with the
+ * next song and how it comes in ("a tempo, 8 battute").
+ */
+@Composable
+fun MixBanner() {
+    val palette = LocalPalette.current
+    val mix by Player.mix.collectAsState()
+    // Kept while the banner folds away, so it doesn't empty first.
+    var last by remember { mutableStateOf<Player.Mix?>(null) }
+    if (mix != null) last = mix
+    androidx.compose.animation.AnimatedVisibility(
+        mix != null,
+        enter = androidx.compose.animation.expandVertically() + androidx.compose.animation.fadeIn(),
+        exit = androidx.compose.animation.shrinkVertically() + androidx.compose.animation.fadeOut(),
+    ) {
+        val shown = last ?: return@AnimatedVisibility
+        val coming = shown.startsIn != null
+        val progress by androidx.compose.animation.core.animateFloatAsState(shown.progress, androidx.compose.animation.core.tween(240))
+        val pulse by androidx.compose.animation.core.rememberInfiniteTransition().animateFloat(
+            initialValue = 0.35f, targetValue = 1f,
+            animationSpec = androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(700), androidx.compose.animation.core.RepeatMode.Reverse),
+        )
+        Box(Modifier.fillMaxWidth().height(30.dp).background(palette.bar)) {
+            // The mix's progress: the banner fills with the accent, a brighter line along its bottom.
+            Box(Modifier.fillMaxHeight().fillMaxWidth(progress).background(palette.accent.copy(alpha = 0.22f)))
+            Box(Modifier.align(Alignment.BottomStart).fillMaxWidth(progress).height(2.dp).background(palette.accent))
+            Row(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+                Icon(Icons.Rounded.AutoAwesome, null, Modifier.size(16.dp).alpha(if (coming) pulse else 1f), tint = palette.accent)
+                Spacer(Modifier.width(8.dp))
+                val label = when {
+                    coming -> tr("Mix tra %lld s", shown.startsIn ?: 0)
+                    shown.beatMatched -> tr("Mix in corso")
+                    else -> tr("Dissolvenza in corso")
+                }
+                Text(label, color = palette.accent, fontWeight = FontWeight.Bold, fontSize = 13.sp, maxLines = 1)
+                val detail = listOfNotNull(shown.next?.title, shown.description).joinToString(" · ")
+                if (detail.isNotEmpty()) {
+                    Text(
+                        "  →  $detail", color = palette.text, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false),
+                    )
+                }
+            }
+        }
     }
 }

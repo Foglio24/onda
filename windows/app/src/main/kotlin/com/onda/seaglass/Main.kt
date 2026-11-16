@@ -46,6 +46,7 @@ fun main(args: Array<String>) {
     if (!WindowsIntegration.claimSingleInstance(args)) exitProcess(0)
     L10n.load(Prefs.language.value)
     Library.init()
+    com.onda.seaglass.data.RecentSearches.init()
     Downloads.init()
     LocalMusic.init()
     Recommendations.init()

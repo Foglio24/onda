@@ -37,7 +37,7 @@ Standing rules from the owner (on top of `AGENTS.md`):
 | --- | --- | --- | --- |
 | iPhone, iPad, Mac | 1.36.12 (build 91) | `v1.36.12`, the repository's "Latest"; AltStore source at 1.36.12 / 91 | `main` |
 | Android | 0.4.3 (versionCode 8) | `android-v0.4.3` | `main`, `android/` |
-| Windows | 1.3.2 | `windows-v1.3.2` (not Latest; `windows-v1.3.1` is marked pre-release: its installer broke updates) | branch **`windows`**, `windows/` |
+| Windows | 1.4.0 | `windows-v1.4.0` (not Latest; `windows-v1.3.1` is marked pre-release: its installer broke updates) | branch **`windows`**, `windows/` |
 | Account service | deployed | none | `main`, `server/account/` (deploys by itself) |
 | Website | deployed | none | `main`, `site/` (deploys by itself) |
 
@@ -97,7 +97,7 @@ Map (`windows/app/src/main/kotlin/com/onda/seaglass/`):
 | `audio/TimeStretch.kt` | WSOLA, Tempo with the key kept |
 | `audio/Player.kt` | Queue, shuffle/repeat, play next, radio at the end of the queue, sleep timer, picks local file / download / cache / stream, prepares AutoMix 75 s ahead |
 | `audio/automix/` | `Analyzer` and `Planner` copied from Android, `AutoMix.kt` (analysis cache, plan, `Transition`) |
-| `data/` | `InnerTube`, `Streams`, `Lyrics` (shared with Android), `PlaylistImport` (Spotify/Apple Music/YouTube links and CSV/JSON files, matched on YouTube Music with the iPhone's rules; `spotify/` feeds it the playlists of the user's own Spotify account, read from Spotify's web player in an Edge window driven over DevTools, with a profile of its own), `LyricsTranslator` (through the account service's `POST /v1/translate`, Workers AI), `Library`, `Downloads` (+ `SongCache`), `LocalMusic`, `Recommendations`, `SongDetails`, `LastFM` |
+| `data/` | `InnerTube`, `Streams`, `Lyrics` (shared with Android), `RecentSearches` (the search's history, local only), `PlaylistImport` (Spotify/Apple Music/YouTube links and CSV/JSON files, matched on YouTube Music with the iPhone's rules; `spotify/` feeds it the playlists of the user's own Spotify account, read from Spotify's web player in an Edge window driven over DevTools, with a profile of its own), `LyricsTranslator` (through the account service's `POST /v1/translate`, Workers AI), `Library`, `Downloads` (+ `SongCache`), `LocalMusic`, `Recommendations`, `SongDetails`, `LastFM` |
 | `account/` | Seaglass account: PKCE sign-in in the browser, callback through the `com.onda.player.auth:` protocol, token protected with DPAPI, sync (`LibraryMerge`, the iPhone's rules), Premium (`Account.unlocks()`) |
 | `update/AppUpdater.kt` | Updates from `windows-v*` releases only |
 | `ui/` | `Shell.kt` (top bar, the three resizable panels, library), `PlayerBar.kt` (bar, controls, Tempo panel), `Panels.kt` (now playing, queue, lyrics with translation, full player), `Theme.kt` (palette), pages, settings with the equalizer |
@@ -117,6 +117,9 @@ Rules the code depends on (break one and something fails in ways tests may not c
   engine starts the mix on its planned frame (it splits the block), and drops the plan for a
   crossfade if the next song isn't ready by then. The incoming song's rate is exactly 1.0 when the
   transition ends; after a tempo glide the deck settles on a whole sample and plays untouched.
+  Since 1.4.0 the two songs meet halfway between their tempos as on the iPhone (each ≤ 12 %, so
+  up to ~25 % apart): `Transition.rateBefore` glides the outgoing song over the 16 beats before the
+  mix, `rateAfter` the incoming one back over 16 of its beats after it (the engine's `soloRate`).
   AutoMix's decisions go to the app's log; when the owner says "AutoMix doesn't work", ask for it. `AutoMixEngineTest` checks no step
   beyond the songs' own, no loudness jump over 3 dB between 50 ms windows, exact samples after the
   mix. Keep it green and extend it with every AutoMix change.

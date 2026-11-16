@@ -138,3 +138,11 @@
 "Microsoft Edge non è installato: serve per accedere a Spotify." = "O Microsoft Edge não está instalado: é necessário para entrar no Spotify.";
 "Accesso a Spotify annullato." = "Início de sessão no Spotify cancelado.";
 "Spotify non ha risposto correttamente. Riprova più tardi." = "O Spotify não respondeu corretamente. Tente novamente mais tarde.";
+
+/* Windows 1.4.0: the mix banner, "Salva in" after "+". */
+"Mix tra %lld s" = "Mix em %lld s";
+"Mix in corso" = "Mixando";
+"Dissolvenza in corso" = "Transição em andamento";
+"Aggiunto a Brani preferiti" = "Adicionada às Músicas curtidas";
+"Rimosso da Brani preferiti" = "Removida das Músicas curtidas";
+"Salva in" = "Salvar em";

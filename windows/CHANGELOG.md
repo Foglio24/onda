@@ -1,5 +1,18 @@
 # Seaglass for Windows changelog
 
+## 1.4.0 (2026-11-16)
+
+### Changed
+- **AutoMix mixes songs further apart in tempo, as on the iPhone**: the two songs now meet halfway between their tempos, each changing by at most 12 %, so tempos up to about 25 % apart are mixed on the beat (148 → 120 or 120 → 97 BPM were plain crossfades: only 12 % in all was allowed, all of it on the next song). Over the 16 beats before the mix the song playing glides to the meeting tempo; both play at it during the mix; over the 16 beats after it the next song glides back to its own tempo, then plays untouched. Checked for steps, clicks and loudness jumps before, during and after the mix.
+
+### Added
+- **The mix banner**: over the player bar, "Mix tra 8 s" in the last seconds before an AutoMix mix, then a bar filling as the mix goes ("Mix in corso", or "Dissolvenza in corso" for a crossfade), with the next song and how it comes in.
+- **Ricerche recenti**, as on the iPhone: with the search field empty, what you searched for (Enter) and what you picked from the results (songs, artists, albums, playlists), newest first, at most 20. A click plays or opens it again, right-click opens a song's menu, × removes one, "Cancella ricerche recenti" removes all. They stay on this computer only.
+- **"+" says where the song went, as on Spotify**: "Aggiunto a Brani preferiti" at the bottom of the window with "Cambia", which opens "Salva in": Brani preferiti and your playlists to tick (or a new one). The tick of a saved song in the player bar opens "Salva in" too; the heart in lists says "Aggiunto a" / "Rimosso da Brani preferiti".
+
+### Fixed
+- Right-click on the search's top result, when it's a song, now opens its menu, as on any song.
+
 ## 1.3.2 (2026-11-16)
 
 ### Fixed

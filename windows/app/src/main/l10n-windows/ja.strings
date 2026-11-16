@@ -138,3 +138,11 @@
 "Microsoft Edge non è installato: serve per accedere a Spotify." = "Microsoft Edge がインストールされていません。Spotify へのログインに必要です。";
 "Accesso a Spotify annullato." = "Spotify へのログインがキャンセルされました。";
 "Spotify non ha risposto correttamente. Riprova più tardi." = "Spotify から正しい応答がありませんでした。後でもう一度お試しください。";
+
+/* Windows 1.4.0: the mix banner, "Salva in" after "+". */
+"Mix tra %lld s" = "%lld 秒後にミックス";
+"Mix in corso" = "ミックス中";
+"Dissolvenza in corso" = "クロスフェード中";
+"Aggiunto a Brani preferiti" = "お気に入りの曲に追加しました";
+"Rimosso da Brani preferiti" = "お気に入りの曲から削除しました";
+"Salva in" = "保存先";
