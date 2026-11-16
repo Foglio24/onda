@@ -852,3 +852,18 @@
 "Tutte le date" = "すべての日程";
 "Date e biglietti da Ticketmaster." = "日程とチケットは Ticketmaster から。";
 "Rinviato" = "延期";
+
+/* Importing playlists from the user's Spotify account */
+"Importa dal tuo account Spotify" = "Spotify アカウントから読み込む";
+"Account Spotify" = "Spotify アカウント";
+"Completa l'accesso a Spotify qui sotto." = "下で Spotify へのログインを完了してください。";
+"Seaglass non vede la tua password: l'accesso avviene nella pagina di Spotify. L'accesso con Google potrebbe non funzionare qui: usa email e password." = "Seaglass にパスワードは見えません。ログインは Spotify 自身のページで行います。Google でのログインはここでは使えない場合があります。メールアドレスとパスワードをお使いください。";
+"Lettura delle playlist da Spotify…" = "Spotify からプレイリストを読み込み中…";
+"Accesso a Spotify annullato." = "Spotify へのログインがキャンセルされました。";
+"Spotify non ha risposto correttamente. Riprova più tardi." = "Spotify から正しい応答がありませんでした。しばらくしてからもう一度お試しください。";
+"Non ci sono playlist nel tuo account Spotify." = "Spotify アカウントにプレイリストがありません。";
+"Scegli le playlist da copiare in Seaglass. Ogni brano viene cercato su YouTube Music." = "Seaglass にコピーするプレイリストを選んでください。各曲は YouTube Music で検索されます。";
+"Importa %lld playlist" = "%lld 件のプレイリストを読み込む";
+"Playlist %lld di %lld: %@" = "プレイリスト %lld / %lld: %@";
+"Esci da Spotify" = "Spotify からログアウト";
+"%lld playlist importate. Apri una playlist per controllare i brani non trovati." = "%lld 件のプレイリストを読み込みました。見つからなかった曲はプレイリストを開いて確認してください。";

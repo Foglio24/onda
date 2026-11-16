@@ -58,6 +58,7 @@ jobs:
           bash Tools/LocalMusicCheck/run.sh
           bash Tools/LocalPlayableCheck/run.sh
           bash Tools/PlaylistImportCheck/run.sh
+          bash Tools/SpotifyImportCheck/run.sh
           bash Tools/ScrobbleCheck/run.sh
           bash Tools/UpdateCheck/run.sh
           bash Tools/RecognitionCheck/run.sh

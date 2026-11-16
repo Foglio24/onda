@@ -46,7 +46,7 @@ const strings = {
     memberSince: "Su Seaglass dal %s", syncedAt: "Ultima sincronizzazione: %s", neverSynced: "La libreria non è ancora stata sincronizzata: accedi dall'app.",
     emailUnverified: "Email non confermata",
     noticeLinked: "Patreon collegato.", noticeLinkFailed: "Non è stato possibile collegare Patreon. Riprova.",
-    noticeVerified: "Email confermata: ora puoi accedere.", noticeVerifyInvalid: "Il link di conferma non è valido o è scaduto.",
+    noticeVerified: "Email confermata: ora puoi accedere.", noticeVerifiedNoPassword: "Email confermata. Scegli ora la tua password con \"Password dimenticata?\".", noticeVerifyInvalid: "Il link di conferma non è valido o è scaduto.",
     noticeProfile: "Profilo salvato.", noticePassword: "Password aggiornata.", noticeSignedOutAll: "Sei uscito da tutti i dispositivi.",
     noticeUnlinked: "Patreon scollegato.", noticeResetSent: "Se l'email corrisponde a un account, riceverai un codice a breve. Controlla anche lo spam.",
     noticeResetDone: "Password reimpostata: ora puoi accedere.", noticeVerifySent: "Link inviato di nuovo.",
@@ -116,7 +116,7 @@ const strings = {
     memberSince: "On Seaglass since %s", syncedAt: "Last synced: %s", neverSynced: "Your library hasn't synced yet: log in from the app.",
     emailUnverified: "Email not confirmed",
     noticeLinked: "Patreon linked.", noticeLinkFailed: "Patreon couldn't be linked. Try again.",
-    noticeVerified: "Email confirmed: you can log in now.", noticeVerifyInvalid: "The confirmation link is invalid or has expired.",
+    noticeVerified: "Email confirmed: you can log in now.", noticeVerifiedNoPassword: "Email confirmed. Now choose your password with \"Forgot your password?\".", noticeVerifyInvalid: "The confirmation link is invalid or has expired.",
     noticeProfile: "Profile saved.", noticePassword: "Password updated.", noticeSignedOutAll: "You've been signed out everywhere.",
     noticeUnlinked: "Patreon unlinked.", noticeResetSent: "If the email matches an account, you'll get a code shortly. Check your spam folder too.",
     noticeResetDone: "Password reset: you can log in now.", noticeVerifySent: "Link sent again.",
@@ -650,7 +650,7 @@ for (const element of document.querySelectorAll("[data-go]")) {
     $("#support").hidden = false;
   }
   const outcome = { linked: ["noticeLinked", "ok"], failed: ["noticeLinkFailed", "bad"] }[params.get("patreon")];
-  const verified = { success: ["noticeVerified", "ok"], invalid: ["noticeVerifyInvalid", "bad"] }[params.get("verify")];
+  const verified = { success: ["noticeVerified", "ok"], password: ["noticeVerifiedNoPassword", "ok"], invalid: ["noticeVerifyInvalid", "bad"] }[params.get("verify")];
   if (loginMode === "app") {
     // The app's sign-in: always a fresh login, ending back in the app.
     $("#login-app-hint").hidden = false;

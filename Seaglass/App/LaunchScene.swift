@@ -19,7 +19,11 @@ import UIKit
 /// Launch arguments are never passed in normal use, so this does nothing then.
 @MainActor
 enum LaunchScene {
-    private static var scene: String? { UserDefaults.standard.string(forKey: "SeaglassScene") }
+    /// Read from the command line only (`-SeaglassScene …`, as CI passes it), never from the saved
+    /// defaults: `defaults write` would otherwise keep every Premium feature open for good.
+    private static var scene: String? {
+        UserDefaults.standard.volatileDomain(forName: UserDefaults.argumentDomain)["SeaglassScene"] as? String
+    }
 
     /// A screenshot scene is open: every screen is shown as it is, Premium's included.
     static var isActive: Bool { scene != nil }
@@ -116,7 +120,7 @@ enum LaunchScene {
             select(.settings)
         case "account":
             select(.settings)
-            if let token = UserDefaults.standard.string(forKey: "SeaglassAccountToken") {
+            if let token = UserDefaults.standard.volatileDomain(forName: UserDefaults.argumentDomain)["SeaglassAccountToken"] as? String {
                 Task { await AccountService.shared.checkSignIn(token: token) }
             }
         case "info":

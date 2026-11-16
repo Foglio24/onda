@@ -204,6 +204,18 @@ export async function registerAccount(request, env) {
   const now = unix();
   // Until emails can be sent, an address can't be confirmed: the account is usable at once.
   const sendsEmail = emailReady(env);
+  if (sendsEmail) {
+    // An unverified account already holds this address: its password was chosen by whoever
+    // registered first, who may not own the address. Nobody's password is kept for it (not this
+    // one either): once the owner confirms the address, they choose one with "Password dimenticata?".
+    const pending = await env.DB.prepare(`UPDATE accounts SET password_salt = NULL, password_hash = NULL
+      WHERE email_normalized = ? AND email_verified_at IS NULL RETURNING id, email`).bind(normalized).first();
+    if (pending) {
+      await env.DB.prepare("DELETE FROM sessions WHERE account_id = ?").bind(pending.id).run();
+      await issueVerification(env, pending.id, pending.email, body.language);
+      return json({ accepted: true, verify: true });
+    }
+  }
   const created = await env.DB.prepare(`INSERT INTO accounts
     (id, oidc_issuer, oidc_subject, created_at, email, email_normalized, password_salt, password_hash, email_verified_at)
     VALUES (?, 'seaglass', ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING RETURNING id`)
@@ -219,8 +231,10 @@ export async function verifyEmail(request, url, env) {
   const row = await env.DB.prepare(`DELETE FROM email_tokens WHERE token_hash = ? AND purpose = 'verify' AND expires_at > ?
     RETURNING account_id`).bind(await hash(token), now).first();
   if (!row) return redirect("/account?verify=invalid");
-  await env.DB.prepare("UPDATE accounts SET email_verified_at = ? WHERE id = ?").bind(now, row.account_id).run();
-  return redirect("/account?verify=success");
+  const account = await env.DB.prepare("UPDATE accounts SET email_verified_at = ? WHERE id = ? RETURNING password_hash")
+    .bind(now, row.account_id).first();
+  // No password (the address was registered twice before it was confirmed): the page says to choose one.
+  return redirect(account?.password_hash ? "/account?verify=success" : "/account?verify=password");
 }
 
 async function createAuthenticatedResponse(request, env, attempt, accountId) {
@@ -313,13 +327,16 @@ export async function resetPassword(request, env) {
     FROM accounts JOIN email_tokens ON email_tokens.account_id = accounts.id AND email_tokens.purpose = 'reset'
     WHERE accounts.email_normalized = ? AND email_tokens.expires_at > ?`).bind(normalized, now).first();
   if (!pending || pending.attempts >= codeAttempts) throw new HttpError(400, "invalid_reset");
+  // The try is counted first, in one statement: parallel requests can't each see the same count
+  // and so can't make more than codeAttempts guesses between them.
+  const counted = await env.DB.prepare(`UPDATE email_tokens SET attempts = attempts + 1
+    WHERE token_hash = ? AND attempts < ? RETURNING attempts`).bind(pending.token_hash, codeAttempts).first();
+  if (!counted) throw new HttpError(400, "invalid_reset");
   if (await codeHash(pending.account_id, body.code) !== pending.token_hash) {
-    const tries = pending.attempts + 1;
-    if (tries >= codeAttempts) {
+    if (counted.attempts >= codeAttempts) {
       await env.DB.prepare("DELETE FROM email_tokens WHERE token_hash = ?").bind(pending.token_hash).run();
       throw new HttpError(400, "too_many_attempts");
     }
-    await env.DB.prepare("UPDATE email_tokens SET attempts = ? WHERE token_hash = ?").bind(tries, pending.token_hash).run();
     throw new HttpError(400, "invalid_reset");
   }
   const salt = secret();

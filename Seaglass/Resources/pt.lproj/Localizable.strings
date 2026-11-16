@@ -852,3 +852,18 @@
 "Tutte le date" = "Todas as datas";
 "Date e biglietti da Ticketmaster." = "Datas e ingressos do Ticketmaster.";
 "Rinviato" = "Adiado";
+
+/* Importing playlists from the user's Spotify account */
+"Importa dal tuo account Spotify" = "Importar da sua conta do Spotify";
+"Account Spotify" = "Conta do Spotify";
+"Completa l'accesso a Spotify qui sotto." = "Conclua o login no Spotify abaixo.";
+"Seaglass non vede la tua password: l'accesso avviene nella pagina di Spotify. L'accesso con Google potrebbe non funzionare qui: usa email e password." = "O Seaglass não vê a sua senha: você entra na página do Spotify. O login com o Google pode não funcionar aqui: use e-mail e senha.";
+"Lettura delle playlist da Spotify…" = "Lendo suas playlists do Spotify…";
+"Accesso a Spotify annullato." = "Login no Spotify cancelado.";
+"Spotify non ha risposto correttamente. Riprova più tardi." = "O Spotify não respondeu corretamente. Tente novamente mais tarde.";
+"Non ci sono playlist nel tuo account Spotify." = "Não há playlists na sua conta do Spotify.";
+"Scegli le playlist da copiare in Seaglass. Ogni brano viene cercato su YouTube Music." = "Escolha as playlists para copiar no Seaglass. Cada música é procurada no YouTube Music.";
+"Importa %lld playlist" = "Importar %lld playlists";
+"Playlist %lld di %lld: %@" = "Playlist %lld de %lld: %@";
+"Esci da Spotify" = "Sair do Spotify";
+"%lld playlist importate. Apri una playlist per controllare i brani non trovati." = "%lld playlists importadas. Abra uma playlist para conferir as músicas não encontradas.";

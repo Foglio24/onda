@@ -73,12 +73,13 @@ final class PlaylistImporter: ObservableObject {
         }
     }
 
-    /// Imports one playlist from a user-selected Spotify JSON export or CSV file.
-    func importPlaylist(from source: PlaylistImportSource) async throws -> Outcome {
+    /// Imports one playlist from a user-selected Spotify JSON export or CSV file, or from the user's
+    /// own Spotify account (SpotifyAccountImport): the same lookup, summary and review either way.
+    func importPlaylist(from source: PlaylistImportSource, service: String = "File") async throws -> Outcome {
         guard status == nil else { throw ImportError.busy }
         status = String(localized: "Lettura della playlist…")
         defer { status = nil }
-        return try await finish(Page(title: source.name, rows: source.rows, mayBeTruncated: false), service: "File")
+        return try await finish(Page(title: source.name, rows: source.rows, mayBeTruncated: false), service: service)
     }
 
     private func finish(_ page: Page, service: String) async throws -> Outcome {

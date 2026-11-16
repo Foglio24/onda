@@ -852,3 +852,18 @@
 "Tutte le date" = "Tüm tarihler";
 "Date e biglietti da Ticketmaster." = "Tarihler ve biletler Ticketmaster’dan.";
 "Rinviato" = "Ertelendi";
+
+/* Importing playlists from the user's Spotify account */
+"Importa dal tuo account Spotify" = "Spotify hesabından içe aktar";
+"Account Spotify" = "Spotify hesabı";
+"Completa l'accesso a Spotify qui sotto." = "Spotify'a girişi aşağıda tamamla.";
+"Seaglass non vede la tua password: l'accesso avviene nella pagina di Spotify. L'accesso con Google potrebbe non funzionare qui: usa email e password." = "Seaglass şifreni görmez: giriş Spotify'ın kendi sayfasında yapılır. Google ile giriş burada çalışmayabilir: e-posta ve şifreni kullan.";
+"Lettura delle playlist da Spotify…" = "Spotify'dan çalma listeleri okunuyor…";
+"Accesso a Spotify annullato." = "Spotify girişi iptal edildi.";
+"Spotify non ha risposto correttamente. Riprova più tardi." = "Spotify doğru yanıt vermedi. Daha sonra tekrar dene.";
+"Non ci sono playlist nel tuo account Spotify." = "Spotify hesabında çalma listesi yok.";
+"Scegli le playlist da copiare in Seaglass. Ogni brano viene cercato su YouTube Music." = "Seaglass'a kopyalanacak çalma listelerini seç. Her şarkı YouTube Music'te aranır.";
+"Importa %lld playlist" = "%lld çalma listesini içe aktar";
+"Playlist %lld di %lld: %@" = "Çalma listesi %lld / %lld: %@";
+"Esci da Spotify" = "Spotify'dan çıkış yap";
+"%lld playlist importate. Apri una playlist per controllare i brani non trovati." = "%lld çalma listesi içe aktarıldı. Bulunamayan şarkıları kontrol etmek için bir çalma listesini aç.";

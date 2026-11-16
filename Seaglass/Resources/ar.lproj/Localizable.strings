@@ -852,3 +852,18 @@
 "Tutte le date" = "كل المواعيد";
 "Date e biglietti da Ticketmaster." = "المواعيد والتذاكر من Ticketmaster.";
 "Rinviato" = "مؤجَّل";
+
+/* Importing playlists from the user's Spotify account */
+"Importa dal tuo account Spotify" = "الاستيراد من حسابك على Spotify";
+"Account Spotify" = "حساب Spotify";
+"Completa l'accesso a Spotify qui sotto." = "أكمل تسجيل الدخول إلى Spotify أدناه.";
+"Seaglass non vede la tua password: l'accesso avviene nella pagina di Spotify. L'accesso con Google potrebbe non funzionare qui: usa email e password." = "لا يرى Seaglass كلمة مرورك: يتم تسجيل الدخول في صفحة Spotify نفسها. قد لا يعمل تسجيل الدخول عبر Google هنا: استخدم البريد الإلكتروني وكلمة المرور.";
+"Lettura delle playlist da Spotify…" = "جارٍ قراءة قوائم التشغيل من Spotify…";
+"Accesso a Spotify annullato." = "تم إلغاء تسجيل الدخول إلى Spotify.";
+"Spotify non ha risposto correttamente. Riprova più tardi." = "لم يستجب Spotify بشكل صحيح. حاول مرة أخرى لاحقًا.";
+"Non ci sono playlist nel tuo account Spotify." = "لا توجد قوائم تشغيل في حسابك على Spotify.";
+"Scegli le playlist da copiare in Seaglass. Ogni brano viene cercato su YouTube Music." = "اختر قوائم التشغيل لنسخها إلى Seaglass. يتم البحث عن كل أغنية في YouTube Music.";
+"Importa %lld playlist" = "استيراد %lld من قوائم التشغيل";
+"Playlist %lld di %lld: %@" = "قائمة التشغيل %lld من %lld: %@";
+"Esci da Spotify" = "تسجيل الخروج من Spotify";
+"%lld playlist importate. Apri una playlist per controllare i brani non trovati." = "تم استيراد %lld من قوائم التشغيل. افتح قائمة تشغيل لمراجعة الأغاني التي لم يتم العثور عليها.";

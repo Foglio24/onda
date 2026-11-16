@@ -852,3 +852,18 @@
 "Tutte le date" = "所有日期";
 "Date e biglietti da Ticketmaster." = "日期和门票信息来自 Ticketmaster。";
 "Rinviato" = "已延期";
+
+/* Importing playlists from the user's Spotify account */
+"Importa dal tuo account Spotify" = "从你的 Spotify 账户导入";
+"Account Spotify" = "Spotify 账户";
+"Completa l'accesso a Spotify qui sotto." = "请在下方完成 Spotify 登录。";
+"Seaglass non vede la tua password: l'accesso avviene nella pagina di Spotify. L'accesso con Google potrebbe non funzionare qui: usa email e password." = "Seaglass 看不到你的密码：登录在 Spotify 自己的页面进行。这里使用 Google 登录可能无法成功，请使用邮箱和密码。";
+"Lettura delle playlist da Spotify…" = "正在读取 Spotify 播放列表…";
+"Accesso a Spotify annullato." = "已取消 Spotify 登录。";
+"Spotify non ha risposto correttamente. Riprova più tardi." = "Spotify 没有正确响应。请稍后再试。";
+"Non ci sono playlist nel tuo account Spotify." = "你的 Spotify 账户里没有播放列表。";
+"Scegli le playlist da copiare in Seaglass. Ogni brano viene cercato su YouTube Music." = "选择要复制到 Seaglass 的播放列表。每首歌都会在 YouTube Music 中查找。";
+"Importa %lld playlist" = "导入 %lld 个播放列表";
+"Playlist %lld di %lld: %@" = "播放列表 %lld/%lld：%@";
+"Esci da Spotify" = "退出 Spotify";
+"%lld playlist importate. Apri una playlist per controllare i brani non trovati." = "已导入 %lld 个播放列表。打开播放列表可检查未找到的歌曲。";

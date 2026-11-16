@@ -205,6 +205,23 @@ try {
   check(verifyLink.pathname === "/v1/auth/verify", "confirmation link", verifyLink.href);
   response = await call("GET", verifyLink.pathname + verifyLink.search);
   check(response.status === 303 && response.headers.get("Location") === "/account?verify=success", "address confirmed", response.status);
+  // Pre-hijacking: an address someone registered first, unconfirmed, keeps nobody's password.
+  const squatted = `squat-${randomUUID().slice(0, 8)}@example.com`;
+  const squatter = { "CF-Connecting-IP": "203.0.113.9" };
+  const squatterBrowser = new Map();
+  await call("POST", "/v1/auth/register", { body: { email: squatted, password: "attacker pass#1" }, headers: squatter });
+  const beforeSecond = emails.length;
+  response = await call("POST", "/v1/auth/register", { body: { email: squatted, password: "owner pass#1" }, headers: squatter });
+  check(response.status === 200 && response.data.verify === true && emails.length === beforeSecond + 1 && lastEmail().to[0] === squatted,
+    "a second registration sends the confirmation again", response.data);
+  check(sql(`SELECT password_hash FROM accounts WHERE email_normalized = '${squatted}'`)[0]?.password_hash === null,
+    "an unconfirmed address keeps no password");
+  const squatLink = new URL(lastEmail().text.match(/https:\/\/\S+/)[0]);
+  response = await call("GET", squatLink.pathname + squatLink.search);
+  check(response.status === 303 && response.headers.get("Location") === "/account?verify=password", "no password: the page is told to choose one", response.headers.get("Location"));
+  await call("GET", "/v1/auth/start?client=web", { cookies: squatterBrowser, headers: squatter });
+  response = await call("POST", "/v1/auth/login", { body: { email: squatted, password: "attacker pass#1" }, cookies: squatterBrowser, headers: squatter });
+  check(response.status === 401, "the first registrant's password doesn't work once confirmed", response.status);
   for (const weak of ["sh0rt!", "longenough1", "only letters and spaces"]) {
     response = await call("POST", "/v1/auth/register", { body: { email: `weak-${randomUUID().slice(0, 8)}@example.com`, password: weak }, cookies: browser });
     check(response.status === 400 && response.data.error === "weak_password", `weak password refused (${weak})`, response.data);
@@ -414,6 +431,17 @@ try {
   check(response.status === 400 && response.data.error === "too_many_attempts", "the fifth ends the code", response.data);
   response = await call("POST", "/v1/auth/reset", { body: { email, code: secondCode, password: "yet another?" }, headers: fromElsewhere });
   check(response.status === 400, "an ended code doesn't work", response.data);
+
+  // Wrong codes sent all at once still count one by one: after five, the code is gone.
+  sql(`UPDATE email_tokens SET created_at = created_at - 120`);
+  const racing = { "CF-Connecting-IP": "203.0.113.10" };
+  await call("POST", "/v1/auth/reset/request", { body: { email }, headers: racing });
+  const racedCode = lastEmail()?.text?.match(/\b\d{6}\b/)?.[0];
+  const racedWrong = racedCode === "000000" ? "111111" : "000000";
+  await Promise.all(Array.from({ length: 12 }, () =>
+    call("POST", "/v1/auth/reset", { body: { email, code: racedWrong, password: "yet another?" }, headers: racing })));
+  response = await call("POST", "/v1/auth/reset", { body: { email, code: racedCode, password: "yet another?" }, headers: racing });
+  check(response.status === 400, "parallel wrong codes end the code too", response.data);
 
   // Signing in with the reset password, signing out everywhere, deleting the account (with
   // everything that went with it).

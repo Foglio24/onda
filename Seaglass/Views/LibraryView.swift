@@ -20,6 +20,8 @@ struct LibraryView: View {
     @State private var importResult: Playlist?
     @State private var importSuccess: String?
     @State private var showImportFile = false
+    @State private var showSpotifyAccount = false
+    @State private var spotifyResult: SpotifyAccountImport.Result?
     @ObservedObject private var account = AccountService.shared
     @State private var paywall: PremiumFeature?
     @State private var showFilePlaylists = false
@@ -92,6 +94,10 @@ struct LibraryView: View {
                 }
                 .appEnvironment()
             }
+            .sheet(isPresented: $showSpotifyAccount, onDismiss: showSpotifyResult) {
+                SpotifyImportSheet { spotifyResult = $0 }
+                    .appEnvironment()
+            }
             .sheet(isPresented: $showFilePlaylists) {
                 NavigationStack {
                     List(filePlaylists) { source in
@@ -134,6 +140,12 @@ struct LibraryView: View {
                     importLink = ""; showImport = true
                 } label: {
                     Label("Importa da Spotify, Apple Music o YouTube", systemImage: "square.and.arrow.down")
+                }
+                Button {
+                    guard account.unlocks(.playlistLinks) else { paywall = .playlistLinks; return }
+                    showSpotifyAccount = true
+                } label: {
+                    Label("Importa dal tuo account Spotify", systemImage: "person.crop.circle.badge.plus")
                 }
                 Button { showImportFile = true } label: {
                     Label("Importa playlist da file", systemImage: "doc.badge.plus")
@@ -457,10 +469,39 @@ struct LibraryView: View {
             }
         }
         .disabled(importer.status != nil)
+        Button {
+            guard account.unlocks(.playlistLinks) else {
+                paywall = .playlistLinks
+                return
+            }
+            showSpotifyAccount = true
+        } label: {
+            HStack {
+                Label("Importa dal tuo account Spotify", systemImage: "person.crop.circle.badge.plus")
+                if !account.unlocks(.playlistLinks) {
+                    Spacer()
+                    PremiumBadge()
+                }
+            }
+        }
+        .disabled(importer.status != nil)
         Button { showImportFile = true } label: {
             Label("Importa playlist da file", systemImage: "doc.badge.plus")
         }
         .disabled(importer.status != nil)
+    }
+
+    /// The Spotify sheet has closed: one playlist opens its summary, several are counted.
+    private func showSpotifyResult() {
+        guard let result = spotifyResult else { return }
+        spotifyResult = nil
+        if result.outcomes.count == 1, result.stopped == nil, result.outcomes[0].playlist.importReport != nil {
+            importResult = result.outcomes[0].playlist
+            return
+        }
+        var text = String(localized: "\(result.outcomes.count) playlist importate. Apri una playlist per controllare i brani non trovati.")
+        if let stopped = result.stopped { text += "\n" + stopped }
+        importSuccess = text
     }
 
     private func shortcut(_ title: LocalizedStringKey, symbol: String, tint: Color, count: Int) -> some View {
