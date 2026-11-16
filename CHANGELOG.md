@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.36.14 (2026-11-16)
+
+### Added
+- **Your whole Spotify account, in the import** (iPhone, iPad and Mac; Premium, as on Windows): Libreria → **+** → **Importa dal tuo account Spotify**. You sign in on Spotify's own page (Seaglass never sees your password; signing in with Google may not work in that window, email and password do), tick the playlists (private ones and those in folders too) and each one becomes a Seaglass playlist of the songs found on YouTube Music, every song, past the 100 of a public link. A playlist ends on the same summary as a link or a file, with the songs to check. **Esci da Spotify** forgets the sign-in.
+
+### Fixed
+- **An email address registered twice before it was confirmed no longer keeps the first password** (account service). Someone could register your address with a password of their own; when you then confirmed the address, the account was yours but they knew its password. Now an unconfirmed address keeps no password, and once you confirm it the account page tells you to choose yours with *Password dimenticata?*.
+- **The six-digit code to reset a password can no longer be guessed with requests sent all at once.** Its five tries are now counted before each one is checked.
+- **The screenshot settings `SeaglassScene` and `SeaglassAccountToken` only work from the launch arguments**, not from saved settings: `defaults write` could keep every Premium feature open for good.
+
 ## 1.36.13 (2026-11-16)
 
 ### Fixed
