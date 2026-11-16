@@ -1,5 +1,10 @@
 # Seaglass for Windows changelog
 
+## 1.3.2 (2026-11-16)
+
+### Fixed
+- **Updating could still leave Seaglass unable to start** ("Error opening ... Seaglass.cfg"): 1.3.1's installer started again outside the app at once, while the app was still quitting (it takes some seconds). Windows can't close Seaglass for the installer, so the files the app still held couldn't be replaced and the install stopped after deleting the others. An update now waits for the app to have quit before touching anything. Checked in Windows 11 with the real sequence (the installer started by the app, the app quitting 8 s later): 1.3.1's installer left 48 of 53 files and no Seaglass.cfg, this one installs every file.
+
 ## 1.3.1 (2026-11-16)
 
 ### Added

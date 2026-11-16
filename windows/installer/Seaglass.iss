@@ -121,14 +121,57 @@ end;
   its files ("Error opening ... Seaglass.cfg"). So an update starts itself again through WMI, which
   makes a process outside any job, and this copy stops. If that fails, it installs as before.
 }
+{ False while a running Seaglass (its launcher or the app it starts) keeps Seaglass.exe open. }
+function AppClosed(const Exe: String): Boolean;
+var
+  Stream: TFileStream;
+begin
+  Result := True;
+  if not FileExists(Exe) then
+    Exit;
+  try
+    Stream := TFileStream.Create(Exe, fmOpenReadWrite or fmShareExclusive);
+    Stream.Free;
+  except
+    Result := False;
+  end;
+end;
+
+{
+  The updater starts the update and then the app quits, which takes it some seconds. Windows can't
+  close Seaglass for the installer (Restart Manager asks for a reboot instead), and the files it
+  still holds can't be replaced: the install stopped after deleting the others. So an update waits
+  for the app to have quit, up to two minutes, before touching anything.
+}
+procedure WaitForAppToQuit;
+var
+  Dir: String;
+  Waited: Integer;
+begin
+  if not RegQueryStringValue(HKCU, 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{8C4E2A71-5B3D-4F0A-9E62-1D7C3B9A4E58}_is1', 'InstallLocation', Dir) then
+    Dir := ExpandConstant('{localappdata}\Programs\Seaglass');
+  Waited := 0;
+  while (not AppClosed(AddBackslash(Dir) + 'Seaglass.exe')) and (Waited < 120000) do
+  begin
+    Sleep(500);
+    Waited := Waited + 500;
+  end;
+  Log(Format('Waited %d ms for Seaglass to quit', [Waited]));
+end;
+
 function InitializeSetup: Boolean;
 var
   Exe, Arguments, Command: String;
   ResultCode: Integer;
 begin
   Result := True;
-  if (not HasParam('/SEAGLASSUPDATE=1')) or HasParam('/SEAGLASSDETACHED') then
+  if not HasParam('/SEAGLASSUPDATE=1') then
     Exit;
+  if HasParam('/SEAGLASSDETACHED') then
+  begin
+    WaitForAppToQuit;
+    Exit;
+  end;
   Exe := ExpandConstant('{srcexe}');
   { A single quote in the path, doubled for PowerShell's single-quoted string. }
   StringChangeEx(Exe, '''', '''''', True);
