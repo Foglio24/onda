@@ -117,7 +117,9 @@ fun PillButton(label: String, icon: ImageVector? = null, prominent: Boolean = fa
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         if (icon != null) Icon(icon, null, Modifier.size(18.dp), tint = if (prominent) palette.onAccent else palette.text)
-        Text(label, color = if (prominent) palette.onAccent else palette.text, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+        // A button's label is never broken across lines ("Rena / me"): the buttons wrap as a whole.
+        Text(label, color = if (prominent) palette.onAccent else palette.text, fontWeight = FontWeight.SemiBold, fontSize = 13.sp,
+            maxLines = 1, softWrap = false)
     }
 }
 
@@ -148,7 +150,10 @@ fun PageHeader(
             Text(title, fontSize = 34.sp, fontWeight = FontWeight.Bold, color = palette.text, maxLines = 2, overflow = TextOverflow.Ellipsis)
             if (!subtitle.isNullOrBlank()) Text(subtitle, fontSize = 17.sp, color = palette.accent, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 4.dp))
             if (!detail.isNullOrBlank()) Text(detail, fontSize = 13.sp, color = palette.secondary, modifier = Modifier.padding(top = 4.dp))
-            Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically, content = actions)
+            // In a narrow page the buttons go on to a second line rather than squeezing their labels.
+            androidx.compose.foundation.layout.FlowRow(
+                Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) { actions() }
         }
     }
 }

@@ -1,5 +1,13 @@
 # Seaglass for Windows changelog
 
+## 1.4.1 (2026-11-16)
+
+### Fixed
+- Buttons never break their label across lines any more ("Rina / mina" in a narrow playlist page): the buttons under a playlist's, an album's or an artist's title go on to a second line as a whole.
+
+### Changed
+- Seaglass for Windows is on the website and in the README, with its download; each Windows release now updates the website's "Download for Windows" to point at it.
+
 ## 1.4.0 (2026-11-16)
 
 ### Changed
