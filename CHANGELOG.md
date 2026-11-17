@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.36.18 (2026-11-17)
+
+### Fixed
+- **No more half a second of silence just before every AutoMix mix in the car, over Bluetooth or AirPlay.** Every mix is played ahead from a file, and that file's player takes over from the playing song just before the mix. It was started only 0.35 s before taking over. Where the sound leaves the iPhone late (a car's Bluetooth or CarPlay, AirPlay: a second and more), the player kept in step but its first half second was never heard, while the playing song had already gone out: every mix, of every style, began with a gap. On the iPhone's speaker the delay is a few milliseconds, which is why the same versions sounded fine there. The file's player now starts silent at least a second and a half before it takes over, and up to more than three seconds where the sound leaves late (the file now starts four seconds before the mix to leave room for it), already in place and ready, and it is set going early enough for the delay of the audio output. The next song's title now appears a second or two earlier than before, while the file's player is still silent.
+
 ## 1.36.17 (2026-11-17)
 
 ### Fixed

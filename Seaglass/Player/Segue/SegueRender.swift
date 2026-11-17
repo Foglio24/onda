@@ -18,9 +18,10 @@ struct SegueAudio {
 /// ever changes in a step: AVPlayer can't change a playing song's speed without its sound jumping
 /// (see `SegueSession`), so the speeds change here instead, as gradually as a DJ's fader.
 ///
-/// - The file starts a second before the window with the playing song alone, sample for sample as
-///   its player plays it (same samples, same gain): the player that plays the file takes over from
-///   the playing one there, unheard (`crossing`, `fade`).
+/// - The file starts four seconds before the window with the playing song alone, sample for sample
+///   as its player plays it (same samples, same gain): the player that plays the file starts silent
+///   somewhere in it, early enough for the audio output's delay, and takes over from the playing one
+///   0.65 s before the window, unheard (`crossing`, `fade`).
 /// - Through the window the next song is locked to the playing one, beat on beat (its place follows
 ///   from the playing song's, as the plan has it), and the tempo goes from the playing song's to the
 ///   next one's, eased at both ends (no corner in the speed): at the start the playing song is at its
@@ -79,9 +80,13 @@ enum SegueRender {
     }
 
     /// Seconds of the playing song alone before the window; when the file's player comes in (silent
-    /// until then, so its start is never heard), and the crossover's length.
-    static let lead = 1.0
-    static let crossing = 0.35
+    /// until then, so its start is never heard), and the crossover's length. The file's player starts
+    /// up to `crossing` before the take-over (see `PlayerController.takeOverRun`): a player started
+    /// 0.35 s ahead, as before 1.36.18, came in late through a car's Bluetooth or CarPlay, whose sound
+    /// leaves a second and more after it is played, and the playing song had already gone out: half a
+    /// second of silence before every mix.
+    static let lead = 4.0
+    static let crossing = 3.35
     static let fade = 0.08
     /// The next song's lanes going back to plain after the window (seconds of its time), then its own
     /// samples over `blend`; the last fraction of a frame made up over `settle`; `margin` of its own

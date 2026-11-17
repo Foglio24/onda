@@ -2810,6 +2810,17 @@ final class PlayerController: ObservableObject {
             guard !Task.isCancelled, self.armed === transition else { return }
             // Its audio ready to play at once (a preroll that didn't finish is tried once more).
             var ready = item.status == .readyToPlay && incoming.status == .readyToPlay
+            if ready, planned.segue != nil {
+                // A rendered Segue's file starts, silent, `takeOverRun` before the take-over: it waits
+                // there, prerolled, and starts from there (see `startOnTime`).
+                let startAt = max(0, crossing - Self.takeOverRun)
+                transition.startAt = startAt
+                if startAt > 0 {
+                    ready = await incoming.seek(to: CMTime(seconds: startAt, preferredTimescale: 48_000),
+                                                toleranceBefore: .zero, toleranceAfter: .zero)
+                    guard !Task.isCancelled, self.armed === transition else { return }
+                }
+            }
             if ready {
                 let rate = PlaybackTempo.rate
                 ready = await incoming.preroll(atRate: rate)
@@ -2868,10 +2879,27 @@ final class PlayerController: ObservableObject {
         return max(0, session.outputLatency) + max(0, session.ioBufferDuration)
     }
 
+    /// How long before a rendered Segue's take-over its file's player starts (silent through its
+    /// stage until then): at least a second and a half, more where the sound leaves late (a car's
+    /// Bluetooth or CarPlay, AirPlay), up to the file's whole run before it (`SegueRender.crossing`).
+    /// Started 0.35 s ahead, as before 1.36.18, the player came in late wherever the sound left a
+    /// second after it was played: it kept in step, but its first half second was never heard, and the
+    /// playing song had already gone out by its stage, so every mix began with half a second of silence.
+    /// The iOS figure for a car or AirPlay can be smaller than the real delay, so the margin is generous.
+    static var takeOverRun: Double {
+        min(SegueRender.crossing, max(1.5, 2 * outputLatency + 1))
+    }
+
+    /// How long before its start (on the playing song's clock) the file's player is set going: the
+    /// sound's delay out of the device and some, so that its first frames leave in time.
+    private static var scheduleLead: Double { max(0.4, outputLatency + 0.4) }
+
     /// Schedule the preloaded mix as in 1.15. The outgoing player stays audible until that
     /// moment and fades out with its volume; the rendered mix fades in over the same interval.
     private func startOnTime(_ transition: ArmedTransition) async {
         let handover = transition.planned.handover
+        // Where the file's player starts in it (a rendered Segue's: `takeOverRun` before the take-over).
+        let startAt = transition.startAt
         let outgoing = player
         while true {
             guard !Task.isCancelled, armed === transition, player === outgoing,
@@ -2880,25 +2908,28 @@ final class PlayerController: ObservableObject {
                 try? await Task.sleep(for: .milliseconds(250))
                 continue
             }
-            let wait = handover + itemOffset - item.currentTime().seconds
+            let wait = handover + startAt + itemOffset - item.currentTime().seconds
             // The playing song's fade out, armed seconds ahead (see `armOutgoingFade`).
             if transition.planned.segue != nil, wait <= Self.fadeLead { armOutgoingFade(transition, item: item) }
-            if wait <= 0.4 { break }
-            try? await Task.sleep(for: .seconds(min(wait - 0.35, 1)))
+            let lead = Self.scheduleLead
+            if wait <= lead { break }
+            try? await Task.sleep(for: .seconds(min(wait - lead + 0.05, 1)))
         }
         guard let item = outgoing.currentItem, let timebase = item.timebase, transition.item != nil else {
             return abandon(transition)
         }
         let rate = CMTimebaseGetRate(timebase)
         let now = CMTimebaseGetTime(timebase).seconds
-        let target = handover + itemOffset
+        let target = handover + startAt + itemOffset
         guard rate > 0, now.isFinite, now <= target + 0.02 else { return abandon(transition) }
         let delay = max(0, (target - now) / rate)
         let start = CMTimeAdd(CMClockGetTime(CMClockGetHostTimeClock()),
                               CMTime(seconds: delay, preferredTimescale: 1_000_000_000))
         // The mix plays at the songs' tempo; its fade, in the mix's own seconds, lasts that much less (or more).
         let tempo = PlaybackTempo.rate
-        transition.player.setRate(tempo, time: .zero, atHostTime: start)
+        // A rendered Segue's player waits prerolled where it starts: from there (an item time here would
+        // seek it again and lose the preroll). The earlier way's mix starts at its beginning, as before.
+        transition.player.setRate(tempo, time: transition.planned.segue != nil ? .invalid : .zero, atHostTime: start)
         transition.scheduled = true
         if let segue = transition.planned.segue {
             // A rendered Segue: the file starts with the playing song's own samples, so the two cross over
@@ -2910,10 +2941,11 @@ final class PlayerController: ObservableObject {
             // In time: the fade was armed before the song's processing reached it. Otherwise (no stage,
             // or the processing already past it) the player's volume fades the song out at that moment.
             let staged = transition.fadeStage != nil && transition.fadeAhead > 0.05
-            let over = delay + (transition.crossing + transition.fade) / Double(tempo)
+            let run = transition.crossing - startAt
+            let over = delay + (run + transition.fade) / Double(tempo)
             beginTransition(transition, outgoingFor: over + Self.outputLatency + 0.3)
             noteHandover(String(localized: "mix preparato") + " · " + Self.describe(segue.plan))
-            let begin = transition.crossing / Double(tempo), span = transition.fade / Double(tempo)
+            let begin = run / Double(tempo), span = transition.fade / Double(tempo)
             fadeOutTask = Task {
                 while !Task.isCancelled {
                     let elapsed = CMTimeSubtract(CMClockGetTime(CMClockGetHostTimeClock()), start).seconds - begin
@@ -2937,13 +2969,16 @@ final class PlayerController: ObservableObject {
                 // and how the playing song went out.
                 let filePlayer = transition.player
                 let ahead = transition.fadeAhead
+                let latency = Self.outputLatency
                 Task {
                     try? await Task.sleep(for: .seconds(over + 0.05))
                     let file = filePlayer.currentTime().seconds
                     let song = outgoing.currentTime().seconds - offset - handover
                     let margin = ahead.isFinite ? String(format: "%.2f", ahead) : "unknown"
                     print(String(format: "segue: take-over at %.2f s, %+.1f ms apart", cross, (file - song) * 1000)
-                          + ", the playing song out by its \(staged ? "stage" : "player's volume") (armed \(margin) s ahead)")
+                          + ", the playing song out by its \(staged ? "stage" : "player's volume") (armed \(margin) s ahead)"
+                          + String(format: "; the file's player started %.2f s before it, %.0f ms after scheduling, output latency %.0f ms",
+                                   run, delay * 1000, latency * 1000))
                 }
             }
             return
@@ -3703,6 +3738,9 @@ private final class ArmedTransition {
     /// positive: in time).
     var fadeStage: SegueStage?
     var fadeAhead = 0.0
+    /// Where its player starts in the mix's file (seconds; a rendered Segue's starts `takeOverRun`
+    /// before the take-over, the earlier way's at the beginning).
+    var startAt = 0.0
     /// Its start has been set on the system clock.
     var scheduled = false
 
