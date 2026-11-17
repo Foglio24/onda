@@ -1,5 +1,10 @@
 # Seaglass for Windows changelog
 
+## 1.5.3 (2026-11-17)
+
+### Fixed
+- **After an update, opening Seaglass said "Error opening … Seaglass.cfg: No such file or directory"**, and kept saying it on every launch: "Riavvia e aggiorna" started the installer, and quitting started it a second time. The second copy waited two minutes for the new app to quit, gave up, and wiped the app's folder while the new app held its files. The app now starts the installer once; setup never touches the files while the app still runs (it stops after the wait instead), and a copy of an update that is already installed whole does nothing. If your Seaglass shows that error now, run the latest Seaglass-Setup.exe once: your library is kept.
+
 ## 1.5.2 (2026-11-17)
 
 ### Added

@@ -192,14 +192,19 @@ object AppUpdater {
      */
     fun installNow(): Boolean {
         val ready = _state.value as? State.Ready ?: return false
+        // Once only: the "Riavvia e aggiorna" button installs and then quits, and quitting installs too;
+        // a second installer would wait for the new app to quit, give up, and wipe it.
+        if (installerStarted) return true
         if (!System.getProperty("os.name").orEmpty().lowercase().contains("win")) return false
         // Checked once more right before running: the file is ours, unchanged since the download.
         val expected = lastRelease?.sha256 ?: return false
         if (!ready.file.isFile || sha256(ready.file) != expected) return false
+        installerStarted = true
         ProcessBuilder(ready.file.absolutePath, "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/CLOSEAPPLICATIONS", "/SEAGLASSUPDATE=1")
             .inheritIO().start()
         return true
     }
 
     @Volatile private var lastRelease: Release? = null
+    @Volatile private var installerStarted = false
 }

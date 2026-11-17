@@ -325,19 +325,36 @@ end;
   still holds can't be replaced: the install stopped after deleting the others. So an update waits
   for the app to have quit, up to two minutes, before touching anything.
 }
-procedure WaitForAppToQuit;
+function InstallLocation: String;
 var
   Dir: String;
-  Waited: Integer;
 begin
   if not RegQueryStringValue(HKCU, 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{8C4E2A71-5B3D-4F0A-9E62-1D7C3B9A4E58}_is1', 'InstallLocation', Dir) then
     Dir := ExpandConstant('{localappdata}\Programs\Seaglass');
+  Result := AddBackslash(Dir);
+end;
+
+{ True when this very version is installed whole: a second copy of the same update has nothing to do. }
+function AlreadyInstalled: Boolean;
+var
+  Version: String;
+begin
+  Result := RegQueryStringValue(HKCU, 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{8C4E2A71-5B3D-4F0A-9E62-1D7C3B9A4E58}_is1', 'DisplayVersion', Version) and
+    (Version = '{#AppVersion}') and FileExists(InstallLocation + 'app\Seaglass.cfg');
+end;
+
+{ True once the app has quit; false when it still runs after two minutes (then nothing is touched). }
+function WaitForAppToQuit: Boolean;
+var
+  Waited: Integer;
+begin
   Waited := 0;
-  while (not AppClosed(AddBackslash(Dir) + 'Seaglass.exe')) and (Waited < 120000) do
+  while (not AppClosed(InstallLocation + 'Seaglass.exe')) and (Waited < 120000) do
   begin
     Sleep(500);
     Waited := Waited + 500;
   end;
+  Result := Waited < 120000;
   Log(Format('Waited %d ms for Seaglass to quit', [Waited]));
 end;
 
@@ -351,7 +368,11 @@ begin
     Exit;
   if HasParam('/SEAGLASSDETACHED') then
   begin
-    WaitForAppToQuit;
+    { Still running after the wait, or already installed by another copy: touching the files now would break the app. }
+    if AlreadyInstalled then
+      Result := False
+    else if not WaitForAppToQuit then
+      Result := False;
     Exit;
   end;
   Exe := ExpandConstant('{srcexe}');
