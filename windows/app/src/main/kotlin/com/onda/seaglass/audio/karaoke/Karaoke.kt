@@ -194,7 +194,9 @@ object Karaoke {
             _status.value = KaraokeStatus.Failed(e.message ?: tr("La separazione di voce e musica non è riuscita."))
         } catch (e: Throwable) {
             Log.warn("Karaoke failed", e)
-            _status.value = KaraokeStatus.Failed(tr("La separazione di voce e musica non è riuscita."))
+            // With its cause (its kind and a few words), so a report says what went wrong.
+            val cause = e.javaClass.simpleName + (e.message?.let { ": " + it.take(80) } ?: "")
+            _status.value = KaraokeStatus.Failed(tr("La separazione di voce e musica non è riuscita.") + " (" + cause + ")")
         }
     }
 

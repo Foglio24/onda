@@ -1,5 +1,13 @@
 # Seaglass for Windows changelog
 
+## 1.5.1 (2026-11-17)
+
+### Changed
+- **The player's buttons are in groups**: in the bar and in the full player, what the right side shows (In riproduzione, Testo, Coda), the sound's tools (Karaoke, Tempo, Timer) and the volume are set apart by thin lines, with room between them, instead of one row of eight icons.
+
+### Fixed
+- **When the karaoke can't separate a song, it says why**: the message now ends with the kind of error and a few words of it (the full line is in the app's log, "Registro dell'app" in Settings), so a report can say what went wrong on that computer.
+
 ## 1.5.0 (2026-11-17)
 
 ### Added

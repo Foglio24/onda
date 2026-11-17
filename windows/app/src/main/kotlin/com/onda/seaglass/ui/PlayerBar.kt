@@ -148,12 +148,15 @@ fun PlayerBar() {
         }
         // The panels, Tempo, the timer, the volume, the full player.
         Row(Modifier.weight(1f), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+            // Three groups, apart: what the right side shows, the sound's tools, the volume.
             BarButton(Icons.Rounded.ViewSidebar, tr("In riproduzione"), active = Nav.panel == Nav.Panel.NOW_PLAYING, size = icon) { Nav.togglePanel(Nav.Panel.NOW_PLAYING) }
             BarButton(Icons.Rounded.SpeakerNotes, tr("Testo"), active = Nav.panel == Nav.Panel.LYRICS, size = icon) { Nav.togglePanel(Nav.Panel.LYRICS) }
             BarButton(Icons.AutoMirrored.Rounded.QueueMusic, tr("Coda"), active = Nav.panel == Nav.Panel.QUEUE, size = icon) { Nav.togglePanel(Nav.Panel.QUEUE) }
+            BarDivider()
             KaraokeButton(size = icon)
             TempoButton(size = icon)
             SleepTimerButton(state.sleepAt > 0 || state.sleepAtEnd, size = icon)
+            BarDivider()
             VolumeControl(width = if (compact) 64.dp else 96.dp, iconSize = icon)
             BarButton(Icons.Rounded.OpenInFull, tr("Schermo intero"), size = icon - 2, enabled = track != null) { Nav.fullPlayer = true }
         }
@@ -229,6 +232,16 @@ fun BarButton(
             if (active) Box(Modifier.size(4.dp).clip(CircleShape).background(palette.accent))
         }
     }
+}
+
+/** A thin line between groups of buttons in the bar, so they read as groups and not as one row. */
+@Composable
+fun BarDivider(light: Boolean = false) {
+    val palette = LocalPalette.current
+    Box(
+        Modifier.padding(horizontal = 10.dp).width(1.dp).height(22.dp)
+            .background(if (light) Color.White.copy(alpha = 0.25f) else palette.tertiary.copy(alpha = 0.6f)),
+    )
 }
 
 @Composable
