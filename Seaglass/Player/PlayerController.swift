@@ -2880,14 +2880,15 @@ final class PlayerController: ObservableObject {
     }
 
     /// How long before a rendered Segue's take-over its file's player starts (silent through its
-    /// stage until then): at least a second and a half, more where the sound leaves late (a car's
-    /// Bluetooth or CarPlay, AirPlay), up to the file's whole run before it (`SegueRender.crossing`).
-    /// Started 0.35 s ahead, as before 1.36.18, the player came in late wherever the sound left a
-    /// second after it was played: it kept in step, but its first half second was never heard, and the
-    /// playing song had already gone out by its stage, so every mix began with half a second of silence.
-    /// The iOS figure for a car or AirPlay can be smaller than the real delay, so the margin is generous.
+    /// stage until then): at least two seconds, more where the sound leaves late (Bluetooth, CarPlay,
+    /// AirPlay), up to the file's whole run before it (`SegueRender.crossing`). Started 0.35 s ahead,
+    /// as before 1.36.18, the player came in late on an iPhone playing over Bluetooth (and busy: maps,
+    /// a screen recording): it kept in step, but its first half second was never heard, and the
+    /// playing song had already gone out by its stage, so every mix began with half a second of
+    /// silence. Measured there, it needed about 1.2 s; the iOS figure for the output's delay can be
+    /// smaller than the real one, so the margin is generous.
     static var takeOverRun: Double {
-        min(SegueRender.crossing, max(1.5, 2 * outputLatency + 1))
+        min(SegueRender.crossing, max(2, 2 * outputLatency + 1.2))
     }
 
     /// How long before its start (on the playing song's clock) the file's player is set going: the
