@@ -10,7 +10,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isAltPressed
 import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.isMetaPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.res.loadImageBitmap
@@ -108,7 +110,10 @@ fun main(args: Array<String>) {
                     !WindowsIntegration.isWindows && event.key == Key.MediaPlayPause -> { Player.toggle(); true }
                     !WindowsIntegration.isWindows && event.key == Key.MediaNext -> { Player.next(); true }
                     !WindowsIntegration.isWindows && event.key == Key.MediaPrevious -> { Player.previous(); true }
-                    WindowsIntegration.isWindows && event.key in setOf(Key.MediaPlayPause, Key.MediaNext, Key.MediaPrevious) -> true
+                    // The window's own event for the same press is dropped; if the hook missed it, it is handled here.
+                    WindowsIntegration.isWindows && event.key == Key.MediaPlayPause -> { if (!WindowsIntegration.hookTookAMediaKey()) Player.toggle(); true }
+                    WindowsIntegration.isWindows && event.key == Key.MediaNext -> { if (!WindowsIntegration.hookTookAMediaKey()) Player.next(); true }
+                    WindowsIntegration.isWindows && event.key == Key.MediaPrevious -> { if (!WindowsIntegration.hookTookAMediaKey()) Player.previous(); true }
                     event.isCtrlPressed && event.key == Key.DirectionRight -> { Player.next(); true }
                     event.isCtrlPressed && event.key == Key.DirectionLeft -> { Player.previous(); true }
                     event.isCtrlPressed && event.key == Key.DirectionUp -> { Player.setVolume(Prefs.volume.value + 0.05); true }
@@ -118,6 +123,17 @@ fun main(args: Array<String>) {
                     event.isCtrlPressed && event.key == Key.Comma -> { Nav.section(Route.Settings); true }
                     event.key == Key.Escape && Nav.fullPlayer -> { Nav.fullPlayer = false; true }
                     else -> false
+                }
+            },
+            // The space bar plays and pauses, where nothing took it first: a text field being typed in
+            // keeps it (a key goes to what has the focus, and only comes up to the window if it
+            // wasn't used).
+            onKeyEvent = { event ->
+                if (event.type == KeyEventType.KeyDown && event.key == Key.Spacebar && !event.isCtrlPressed && !event.isAltPressed && !event.isMetaPressed) {
+                    Player.toggle()
+                    true
+                } else {
+                    false
                 }
             },
         ) {

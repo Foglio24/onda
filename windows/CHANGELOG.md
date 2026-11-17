@@ -5,7 +5,11 @@
 ### Changed
 - **The player's buttons are in groups**: in the bar and in the full player, what the right side shows (In riproduzione, Testo, Coda), the sound's tools (Karaoke, Tempo, Timer) and the volume are set apart by thin lines, with room between them, instead of one row of eight icons.
 
+### Added
+- **The space bar plays and pauses**, anywhere in the window except where you are typing (a text field keeps its spaces).
+
 ### Fixed
+- **The keyboard's media keys (play/pause, next, previous, also the ones on Fn + F keys)**: the app's keyboard hook now also takes them with Alt held, writes in the app's log whether it was installed ("Media keys: …"), and if the hook misses a press the window takes it instead (never both). If they still do nothing on a computer, that log line says why.
 - **When the karaoke can't separate a song, it says why**: the message now ends with the kind of error and a few words of it (the full line is in the app's log, "Registro dell'app" in Settings), so a report can say what went wrong on that computer.
 
 ## 1.5.0 (2026-11-17)

@@ -2,6 +2,7 @@ package com.onda.seaglass
 
 import com.onda.seaglass.account.Account
 import com.onda.seaglass.audio.Player
+import com.onda.seaglass.core.Log
 import com.onda.seaglass.core.Paths
 import com.onda.seaglass.core.Prefs
 import com.onda.seaglass.update.AppUpdater
@@ -111,6 +112,10 @@ object WindowsIntegration {
     private const val VK_MEDIA_STOP = 0xB2
     private const val VK_MEDIA_PLAY_PAUSE = 0xB3
     @Volatile private var hookProc: WinUser.LowLevelKeyboardProc? = null
+    @Volatile private var lastHookKey = 0L
+
+    /** Whether the keyboard hook took a media key a moment ago (the window must not take the same press again). */
+    fun hookTookAMediaKey(): Boolean = System.nanoTime() - lastHookKey < 400_000_000L
 
     /**
      * The keyboard's play/pause, next and previous keys, whichever window has the focus: a
@@ -124,24 +129,28 @@ object WindowsIntegration {
                 val module = Kernel32.INSTANCE.GetModuleHandle(null)
                 var hook: WinUser.HHOOK? = null
                 val proc = WinUser.LowLevelKeyboardProc { code, wParam, info ->
-                    if (code >= 0 && wParam.toInt() == WinUser.WM_KEYDOWN) {
+                    // A key with Alt held comes as WM_SYSKEYDOWN.
+                    if (code >= 0 && (wParam.toInt() == WinUser.WM_KEYDOWN || wParam.toInt() == WinUser.WM_SYSKEYDOWN)) {
                         when (info.vkCode) {
-                            VK_MEDIA_PLAY_PAUSE -> SwingUtilities.invokeLater { Player.toggle() }
-                            VK_MEDIA_NEXT_TRACK -> SwingUtilities.invokeLater { Player.next() }
-                            VK_MEDIA_PREV_TRACK -> SwingUtilities.invokeLater { Player.previous() }
-                            VK_MEDIA_STOP -> SwingUtilities.invokeLater { Player.pause() }
+                            VK_MEDIA_PLAY_PAUSE -> { lastHookKey = System.nanoTime(); SwingUtilities.invokeLater { Player.toggle() } }
+                            VK_MEDIA_NEXT_TRACK -> { lastHookKey = System.nanoTime(); SwingUtilities.invokeLater { Player.next() } }
+                            VK_MEDIA_PREV_TRACK -> { lastHookKey = System.nanoTime(); SwingUtilities.invokeLater { Player.previous() } }
+                            VK_MEDIA_STOP -> { lastHookKey = System.nanoTime(); SwingUtilities.invokeLater { Player.pause() } }
                         }
                     }
                     user32.CallNextHookEx(hook, code, wParam, WinDef.LPARAM(Pointer.nativeValue(info.pointer)))
                 }
                 hookProc = proc
                 hook = user32.SetWindowsHookEx(WinUser.WH_KEYBOARD_LL, proc, module, 0)
+                // In the app's log, so a report can say whether the media keys were hooked at all.
+                if (hook == null) Log.warn("Media keys: the keyboard hook wasn't installed (error ${Kernel32.INSTANCE.GetLastError()})")
+                else Log.info("Media keys: the keyboard hook is installed")
                 val message = WinUser.MSG()
                 while (user32.GetMessage(message, null, 0, 0) > 0) {
                     user32.TranslateMessage(message)
                     user32.DispatchMessage(message)
                 }
-            }
+            }.onFailure { Log.warn("Media keys: the keyboard hook stopped", it) }
         }, "seaglass-media-keys").apply { isDaemon = true }.start()
     }
 }
