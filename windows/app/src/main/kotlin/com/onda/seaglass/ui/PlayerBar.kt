@@ -263,6 +263,10 @@ fun Scrubber(modifier: Modifier = Modifier, light: Boolean = false) {
     var hovered by remember { mutableStateOf(false) }
     val duration = state.duration
     val fraction = dragging ?: if (duration > 0) (position / duration).toFloat().coerceIn(0f, 1f) else 0f
+    // Where the next mix will start, once it is planned and it is coming (Settings › Segna il mix sulla barra).
+    val markSetting by Prefs.transitionMark.state.collectAsState()
+    val mark by Player.mixMark.collectAsState()
+    val markAt = if (markSetting && duration > 0) mark?.let { (it / duration).toFloat() }?.takeIf { it in 0f..1f && it > fraction } else null
     val textColor = if (light) Color.White.copy(alpha = 0.8f) else palette.secondary
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
         Text(formatDuration(if (dragging != null) dragging!! * duration else position), color = textColor, fontSize = 12.sp, maxLines = 1,
@@ -296,6 +300,7 @@ fun Scrubber(modifier: Modifier = Modifier, light: Boolean = false) {
             val fill = if (hovered || dragging != null) palette.accent else if (light) Color.White else palette.text
             Box(Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)).background(track))
             Box(Modifier.fillMaxWidth(fraction).height(4.dp).clip(RoundedCornerShape(2.dp)).background(fill))
+            if (markAt != null) Box(Modifier.padding(start = (maxWidth * markAt - 1.dp).coerceAtLeast(0.dp)).width(2.dp).height(10.dp).clip(RoundedCornerShape(1.dp)).background(palette.accent))
             if (hovered || dragging != null) {
                 Box(Modifier.padding(start = (maxWidth * fraction - 6.dp).coerceAtLeast(0.dp)).size(12.dp).clip(CircleShape).background(if (light) Color.White else palette.text))
             }

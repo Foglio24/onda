@@ -287,4 +287,72 @@ class AutoMixEngineTest {
         assertEquals(TransitionPlan.Style.BEAT_MATCHED, plan.style, "plan: $plan")
         assertTrue(abs(plan.incomingRate - 1.2) < 0.02, "ratio: ${plan.incomingRate}")
     }
+
+    @Test
+    fun aCutNeverClicksAndKeepsTheLoudness() {
+        // Taglio: the next song starts as the playing one stops, over a few milliseconds of equal-power fade.
+        val a = wav(70.0) { t -> 0.25 * sin(2 * PI * 196 * t) }
+        val b = wav(70.0) { t -> 0.25 * sin(2 * PI * 293 * t + 0.5) }
+        val plan = TransitionPlan(TransitionPlan.Style.CUT, outStart = 62.0, outEnd = 62.03, inStart = 0.0, incomingRate = 1.0)
+        val (capture, _) = play(plan, a, b, startAt = 60.0, outgoingTempo = 120.0, after = 2.0)
+        val frames = capture.frames
+        val ownStep = (2 * PI * 293 / Decoder.RATE * 0.25 * 32767).toInt()
+        val step = largestStep(capture.samples, 1, frames)
+        assertTrue(step <= ownStep * 2.2 + 8, "largest step $step (own about $ownStep)")
+        val window = Decoder.RATE / 20
+        var worst = 0.0
+        var previous = loudness(capture.samples, 0, window)
+        var at = window
+        while (at + window <= frames) {
+            val level = loudness(capture.samples, at, at + window)
+            worst = maxOf(worst, abs(level - previous))
+            previous = level
+            at += window
+        }
+        assertTrue(worst < 3.0, "loudness jumps by $worst dB between 50 ms windows")
+    }
+
+    @Test
+    fun aMixAskedForNowFadesInTheNextSongWithoutJumps() {
+        // "Avanti": Mix veloce brings the queued song in over 3 s, from wherever the playing one is.
+        val a = wav(70.0) { t -> 0.25 * sin(2 * PI * 196 * t) }
+        val b = wav(70.0) { t -> 0.25 * sin(2 * PI * 293 * t + 0.5) }
+        val capture = Capture()
+        val advanced = CountDownLatch(1)
+        Engine { capture }.use { engine ->
+            engine.volume = 1f
+            engine.listener = object : Engine.Listener {
+                override fun advanced(next: Deck) = advanced.countDown()
+                override fun ended(deck: Deck) {}
+                override fun failed(deck: Deck, error: Exception) = throw AssertionError(error)
+            }
+            engine.crossfade = 0.0
+            engine.play(Deck(Decoder(FileSource(a)), 1f, 10.0))
+            val second = Deck(Decoder(FileSource(b)), 1f, 0.0)
+            engine.queue(second, null)
+            while (!second.isReady) Thread.sleep(5)
+            Thread.sleep(300)
+            engine.mixNow(3.0)
+            assertTrue(advanced.await(30, TimeUnit.SECONDS), "the next song took over after the asked-for mix")
+            val until = System.nanoTime() + 10_000_000_000
+            while (capture.frames < 8 * Decoder.RATE && System.nanoTime() < until) Thread.sleep(5)
+            engine.pause()
+        }
+        val frames = capture.frames
+        assertTrue(frames > 4 * Decoder.RATE, "captured ${frames / Decoder.RATE} s")
+        val ownStep = (2 * PI * 293 / Decoder.RATE * 0.25 * 32767).toInt()
+        val step = largestStep(capture.samples, 1, frames)
+        assertTrue(step <= ownStep * 2.2 + 8, "largest step $step (own about $ownStep)")
+        val window = Decoder.RATE / 20
+        var worst = 0.0
+        var previous = loudness(capture.samples, 0, window)
+        var at = window
+        while (at + window <= frames) {
+            val level = loudness(capture.samples, at, at + window)
+            worst = maxOf(worst, abs(level - previous))
+            previous = level
+            at += window
+        }
+        assertTrue(worst < 3.0, "loudness jumps by $worst dB between 50 ms windows")
+    }
 }

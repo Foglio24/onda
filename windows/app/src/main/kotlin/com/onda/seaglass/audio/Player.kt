@@ -17,6 +17,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -79,6 +81,10 @@ object Player {
     private val _mix = MutableStateFlow<Mix?>(null)
     val mix: StateFlow<Mix?> = _mix
 
+    /** Where in the playing song the next mix or crossfade starts, in seconds, once planned (the progress bar's mark). */
+    private val _mixMark = MutableStateFlow<Double?>(null)
+    val mixMark: StateFlow<Double?> = _mixMark
+
     val engine = Engine { if (headless) NullSink(headlessSpeed) else JavaSoundSink(Prefs.outputDevice.value) }
 
     /** Tests and CI screenshots: no sound card. */
@@ -116,15 +122,39 @@ object Player {
         scope.launch {
             Prefs.crossfadeSeconds.state.collect { applyCrossfade() }
         }
+        // A change of AutoMix's options plans the queued next mix again, so it lands on this song, not the one after.
+        scope.launch {
+            combine<Any, List<Any>>(
+                listOf(
+                    Prefs.liveMix.state, Prefs.mixStyle.state, Prefs.mixLength.state, Prefs.tempoBend.state, Prefs.autoEqualiser.state,
+                    Prefs.keepAlbum.state, Prefs.labBass.state, Prefs.labBeatFade.state, Prefs.labEnergy.state,
+                ),
+            ) { it.toList() }.drop(1).collect {
+                withContext(Dispatchers.Main) {
+                    if (autoMix && _state.value.current != null) {
+                        preparedFor = -1
+                        prepareNext()
+                    }
+                }
+            }
+        }
     }
 
     private fun applyCrossfade() {
-        engine.crossfade = when (Prefs.transition.value) {
-            "crossfade" -> Prefs.crossfadeSeconds.value.coerceIn(1.0, 12.0)
-            // AutoMix without a plan (a song it couldn't analyse): a plain crossfade.
-            "automix" -> 6.0
-            else -> 0.0
-        }
+        engine.crossfade = crossfadeSeconds()
+    }
+
+    private fun crossfadeSeconds(): Double = when (Prefs.transition.value) {
+        "crossfade" -> Prefs.crossfadeSeconds.value.coerceIn(1.0, 12.0)
+        // AutoMix without a plan (a song it couldn't analyse): a plain crossfade.
+        "automix" -> 6.0
+        else -> 0.0
+    }
+
+    /** Two songs of one album (the same album page), as an album played in order has them. */
+    private fun sameAlbum(a: Track, b: Track): Boolean {
+        val id = a.albumId ?: return false
+        return id == b.albumId && a.videoId != b.videoId
     }
 
     /** AutoMix is on (and unlocked: a Premium feature, as on the iPhone). */
@@ -181,12 +211,44 @@ object Player {
     /** Next: the following song now (cutting a crossfade short). */
     fun next() {
         val current = _state.value
+        if (skipWithMix()) return
         val target = current.index + 1
         when {
             target < current.queue.size -> jump(target)
             current.repeat == Repeat.ALL && current.queue.isNotEmpty() -> jump(0)
-            else -> extendWithRadio(andPlay = true)
+            else -> if (Prefs.autoRadio.value) extendWithRadio(andPlay = true)
         }
+    }
+
+    private var skipJob: Job? = null
+
+    /**
+     * "Avanti" with AutoMix on (Settings): Mix veloce brings the next song in over three seconds, Mix
+     * a tempo over one bar from the playing song's next downbeat. False when the next song isn't
+     * ready (or Taglio is chosen): Next then cuts to it, as without AutoMix.
+     */
+    private fun skipWithMix(): Boolean {
+        val mode = Prefs.skipMix.value
+        val current = _state.value
+        if (!autoMix || mode == "cut" || !current.isPlaying || current.repeat == Repeat.ONE) return false
+        val target = current.queue.getOrNull(current.index + 1) ?: return false
+        val playing = current.queue.getOrNull(current.index) ?: return false
+        if (preparedFor != target.id || engine.next?.isReady != true || engine.fading) return false
+        skipJob?.cancel()
+        // The next downbeat of the playing song, when its end has been analysed and a beat found.
+        val tail = com.onda.seaglass.audio.automix.AutoMix.known(playing.track.videoId)?.tail
+        val position = engine.position
+        val downbeat = tail?.takeIf { mode == "onBeat" && it.hasBeat }?.downbeats?.firstOrNull { it > position + 0.15 }
+        if (tail == null || downbeat == null || downbeat - position > 4) {
+            engine.mixNow(3.0)
+            return true
+        }
+        val bar = (60 / tail.tempo * 4).coerceIn(1.0, 4.0)
+        skipJob = scope.launch {
+            while (isActive && engine.position < downbeat - 0.01) delay(5)
+            if (isActive) engine.mixNow(bar)
+        }
+        return true
     }
 
     /** Previous: back to the song's start after three seconds, otherwise the song before. */
@@ -358,8 +420,10 @@ object Player {
 
     private fun load(entry: QueueEntry) {
         loadJob?.cancel()
+        skipJob?.cancel()
         prepareJob?.cancel()
         preparedFor = -1
+        _mixMark.value = null
         val track = entry.track
         _state.value = _state.value.copy(isLoading = true, isPlaying = true, error = null, duration = track.duration ?: 0.0, format = null)
         _position.value = 0.0
@@ -442,10 +506,11 @@ object Player {
         val current = _state.value
         if (current.current == null) return
         // Fewer than three songs left: the radio of the last one is added, as on the Mac.
-        if (current.repeat == Repeat.OFF && current.queue.size - current.index <= 3) extendWithRadio(andPlay = false)
+        if (Prefs.autoRadio.value && current.repeat == Repeat.OFF && current.queue.size - current.index <= 3) extendWithRadio(andPlay = false)
         val entry = following()
         if (entry == null || _state.value.sleepAtEnd) {
             preparedFor = -1
+            _mixMark.value = null
             engine.queue(null)
             return
         }
@@ -461,7 +526,10 @@ object Player {
             }
             var transition: com.onda.seaglass.audio.automix.Transition? = null
             var startAt = 0.0
-            if (autoMix && playing != null && entry.track.videoId != playing.track.videoId) {
+            // An album's songs played in order run into each other as the album has them, not mixed.
+            val albumRun = autoMix && Prefs.liveMix.value && Prefs.keepAlbum.value && playing != null && sameAlbum(playing.track, entry.track)
+            if (albumRun) Log.info("AutoMix: an album's songs in order: no mix")
+            if (autoMix && !albumRun && playing != null && entry.track.videoId != playing.track.videoId) {
                 _state.value = _state.value.copy(nextMix = tr("Analisi dei brani…"))
                 val result = runCatching {
                     withContext(Dispatchers.IO) {
@@ -473,7 +541,7 @@ object Player {
                             Log.warn("AutoMix: couldn't analyse ${if (outgoing == null) "the playing song" else "the next song"}; a crossfade instead")
                             return@withContext
                         }
-                        val plan = com.onda.seaglass.audio.automix.AutoMix.plan(outgoing, incoming)
+                        val plan = com.onda.seaglass.audio.automix.AutoMix.plan(outgoing, incoming, com.onda.seaglass.audio.automix.MixOptions.fromPrefs())
                         Log.info(
                             "AutoMix: ${plan.style} %.1f–%.1f s, next from %.1f s at %.3f×, tempos %.1f → %.1f BPM"
                                 .format(plan.outStart, plan.outEnd, plan.inStart, plan.incomingRate, outgoing.tail.tempo, incoming.head.tempo),
@@ -500,6 +568,15 @@ object Player {
                 preparedFor = entry.id
                 preparedFormat = opened.second
                 engine.queue(opened.first, transition)
+                // No mix and no crossfade into the next song of an album run: the songs run on, gapless.
+                engine.crossfade = if (albumRun) 0.0 else crossfadeSeconds()
+                val planned = transition
+                val duration = _state.value.duration
+                _mixMark.value = when {
+                    planned != null -> planned.plan.outStart
+                    engine.crossfade > 0 && duration > 0 -> duration - engine.crossfade
+                    else -> null
+                }
             }
         }
     }
@@ -557,6 +634,7 @@ object Player {
             nextMix = null,
         )
         preparedFor = -1
+        _mixMark.value = null
         _state.value.current?.let { if (!it.isLocal) Library.recordPlay(it) }
         if (_state.value.sleepAtEnd) {
             pause()

@@ -79,6 +79,30 @@ object Prefs {
     /** "none", "crossfade", "automix". */
     val transition = Setting("audio.transition", "crossfade") { s, k, d -> s.string(k) ?: d }
     val crossfadeSeconds = double("audio.crossfade", 6.0)
+
+    // AutoMix's options, as the iPhone and Mac app's Playback settings (same defaults).
+    /** "Mix dal vivo": on, the options below shape the mixes; off, AutoMix plans as before them. */
+    val liveMix = bool("automix.live", true)
+    /** "automatic", "blend", "cut" or "fade". */
+    val mixStyle = Setting("automix.style", "automatic") { s, k, d -> s.string(k) ?: d }
+    /** The mix's longest length: 0 short (8 bars), 1 normal (16), 2 long (32). */
+    val mixLength = int("automix.length", 1)
+    /** How far the two songs' tempos may be apart for a mix on the beat: "gentle" 4 %, "normal" 8 %, "wide" 12 %. */
+    val tempoBend = Setting("automix.tempoBend", "normal") { s, k, d -> s.string(k) ?: d }
+    /** Bass, mids, highs and filters pass from one song to the other; off, only the volumes change. */
+    val autoEqualiser = bool("automix.eq", true)
+    /** An album's songs played in order are left as the album has them, not mixed. */
+    val keepAlbum = bool("automix.keepAlbum", true)
+    /** What Next does while AutoMix is on: "cut", "quick" or "onBeat". */
+    val skipMix = Setting("automix.skip", "cut") { s, k, d -> s.string(k) ?: d }
+    // Mix Lab.
+    val labBass = bool("automix.lab.bass", true)
+    val labBeatFade = bool("automix.lab.beatFade", false)
+    val labEnergy = bool("automix.lab.energy", false)
+    /** The progress bar shows where the mix will happen. */
+    val transitionMark = bool("player.transitionMark", true)
+    /** When the queue ends, play on with songs like the last one. */
+    val autoRadio = bool("player.autoRadio", true)
     /** The output device's name, null for Windows's default. */
     val outputDevice = text("audio.device", null)
 

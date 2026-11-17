@@ -419,6 +419,7 @@ class Engine(private val sinkFactory: () -> AudioSink) : Closeable {
         val old = current
         val queued = next
         nextTransition = null
+        mixRequest = 0.0
         next = null
         mixing = false
         mixProgress = -1.0
@@ -438,8 +439,17 @@ class Engine(private val sinkFactory: () -> AudioSink) : Closeable {
         val old = next
         if (fading && old != null) return
         nextTransition = if (deck == null) null else transition
+        mixRequest = 0.0
         next = deck
         if (old != null && old !== deck) events.execute { old.close() }
+    }
+
+    /** A mix into [next] asked for now ("Avanti": Mix veloce, Mix a tempo), its length in seconds; 0 for none. */
+    @Volatile private var mixRequest = 0.0
+
+    /** Mixes into the queued song now over [seconds], as a plain crossfade (a planned mix is dropped). */
+    fun mixNow(seconds: Double) {
+        if (next != null && !fading) mixRequest = seconds.coerceIn(0.2, 12.0)
     }
 
     /** The AutoMix plan for [next], if it has one. */
@@ -653,6 +663,15 @@ class Engine(private val sinkFactory: () -> AudioSink) : Closeable {
                 val rate = if (planned === ratePlan) planned.rateBefore(deck.position, glideFrom) else 1.0
                 limit = minOf(BLOCK, Math.ceil(-late * Decoder.RATE / rate).toInt().coerceAtLeast(1))
             }
+        }
+        val request = mixRequest
+        if (request > 0 && !fading && following != null && following.isReady && speed == 1.0) {
+            mixRequest = 0.0
+            nextTransition = null
+            planned = null
+            fading = true
+            fadeDone = 0
+            fadeLength = (request * Decoder.RATE).toInt().coerceAtLeast(BLOCK)
         }
         if (!fading && following != null && following.isReady && speed == 1.0) {
             if (planned == null && crossfade > 0 && deck.duration > 0) {

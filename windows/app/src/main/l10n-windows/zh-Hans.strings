@@ -146,3 +146,8 @@
 "Aggiunto a Brani preferiti" = "已添加到喜欢的歌曲";
 "Rimosso da Brani preferiti" = "已从喜欢的歌曲中移除";
 "Salva in" = "保存到";
+
+/* Windows 1.5.0: AutoMix's options. */
+"Spento, AutoMix pianifica i mix come prima di queste opzioni." = "关闭时,AutoMix 按这些选项出现之前的方式规划混音。";
+"Stile: Automatico sceglie il meglio (a tempo, filtrato, taglio, dissolvenza); Blend sovrappone i brani sul ritmo; Taglio passa sul primo tempo della battuta; Dissolvenza sfuma. Breve: fino a 8 battute. Normale: fino a 16. Lunga: fino a 32, quando i due brani tengono il tempo così a lungo. Variazione di tempo: quanto possono distare i tempi dei due brani per un mix a tempo (4, 8 o 12 %). Con l'equalizzazione automatica bassi, medi, alti e filtri passano da un brano all'altro; spenta, cambiano solo i volumi. Tieni l'album intero lascia come sono i brani di un album ascoltato in ordine." = "风格:自动会选最合适的(合拍、滤波、切换、淡入淡出);混合让歌曲按节奏叠加;切换在小节的第一拍换歌;淡入淡出则渐隐。短:最多 8 小节。正常:最多 16 小节。长:最多 32 小节,前提是两首歌能这么久保持同一速度。速度变化:两首歌的速度相差多少仍可合拍混音(4%、8% 或 12%)。开启自动均衡后,低音、中音、高音和滤波会从一首歌过渡到另一首;关闭后只改变音量。保留完整专辑会让按顺序播放的专辑歌曲保持原样。";
+"Passaggio dei bassi: nei mix a tempo i bassi passano da un brano all'altro su un battere. Dissolvenza sul beat: le dissolvenze partono dal primo tempo di una battuta. Stile per energia: se l'energia sale il brano nuovo si apre, se scende quello in corso si allontana." = "低音交接:在合拍混音中,低音在强拍上从一首歌转到另一首。拍点淡入淡出:淡入淡出从小节的第一拍开始。按能量选择风格:能量上升时新歌渐入打开,下降时正在播放的歌渐渐退远。";

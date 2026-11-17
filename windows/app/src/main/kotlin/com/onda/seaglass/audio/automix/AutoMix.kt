@@ -28,7 +28,8 @@ data class SongAnalysis(val id: String, val duration: Double, val head: WindowAn
  * on its two decks ([Transition]), sample by sample.
  */
 object AutoMix {
-    private const val WINDOW = 60.0
+    /** The part of each end analysed: enough for a mix of 32 bars at up to about 100 BPM. */
+    private const val WINDOW = 80.0
     private val directory by lazy { File(Paths.cache, "AutoMix").apply { mkdirs() } }
 
     private fun file(id: String): File? {
@@ -37,7 +38,8 @@ object AutoMix {
             id.startsWith("local:") && id.drop(6).all { it.isLetterOrDigit() } -> "local-" + id.drop(6)
             else -> return null
         }
-        return File(directory, "$safe.json")
+        // "-w80": the analysis of an end's last 80 seconds (the first versions kept 60).
+        return File(directory, "$safe-w80.json")
     }
 
     fun known(id: String): SongAnalysis? = file(id)?.let { runCatching { SongAnalysis.fromJson(JSONObject(it.readText())) }.getOrNull() }
@@ -83,8 +85,8 @@ object AutoMix {
         return Analyzer.analyze(if (produced == out.size) out else out.copyOf(produced), offset)
     }
 
-    fun plan(outgoing: SongAnalysis, incoming: SongAnalysis): TransitionPlan =
-        Planner.plan(outgoing.tail, outgoing.duration, incoming.head)
+    fun plan(outgoing: SongAnalysis, incoming: SongAnalysis, options: MixOptions = MixOptions.LEGACY): TransitionPlan =
+        Planner.plan(outgoing.tail, outgoing.duration, incoming.head, options)
 }
 
 /**

@@ -1,5 +1,20 @@
 # Seaglass for Windows changelog
 
+## 1.5.0 (2026-11-17)
+
+### Added
+- **AutoMix's options, as on the iPhone and the Mac** (Settings › Audio, under "AutoMix · Beta"): "Mix dal vivo" (off, AutoMix plans as it did before these options), "Stile" (Automatico, Blend, Taglio, Dissolvenza), "Durata del mix" (Breve up to 8 bars, Normale 16, Lunga 32), "Variazione di tempo" (Delicata, Normale, Ampia: how far apart two tempos may be for a mix on the beat, 4, 8 or 12 %), "Equalizzazione automatica" (off: only the volumes change), "Tieni l'album intero" (an album's songs played in order run on gapless), and "Mix Lab" with "Passaggio dei bassi", "Dissolvenza sul beat" and "Stile per energia". A change plans the queued next mix again at once.
+- **"Avanti"**: what Next does while AutoMix plays: Taglio (as before), Mix veloce (the next song comes in over 3 seconds) or Mix a tempo (over one bar, from the playing song's next downbeat). When the next song isn't ready yet, Next cuts as before.
+- **"Segna il mix sulla barra"**: the progress bar shows a mark where the next mix or crossfade will start.
+- **"Radio automatica"**: off, the queue ends instead of going on with songs like the last one.
+
+### Changed
+- **Tempos are matched as on the Mac**: "Normale" matches songs up to 8 % apart in tempo (1.4.0 allowed about 25 %: wider gaps meant a stretched song); "Ampia" up to 12 %. Each song still covers half of the gap. Turn "Mix dal vivo" off to plan as in 1.4.0.
+- AutoMix now analyses 80 seconds at the end and at the start of each song (it was 60), so a "Lunga" mix of 32 bars fits; songs analysed before are analysed again the first time they're used.
+
+### Not on Windows yet
+- "Mix armonico" (keys), "Voci pulite" and "Coda d'eco" of Mix Lab: they need key and voice detection and an echo that the Windows engine doesn't have.
+
 ## 1.4.1 (2026-11-16)
 
 ### Fixed

@@ -130,6 +130,36 @@ private fun <T> Choice(title: String, value: T, options: List<Pair<T, String>>, 
     }
 }
 
+/** AutoMix's options (as the iPhone and Mac app's Playback settings), under the choice of AutoMix. */
+@Composable
+private fun AutoMixOptions(
+    liveMix: Boolean, style: String, length: Int, tempoBend: String, equaliser: Boolean, keepAlbum: Boolean, skip: String,
+    bass: Boolean, beatFade: Boolean, energy: Boolean, labOpen: Boolean, toggleLab: () -> Unit,
+) {
+    val palette = LocalPalette.current
+    @Composable fun Note(text: String) = Text(text, color = palette.secondary, fontSize = 12.sp, modifier = Modifier.padding(bottom = 8.dp))
+    Toggle(tr("Mix dal vivo"), tr("Spento, AutoMix pianifica i mix come prima di queste opzioni."), liveMix) { Prefs.liveMix.value = it }
+    if (liveMix) {
+        Choice(tr("Stile"), style, listOf("automatic" to tr("Automatico"), "blend" to tr("Blend"), "cut" to tr("Taglio"), "fade" to tr("Dissolvenza"))) { Prefs.mixStyle.value = it }
+        Choice(tr("Durata del mix"), length, listOf(0 to tr("Breve"), 1 to tr("Normale"), 2 to tr("Lunga"))) { Prefs.mixLength.value = it }
+        Choice(tr("Variazione di tempo"), tempoBend, listOf("gentle" to tr("Delicata"), "normal" to tr("Normale"), "wide" to tr("Ampia"))) { Prefs.tempoBend.value = it }
+        Toggle(tr("Equalizzazione automatica"), null, equaliser) { Prefs.autoEqualiser.value = it }
+        Toggle(tr("Tieni l'album intero"), null, keepAlbum) { Prefs.keepAlbum.value = it }
+        SettingRow(tr("Mix Lab"), onClick = toggleLab) { Text(if (labOpen) "▾" else "▸", color = palette.secondary, fontSize = 13.sp) }
+        if (labOpen) {
+            Toggle(tr("Passaggio dei bassi"), null, bass) { Prefs.labBass.value = it }
+            Toggle(tr("Dissolvenza sul beat"), null, beatFade) { Prefs.labBeatFade.value = it }
+            Toggle(tr("Stile per energia"), null, energy) { Prefs.labEnergy.value = it }
+            Note(tr("Passaggio dei bassi: nei mix a tempo i bassi passano da un brano all'altro su un battere. Dissolvenza sul beat: le dissolvenze partono dal primo tempo di una battuta. Stile per energia: se l'energia sale il brano nuovo si apre, se scende quello in corso si allontana."))
+        }
+        Note(tr("Stile: Automatico sceglie il meglio (a tempo, filtrato, taglio, dissolvenza); Blend sovrappone i brani sul ritmo; Taglio passa sul primo tempo della battuta; Dissolvenza sfuma. Breve: fino a 8 battute. Normale: fino a 16. Lunga: fino a 32, quando i due brani tengono il tempo così a lungo. Variazione di tempo: quanto possono distare i tempi dei due brani per un mix a tempo (4, 8 o 12 %). Con l'equalizzazione automatica bassi, medi, alti e filtri passano da un brano all'altro; spenta, cambiano solo i volumi. Tieni l'album intero lascia come sono i brani di un album ascoltato in ordine."))
+    }
+    Choice(
+        tr("Avanti"), skip, listOf("cut" to tr("Taglio"), "quick" to tr("Mix veloce"), "onBeat" to tr("Mix a tempo")),
+        detail = tr("Avanti: Taglio passa subito al brano successivo; Mix veloce lo fa entrare in tre secondi; Mix a tempo lo fa entrare in una battuta, dal primo tempo della prossima."),
+    ) { Prefs.skipMix.value = it }
+}
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SettingsPage() {
@@ -141,6 +171,19 @@ fun SettingsPage() {
     val normalize by Prefs.normalizeVolume.state.collectAsState()
     val transition by Prefs.transition.state.collectAsState()
     val crossfade by Prefs.crossfadeSeconds.state.collectAsState()
+    val liveMix by Prefs.liveMix.state.collectAsState()
+    val mixStyle by Prefs.mixStyle.state.collectAsState()
+    val mixLength by Prefs.mixLength.state.collectAsState()
+    val tempoBend by Prefs.tempoBend.state.collectAsState()
+    val autoEqualiser by Prefs.autoEqualiser.state.collectAsState()
+    val keepAlbum by Prefs.keepAlbum.state.collectAsState()
+    val skipMix by Prefs.skipMix.state.collectAsState()
+    val labBass by Prefs.labBass.state.collectAsState()
+    val labBeatFade by Prefs.labBeatFade.state.collectAsState()
+    val labEnergy by Prefs.labEnergy.state.collectAsState()
+    val transitionMark by Prefs.transitionMark.state.collectAsState()
+    val autoRadio by Prefs.autoRadio.state.collectAsState()
+    var labOpen by remember { mutableStateOf(false) }
     val device by Prefs.outputDevice.state.collectAsState()
     val tray by Prefs.keepPlayingInTray.state.collectAsState()
     val autostart by Prefs.startWithWindows.state.collectAsState()
@@ -191,8 +234,8 @@ fun SettingsPage() {
             Toggle(tr("Volume uniforme"), tr("Tutti i brani allo stesso volume, come su iPhone."), normalize) { Prefs.normalizeVolume.value = it }
             Choice(
                 tr("Passaggio tra i brani"), transition,
-                listOf("none" to tr("Senza pause"), "crossfade" to tr("Dissolvenza incrociata"), "automix" to tr("AutoMix")),
-                detail = if (transition == "automix") tr("Il brano successivo entra a tempo, con i bassi che passano da un brano all'altro, come farebbe un DJ.") else null,
+                listOf("none" to tr("Senza pause"), "crossfade" to tr("Dissolvenza incrociata"), "automix" to tr("AutoMix") + " · " + tr("Beta")),
+                detail = if (transition == "automix") tr("AutoMix sceglie come passare da un brano all'altro, a tempo come un DJ quando il ritmo lo permette.") else null,
             ) {
                 // AutoMix is a Premium feature, as on the iPhone.
                 if (it == "automix" && !Account.unlocks()) Nav.premium = tr("AutoMix") else Prefs.transition.value = it
@@ -202,6 +245,13 @@ fun SettingsPage() {
                     ThinSlider(crossfade.toFloat(), 1f..12f, Modifier.width(220.dp), step = 1f) { Prefs.crossfadeSeconds.value = it.toDouble() }
                 }
             }
+            if (transition == "automix") AutoMixOptions(
+                liveMix, mixStyle, mixLength, tempoBend, autoEqualiser, keepAlbum, skipMix, labBass, labBeatFade, labEnergy, labOpen,
+            ) { labOpen = !labOpen }
+            if (transition != "none") Toggle(
+                tr("Segna il mix sulla barra"), tr("Quando si avvicina, la barra di avanzamento del player mostra dove avverrà il mix."), transitionMark,
+            ) { Prefs.transitionMark.value = it }
+            Toggle(tr("Radio automatica"), tr("Quando la coda finisce, continua con brani simili."), autoRadio) { Prefs.autoRadio.value = it }
             Choice(tr("Uscita audio"), device, listOf<Pair<String?, String>>(null to tr("Predefinita di Windows")) + JavaSoundSink.devices().map { it to it }) {
                 Prefs.outputDevice.value = it
                 Player.engine.reopenOutput()
