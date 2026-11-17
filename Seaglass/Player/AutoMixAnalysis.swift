@@ -57,6 +57,12 @@ struct TrackAnalysis: Codable, Equatable, Sendable {
     var modelBeats: [Float]? = nil
     var modelDownbeats: [Float]? = nil
     var modelDownbeatLogits: [Float]? = nil
+    /// Where the sound stops inside the song (a beat of silence before a drop, a stop): start and end
+    /// (seconds) of each stretch of 0.15 s or more at least 30 dB under the song's main parts, in
+    /// pairs. A mix next to one is heard as the music cutting out (see `SeguePolicy`). Nil in analyses
+    /// made before 1.36.17: added the next time AutoMix needs the song (`AutoMixLibrary`), and found
+    /// from `loudness` meanwhile (`pauseRanges`).
+    var pauses: [Float]? = nil
 
     var tempo: Double { 60 / beatLength }
     var beatCount: Int { beatLoudness.count }
@@ -91,6 +97,29 @@ struct TrackAnalysis: Codable, Equatable, Sendable {
         guard !loudness.isEmpty else { return -100 }
         let index = Int(time / Self.loudnessStep)
         return loudness[max(0, min(loudness.count - 1, index))]
+    }
+
+    /// The song's stops (see `pauses`). Without them (an older analysis), the quarter-seconds of
+    /// `loudness` that low: they find a stop of half a second or more.
+    var pauseRanges: [ClosedRange<Double>] {
+        if let pauses {
+            return stride(from: 0, to: pauses.count - 1, by: 2).compactMap { index in
+                let start = Double(pauses[index]), end = Double(pauses[index + 1])
+                return start.isFinite && end.isFinite && end >= start ? start...end : nil
+            }
+        }
+        let quiet = bodyLoudness - TrackAnalyzer.pauseDepth
+        var ranges: [ClosedRange<Double>] = []
+        for (index, value) in loudness.enumerated() where value < quiet {
+            let start = Double(index) * Self.loudnessStep, end = start + Self.loudnessStep
+            guard start >= soundStart, end <= soundEnd else { continue }
+            if let last = ranges.last, last.upperBound >= start - 1e-9 {
+                ranges[ranges.count - 1] = last.lowerBound...end
+            } else {
+                ranges.append(start...end)
+            }
+        }
+        return ranges
     }
 
     /// Mean power (linear) between two times. Each stored quarter-second contributes only
@@ -183,6 +212,10 @@ enum TrackAnalyzer {
 
     private static let frameLength = 1024
     private static let hop = 256
+    /// A stop of the sound inside a song (`TrackAnalysis.pauses`): this many dB under its main
+    /// parts, for at least `pauseLength` seconds.
+    static let pauseDepth: Float = 30
+    static let pauseLength = 0.15
     private static let bandCount = 36
     private static let lowWeight: Float = 0.5
 
@@ -297,10 +330,41 @@ enum TrackAnalyzer {
                              beatLoudness: beatLoudness, beatPulse: beatPulse, loudness: level.envelope,
                              bodyLoudness: level.body, key: key.tonic, minor: key.minor, keyClarity: key.clarity,
                              beatBass: beatBass, beatOffset: beatOffset, barChroma: barChroma,
-                             beatHeard: beatHeard, beatHeardBass: beatHeardBass)
+                             beatHeard: beatHeard, beatHeardBass: beatHeardBass,
+                             pauses: pauses(in: level))
     }
 
     // MARK: Loudness and silence
+
+    /// The stops of a song's sound (see `TrackAnalysis.pauses`), for an analysis made without them.
+    static func pauses(_ samples: [Float], sampleRate: Double) -> [Float] {
+        pauses(in: loudness(samples, sampleRate: sampleRate))
+    }
+
+    /// Runs of 10 ms frames `pauseDepth` under the song's main parts, `pauseLength` or longer,
+    /// between where its sound starts and ends (the silence before and after isn't a stop).
+    private static func pauses(in level: Level) -> [Float] {
+        let quiet = Double(level.body - Self.pauseDepth)
+        let step = level.fineStep
+        var found: [Float] = []
+        var start: Int?
+        func close(_ end: Int) {
+            guard let first = start else { return }
+            start = nil
+            let from = Double(first) * step, to = Double(end) * step
+            guard to - from >= Self.pauseLength - 1e-9, from > level.soundStart, to < level.soundEnd else { return }
+            found += [Float(from), Float(to)]
+        }
+        for (index, power) in level.fine.enumerated() {
+            if 10 * log10(power + 1e-12) < quiet {
+                if start == nil { start = index }
+            } else {
+                close(index)
+            }
+        }
+        close(level.fine.count)
+        return found
+    }
 
     private struct Level {
         /// Mean power every `fineStep` seconds.

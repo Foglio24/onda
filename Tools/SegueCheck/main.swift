@@ -653,6 +653,42 @@ if let plan = beatFade.plan {
     expect(false, "Mix Lab fade on the beat: a fade (\(beatFade.level.rawValue))")
 }
 
+// MARK: Stops of the sound around the mix
+
+// The case heard on an iPhone (1.36.15): the playing song stopped for a beat before its drop, and
+// the mix's window began a bar after it, so the sound dropped out just before the mix as if AutoMix
+// had cut it. The same song with that stop just before the window the policy picks without it: the
+// stop is found (and a dip of a few hundredths isn't), the old window is recognised as letting it be
+// heard, and the policy picks one that doesn't.
+if let usual = decide(a, b).plan {
+    let stopStart = usual.outgoingStart - 2.1, stopEnd = usual.outgoingStart - 1.55
+    var stopped = songA.samples
+    for i in Int(stopStart * rate)..<Int(stopEnd * rate) { stopped[i] = 0 }
+    for i in Int(40 * rate)..<Int(40.08 * rate) { stopped[i] = 0 }
+    if let withStop = analyze(stopped, "124 BPM with a stop") {
+        let found = withStop.pauseRanges
+        expect(found.count == 1 && abs((found.first?.lowerBound ?? 0) - stopStart) < 0.03
+               && abs((found.first?.upperBound ?? 0) - stopEnd) < 0.03,
+               "the stop before the drop is found, the short dip isn't (\(found.map { "\(format($0.lowerBound, 2))–\(format($0.upperBound, 2))" }))")
+        expect(a.pauses?.isEmpty == true, "a song without stops has none (\(a.pauses?.count ?? -1))")
+        var older = withStop
+        older.pauses = nil
+        expect(older.pauseRanges.contains { $0.lowerBound < stopEnd && $0.upperBound > stopStart },
+               "an analysis made before the stops were kept still finds it, from its loudness")
+        expect(SeguePolicy.heardPause(usual, outgoing: withStop, incoming: b),
+               "a window starting just after the stop would let it be heard")
+        let moved = decide(withStop, b)
+        if let plan = moved.plan {
+            expect(!SeguePolicy.heardPause(plan, outgoing: withStop, incoming: b),
+                   "the policy moves the mix away from the stop (\(moved.level.rawValue), window at \(format(plan.outgoingStart, 1)) s, stop \(format(stopStart, 1))–\(format(stopEnd, 1)) s)")
+        } else {
+            expect(false, "a song with a stop still gets a mix (\(moved.level.rawValue))")
+        }
+    }
+} else {
+    expect(false, "124 → 126 BPM: a plan to put a stop before")
+}
+
 if failures > 0 {
     print("SegueCheck: \(failures) failed")
     exit(1)

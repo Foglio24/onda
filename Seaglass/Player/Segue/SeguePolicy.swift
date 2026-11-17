@@ -25,6 +25,11 @@ struct SegueTuning: Sendable {
     var loudnessJumpMax = 3.0
     /// Silence on both sides of an album's junction under which the songs run into each other.
     var gaplessMaxSilence = 0.3
+    /// A stop of the sound (`TrackAnalysis.pauses`) this close before the window in the playing song,
+    /// or after it in the next one, seconds: heard as the mix cutting the music out.
+    var pauseBefore = 6.0, pauseAfter = 4.0
+    /// Inside the window, a song's stop is covered by the other one from this level (dB) on.
+    var pauseCoverDB = -12.0
 
     // Score: notes (weighted by how reliable their measure is) and penalties.
     var weightRhythm = 1.0, weightPhrase = 1.0, weightEnergy = 0.5, weightExit = 0.5, weightEntry = 0.5, weightKey = 0.2
@@ -548,6 +553,52 @@ enum SeguePolicy {
         Run.lockedShape(exitTime: exitTime, entryTime: 10, bars: bars, overlapRisk: overlapRisk, eq: eq, rings: rings, energyRise: energyRise)
     }
 
+    /// Whether `plan` would let a song's stop be heard around the mix (see `Run.heardPause`; for
+    /// Tools/SegueCheck).
+    static func heardPause(_ plan: SeguePlan, outgoing: TrackAnalysis, incoming: TrackAnalysis,
+                           tuning: SegueTuning = SegueTuning()) -> Bool {
+        heardPause(outgoing: outgoing.pauseRanges, incoming: incoming.pauseRanges, exit: plan.outgoingStart,
+                   entry: plan.incomingStart, length: plan.length, span: plan.length * plan.rate, lanes: plan.lanes, tuning: tuning)
+    }
+
+    /// See `Run.heardPause`. A stop inside the window is looked at in five places: heard where its
+    /// song is heard and the other one isn't (or stops too).
+    static func heardPause(outgoing: [ClosedRange<Double>], incoming: [ClosedRange<Double>], exit: Double, entry: Double,
+                           length: Double, span: Double, lanes: [SegueLane], tuning t: SegueTuning) -> Bool {
+        guard length > 0, span > 0 else { return false }
+        let levelA = lanes.first { $0.side == .outgoing && $0.target == .level }
+        let levelB = lanes.first { $0.side == .incoming && $0.target == .level }
+        func heard(_ lane: SegueLane?, _ x: Double) -> Bool {
+            guard let lane else { return false }
+            return !lane.isSilent(at: x) && lane.value(at: x) >= t.pauseCoverDB
+        }
+        func stops(_ ranges: [ClosedRange<Double>], at time: Double) -> Bool { ranges.contains { $0.contains(time) } }
+        func inside(_ pause: ClosedRange<Double>, start: Double, length: Double, own: SegueLane?, other: SegueLane?,
+                    otherStops: [ClosedRange<Double>], otherStart: Double, otherLength: Double) -> Bool {
+            let from = max(pause.lowerBound, start), to = min(pause.upperBound, start + length)
+            guard to > from else { return false }
+            for k in 0...4 {
+                let x = (from + (to - from) * Double(k) / 4 - start) / length
+                guard heard(own, x) else { continue }
+                if !heard(other, x) || stops(otherStops, at: otherStart + x * otherLength) { return true }
+            }
+            return false
+        }
+        for pause in outgoing {
+            // The playing song alone before the window.
+            if pause.upperBound > exit - t.pauseBefore, pause.lowerBound < exit { return true }
+            if inside(pause, start: exit, length: length, own: levelA, other: levelB,
+                      otherStops: incoming, otherStart: entry, otherLength: span) { return true }
+        }
+        for pause in incoming {
+            // The next song alone after the window.
+            if pause.lowerBound < entry + span + t.pauseAfter, pause.upperBound > entry + span { return true }
+            if inside(pause, start: entry, length: span, own: levelB, other: levelA,
+                      otherStops: outgoing, otherStart: exit, otherLength: length) { return true }
+        }
+        return false
+    }
+
     private struct Point {
         var time: Double
         var bar: Int
@@ -574,6 +625,8 @@ enum SeguePolicy {
         var contentCutShare = 0.0
         var played = Double.infinity
         var loudnessJump = 0.0
+        /// A stop of the sound heard around the mix (see `heardPause`).
+        var pause = false
     }
 
     private struct Run {
@@ -742,7 +795,19 @@ enum SeguePolicy {
             m.contentCutShare = m.contentCut / music
             m.played = exit - a.analysis.soundStart
             m.voiceOverlap = overlap(exit: exit, entry: entry, length: length, span: span, lanes: lanes)
+            m.pause = heardPause(exit: exit, entry: entry, length: length, span: span, lanes: lanes)
             return m
+        }
+
+        /// Whether a song's stop (a beat of silence before a drop, a stop: `TrackAnalysis.pauses`)
+        /// would be heard as the mix cutting the music out: the playing song's in the seconds before
+        /// the window (it plays alone there, and the next song's title is already showing), the next
+        /// one's in the seconds after it, and either's inside it where the other is quiet. A mix
+        /// planned to start just after the playing song's break before a drop was heard as AutoMix
+        /// dropping the sound for half a second before it began.
+        func heardPause(exit: Double, entry: Double, length: Double, span: Double, lanes: [SegueLane]) -> Bool {
+            SeguePolicy.heardPause(outgoing: a.analysis.pauseRanges, incoming: b.analysis.pauseRanges, exit: exit, entry: entry,
+                                   length: length, span: span, lanes: lanes, tuning: t)
         }
 
         /// Seconds where both songs sing and both are clearly heard (each within 10 dB of full).
@@ -773,6 +838,7 @@ enum SeguePolicy {
                 if m.driftBeats > t.driftMaxBeats { out.append("drift") }
             }
             if family == .hard, m.loudnessJump > t.loudnessJumpMax { out.append("loudness jump") }
+            if m.pause { out.append("pause") }
             return out
         }
 

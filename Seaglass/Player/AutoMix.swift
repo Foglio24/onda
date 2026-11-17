@@ -47,16 +47,23 @@ actor AutoMixLibrary {
             remember(analysis, key: key)
             known = analysis
         }
-        let wantsBeats = beats && BeatThis.isBundled && EnergyPolicy.current.allowsAudioConversion
-        if let known, !(wantsBeats && known.modelBeats == nil) { return known }
+        let canDecode = EnergyPolicy.current.allowsAudioConversion
+        let wantsBeats = beats && BeatThis.isBundled && canDecode
+        // An analysis made before 1.36.17 gets its stops too (one more decoding of the song, once):
+        // until then the policy finds them, coarser, from its loudness.
+        func complete(_ analysis: TrackAnalysis) -> Bool {
+            !(wantsBeats && analysis.modelBeats == nil) && (analysis.pauses != nil || !canDecode)
+        }
+        if let known, complete(known) { return known }
         if let task = running[key] {
             let analysis = await task.value
-            if let analysis, !(wantsBeats && analysis.modelBeats == nil) { return analysis }
+            if let analysis, complete(analysis) { return analysis }
         }
         let base = known
         let task = Task.detached(priority: priority) { () -> TrackAnalysis? in
             guard let samples = try? await AutoMixDecoder.samples(of: file) else { return base }
             guard var analysis = base ?? TrackAnalyzer.analyze(samples, sampleRate: TrackAnalyzer.sampleRate) else { return nil }
+            if analysis.pauses == nil { analysis.pauses = TrackAnalyzer.pauses(samples, sampleRate: TrackAnalyzer.sampleRate) }
             if wantsBeats, !Task.isCancelled, let model = BeatThis.shared {
                 // A model that fails on this song isn't tried on it again: no beats, as if it found none.
                 let found = (try? model.analyze(samples)) ?? BeatThis.Result(beats: [], downbeats: [], downbeatLogits: [])

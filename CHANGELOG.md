@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.36.17 (2026-11-17)
+
+### Fixed
+- **AutoMix no longer starts a mix just after a song's own pause, which sounded as if the mix cut the sound out.** Many dance songs stop for a beat of silence before a drop. AutoMix could plan its mix to begin a bar after that drop, so the pause came a second or two before the mix, just as the next song's title appeared, and it sounded as if AutoMix dropped the sound for half a second before mixing (in the recording that showed it, the mix itself, measured, had no gap at all). AutoMix now finds where a song's sound stops (for 0.15 s or more, 30 dB under the song) and doesn't plan a mix where one would be heard: in the playing song in the 6 seconds before the mix, in the next song in the 4 seconds after it, or in either song during the mix where the other one is quiet. Songs analysed by earlier versions get their stops the next time AutoMix needs them; until then they are found, less finely, from the loudness already known. Checked (SegueCheck): a song with a half-second stop just before the window the mix would have used gets its mix moved away from it, and a dip of a few hundredths of a second doesn't count as a stop.
+
 ## 1.36.16 (2026-11-17)
 
 ### Fixed
