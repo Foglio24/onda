@@ -65,32 +65,32 @@ russian.AutoStart=Запускать Seaglass вместе с Windows (в обл
 turkish.AutoStart=Seaglass'ı Windows ile başlat (bildirim alanında)
 
 italian.VCRuntimeTitle=Runtime di Microsoft Visual C++
-italian.VCRuntimeDownloading=Seaglass ha bisogno del runtime di Microsoft Visual C++. Lo scarico e lo installo (Windows può chiedere il permesso).
-italian.VCRuntimeFailed=Non riesco a installare il runtime di Microsoft Visual C++ che Seaglass richiede. Controlla la connessione e riprova, oppure installalo da https://aka.ms/vs/17/release/vc_redist.x64.exe e riavvia questo programma di installazione.
+italian.VCRuntimeDownloading=Per il karaoke Seaglass ha bisogno del runtime di Microsoft Visual C++. Lo scarico e lo installo (Windows può chiedere il permesso).
+italian.VCRuntimeFailed=Il runtime di Microsoft Visual C++ non è stato installato. Seaglass funziona lo stesso, ma il karaoke potrebbe non partire finché non lo installi da https://aka.ms/vs/17/release/vc_redist.x64.exe.
 english.VCRuntimeTitle=Microsoft Visual C++ runtime
-english.VCRuntimeDownloading=Seaglass needs the Microsoft Visual C++ runtime. Downloading and installing it (Windows may ask for permission).
-english.VCRuntimeFailed=The Microsoft Visual C++ runtime that Seaglass needs couldn't be installed. Check your connection and try again, or install it from https://aka.ms/vs/17/release/vc_redist.x64.exe and run this setup again.
+english.VCRuntimeDownloading=Karaoke needs the Microsoft Visual C++ runtime. Downloading and installing it (Windows may ask for permission).
+english.VCRuntimeFailed=The Microsoft Visual C++ runtime wasn't installed. Seaglass works without it, but karaoke may not start until you install it from https://aka.ms/vs/17/release/vc_redist.x64.exe.
 french.VCRuntimeTitle=Runtime Microsoft Visual C++
-french.VCRuntimeDownloading=Seaglass a besoin du runtime Microsoft Visual C++. Téléchargement et installation en cours (Windows peut demander l'autorisation).
-french.VCRuntimeFailed=Impossible d'installer le runtime Microsoft Visual C++ dont Seaglass a besoin. Vérifiez votre connexion et réessayez, ou installez-le depuis https://aka.ms/vs/17/release/vc_redist.x64.exe puis relancez ce programme d'installation.
+french.VCRuntimeDownloading=Le karaoké a besoin du runtime Microsoft Visual C++. Téléchargement et installation en cours (Windows peut demander l'autorisation).
+french.VCRuntimeFailed=Le runtime Microsoft Visual C++ n'a pas été installé. Seaglass fonctionne quand même, mais le karaoké risque de ne pas démarrer tant que vous ne l'installez pas depuis https://aka.ms/vs/17/release/vc_redist.x64.exe.
 spanish.VCRuntimeTitle=Runtime de Microsoft Visual C++
-spanish.VCRuntimeDownloading=Seaglass necesita el runtime de Microsoft Visual C++. Se descarga y se instala (Windows puede pedir permiso).
-spanish.VCRuntimeFailed=No se pudo instalar el runtime de Microsoft Visual C++ que necesita Seaglass. Comprueba la conexión e inténtalo de nuevo, o instálalo desde https://aka.ms/vs/17/release/vc_redist.x64.exe y vuelve a ejecutar este instalador.
+spanish.VCRuntimeDownloading=El karaoke necesita el runtime de Microsoft Visual C++. Se descarga y se instala (Windows puede pedir permiso).
+spanish.VCRuntimeFailed=No se instaló el runtime de Microsoft Visual C++. Seaglass funciona igualmente, pero el karaoke puede no iniciarse hasta que lo instales desde https://aka.ms/vs/17/release/vc_redist.x64.exe.
 german.VCRuntimeTitle=Microsoft Visual C++-Laufzeit
-german.VCRuntimeDownloading=Seaglass benötigt die Microsoft Visual C++-Laufzeit. Sie wird heruntergeladen und installiert (Windows fragt eventuell nach einer Berechtigung).
-german.VCRuntimeFailed=Die von Seaglass benötigte Microsoft Visual C++-Laufzeit konnte nicht installiert werden. Prüfen Sie die Verbindung und versuchen Sie es erneut, oder installieren Sie sie von https://aka.ms/vs/17/release/vc_redist.x64.exe und starten Sie dieses Setup erneut.
+german.VCRuntimeDownloading=Karaoke benötigt die Microsoft Visual C++-Laufzeit. Sie wird heruntergeladen und installiert (Windows fragt eventuell nach einer Berechtigung).
+german.VCRuntimeFailed=Die Microsoft Visual C++-Laufzeit wurde nicht installiert. Seaglass funktioniert trotzdem, aber Karaoke startet möglicherweise erst, wenn Sie sie von https://aka.ms/vs/17/release/vc_redist.x64.exe installieren.
 portuguese.VCRuntimeTitle=Runtime do Microsoft Visual C++
-portuguese.VCRuntimeDownloading=O Seaglass precisa do runtime do Microsoft Visual C++. A transferir e a instalar (o Windows pode pedir permissão).
-portuguese.VCRuntimeFailed=Não foi possível instalar o runtime do Microsoft Visual C++ de que o Seaglass precisa. Verifique a ligação e tente de novo, ou instale-o a partir de https://aka.ms/vs/17/release/vc_redist.x64.exe e execute este instalador outra vez.
+portuguese.VCRuntimeDownloading=O karaoke precisa do runtime do Microsoft Visual C++. A transferir e a instalar (o Windows pode pedir permissão).
+portuguese.VCRuntimeFailed=O runtime do Microsoft Visual C++ não foi instalado. O Seaglass funciona na mesma, mas o karaoke pode não arrancar até o instalar a partir de https://aka.ms/vs/17/release/vc_redist.x64.exe.
 japanese.VCRuntimeTitle=Microsoft Visual C++ ランタイム
-japanese.VCRuntimeDownloading=Seaglass には Microsoft Visual C++ ランタイムが必要です。ダウンロードしてインストールします(Windows が許可を求める場合があります)。
-japanese.VCRuntimeFailed=Seaglass に必要な Microsoft Visual C++ ランタイムをインストールできませんでした。接続を確認してもう一度お試しいただくか、https://aka.ms/vs/17/release/vc_redist.x64.exe からインストールして、このセットアップをもう一度実行してください。
+japanese.VCRuntimeDownloading=カラオケには Microsoft Visual C++ ランタイムが必要です。ダウンロードしてインストールします(Windows が許可を求める場合があります)。
+japanese.VCRuntimeFailed=Microsoft Visual C++ ランタイムはインストールされませんでした。Seaglass は動作しますが、https://aka.ms/vs/17/release/vc_redist.x64.exe からインストールするまでカラオケが始まらない場合があります。
 russian.VCRuntimeTitle=Среда выполнения Microsoft Visual C++
-russian.VCRuntimeDownloading=Для Seaglass нужна среда выполнения Microsoft Visual C++. Она будет загружена и установлена (Windows может запросить разрешение).
-russian.VCRuntimeFailed=Не удалось установить среду выполнения Microsoft Visual C++, необходимую Seaglass. Проверьте подключение и повторите попытку или установите её с https://aka.ms/vs/17/release/vc_redist.x64.exe и снова запустите эту программу установки.
+russian.VCRuntimeDownloading=Для караоке нужна среда выполнения Microsoft Visual C++. Она будет загружена и установлена (Windows может запросить разрешение).
+russian.VCRuntimeFailed=Среда выполнения Microsoft Visual C++ не установлена. Seaglass работает и без неё, но караоке может не запускаться, пока вы не установите её с https://aka.ms/vs/17/release/vc_redist.x64.exe.
 turkish.VCRuntimeTitle=Microsoft Visual C++ çalışma zamanı
-turkish.VCRuntimeDownloading=Seaglass için Microsoft Visual C++ çalışma zamanı gerekir. İndirilip kuruluyor (Windows izin isteyebilir).
-turkish.VCRuntimeFailed=Seaglass'ın gerek duyduğu Microsoft Visual C++ çalışma zamanı kurulamadı. Bağlantınızı denetleyip yeniden deneyin ya da https://aka.ms/vs/17/release/vc_redist.x64.exe adresinden kurup bu kurulumu yeniden çalıştırın.
+turkish.VCRuntimeDownloading=Karaoke için Microsoft Visual C++ çalışma zamanı gerekir. İndirilip kuruluyor (Windows izin isteyebilir).
+turkish.VCRuntimeFailed=Microsoft Visual C++ çalışma zamanı kurulmadı. Seaglass onsuz da çalışır, ancak https://aka.ms/vs/17/release/vc_redist.x64.exe adresinden kurana kadar karaoke başlamayabilir.
 
 [Tasks]
 ; The desktop icon is a choice, checked by default; starting with Windows is unchecked.
@@ -143,12 +143,13 @@ begin
 end;
 
 {
-  Seaglass needs the Microsoft Visual C++ 2015-2022 runtime (x64) for FFmpeg's and ONNX Runtime's
-  libraries; the app image carries Java and FFmpeg but not that. A Windows without it (a fresh
-  install) would start Seaglass and fail to load them. So, when vcruntime140_1.dll (VS 2019 or
+  The karaoke's ONNX Runtime library needs the Microsoft Visual C++ 2015-2022 runtime (x64). The app
+  image carries Java, FFmpeg (whose JavaCPP build brings the runtime's DLLs along) and ONNX Runtime,
+  but not the runtime for ONNX Runtime. So, on a new install, when vcruntime140_1.dll (VS 2019 or
   later) and msvcp140.dll aren't in System32, setup downloads Microsoft's own installer, checks that
   it is signed by Microsoft, and runs it (Windows asks for permission once: it needs administrator
-  rights, which Seaglass itself doesn't). A machine that has it is not touched.
+  rights, which Seaglass itself doesn't). A computer that has it is not touched, and neither is an
+  update (the app's silent one): see PrepareToInstall.
 }
 const
   VCRuntimeUrl = 'https://aka.ms/vs/17/release/vc_redist.x64.exe';
@@ -214,7 +215,9 @@ end;
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 begin
   Result := '';
-  if VCRuntimePresent then
+  { Never in the app's own silent update: a permission prompt out of nowhere, and a failure there
+    would leave the app closed. Seaglass runs without it; only the karaoke needs it. }
+  if HasParam('/SEAGLASSUPDATE=1') or VCRuntimePresent then
     Exit;
   Log('The Microsoft Visual C++ runtime is missing: installing it');
   if not WizardSilent then
@@ -224,7 +227,8 @@ begin
   end;
   try
     if not InstallVCRuntime then
-      Result := CustomMessage('VCRuntimeFailed');
+      { Said, not fatal: the install goes on. }
+      SuppressibleMsgBox(CustomMessage('VCRuntimeFailed'), mbInformation, MB_OK, IDOK);
   finally
     if VCRuntimePage <> nil then
       VCRuntimePage.Hide;

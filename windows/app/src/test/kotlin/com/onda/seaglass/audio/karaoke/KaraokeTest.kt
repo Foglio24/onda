@@ -1,6 +1,13 @@
 package com.onda.seaglass.audio.karaoke
 
+import com.onda.seaglass.audio.AudioSink
+import com.onda.seaglass.audio.Deck
+import com.onda.seaglass.audio.Decoder
+import com.onda.seaglass.audio.Engine
+import com.onda.seaglass.audio.FileSource
+import com.onda.seaglass.audio.NullSink
 import java.io.File
+import java.io.RandomAccessFile
 import java.nio.ByteOrder
 import kotlin.math.PI
 import kotlin.math.abs
@@ -233,5 +240,86 @@ class KaraokeTest {
         assertEquals(done, again.doneCount, "the pieces separated before are still done")
         assertNotNull(again.songLeft(1000))
         again.close()
+    }
+
+    /** The tone at [frequency] in the left channel of [samples] (16-bit), as its amplitude. */
+    private fun toneAmplitude(samples: ShortArray, from: Int, frames: Int, frequency: Double): Double {
+        var re = 0.0
+        var im = 0.0
+        for (i in 0 until frames) {
+            val phase = 2 * PI * frequency * i / rate
+            val v = samples[(from + i) * 2] / 32768.0
+            re += v * cos(phase)
+            im += v * sin(phase)
+        }
+        return 2 * Math.sqrt(re * re + im * im) / frames
+    }
+
+    @Test
+    fun theVoiceStaysOutUnderTempoAndTheTimeStretch() {
+        // Tempo 1.1 with the key lock: the engine's time stretch reads the deck's frames through its
+        // own buffers; the karaoke is applied where the deck hands them out, so it goes through it too.
+        val frames = 20 * rate
+        val wav = File.createTempFile("seaglass-karaoke-tempo", ".wav").apply { deleteOnExit() }
+        RandomAccessFile(wav, "rw").use { out ->
+            val header = java.nio.ByteBuffer.allocate(44).order(ByteOrder.LITTLE_ENDIAN)
+            header.put("RIFF".toByteArray()).putInt(36 + frames * 4).put("WAVEfmt ".toByteArray()).putInt(16).putShort(1).putShort(2)
+                .putInt(rate).putInt(rate * 4).putShort(4).putShort(16).put("data".toByteArray()).putInt(frames * 4)
+            out.write(header.array())
+            val data = java.nio.ByteBuffer.allocate(frames * 4).order(ByteOrder.LITTLE_ENDIAN)
+            for (i in 0 until frames) {
+                val v = ((instrumental(i) + voice(i)) * 32767).toInt().toShort()
+                data.putShort(v).putShort(v)
+            }
+            out.write(data.array())
+        }
+        val stems = stems(folder(), 20)
+        val captured = ShortArray(rate * 2 * 12)
+        var count = 0
+        val sink = object : AudioSink {
+            private val pace = NullSink(speed = 20.0)
+            override fun write(buffer: ByteArray, bytes: Int) {
+                pace.write(buffer, bytes)
+                if (count * 2 + bytes / 2 > captured.size) return
+                for (i in 0 until bytes / 2) captured[count * 2 + i] = ((buffer[i * 2].toInt() and 0xFF) or (buffer[i * 2 + 1].toInt() shl 8)).toShort()
+                count += bytes / 4
+            }
+            override val pendingFrames = 0
+            override fun pause() {}
+            override fun resume() {}
+            override fun flush() {}
+            override fun close() {}
+        }
+        KaraokeLive.on = true
+        KaraokeLive.vocalsGain = 0f
+        KaraokeLive.instrumentalGain = 1f
+        try {
+            Engine { sink }.use { engine ->
+                engine.volume = 1f
+                engine.keyLock = true
+                engine.tempo = 1.1
+                engine.listener = object : Engine.Listener {
+                    override fun advanced(next: Deck) {}
+                    override fun ended(deck: Deck) {}
+                    override fun failed(deck: Deck, error: Exception) = throw AssertionError(error)
+                }
+                val deck = Deck(Decoder(FileSource(wav)), 1f, 0.0)
+                deck.karaoke = KaraokeTap("song").apply { this.stems = stems; enabled = true }
+                engine.play(deck)
+                val until = System.nanoTime() + 20_000_000_000
+                while (count < 8 * rate && System.nanoTime() < until) Thread.sleep(10)
+                engine.pause()
+            }
+            assertTrue(count >= 8 * rate, "captured ${count / rate} s")
+            // With the key lock the tones keep their pitch: the music's 220 Hz stays, the voice's 1 kHz is gone.
+            val music = toneAmplitude(captured, 2 * rate, 4 * rate, 220.0)
+            val voice = toneAmplitude(captured, 2 * rate, 4 * rate, 1000.0)
+            assertTrue(music > 0.08, "the music stays: $music")
+            assertTrue(voice < 0.1 * 0.2, "the voice (0.2) is gone under the stretch: $voice")
+        } finally {
+            KaraokeLive.on = false
+            KaraokeLive.vocalsGain = 1f
+            KaraokeLive.instrumentalGain = 1f
+        }
     }
 }

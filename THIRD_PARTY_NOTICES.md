@@ -62,7 +62,7 @@ the lyrics translation; each language's model is downloaded from Google the firs
   other audio formats. FFmpeg's libraries are separate files in the app's folder, as the LGPL asks;
   their source is at ffmpeg.org and in the JavaCPP Presets repository.
 - [JNA](https://github.com/java-native-access/jna) (Apache-2.0): Windows's DPAPI, registry and media keys.
-- [ONNX Runtime](https://github.com/microsoft/onnxruntime) (Microsoft, MIT): runs the karaoke's model (UVR-MDX-NET Voc_FT, above) on the computer. Its usage reporting is left off. The Windows installer downloads Microsoft's own Visual C++ runtime (the Microsoft Visual C++ Redistributable) when the computer doesn't have it, which FFmpeg's and ONNX Runtime's libraries need.
+- [ONNX Runtime](https://github.com/microsoft/onnxruntime) (Microsoft, MIT): runs the karaoke's model (UVR-MDX-NET Voc_FT, above) on the computer. Its usage reporting is left off. On a new install the Windows installer downloads Microsoft's own Visual C++ runtime (the Microsoft Visual C++ Redistributable) when the computer doesn't have it, which ONNX Runtime's library needs.
 - A Java runtime from [Eclipse Temurin](https://adoptium.net) (GPL-2.0 with the Classpath Exception),
   bundled by jpackage.
 - Installed with [Inno Setup](https://jrsoftware.org/isinfo.php) (Inno Setup License).

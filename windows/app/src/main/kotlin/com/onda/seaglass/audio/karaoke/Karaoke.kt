@@ -166,7 +166,7 @@ object Karaoke {
             _status.value = KaraokeStatus.Preparing(0.0, null)
             val stems = prepare(current)
             val separator = separator ?: withContext(work) {
-                MdxSeparator(model, Runtime.getRuntime().availableProcessors().coerceIn(1, 4))
+                MdxSeparator(model, (Runtime.getRuntime().availableProcessors() / 2).coerceIn(1, 4))
             }.also { separator = it }
             val started = System.nanoTime()
             var made = 0
