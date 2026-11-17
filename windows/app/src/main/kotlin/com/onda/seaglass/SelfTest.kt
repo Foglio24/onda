@@ -41,6 +41,7 @@ object SelfTest {
         // The karaoke's vocal model runs on ONNX Runtime: its Windows library (and the Visual C++ runtime
         // it needs) must load on the installed app's own Java.
         runCatching {
+            com.onda.seaglass.audio.karaoke.OrtNative.prepare()
             val environment = ai.onnxruntime.OrtEnvironment.getEnvironment()
             // A tensor made and read back: the Java side and the native library agree.
             ai.onnxruntime.OnnxTensor.createTensor(environment, java.nio.FloatBuffer.wrap(floatArrayOf(1f, 2f)), longArrayOf(2)).use { tensor ->

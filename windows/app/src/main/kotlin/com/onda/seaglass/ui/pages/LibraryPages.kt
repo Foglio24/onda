@@ -56,6 +56,7 @@ import com.onda.seaglass.data.Library
 import com.onda.seaglass.data.LocalMusic
 import com.onda.seaglass.ui.EmptyState
 import com.onda.seaglass.ui.LocalPalette
+import com.onda.seaglass.ui.typing
 import com.onda.seaglass.ui.Nav
 import com.onda.seaglass.ui.PageHeader
 import com.onda.seaglass.ui.PillButton
@@ -133,7 +134,7 @@ fun NameDialog(title: String, initial: String, action: String, onDismiss: () -> 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
-        text = { OutlinedTextField(name, { name = it }, label = { Text(tr("Nome")) }, singleLine = true) },
+        text = { OutlinedTextField(name, { name = it }, label = { Text(tr("Nome")) }, singleLine = true, modifier = Modifier.typing()) },
         confirmButton = { TextButton(enabled = name.isNotBlank(), onClick = { onConfirm(name.trim()) }) { Text(action) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Annulla")) } },
     )

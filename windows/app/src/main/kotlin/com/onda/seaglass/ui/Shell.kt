@@ -308,7 +308,7 @@ private fun SearchField() {
                     singleLine = true,
                     textStyle = TextStyle(color = palette.text, fontSize = 15.sp),
                     cursorBrush = SolidColor(palette.accent),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth().typing()
                         .onFocusChanged { focused = it.isFocused }
                         .onKeyEvent { event ->
                             if (event.key == Key.Escape) {

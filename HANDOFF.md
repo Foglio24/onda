@@ -197,7 +197,7 @@ released as a new `windows-v` minor version.
    with a separately decoded piece. Checked with the real model on macOS only (`KARAOKE_MODEL=<file>`
    runs `KaraokeModelCheck` and `KaraokeFlowCheck`); how it sounds on real songs, and how fast the
    separation is on the owner's PC, is not verified. The installer downloads the Visual C++ runtime
-   on a new install when it is missing (`Seaglass.iss`, `PrepareToInstall`; never in the silent self-update, and a failure only warns). Only ONNX Runtime needs it: JavaCPP's Windows jar carries FFmpeg's own copy of the DLLs. That path is untested on a clean Windows.
+   (and Microsoft Edge) when missing, on installs and updates alike (`Seaglass.iss`, `PrepareToInstall`; a failure only warns). Only ONNX Runtime needs the runtime, and `OrtNative` loads it beside JavaCPP's own copy of the DLLs (found: a Parallels VM without the runtime failed with `UnsatisfiedLinkError … onnxruntime.dll` in 1.5.0/1.5.1; the fix in 1.5.2 is untested on a clean Windows). That path is untested on a clean Windows.
 3. **Song recognition** (Premium): iPhone only so far (`Seaglass/Services/MusicRecognizer.swift`,
    `RecognitionSignature.swift`, `RecognitionAPI.swift`, `RecognitionOperation.swift`,
    `Views/RecognitionView.swift`). Microphone through Java Sound `TargetDataLine`.

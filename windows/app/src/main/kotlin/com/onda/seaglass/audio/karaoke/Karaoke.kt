@@ -166,6 +166,7 @@ object Karaoke {
             _status.value = KaraokeStatus.Preparing(0.0, null)
             val stems = prepare(current)
             val separator = separator ?: withContext(work) {
+                OrtNative.prepare()
                 MdxSeparator(model, (Runtime.getRuntime().availableProcessors() / 2).coerceIn(1, 4))
             }.also { separator = it }
             val started = System.nanoTime()
@@ -195,7 +196,7 @@ object Karaoke {
         } catch (e: Throwable) {
             Log.warn("Karaoke failed", e)
             // With its cause (its kind and a few words), so a report says what went wrong.
-            val cause = e.javaClass.simpleName + (e.message?.let { ": " + it.take(80) } ?: "")
+            val cause = e.javaClass.simpleName + (e.message?.let { ": " + it.take(300) } ?: "")
             _status.value = KaraokeStatus.Failed(tr("La separazione di voce e musica non è riuscita.") + " (" + cause + ")")
         }
     }

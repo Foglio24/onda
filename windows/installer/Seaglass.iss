@@ -64,33 +64,25 @@ japanese.AutoStart=Windows の起動時に Seaglass を開始（通知領域）
 russian.AutoStart=Запускать Seaglass вместе с Windows (в области уведомлений)
 turkish.AutoStart=Seaglass'ı Windows ile başlat (bildirim alanında)
 
-italian.VCRuntimeTitle=Runtime di Microsoft Visual C++
-italian.VCRuntimeDownloading=Per il karaoke Seaglass ha bisogno del runtime di Microsoft Visual C++. Lo scarico e lo installo (Windows può chiedere il permesso).
-italian.VCRuntimeFailed=Il runtime di Microsoft Visual C++ non è stato installato. Seaglass funziona lo stesso, ma il karaoke potrebbe non partire finché non lo installi da https://aka.ms/vs/17/release/vc_redist.x64.exe.
-english.VCRuntimeTitle=Microsoft Visual C++ runtime
-english.VCRuntimeDownloading=Karaoke needs the Microsoft Visual C++ runtime. Downloading and installing it (Windows may ask for permission).
-english.VCRuntimeFailed=The Microsoft Visual C++ runtime wasn't installed. Seaglass works without it, but karaoke may not start until you install it from https://aka.ms/vs/17/release/vc_redist.x64.exe.
-french.VCRuntimeTitle=Runtime Microsoft Visual C++
-french.VCRuntimeDownloading=Le karaoké a besoin du runtime Microsoft Visual C++. Téléchargement et installation en cours (Windows peut demander l'autorisation).
-french.VCRuntimeFailed=Le runtime Microsoft Visual C++ n'a pas été installé. Seaglass fonctionne quand même, mais le karaoké risque de ne pas démarrer tant que vous ne l'installez pas depuis https://aka.ms/vs/17/release/vc_redist.x64.exe.
-spanish.VCRuntimeTitle=Runtime de Microsoft Visual C++
-spanish.VCRuntimeDownloading=El karaoke necesita el runtime de Microsoft Visual C++. Se descarga y se instala (Windows puede pedir permiso).
-spanish.VCRuntimeFailed=No se instaló el runtime de Microsoft Visual C++. Seaglass funciona igualmente, pero el karaoke puede no iniciarse hasta que lo instales desde https://aka.ms/vs/17/release/vc_redist.x64.exe.
-german.VCRuntimeTitle=Microsoft Visual C++-Laufzeit
-german.VCRuntimeDownloading=Karaoke benötigt die Microsoft Visual C++-Laufzeit. Sie wird heruntergeladen und installiert (Windows fragt eventuell nach einer Berechtigung).
-german.VCRuntimeFailed=Die Microsoft Visual C++-Laufzeit wurde nicht installiert. Seaglass funktioniert trotzdem, aber Karaoke startet möglicherweise erst, wenn Sie sie von https://aka.ms/vs/17/release/vc_redist.x64.exe installieren.
-portuguese.VCRuntimeTitle=Runtime do Microsoft Visual C++
-portuguese.VCRuntimeDownloading=O karaoke precisa do runtime do Microsoft Visual C++. A transferir e a instalar (o Windows pode pedir permissão).
-portuguese.VCRuntimeFailed=O runtime do Microsoft Visual C++ não foi instalado. O Seaglass funciona na mesma, mas o karaoke pode não arrancar até o instalar a partir de https://aka.ms/vs/17/release/vc_redist.x64.exe.
-japanese.VCRuntimeTitle=Microsoft Visual C++ ランタイム
-japanese.VCRuntimeDownloading=カラオケには Microsoft Visual C++ ランタイムが必要です。ダウンロードしてインストールします(Windows が許可を求める場合があります)。
-japanese.VCRuntimeFailed=Microsoft Visual C++ ランタイムはインストールされませんでした。Seaglass は動作しますが、https://aka.ms/vs/17/release/vc_redist.x64.exe からインストールするまでカラオケが始まらない場合があります。
-russian.VCRuntimeTitle=Среда выполнения Microsoft Visual C++
-russian.VCRuntimeDownloading=Для караоке нужна среда выполнения Microsoft Visual C++. Она будет загружена и установлена (Windows может запросить разрешение).
-russian.VCRuntimeFailed=Среда выполнения Microsoft Visual C++ не установлена. Seaglass работает и без неё, но караоке может не запускаться, пока вы не установите её с https://aka.ms/vs/17/release/vc_redist.x64.exe.
-turkish.VCRuntimeTitle=Microsoft Visual C++ çalışma zamanı
-turkish.VCRuntimeDownloading=Karaoke için Microsoft Visual C++ çalışma zamanı gerekir. İndirilip kuruluyor (Windows izin isteyebilir).
-turkish.VCRuntimeFailed=Microsoft Visual C++ çalışma zamanı kurulmadı. Seaglass onsuz da çalışır, ancak https://aka.ms/vs/17/release/vc_redist.x64.exe adresinden kurana kadar karaoke başlamayabilir.
+
+italian.DependencyDownloading=Seaglass ha bisogno di %1. Lo scarico e lo installo (Windows può chiedere il permesso).
+italian.DependencyFailed=%1 non è stato installato. Seaglass funziona, ma alcune funzioni (il karaoke, l'accesso a Spotify) potrebbero non partire finché non lo installi da %2.
+english.DependencyDownloading=Seaglass needs %1. Downloading and installing it (Windows may ask for permission).
+english.DependencyFailed=%1 wasn't installed. Seaglass works, but some features (karaoke, Spotify sign-in) may not start until you install it from %2.
+french.DependencyDownloading=Seaglass a besoin de %1. Téléchargement et installation en cours (Windows peut demander l'autorisation).
+french.DependencyFailed=%1 n'a pas été installé. Seaglass fonctionne, mais certaines fonctions (le karaoké, la connexion à Spotify) risquent de ne pas démarrer tant que vous ne l'installez pas depuis %2.
+spanish.DependencyDownloading=Seaglass necesita %1. Se descarga y se instala (Windows puede pedir permiso).
+spanish.DependencyFailed=No se instaló %1. Seaglass funciona, pero algunas funciones (el karaoke, el acceso a Spotify) pueden no iniciarse hasta que lo instales desde %2.
+german.DependencyDownloading=Seaglass benötigt %1. Es wird heruntergeladen und installiert (Windows fragt eventuell nach einer Berechtigung).
+german.DependencyFailed=%1 wurde nicht installiert. Seaglass funktioniert, aber einige Funktionen (Karaoke, die Spotify-Anmeldung) starten möglicherweise erst, wenn Sie es von %2 installieren.
+portuguese.DependencyDownloading=O Seaglass precisa de %1. A transferir e a instalar (o Windows pode pedir permissão).
+portuguese.DependencyFailed=%1 não foi instalado. O Seaglass funciona, mas algumas funções (o karaoke, o início de sessão no Spotify) podem não arrancar até o instalar a partir de %2.
+japanese.DependencyDownloading=Seaglass には %1 が必要です。ダウンロードしてインストールします(Windows が許可を求める場合があります)。
+japanese.DependencyFailed=%1 はインストールされませんでした。Seaglass は動作しますが、%2 からインストールするまで一部の機能(カラオケ、Spotify へのサインイン)が始まらない場合があります。
+russian.DependencyDownloading=Для Seaglass нужен компонент %1. Он будет загружен и установлен (Windows может запросить разрешение).
+russian.DependencyFailed=%1 не установлен. Seaglass работает, но некоторые функции (караоке, вход в Spotify) могут не запускаться, пока вы не установите его с %2.
+turkish.DependencyDownloading=Seaglass için %1 gerekir. İndirilip kuruluyor (Windows izin isteyebilir).
+turkish.DependencyFailed=%1 kurulmadı. Seaglass çalışır, ancak %2 adresinden kurana kadar bazı özellikler (karaoke, Spotify girişi) başlamayabilir.
 
 [Tasks]
 ; The desktop icon is a choice, checked by default; starting with Windows is unchecked.
@@ -143,29 +135,79 @@ begin
 end;
 
 {
-  The karaoke's ONNX Runtime library needs the Microsoft Visual C++ 2015-2022 runtime (x64). The app
-  image carries Java, FFmpeg (whose JavaCPP build brings the runtime's DLLs along) and ONNX Runtime,
-  but not the runtime for ONNX Runtime. So, on a new install, when vcruntime140_1.dll (VS 2019 or
-  later) and msvcp140.dll aren't in System32, setup downloads Microsoft's own installer, checks that
-  it is signed by Microsoft, and runs it (Windows asks for permission once: it needs administrator
-  rights, which Seaglass itself doesn't). A computer that has it is not touched, and neither is an
-  update (the app's silent one): see PrepareToInstall.
+  What Seaglass needs from Windows, fetched by setup when the computer lacks it, on a new install and
+  on an update alike (the app's own silent one too):
+    1. the Microsoft Visual C++ 2015-2022 runtime (x64), for ONNX Runtime's library (the karaoke);
+    2. Microsoft Edge, which signs in to Spotify (every Windows 11 has it, a Windows 10 may not).
+  Java, FFmpeg (with its own copy of the runtime's DLLs) and ONNX Runtime are in the app image.
+  Each is Microsoft's own installer, downloaded over HTTPS, checked for Microsoft's signature, and run
+  with Windows's permission prompt (they need administrator rights, which Seaglass itself doesn't).
+  The wait for one is bounded and a failure only says so: setup goes on, so an update never leaves
+  the app closed.
 }
 const
-  VCRuntimeUrl = 'https://aka.ms/vs/17/release/vc_redist.x64.exe';
+  DepVCRuntime = 1;
+  DepEdge = 2;
+  DepCount = 2;
 
 var
-  VCRuntimePage: TOutputMarqueeProgressWizardPage;
+  DependencyPage: TOutputMarqueeProgressWizardPage;
 
-function VCRuntimePresent: Boolean;
+function DependencyName(Kind: Integer): String;
 begin
-  Result := FileExists(ExpandConstant('{sys}\vcruntime140_1.dll')) and FileExists(ExpandConstant('{sys}\msvcp140.dll'));
+  if Kind = DepVCRuntime then
+    Result := 'Microsoft Visual C++ Runtime'
+  else
+    Result := 'Microsoft Edge';
 end;
 
-function OnVCRuntimeProgress(const Url, FileName: String; const Progress, ProgressMax: Int64): Boolean;
+{ Where the user can get it by hand. }
+function DependencyManualUrl(Kind: Integer): String;
 begin
-  if VCRuntimePage <> nil then
-    VCRuntimePage.Animate;
+  if Kind = DepVCRuntime then
+    Result := 'https://aka.ms/vs/17/release/vc_redist.x64.exe'
+  else
+    Result := 'https://www.microsoft.com/edge';
+end;
+
+function DependencyDownloadUrl(Kind: Integer): String;
+begin
+  if Kind = DepVCRuntime then
+    Result := 'https://aka.ms/vs/17/release/vc_redist.x64.exe'
+  else
+    Result := 'https://go.microsoft.com/fwlink/?linkid=2109047';
+end;
+
+function DependencyFile(Kind: Integer): String;
+begin
+  if Kind = DepVCRuntime then
+    Result := 'vc_redist.x64.exe'
+  else
+    Result := 'MicrosoftEdgeSetup.exe';
+end;
+
+function DependencyArguments(Kind: Integer): String;
+begin
+  if Kind = DepVCRuntime then
+    Result := '/install /quiet /norestart'
+  else
+    Result := '/silent /install';
+end;
+
+function DependencyPresent(Kind: Integer): Boolean;
+begin
+  if Kind = DepVCRuntime then
+    Result := FileExists(ExpandConstant('{sys}\vcruntime140_1.dll')) and FileExists(ExpandConstant('{sys}\msvcp140.dll'))
+  else
+    Result := FileExists(ExpandConstant('{commonpf32}\Microsoft\Edge\Application\msedge.exe')) or
+      FileExists(ExpandConstant('{commonpf64}\Microsoft\Edge\Application\msedge.exe')) or
+      FileExists(ExpandConstant('{localappdata}\Microsoft\Edge\Application\msedge.exe'));
+end;
+
+function OnDependencyProgress(const Url, FileName: String; const Progress, ProgressMax: Int64): Boolean;
+begin
+  if DependencyPage <> nil then
+    DependencyPage.Animate;
   Result := True;
 end;
 
@@ -181,57 +223,76 @@ begin
   Result := Exec(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'), Command, '', SW_HIDE, ewWaitUntilTerminated, ResultCode) and (ResultCode = 0);
 end;
 
-{ Downloads, checks and installs the runtime; False if any step fails. }
-function InstallVCRuntime: Boolean;
+{ Downloads, checks and runs one dependency's installer, and waits (up to ten minutes) for it to be there. }
+function InstallDependency(Kind: Integer): Boolean;
 var
   Exe: String;
-  ResultCode: Integer;
+  ResultCode, Waited: Integer;
 begin
   Result := False;
-  Exe := ExpandConstant('{tmp}\vc_redist.x64.exe');
+  Exe := ExpandConstant('{tmp}\') + DependencyFile(Kind);
   try
-    DownloadTemporaryFile(VCRuntimeUrl, 'vc_redist.x64.exe', '', @OnVCRuntimeProgress);
+    DownloadTemporaryFile(DependencyDownloadUrl(Kind), DependencyFile(Kind), '', @OnDependencyProgress);
   except
-    Log('VC++ runtime download failed: ' + GetExceptionMessage);
+    Log(DependencyName(Kind) + ' download failed: ' + GetExceptionMessage);
     Exit;
   end;
   if not SignedByMicrosoft(Exe) then
   begin
-    Log('The downloaded VC++ runtime installer is not signed by Microsoft: not run');
+    Log('The downloaded ' + DependencyName(Kind) + ' installer is not signed by Microsoft: not run');
     Exit;
   end;
-  { 0 installed, 3010 installed (a restart is advised, not needed here), 1638 a newer one is there. }
-  if not ShellExec('runas', Exe, '/install /quiet /norestart', '', SW_SHOW, ewWaitUntilTerminated, ResultCode) then
+  { The permission prompt and the installer take their time (Edge downloads itself): no wait for its end, a wait for its result. }
+  if not ShellExec('runas', Exe, DependencyArguments(Kind), '', SW_SHOW, ewNoWait, ResultCode) then
   begin
-    Log('VC++ runtime installer did not start: ' + SysErrorMessage(ResultCode));
+    Log(DependencyName(Kind) + ' installer did not start: ' + SysErrorMessage(ResultCode));
     Exit;
   end;
-  Log(Format('VC++ runtime installer exit code %d', [ResultCode]));
-  Result := (ResultCode = 0) or (ResultCode = 3010) or (ResultCode = 1638);
-  if Result then
-    Result := VCRuntimePresent;
+  Waited := 0;
+  while (not DependencyPresent(Kind)) and (Waited < 600) do
+  begin
+    Sleep(1000);
+    Waited := Waited + 1;
+    if DependencyPage <> nil then
+      DependencyPage.Animate;
+  end;
+  { Its last files are still being written when the first one is there. }
+  if DependencyPresent(Kind) then
+    Sleep(3000);
+  if DependencyPresent(Kind) then
+    Log(Format('%s: installed, %d s', [DependencyName(Kind), Waited]))
+  else
+    Log(Format('%s: still missing after %d s', [DependencyName(Kind), Waited]));
+  Result := DependencyPresent(Kind);
 end;
 
 function PrepareToInstall(var NeedsRestart: Boolean): String;
+var
+  Kind: Integer;
 begin
   Result := '';
-  { Never in the app's own silent update: a permission prompt out of nowhere, and a failure there
-    would leave the app closed. Seaglass runs without it; only the karaoke needs it. }
-  if HasParam('/SEAGLASSUPDATE=1') or VCRuntimePresent then
-    Exit;
-  Log('The Microsoft Visual C++ runtime is missing: installing it');
-  if not WizardSilent then
+  for Kind := 1 to DepCount do
   begin
-    VCRuntimePage := CreateOutputMarqueeProgressPage(CustomMessage('VCRuntimeTitle'), CustomMessage('VCRuntimeDownloading'));
-    VCRuntimePage.Show;
-  end;
-  try
-    if not InstallVCRuntime then
-      { Said, not fatal: the install goes on. }
-      SuppressibleMsgBox(CustomMessage('VCRuntimeFailed'), mbInformation, MB_OK, IDOK);
-  finally
-    if VCRuntimePage <> nil then
-      VCRuntimePage.Hide;
+    if not DependencyPresent(Kind) then
+    begin
+      Log(DependencyName(Kind) + ' is missing: installing it');
+      if not WizardSilent then
+      begin
+        DependencyPage := CreateOutputMarqueeProgressPage(DependencyName(Kind), FmtMessage(CustomMessage('DependencyDownloading'), [DependencyName(Kind)]));
+        DependencyPage.Show;
+      end;
+      try
+        if not InstallDependency(Kind) then
+          { Said, not fatal: the install goes on. }
+          SuppressibleMsgBox(FmtMessage(CustomMessage('DependencyFailed'), [DependencyName(Kind), DependencyManualUrl(Kind)]), mbInformation, MB_OK, IDOK);
+      finally
+        if DependencyPage <> nil then
+        begin
+          DependencyPage.Hide;
+          DependencyPage := nil;
+        end;
+      end;
+    end;
   end;
 end;
 

@@ -48,6 +48,7 @@ import com.onda.seaglass.data.PlaylistImport
 import com.onda.seaglass.data.PlaylistImportFile
 import com.onda.seaglass.model.Track
 import com.onda.seaglass.ui.LocalPalette
+import com.onda.seaglass.ui.typing
 import com.onda.seaglass.ui.Nav
 import com.onda.seaglass.ui.PillButton
 import com.onda.seaglass.ui.RemoteImage
@@ -147,7 +148,7 @@ fun ImportPlaylistDialog(onSpotifyAccount: () -> Unit, onDismiss: () -> Unit) {
                 OutlinedTextField(
                     link, { link = it; error = null }, singleLine = true, enabled = !working,
                     placeholder = { Text("https://open.spotify.com/playlist/…", maxLines = 1) },
-                    modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+                    modifier = Modifier.fillMaxWidth().padding(top = 10.dp).typing(),
                 )
                 status?.let { message ->
                     Row(Modifier.padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {

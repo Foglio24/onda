@@ -67,6 +67,7 @@ import com.onda.seaglass.core.tr
 import com.onda.seaglass.data.SongCache
 import com.onda.seaglass.ui.Accent
 import com.onda.seaglass.ui.LocalPalette
+import com.onda.seaglass.ui.typing
 import com.onda.seaglass.ui.Nav
 import com.onda.seaglass.ui.PillButton
 import com.onda.seaglass.ui.Route
@@ -500,11 +501,11 @@ private fun LastFMSettings() {
         return
     }
     if (editing) {
-        androidx.compose.material3.OutlinedTextField(key, { key = it }, label = { Text(tr("API key")) }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+        androidx.compose.material3.OutlinedTextField(key, { key = it }, label = { Text(tr("API key")) }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 8.dp).typing())
         androidx.compose.material3.OutlinedTextField(
             secret, { secret = it }, label = { Text(tr("Shared secret")) }, singleLine = true,
             visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
-            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp).typing(),
         )
         Row(Modifier.padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             PillButton(tr("Salva chiavi"), prominent = true) {

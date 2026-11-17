@@ -391,7 +391,7 @@ fun SaveToDialog() {
         text = {
             Column(Modifier.width(380.dp).heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
                 if (creating) {
-                    OutlinedTextField(name, { name = it }, label = { Text(tr("Nome")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(name, { name = it }, label = { Text(tr("Nome")) }, singleLine = true, modifier = Modifier.fillMaxWidth().typing())
                     TextButton(enabled = name.isNotBlank(), onClick = {
                         val created = Library.createPlaylist(name)
                         chosen = chosen + created.id
@@ -444,7 +444,7 @@ fun AddToPlaylistDialog() {
         text = {
             Column {
                 if (creating) {
-                    OutlinedTextField(name, { name = it }, label = { Text(tr("Nome")) }, singleLine = true)
+                    OutlinedTextField(name, { name = it }, label = { Text(tr("Nome")) }, singleLine = true, modifier = Modifier.typing())
                 } else {
                     Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(6.dp)).clickable { creating = true }.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, null, tint = palette.accent)

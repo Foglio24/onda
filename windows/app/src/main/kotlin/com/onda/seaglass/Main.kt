@@ -38,6 +38,7 @@ import com.onda.seaglass.data.Recommendations
 import com.onda.seaglass.ui.Nav
 import com.onda.seaglass.ui.Route
 import com.onda.seaglass.ui.SeaglassTheme
+import com.onda.seaglass.ui.SpaceBar
 import com.onda.seaglass.ui.Shell
 import com.onda.seaglass.update.AppUpdater
 import java.awt.Dimension
@@ -103,6 +104,10 @@ fun main(args: Array<String>) {
             icon = icon,
             state = windowState,
             onPreviewKeyEvent = { event ->
+                // The space bar plays and pauses, unless a text field has the focus (a space is a space
+                // there). It is seen here, before whatever has the focus: a focused button would take it
+                // as a click. Once per press: holding it down repeats the key, and the release is taken too.
+                if (SpaceBar.handle(event) { Player.toggle() }) return@Window true
                 if (event.type != KeyEventType.KeyDown) return@Window false
                 when {
                     // On Windows the media keys are taken by the keyboard hook whatever has the focus
@@ -123,17 +128,6 @@ fun main(args: Array<String>) {
                     event.isCtrlPressed && event.key == Key.Comma -> { Nav.section(Route.Settings); true }
                     event.key == Key.Escape && Nav.fullPlayer -> { Nav.fullPlayer = false; true }
                     else -> false
-                }
-            },
-            // The space bar plays and pauses, where nothing took it first: a text field being typed in
-            // keeps it (a key goes to what has the focus, and only comes up to the window if it
-            // wasn't used).
-            onKeyEvent = { event ->
-                if (event.type == KeyEventType.KeyDown && event.key == Key.Spacebar && !event.isCtrlPressed && !event.isAltPressed && !event.isMetaPressed) {
-                    Player.toggle()
-                    true
-                } else {
-                    false
                 }
             },
         ) {

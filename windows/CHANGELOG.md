@@ -1,5 +1,14 @@
 # Seaglass for Windows changelog
 
+## 1.5.2 (2026-11-17)
+
+### Added
+- **The installer fetches what Seaglass needs from Windows**, on a new install and on every update (the app's own silent one too): the Microsoft Visual C++ runtime (ONNX Runtime's library, for the karaoke) and Microsoft Edge (Spotify's sign-in; Windows 11 has it, a Windows 10 may not), each only when the computer lacks it. Setup downloads Microsoft's own installer, checks that it is signed by Microsoft, runs it (Windows asks for permission once) and waits up to ten minutes for it. If one can't be installed, setup says so and goes on, so an update never leaves the app closed.
+
+### Fixed
+- **The karaoke failed on a computer without the Visual C++ runtime** ("UnsatisfiedLinkError … onnxruntime.dll", as on a freshly installed Windows): ONNX Runtime is now loaded from a folder of its own beside the runtime's DLLs that FFmpeg's package carries, so it no longer depends on the computer having them.
+- **The space bar did nothing** in 1.5.1: it is now taken before whatever has the focus (a focused button took it as a click, or nothing got it), once per press (holding it doesn't toggle again and again), and every text field in the app keeps its spaces.
+
 ## 1.5.1 (2026-11-17)
 
 ### Changed
