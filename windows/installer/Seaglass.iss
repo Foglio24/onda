@@ -155,7 +155,7 @@ const
   VCRuntimeUrl = 'https://aka.ms/vs/17/release/vc_redist.x64.exe';
 
 var
-  VCRuntimePage: TOutputMarqueePage;
+  VCRuntimePage: TOutputMarqueeProgressWizardPage;
 
 function VCRuntimePresent: Boolean;
 begin
@@ -222,7 +222,7 @@ begin
   Log('The Microsoft Visual C++ runtime is missing: installing it');
   if not WizardSilent then
   begin
-    VCRuntimePage := CreateOutputMarqueePage(wpPreparing, CustomMessage('VCRuntimeTitle'), CustomMessage('VCRuntimeDownloading'), '');
+    VCRuntimePage := CreateOutputMarqueeProgressPage(CustomMessage('VCRuntimeTitle'), CustomMessage('VCRuntimeDownloading'));
     VCRuntimePage.Show;
   end;
   try
