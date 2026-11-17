@@ -2760,13 +2760,14 @@ final class PlayerController: ObservableObject {
     }
 
     /// Loads the mix shortly before its handover. A mix whose moment passed (a seek beyond it)
-    /// becomes a plain crossfade.
+    /// becomes a plain crossfade. Its player starts `startAt` into the file (a rendered Segue's,
+    /// seconds after the file's first frame: see `takeOverRun`), so its moment passes only then.
     private func followPlan(_ planned: PlannedTransition, at seconds: TimeInterval) {
         guard outgoingPlayer == nil else { return }
         let handover = planned.handover
         if armed == nil, seconds >= handover - 12, seconds < handover - 1 {
             armTransition(planned)
-        } else if seconds > handover + 0.3, armed?.scheduled != true {
+        } else if seconds > handover + (armed?.startAt ?? 0) + 0.3, armed?.scheduled != true {
             disarm()
             autoMix?.missed = true
             autoMixNote = String(localized: "Transizione saltata: dissolvenza semplice")
@@ -2789,6 +2790,9 @@ final class PlayerController: ObservableObject {
         let transition = ArmedTransition(planned: planned, player: incoming, track: next, outgoingTrackID: track.id,
                                          fade: fade)
         transition.crossing = crossing
+        // A rendered Segue's file starts, silent, `takeOverRun` before the take-over: its player waits
+        // there, prerolled, and starts from there (see `startOnTime`).
+        if planned.segue != nil { transition.startAt = max(0, crossing - Self.takeOverRun) }
         armed = transition
         armTask = Task {
             guard let made = await Self.makeMixItem(for: planned, crossing: crossing, fade: fade) else {
@@ -2811,10 +2815,7 @@ final class PlayerController: ObservableObject {
             // Its audio ready to play at once (a preroll that didn't finish is tried once more).
             var ready = item.status == .readyToPlay && incoming.status == .readyToPlay
             if ready, planned.segue != nil {
-                // A rendered Segue's file starts, silent, `takeOverRun` before the take-over: it waits
-                // there, prerolled, and starts from there (see `startOnTime`).
-                let startAt = max(0, crossing - Self.takeOverRun)
-                transition.startAt = startAt
+                let startAt = transition.startAt
                 if startAt > 0 {
                     ready = await incoming.seek(to: CMTime(seconds: startAt, preferredTimescale: 48_000),
                                                 toleranceBefore: .zero, toleranceAfter: .zero)
