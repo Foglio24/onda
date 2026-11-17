@@ -355,4 +355,68 @@ class AutoMixEngineTest {
         }
         assertTrue(worst < 3.0, "loudness jumps by $worst dB between 50 ms windows")
     }
+
+    /** The mix [plan] between two tones, played through the engine: no step beyond the songs' own, no loudness jump of 3 dB or more. */
+    private fun assertNoJumps(plan: TransitionPlan, startAt: Double, seconds: Double = 70.0, outgoingTempo: Double = 120.0, loudnessLimit: Double = 3.0) {
+        val a = wav(seconds) { t -> 0.25 * sin(2 * PI * 196 * t) }
+        val b = wav(seconds) { t -> 0.25 * sin(2 * PI * 293 * t + 0.5) }
+        val (capture, _) = play(plan, a, b, startAt = startAt, outgoingTempo = outgoingTempo, after = 3.0)
+        val frames = capture.frames
+        assertTrue(frames > (plan.outEnd - startAt + 2) * Decoder.RATE, "captured ${frames / Decoder.RATE} s")
+        val ownStep = (2 * PI * 293 * 1.05 / Decoder.RATE * 0.25 * 32767).toInt()
+        val step = largestStep(capture.samples, 1, frames)
+        assertTrue(step <= ownStep * 2.2 + 8, "largest step $step (own about $ownStep) for $plan")
+        val window = Decoder.RATE / 20
+        var worst = 0.0
+        var previous = loudness(capture.samples, 0, window)
+        var at = window
+        while (at + window <= frames) {
+            val level = loudness(capture.samples, at, at + window)
+            worst = maxOf(worst, abs(level - previous))
+            previous = level
+            at += window
+        }
+        assertTrue(worst < loudnessLimit, "loudness jumps by $worst dB between 50 ms windows for $plan")
+    }
+
+    @Test
+    fun aRisingEnergyMixOpensTheNextSongSoonerWithoutJumps() {
+        // Stile per energia, rising: the next song is fully in by 0.29 of the mix instead of 0.45.
+        assertNoJumps(
+            TransitionPlan(TransitionPlan.Style.BEAT_MATCHED, outStart = 60.0, outEnd = 68.0, inStart = 0.0, incomingRate = 1.0, bars = 4,
+                swapStart = 0.45, swapEnd = 0.6, fadeIn = 0.45 * 0.65, filterOut = 0.75, beatLength = 0.5),
+            startAt = 58.0,
+        )
+    }
+
+    @Test
+    fun aFallingEnergyMixHoldsTheNextSongBackWithoutJumps() {
+        // Falling: the playing song carries on, the quieter next one comes in from 0.25.
+        assertNoJumps(
+            TransitionPlan(TransitionPlan.Style.BEAT_MATCHED, outStart = 60.0, outEnd = 68.0, inStart = 0.0, incomingRate = 1.0, bars = 4,
+                swapStart = 0.45, swapEnd = 0.6, fadeInFrom = 0.25, fadeIn = 0.45, filterOut = 0.75, beatLength = 0.5),
+            startAt = 58.0,
+            // The volumes sum below one for a moment by design here: a dip is allowed, a jump is not.
+            loudnessLimit = 3.0,
+        )
+    }
+
+    @Test
+    fun aMixWithoutTheEqualiserOnlyMovesTheVolumesWithoutJumps() {
+        assertNoJumps(
+            TransitionPlan(TransitionPlan.Style.BEAT_MATCHED, outStart = 60.0, outEnd = 68.0, inStart = 0.0, incomingRate = 1.0, bars = 4,
+                fadeIn = 1.0, beatLength = 0.5),
+            startAt = 58.0,
+        )
+    }
+
+    @Test
+    fun aLongMixGoesOnWithoutJumps() {
+        // A "Lunga" mix is up to 64 s; here 30 s of it over a 100 s song (the capture keeps 40 s).
+        assertNoJumps(
+            TransitionPlan(TransitionPlan.Style.BEAT_MATCHED, outStart = 65.0, outEnd = 95.0, inStart = 0.0, incomingRate = 1.04, bars = 16,
+                swapStart = 0.5, swapEnd = 0.52, fadeIn = 0.5, filterOut = 0.75, beatLength = 0.5),
+            startAt = 60.0, seconds = 100.0,
+        )
+    }
 }

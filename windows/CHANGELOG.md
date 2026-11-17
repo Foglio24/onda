@@ -4,13 +4,16 @@
 
 ### Added
 - **AutoMix's options, as on the iPhone and the Mac** (Settings › Audio, under "AutoMix · Beta"): "Mix dal vivo" (off, AutoMix plans as it did before these options), "Stile" (Automatico, Blend, Taglio, Dissolvenza), "Durata del mix" (Breve up to 8 bars, Normale 16, Lunga 32), "Variazione di tempo" (Delicata, Normale, Ampia: how far apart two tempos may be for a mix on the beat, 4, 8 or 12 %), "Equalizzazione automatica" (off: only the volumes change), "Tieni l'album intero" (an album's songs played in order run on gapless), and "Mix Lab" with "Passaggio dei bassi", "Dissolvenza sul beat" and "Stile per energia". A change plans the queued next mix again at once.
-- **"Avanti"**: what Next does while AutoMix plays: Taglio (as before), Mix veloce (the next song comes in over 3 seconds) or Mix a tempo (over one bar, from the playing song's next downbeat). When the next song isn't ready yet, Next cuts as before.
+- **"Avanti"**: what Next does while AutoMix plays: Taglio (as before), Mix veloce (the next song comes in over 3 seconds) or Mix a tempo (over one bar, from the playing song's next downbeat). Early in a song the next one is opened at once; if it isn't ready within 3 seconds, Next cuts as before.
 - **"Segna il mix sulla barra"**: the progress bar shows a mark where the next mix or crossfade will start.
 - **"Radio automatica"**: off, the queue ends instead of going on with songs like the last one.
 
+- **Karaoke AI, as on the iPhone and Android** (Premium, the microphone button in the player bar and the full player): "Senza voce" takes the voice out of the song, "Solo voce" keeps it alone, "Intensità" Leggera, Media or Piena. The vocals are separated on this computer by the same model (UVR MDX-Net Voc_FT, 64 MB, downloaded once the first time, checksum checked) with ONNX Runtime, a piece of about 6 seconds at a time from where the song plays; the song goes on meanwhile and the karaoke comes in once the separation is far enough ahead, saying how far it is. The next song is separated while this one plays, so its karaoke is there from its first note. The newest three songs' separation is kept (in the cache), songs of 15 minutes or more aren't separated. The karaoke is taken from the app's own decode of the whole song, so it is on the engine's frames exactly, and it comes in and goes out over 20 ms: no click when it starts or stops. It works under AutoMix's glides, Tempo and crossfades too.
+- **The installer installs what Seaglass needs**: when the Microsoft Visual C++ runtime (which FFmpeg's and ONNX Runtime's libraries need) isn't on the computer, setup downloads Microsoft's installer, checks it is signed by Microsoft and runs it (Windows asks for permission once). A computer that has it is left alone; if it can't be installed, setup says so and how to do it by hand.
+
 ### Changed
 - **Tempos are matched as on the Mac**: "Normale" matches songs up to 8 % apart in tempo (1.4.0 allowed about 25 %: wider gaps meant a stretched song); "Ampia" up to 12 %. Each song still covers half of the gap. Turn "Mix dal vivo" off to plan as in 1.4.0.
-- AutoMix now analyses 80 seconds at the end and at the start of each song (it was 60), so a "Lunga" mix of 32 bars fits; songs analysed before are analysed again the first time they're used.
+- AutoMix now analyses 80 seconds at the end and at the start of each song (it was 60), so a "Lunga" mix of 32 bars fits; songs analysed before keep working, and are analysed again only when "Lunga" needs the longer window.
 
 ### Not on Windows yet
 - "Mix armonico" (keys), "Voci pulite" and "Coda d'eco" of Mix Lab: they need key and voice detection and an echo that the Windows engine doesn't have.

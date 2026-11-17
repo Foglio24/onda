@@ -14,7 +14,8 @@ work by others, which keeps its own licence or terms.
 - **What:** the vocal separation model used by the karaoke mode, and by AutoMix to find where songs
   are sung near where they meet, bundled in the IPA as a Core ML model. It is converted in CI from
   ONNX to Core ML; the weights are not changed. The Android app downloads the ONNX version itself
-  from sherpa-onnx the first time karaoke is used (its checksum checked), unchanged.
+  from sherpa-onnx the first time karaoke is used (its checksum checked), unchanged; so does the
+  Windows app.
 - **Authors:** trained by the [Ultimate Vocal Remover](https://github.com/Anjok07/ultimatevocalremovergui)
   project (MIT), on the MDX-Net architecture by [KUIELab](https://github.com/kuielab/mdx-net) (MIT).
 - **Downloaded from:** the ONNX version published by
@@ -61,6 +62,7 @@ the lyrics translation; each language's model is downloaded from Google the firs
   other audio formats. FFmpeg's libraries are separate files in the app's folder, as the LGPL asks;
   their source is at ffmpeg.org and in the JavaCPP Presets repository.
 - [JNA](https://github.com/java-native-access/jna) (Apache-2.0): Windows's DPAPI, registry and media keys.
+- [ONNX Runtime](https://github.com/microsoft/onnxruntime) (Microsoft, MIT): runs the karaoke's model (UVR-MDX-NET Voc_FT, above) on the computer. Its usage reporting is left off. The Windows installer downloads Microsoft's own Visual C++ runtime (the Microsoft Visual C++ Redistributable) when the computer doesn't have it, which FFmpeg's and ONNX Runtime's libraries need.
 - A Java runtime from [Eclipse Temurin](https://adoptium.net) (GPL-2.0 with the Classpath Exception),
   bundled by jpackage.
 - Installed with [Inno Setup](https://jrsoftware.org/isinfo.php) (Inno Setup License).

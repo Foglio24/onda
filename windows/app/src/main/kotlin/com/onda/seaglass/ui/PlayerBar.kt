@@ -151,6 +151,7 @@ fun PlayerBar() {
             BarButton(Icons.Rounded.ViewSidebar, tr("In riproduzione"), active = Nav.panel == Nav.Panel.NOW_PLAYING, size = icon) { Nav.togglePanel(Nav.Panel.NOW_PLAYING) }
             BarButton(Icons.Rounded.SpeakerNotes, tr("Testo"), active = Nav.panel == Nav.Panel.LYRICS, size = icon) { Nav.togglePanel(Nav.Panel.LYRICS) }
             BarButton(Icons.AutoMirrored.Rounded.QueueMusic, tr("Coda"), active = Nav.panel == Nav.Panel.QUEUE, size = icon) { Nav.togglePanel(Nav.Panel.QUEUE) }
+            KaraokeButton(size = icon)
             TempoButton(size = icon)
             SleepTimerButton(state.sleepAt > 0 || state.sleepAtEnd, size = icon)
             VolumeControl(width = if (compact) 64.dp else 96.dp, iconSize = icon)

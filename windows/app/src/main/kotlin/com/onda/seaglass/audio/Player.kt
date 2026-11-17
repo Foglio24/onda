@@ -1,5 +1,6 @@
 package com.onda.seaglass.audio
 
+import com.onda.seaglass.audio.karaoke.Karaoke
 import com.onda.seaglass.core.Log
 import com.onda.seaglass.core.Prefs
 import com.onda.seaglass.core.tr
@@ -116,6 +117,7 @@ object Player {
                 scope.launch(Dispatchers.Main) { onFailed(error) }
             }
         }
+        Karaoke.start(scope, { engine.position }, ::sourceFor)
         scope.launch {
             Prefs.transition.state.collect { applyCrossfade() }
         }
@@ -230,25 +232,55 @@ object Player {
     private fun skipWithMix(): Boolean {
         val mode = Prefs.skipMix.value
         val current = _state.value
-        if (!autoMix || mode == "cut" || !current.isPlaying || current.repeat == Repeat.ONE) return false
-        val target = current.queue.getOrNull(current.index + 1) ?: return false
+        if (!autoMix || mode == "cut" || !current.isPlaying || current.repeat == Repeat.ONE || engine.fading) return false
+        val targetIndex = current.index + 1
+        val target = current.queue.getOrNull(targetIndex) ?: return false
         val playing = current.queue.getOrNull(current.index) ?: return false
-        if (preparedFor != target.id || engine.next?.isReady != true || engine.fading) return false
         skipJob?.cancel()
+        if (preparedFor == target.id && engine.next?.isReady == true) {
+            startSkipMix(playing, mode)
+            return true
+        }
+        // Early in the song the next one isn't open yet: open it now and give it up to three seconds, else cut.
+        prepareJob?.cancel()
+        skipJob = scope.launch {
+            val opened = runCatching { withContext(Dispatchers.IO) { open(target, 0.0) } }.getOrNull()
+            if (!isActive) {
+                opened?.first?.close()
+                return@launch
+            }
+            if (opened == null) {
+                withContext(Dispatchers.Main) { jump(targetIndex) }
+                return@launch
+            }
+            withContext(Dispatchers.Main) {
+                preparedFor = target.id
+                preparedFormat = opened.second
+                engine.queue(opened.first, null)
+            }
+            val until = System.nanoTime() + 3_000_000_000
+            while (isActive && !opened.first.isReady && System.nanoTime() < until) delay(20)
+            if (!isActive) return@launch
+            withContext(Dispatchers.Main) {
+                if (opened.first.isReady) startSkipMix(playing, mode) else jump(targetIndex)
+            }
+        }
+        return true
+    }
+
+    /** The mix itself: at once over three seconds, or over one bar from the playing song's next downbeat. */
+    private fun startSkipMix(playing: QueueEntry, mode: String) {
         // The next downbeat of the playing song, when its end has been analysed and a beat found.
         val tail = com.onda.seaglass.audio.automix.AutoMix.known(playing.track.videoId)?.tail
         val position = engine.position
         val downbeat = tail?.takeIf { mode == "onBeat" && it.hasBeat }?.downbeats?.firstOrNull { it > position + 0.15 }
         if (tail == null || downbeat == null || downbeat - position > 4) {
             engine.mixNow(3.0)
-            return true
+            return
         }
-        val bar = (60 / tail.tempo * 4).coerceIn(1.0, 4.0)
-        skipJob = scope.launch {
-            while (isActive && engine.position < downbeat - 0.01) delay(5)
-            if (isActive) engine.mixNow(bar)
-        }
-        return true
+        // The deck is ahead of what is heard by the output's delay: the mix starts when the deck reaches the downbeat plus it.
+        val delay = (engine.current?.position ?: position) - position
+        engine.mixNow((60 / tail.tempo * 4).coerceIn(1.0, 4.0), at = downbeat + delay)
     }
 
     /** Previous: back to the song's start after three seconds, otherwise the song before. */
@@ -449,7 +481,10 @@ object Player {
     }
 
     /** The song's sound and how the player names its format. */
-    private suspend fun open(entry: QueueEntry, startAt: Double = 0.0): Pair<Deck, String> {
+    private suspend fun open(entry: QueueEntry, startAt: Double = 0.0): Pair<Deck, String> =
+        openDeck(entry, startAt).also { Karaoke.attach(it.first, entry.track) }
+
+    private suspend fun openDeck(entry: QueueEntry, startAt: Double): Pair<Deck, String> {
         val track = entry.track
         val normalize = Prefs.normalizeVolume.value
         LocalMusic.file(track)?.let { file ->
@@ -508,6 +543,8 @@ object Player {
         // Fewer than three songs left: the radio of the last one is added, as on the Mac.
         if (Prefs.autoRadio.value && current.repeat == Repeat.OFF && current.queue.size - current.index <= 3) extendWithRadio(andPlay = false)
         val entry = following()
+        // The karaoke separates the playing song and the next one.
+        Karaoke.songs(current.current, entry?.track)
         if (entry == null || _state.value.sleepAtEnd) {
             preparedFor = -1
             _mixMark.value = null
@@ -527,7 +564,7 @@ object Player {
             var transition: com.onda.seaglass.audio.automix.Transition? = null
             var startAt = 0.0
             // An album's songs played in order run into each other as the album has them, not mixed.
-            val albumRun = autoMix && Prefs.liveMix.value && Prefs.keepAlbum.value && playing != null && sameAlbum(playing.track, entry.track)
+            val albumRun = autoMix && Prefs.liveMix.value && Prefs.keepAlbum.value && !_state.value.shuffle && playing != null && sameAlbum(playing.track, entry.track)
             if (albumRun) Log.info("AutoMix: an album's songs in order: no mix")
             if (autoMix && !albumRun && playing != null && entry.track.videoId != playing.track.videoId) {
                 _state.value = _state.value.copy(nextMix = tr("Analisi dei brani…"))
@@ -535,8 +572,9 @@ object Player {
                     withContext(Dispatchers.IO) {
                         val outgoingSource = sourceFor(playing.track)
                         val incomingSource = sourceFor(entry.track)
-                        val outgoing = com.onda.seaglass.audio.automix.AutoMix.analyze(playing.track.videoId, outgoingSource)
-                        val incoming = com.onda.seaglass.audio.automix.AutoMix.analyze(entry.track.videoId, incomingSource)
+                        val long = Prefs.liveMix.value && Prefs.mixLength.value == 2
+                        val outgoing = com.onda.seaglass.audio.automix.AutoMix.analyze(playing.track.videoId, long, outgoingSource)
+                        val incoming = com.onda.seaglass.audio.automix.AutoMix.analyze(entry.track.videoId, long, incomingSource)
                         if (outgoing == null || incoming == null) {
                             Log.warn("AutoMix: couldn't analyse ${if (outgoing == null) "the playing song" else "the next song"}; a crossfade instead")
                             return@withContext

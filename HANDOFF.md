@@ -37,7 +37,7 @@ Standing rules from the owner (on top of `AGENTS.md`):
 | --- | --- | --- | --- |
 | iPhone, iPad, Mac | 1.36.12 (build 91) | `v1.36.12`, the repository's "Latest"; AltStore source at 1.36.12 / 91 | `main` |
 | Android | 0.4.3 (versionCode 8) | `android-v0.4.3` | `main`, `android/` |
-| Windows | 1.4.0 | `windows-v1.4.0` (not Latest; `windows-v1.3.1` is marked pre-release: its installer broke updates) | branch **`windows`**, `windows/` |
+| Windows | 1.5.0 | `windows-v1.5.0` (not Latest; `windows-v1.3.1` is marked pre-release: its installer broke updates) | branch **`windows`**, `windows/` |
 | Account service | deployed | none | `main`, `server/account/` (deploys by itself) |
 | Website | deployed | none | `main`, `site/` (deploys by itself) |
 
@@ -112,8 +112,13 @@ Rules the code depends on (break one and something fails in ways tests may not c
   concurrent decoding ("Unsupported audio file").
 - **Streams** are fetched as 512 KB ranged chunks (`&range=`), four ahead, and the whole song goes
   to `SongCache`. YouTube stream URLs are bound to the IP that requested them.
-- **AutoMix**: the planner (`automix/Planner.kt`) follows the iPhone's: beats matched up to 12 %
-  apart (16 bars when within 6 %), otherwise a crossfade (longer into a song's own fade-out). The
+- **AutoMix**: the planner (`automix/Planner.kt`) follows the iPhone's, shaped by `MixOptions` (Settings
+  › Audio › AutoMix: Mix dal vivo, Stile, Durata, Variazione di tempo, equaliser, Mix Lab, Avanti; "Mix
+  dal vivo" off is `MixOptions.LEGACY`, the planning before the options): beats matched up to the tempo
+  gap chosen (8 % by default, split between the two songs; 16 bars when within 6 %, 32 for "Lunga" over
+  the 80 s analysis window), otherwise a crossfade (longer into a song's own fade-out). Not ported:
+  Mix armonico (keys), Voci pulite, Coda d'eco (no key or voice detection, no echo in the engine).
+  `Engine.mixNow` does "Avanti"'s quick mix and its bar-long mix from a downbeat (to the frame). The
   engine starts the mix on its planned frame (it splits the block), and drops the plan for a
   crossfade if the next song isn't ready by then. The incoming song's rate is exactly 1.0 when the
   transition ends; after a tempo glide the deck settles on a whole sample and plays untouched.
@@ -185,11 +190,14 @@ released as a new `windows-v` minor version.
    Seaglass; only the media keys work (keyboard hook). Needs the WinRT
    `SystemMediaTransportControls` (via JNA/COM or a small native helper). iPhone counterpart:
    `Seaglass/Player/SystemNowPlaying.swift`.
-2. **Karaoke AI** (Premium). Port `android/.../playback/karaoke/` (`MdxSeparator`, `KaraokeStems`,
-   `KaraokeModel`, `KaraokeProcessor`, `Fft`, `Resample`) with ONNX Runtime for Java (already in
-   `windows/gradle/libs.versions.toml`, unused so far). The model is downloaded on first use and its
-   SHA-256 checked (`KaraokeModel.kt` has the URL and hash). Vocal slider as `Seaglass/Views/SingControl.swift`.
-   No allocation on the render thread.
+2. ~~Karaoke AI~~ done in 1.5.0 (`audio/karaoke/`). It differs from Android: the song is decoded whole,
+   once, into a file (`KaraokeStems`' `.song`) and the karaoke is `vocalsGain·vocals + instrumentalGain·(song −
+   vocals)` taken from that decode inside `Deck.readInto` (`KaraokeTap`), because a WebM seek is not
+   sample-exact (a 1 ms timebase and Opus's pre-skip), so the deck's frames can't be trusted to line up
+   with a separately decoded piece. Checked with the real model on macOS only (`KARAOKE_MODEL=<file>`
+   runs `KaraokeModelCheck` and `KaraokeFlowCheck`); how it sounds on real songs, and how fast the
+   separation is on the owner's PC, is not verified. The installer downloads the Visual C++ runtime
+   when it is missing (`Seaglass.iss`, `PrepareToInstall`); that path is untested on a clean Windows.
 3. **Song recognition** (Premium): iPhone only so far (`Seaglass/Services/MusicRecognizer.swift`,
    `RecognitionSignature.swift`, `RecognitionAPI.swift`, `RecognitionOperation.swift`,
    `Views/RecognitionView.swift`). Microphone through Java Sound `TargetDataLine`.

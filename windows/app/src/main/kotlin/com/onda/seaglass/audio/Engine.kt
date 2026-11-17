@@ -133,6 +133,9 @@ class Deck(
         start()
     }
 
+    /** The karaoke's tap in this deck's audio (see [com.onda.seaglass.audio.karaoke.KaraokeTap]); null for none. */
+    @Volatile var karaoke: com.onda.seaglass.audio.karaoke.KaraokeTap? = null
+
     /** True while a seek is being served: the audio thread must not read. */
     val seeking: Boolean get() = seekGeneration != ready
 
@@ -169,6 +172,8 @@ class Deck(
         val first = minOf(count, capacity - offset)
         System.arraycopy(ring, offset * 2, into, offsetFrames * 2, first * 2)
         if (count > first) System.arraycopy(ring, 0, into, (offsetFrames + first) * 2, (count - first) * 2)
+        // The song's frame of the first frame handed out: where the karaoke's stems are read.
+        karaoke?.process(into, offsetFrames, count, baseFrame + start)
         read.set(start + count)
         return count
     }
@@ -446,10 +451,18 @@ class Engine(private val sinkFactory: () -> AudioSink) : Closeable {
 
     /** A mix into [next] asked for now ("Avanti": Mix veloce, Mix a tempo), its length in seconds; 0 for none. */
     @Volatile private var mixRequest = 0.0
+    /** Where in the playing song the asked-for mix starts (its time in the song); 0 for at once. */
+    @Volatile private var mixRequestAt = 0.0
 
-    /** Mixes into the queued song now over [seconds], as a plain crossfade (a planned mix is dropped). */
-    fun mixNow(seconds: Double) {
-        if (next != null && !fading) mixRequest = seconds.coerceIn(0.2, 12.0)
+    /**
+     * Mixes into the queued song over [seconds], as a plain crossfade (a planned mix is dropped): at
+     * once, or from [at] (the playing song's time), to the very frame.
+     */
+    fun mixNow(seconds: Double, at: Double = 0.0) {
+        if (next != null && !fading) {
+            mixRequestAt = at
+            mixRequest = seconds.coerceIn(0.2, 12.0)
+        }
     }
 
     /** The AutoMix plan for [next], if it has one. */
@@ -665,7 +678,12 @@ class Engine(private val sinkFactory: () -> AudioSink) : Closeable {
             }
         }
         val request = mixRequest
-        if (request > 0 && !fading && following != null && following.isReady && speed == 1.0) {
+        val requestAt = mixRequestAt
+        if (request > 0 && !fading && following != null && following.isReady && speed == 1.0 && requestAt > deck.position) {
+            // Asked for from a moment on: this block ends on it, so the mix starts on its very frame.
+            limit = minOf(limit, Math.ceil((requestAt - deck.position) * Decoder.RATE).toInt().coerceAtLeast(1))
+        }
+        if (request > 0 && !fading && following != null && following.isReady && speed == 1.0 && requestAt <= deck.position) {
             mixRequest = 0.0
             nextTransition = null
             planned = null

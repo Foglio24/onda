@@ -44,6 +44,10 @@ Out of scope:
   - Spotify's and Apple Music's public pages (`open.spotify.com`, `music.apple.com` and their
     short links), when the user imports a playlist from a link;
   - the GitHub API, to check for updates;
+  - GitHub's release downloads (`github.com/k2-fsa/sherpa-onnx`), once, the first time karaoke is used on
+    Android or Windows: the vocal model, kept only if its SHA-256 matches the one in the app;
+  - the Windows installer, only on a computer without it: Microsoft's Visual C++ runtime
+    (`aka.ms/vs/17/release/vc_redist.x64.exe`), which it runs only after checking Microsoft's signature;
   - the Seaglass account service (`account.<domain>`, set at build time), when the user
     signs in; and, signed in or not, for the concerts under the classic player, to which only
     the artist's name is sent (the service asks Ticketmaster with its own key, which the app

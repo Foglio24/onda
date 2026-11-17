@@ -64,6 +64,34 @@ japanese.AutoStart=Windows の起動時に Seaglass を開始（通知領域）
 russian.AutoStart=Запускать Seaglass вместе с Windows (в области уведомлений)
 turkish.AutoStart=Seaglass'ı Windows ile başlat (bildirim alanında)
 
+italian.VCRuntimeTitle=Runtime di Microsoft Visual C++
+italian.VCRuntimeDownloading=Seaglass ha bisogno del runtime di Microsoft Visual C++. Lo scarico e lo installo (Windows può chiedere il permesso).
+italian.VCRuntimeFailed=Non riesco a installare il runtime di Microsoft Visual C++ che Seaglass richiede. Controlla la connessione e riprova, oppure installalo da https://aka.ms/vs/17/release/vc_redist.x64.exe e riavvia questo programma di installazione.
+english.VCRuntimeTitle=Microsoft Visual C++ runtime
+english.VCRuntimeDownloading=Seaglass needs the Microsoft Visual C++ runtime. Downloading and installing it (Windows may ask for permission).
+english.VCRuntimeFailed=The Microsoft Visual C++ runtime that Seaglass needs couldn't be installed. Check your connection and try again, or install it from https://aka.ms/vs/17/release/vc_redist.x64.exe and run this setup again.
+french.VCRuntimeTitle=Runtime Microsoft Visual C++
+french.VCRuntimeDownloading=Seaglass a besoin du runtime Microsoft Visual C++. Téléchargement et installation en cours (Windows peut demander l'autorisation).
+french.VCRuntimeFailed=Impossible d'installer le runtime Microsoft Visual C++ dont Seaglass a besoin. Vérifiez votre connexion et réessayez, ou installez-le depuis https://aka.ms/vs/17/release/vc_redist.x64.exe puis relancez ce programme d'installation.
+spanish.VCRuntimeTitle=Runtime de Microsoft Visual C++
+spanish.VCRuntimeDownloading=Seaglass necesita el runtime de Microsoft Visual C++. Se descarga y se instala (Windows puede pedir permiso).
+spanish.VCRuntimeFailed=No se pudo instalar el runtime de Microsoft Visual C++ que necesita Seaglass. Comprueba la conexión e inténtalo de nuevo, o instálalo desde https://aka.ms/vs/17/release/vc_redist.x64.exe y vuelve a ejecutar este instalador.
+german.VCRuntimeTitle=Microsoft Visual C++-Laufzeit
+german.VCRuntimeDownloading=Seaglass benötigt die Microsoft Visual C++-Laufzeit. Sie wird heruntergeladen und installiert (Windows fragt eventuell nach einer Berechtigung).
+german.VCRuntimeFailed=Die von Seaglass benötigte Microsoft Visual C++-Laufzeit konnte nicht installiert werden. Prüfen Sie die Verbindung und versuchen Sie es erneut, oder installieren Sie sie von https://aka.ms/vs/17/release/vc_redist.x64.exe und starten Sie dieses Setup erneut.
+portuguese.VCRuntimeTitle=Runtime do Microsoft Visual C++
+portuguese.VCRuntimeDownloading=O Seaglass precisa do runtime do Microsoft Visual C++. A transferir e a instalar (o Windows pode pedir permissão).
+portuguese.VCRuntimeFailed=Não foi possível instalar o runtime do Microsoft Visual C++ de que o Seaglass precisa. Verifique a ligação e tente de novo, ou instale-o a partir de https://aka.ms/vs/17/release/vc_redist.x64.exe e execute este instalador outra vez.
+japanese.VCRuntimeTitle=Microsoft Visual C++ ランタイム
+japanese.VCRuntimeDownloading=Seaglass には Microsoft Visual C++ ランタイムが必要です。ダウンロードしてインストールします(Windows が許可を求める場合があります)。
+japanese.VCRuntimeFailed=Seaglass に必要な Microsoft Visual C++ ランタイムをインストールできませんでした。接続を確認してもう一度お試しいただくか、https://aka.ms/vs/17/release/vc_redist.x64.exe からインストールして、このセットアップをもう一度実行してください。
+russian.VCRuntimeTitle=Среда выполнения Microsoft Visual C++
+russian.VCRuntimeDownloading=Для Seaglass нужна среда выполнения Microsoft Visual C++. Она будет загружена и установлена (Windows может запросить разрешение).
+russian.VCRuntimeFailed=Не удалось установить среду выполнения Microsoft Visual C++, необходимую Seaglass. Проверьте подключение и повторите попытку или установите её с https://aka.ms/vs/17/release/vc_redist.x64.exe и снова запустите эту программу установки.
+turkish.VCRuntimeTitle=Microsoft Visual C++ çalışma zamanı
+turkish.VCRuntimeDownloading=Seaglass için Microsoft Visual C++ çalışma zamanı gerekir. İndirilip kuruluyor (Windows izin isteyebilir).
+turkish.VCRuntimeFailed=Seaglass'ın gerek duyduğu Microsoft Visual C++ çalışma zamanı kurulamadı. Bağlantınızı denetleyip yeniden deneyin ya da https://aka.ms/vs/17/release/vc_redist.x64.exe adresinden kurup bu kurulumu yeniden çalıştırın.
+
 [Tasks]
 ; The desktop icon is a choice, checked by default; starting with Windows is unchecked.
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
@@ -112,6 +140,95 @@ end;
 function ShouldLaunch: Boolean;
 begin
   Result := not HasParam('/NOLAUNCH');
+end;
+
+{
+  Seaglass needs the Microsoft Visual C++ 2015-2022 runtime (x64) for FFmpeg's and ONNX Runtime's
+  libraries; the app image carries Java and FFmpeg but not that. A Windows without it (a fresh
+  install) would start Seaglass and fail to load them. So, when vcruntime140_1.dll (VS 2019 or
+  later) and msvcp140.dll aren't in System32, setup downloads Microsoft's own installer, checks that
+  it is signed by Microsoft, and runs it (Windows asks for permission once: it needs administrator
+  rights, which Seaglass itself doesn't). A machine that has it is not touched.
+}
+const
+  VCRuntimeUrl = 'https://aka.ms/vs/17/release/vc_redist.x64.exe';
+
+var
+  VCRuntimePage: TOutputMarqueePage;
+
+function VCRuntimePresent: Boolean;
+begin
+  Result := FileExists(ExpandConstant('{sys}\vcruntime140_1.dll')) and FileExists(ExpandConstant('{sys}\msvcp140.dll'));
+end;
+
+function OnVCRuntimeProgress(const Url, FileName: String; const Progress, ProgressMax: Int64): Boolean;
+begin
+  if VCRuntimePage <> nil then
+    VCRuntimePage.Animate;
+  Result := True;
+end;
+
+{ True when [Exe] carries a valid Microsoft signature. }
+function SignedByMicrosoft(const Exe: String): Boolean;
+var
+  Command: String;
+  ResultCode: Integer;
+begin
+  Command := '-NoProfile -NonInteractive -WindowStyle Hidden -Command "' +
+    '$s = Get-AuthenticodeSignature -LiteralPath ''' + Exe + '''; ' +
+    'if ($s.Status -eq ''Valid'' -and $s.SignerCertificate.Subject -like ''*O=Microsoft Corporation*'') { exit 0 } else { exit 1 }"';
+  Result := Exec(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'), Command, '', SW_HIDE, ewWaitUntilTerminated, ResultCode) and (ResultCode = 0);
+end;
+
+{ Downloads, checks and installs the runtime; False if any step fails. }
+function InstallVCRuntime: Boolean;
+var
+  Exe: String;
+  ResultCode: Integer;
+begin
+  Result := False;
+  Exe := ExpandConstant('{tmp}\vc_redist.x64.exe');
+  try
+    DownloadTemporaryFile(VCRuntimeUrl, 'vc_redist.x64.exe', '', @OnVCRuntimeProgress);
+  except
+    Log('VC++ runtime download failed: ' + GetExceptionMessage);
+    Exit;
+  end;
+  if not SignedByMicrosoft(Exe) then
+  begin
+    Log('The downloaded VC++ runtime installer is not signed by Microsoft: not run');
+    Exit;
+  end;
+  { 0 installed, 3010 installed (a restart is advised, not needed here), 1638 a newer one is there. }
+  if not ShellExec('runas', Exe, '/install /quiet /norestart', '', SW_SHOW, ewWaitUntilTerminated, ResultCode) then
+  begin
+    Log('VC++ runtime installer did not start: ' + SysErrorMessage(ResultCode));
+    Exit;
+  end;
+  Log(Format('VC++ runtime installer exit code %d', [ResultCode]));
+  Result := (ResultCode = 0) or (ResultCode = 3010) or (ResultCode = 1638);
+  if Result then
+    Result := VCRuntimePresent;
+end;
+
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+begin
+  Result := '';
+  if VCRuntimePresent then
+    Exit;
+  Log('The Microsoft Visual C++ runtime is missing: installing it');
+  if not WizardSilent then
+  begin
+    VCRuntimePage := CreateOutputMarqueePage(wpPreparing, CustomMessage('VCRuntimeTitle'), CustomMessage('VCRuntimeDownloading'), '');
+    VCRuntimePage.Show;
+  end;
+  try
+    if not InstallVCRuntime then
+      Result := CustomMessage('VCRuntimeFailed');
+  finally
+    if VCRuntimePage <> nil then
+      VCRuntimePage.Hide;
+  end;
 end;
 
 {

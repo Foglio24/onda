@@ -32,21 +32,32 @@ object AutoMix {
     private const val WINDOW = 80.0
     private val directory by lazy { File(Paths.cache, "AutoMix").apply { mkdirs() } }
 
-    private fun file(id: String): File? {
-        val safe = when {
-            Paths.isVideoId(id) -> id
-            id.startsWith("local:") && id.drop(6).all { it.isLetterOrDigit() } -> "local-" + id.drop(6)
-            else -> return null
-        }
-        // "-w80": the analysis of an end's last 80 seconds (the first versions kept 60).
-        return File(directory, "$safe-w80.json")
+    private fun safeName(id: String): String? = when {
+        Paths.isVideoId(id) -> id
+        id.startsWith("local:") && id.drop(6).all { it.isLetterOrDigit() } -> "local-" + id.drop(6)
+        else -> null
     }
 
-    fun known(id: String): SongAnalysis? = file(id)?.let { runCatching { SongAnalysis.fromJson(JSONObject(it.readText())) }.getOrNull() }
+    /** An end's last 80 seconds ("-w80"), as kept since 1.5.0. */
+    private fun file(id: String): File? = safeName(id)?.let { File(directory, "$it-w80.json") }
 
-    /** Analyses both ends of a song from its bytes (only the parts needed are read). */
-    fun analyze(id: String, source: () -> ByteSource): SongAnalysis? {
-        known(id)?.let { return it }
+    /** What earlier versions kept: 60 seconds. Still read (a 60 s window plans everything but a 32-bar mix). */
+    private fun oldFile(id: String): File? = safeName(id)?.let { File(directory, "$it.json") }
+
+    fun known(id: String): SongAnalysis? =
+        listOfNotNull(file(id), oldFile(id)).firstNotNullOfOrNull { f -> runCatching { SongAnalysis.fromJson(JSONObject(f.readText())) }.getOrNull() }
+
+    /** Whether the analysis covers the whole window (or the whole song, when it is shorter). */
+    private fun isFull(analysis: SongAnalysis) = analysis.tail.end - analysis.tail.start >= minOf(WINDOW, analysis.duration) - 1.0
+
+    fun analyze(id: String, source: () -> ByteSource): SongAnalysis? = analyze(id, false, source)
+
+    /**
+     * Analyses both ends of a song from its bytes (only the parts needed are read). With [full] (a
+     * "Lunga" mix) an analysis of only 60 seconds, as earlier versions kept, is made again.
+     */
+    fun analyze(id: String, full: Boolean, source: () -> ByteSource): SongAnalysis? {
+        known(id)?.takeIf { !full || isFull(it) }?.let { return it }
         val analysis = runCatching {
             val (duration, head) = Decoder(source()).use { decoder -> decoder.duration to window(decoder, 0.0) }
             if (duration <= 0) return@runCatching null
@@ -58,6 +69,8 @@ object AutoMix {
             SongAnalysis(id, duration, head, tail)
         }.getOrNull() ?: return null
         file(id)?.let { runCatching { it.writeText(analysis.toJson().toString()) } }
+        // The new analysis replaces the old file's.
+        oldFile(id)?.let { runCatching { it.delete() } }
         return analysis
     }
 

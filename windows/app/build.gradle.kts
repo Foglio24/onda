@@ -29,6 +29,20 @@ kotlin {
     jvmToolchain(21)
 }
 
+// ONNX Runtime's jar carries a 300 MB debugging file (onnxruntime.pdb) and the libraries of every
+// system. The app keeps what it runs: on Windows only the Windows ones; elsewhere (development) its own.
+val onnxRaw by configurations.creating { isTransitive = false }
+dependencies { onnxRaw(libs.onnxruntime) }
+val onnxLean by tasks.registering(Jar::class) {
+    archiveFileName.set("onnxruntime-lean.jar")
+    destinationDirectory.set(layout.buildDirectory.dir("onnx"))
+    val onWindows = System.getProperty("os.name").lowercase().contains("win")
+    from({ onnxRaw.map { zipTree(it) } }) {
+        exclude("**/*.pdb", "**/*.dSYM/**")
+        if (onWindows) exclude("ai/onnxruntime/native/osx-*/**", "ai/onnxruntime/native/linux-*/**")
+    }
+}
+
 dependencies {
     implementation(compose.desktop.currentOs)
     implementation(compose.material3)
@@ -41,6 +55,8 @@ dependencies {
     implementation(libs.jna.platform)
     implementation(libs.javacpp)
     implementation(libs.ffmpeg)
+    // The karaoke's vocal model, from the slimmed ONNX Runtime jar below.
+    implementation(files(onnxLean))
     runtimeOnly(variantOf(libs.javacpp) { classifier(native) })
     runtimeOnly(variantOf(libs.ffmpeg) { classifier(native) })
     testImplementation(kotlin("test-junit"))
@@ -88,6 +104,8 @@ sourceSets.main {
 tasks.test {
     // Tests that talk to the real YouTube Music skip themselves when it refuses this machine.
     systemProperty("seaglass.live", findProperty("live") ?: "false")
+    // Tests never touch a real profile (settings, library, caches): they get their own folder.
+    systemProperty("seaglass.home", layout.buildDirectory.dir("test-home").get().asFile.path)
 }
 
 compose.desktop {

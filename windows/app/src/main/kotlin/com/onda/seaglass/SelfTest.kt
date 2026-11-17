@@ -8,7 +8,7 @@ import java.io.File
 
 /**
  * `Seaglass.exe --self-test`: what CI runs on Windows after installing, to know the installed app
- * works there and not only on the build machine: FFmpeg's libraries load and decode, Windows's
+ * works there and not only on the build machine: FFmpeg's and ONNX Runtime's libraries load, FFmpeg decodes, Windows's
  * audio outputs are listed, and the user's secrets can be protected (DPAPI). Exit code 0 when fine.
  */
 object SelfTest {
@@ -38,6 +38,11 @@ object SelfTest {
                 check(decoder.codecName == "Opus" && frames > Decoder.RATE * 2.5, "FFmpeg decodes Opus (${frames / Decoder.RATE.toDouble()} s)")
             }
         }.onFailure { check(false, "FFmpeg: $it") }
+        // The karaoke's vocal model runs on ONNX Runtime: its Windows library (and the Visual C++ runtime
+        // it needs) must load on the installed app's own Java.
+        runCatching {
+            check(ai.onnxruntime.OrtEnvironment.getEnvironment() != null, "ONNX Runtime loads (karaoke)")
+        }.onFailure { check(false, "ONNX Runtime: $it") }
         runCatching {
             val devices = JavaSoundSink.devices()
             println("     audio outputs: $devices")

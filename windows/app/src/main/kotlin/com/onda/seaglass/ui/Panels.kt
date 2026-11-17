@@ -504,6 +504,7 @@ fun FullPlayer() {
                     BarButton(Icons.AutoMirrored.Rounded.QueueMusic, tr("Coda"), active = Nav.fullPlayerSide == Nav.FullSide.QUEUE, size = 22, light = true) {
                         Nav.fullPlayerSide = if (Nav.fullPlayerSide == Nav.FullSide.QUEUE) Nav.FullSide.NONE else Nav.FullSide.QUEUE
                     }
+                    KaraokeButton(light = true)
                     TempoButton(light = true)
                     FullPlayerSleepTimer()
                     VolumeControl(width = 110.dp, light = true)
