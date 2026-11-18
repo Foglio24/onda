@@ -234,6 +234,8 @@ struct PlaylistDetailView: View {
             Text(summary(playlist))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
+                .lineLimit(nil)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
