@@ -46,6 +46,7 @@ struct PlaylistDetailView: View {
     @State private var editMode: EditMode = .inactive
     @AppStorage(Preferences.accent) private var accent: AccentChoice = .pink
     @Environment(\.interfaceStyle) private var style
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private var isEditing: Bool { editMode.isEditing }
 
@@ -123,7 +124,7 @@ struct PlaylistDetailView: View {
                 ContentUnavailableView("Playlist eliminata", systemImage: "music.note.list")
             }
         }
-        .background { AmbientBackground() }
+        .background { BrowseBackground() }
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { PlaylistUsage.noteOpened(playlistID) }
         .photosPicker(isPresented: $showPhotoPicker, selection: $photoItem, matching: .images)
@@ -191,45 +192,85 @@ struct PlaylistDetailView: View {
         }
     }
 
-    private func header(_ playlist: Playlist) -> some View {
-        let classic = style == .classic
-        return VStack(spacing: classic ? 16 : 14) {
-            Button { showPhotoPicker = true } label: {
-                PlaylistArtwork(playlist: playlist, size: classic ? 232 : 220, cornerRadius: classic ? 4 : 22)
-                    .overlay(alignment: .bottomTrailing) {
-                        if !classic {
-                            Image(systemName: "camera.fill")
-                                .font(.footnote.weight(.semibold))
-                                .padding(9)
-                                .styledSurface(in: .circle)
-                                .padding(10)
+    @ViewBuilder private func header(_ playlist: Playlist) -> some View {
+        if style == .classic {
+            classicHeader(playlist)
+        } else {
+            VStack(alignment: .leading, spacing: 16) {
+                ViewThatFits(in: .horizontal) {
+                    if !dynamicTypeSize.isAccessibilitySize {
+                        HStack(spacing: 22) {
+                            artworkButton(playlist, size: 154)
+                            playlistIdentity(playlist)
+                                .frame(minWidth: 220, maxWidth: .infinity, alignment: .leading)
                         }
                     }
-                    .shadow(color: .black.opacity(classic ? 0.45 : 0.35), radius: classic ? 18 : 24, y: classic ? 8 : 12)
-            }
-            .buttonStyle(.plain)
-
-            // The classic style has, on the left under the cover as the common streaming apps: the
-            // name, whose playlist it is (the profile's letter and name), and its songs and length.
-            VStack(alignment: classic ? .leading : .center, spacing: classic ? 8 : 4) {
-                Text(playlist.name)
-                    .font(classic ? .system(size: 24, weight: .bold) : .title2.bold())
-                    .multilineTextAlignment(classic ? .leading : .center)
-                if classic { ownerRow }
-                Text(summary(playlist))
-                    .font(classic ? .footnote : .subheadline)
-                    .foregroundStyle(classic ? ClassicPalette.secondaryText : Color.secondary)
-            }
-            .frame(maxWidth: .infinity, alignment: classic ? .leading : .center)
-            if !playlist.tracks.isEmpty {
-                if classic {
-                    classicActionRow(playlist)
-                } else {
+                    VStack(alignment: .leading, spacing: 14) {
+                        artworkButton(playlist, size: 142)
+                        playlistIdentity(playlist)
+                    }
+                }
+                if !playlist.tracks.isEmpty {
                     PlayShuffleButtons(tracks: playlist.tracks, source: playlist.name, playlist: playlist.id)
                     if playlist.tracks.count >= 2 { mixRow(playlist) }
                     downloadButton(playlist)
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .modifier(BrowsePanel(featured: true))
+            .padding(.vertical, 8)
+        }
+    }
+
+    private func playlistIdentity(_ playlist: Playlist) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Text("Playlist")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+            Text(playlist.name)
+                .font(.largeTitle.bold())
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityAddTraits(.isHeader)
+            Text(summary(playlist))
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func artworkButton(_ playlist: Playlist, size: CGFloat) -> some View {
+        Button { showPhotoPicker = true } label: {
+            PlaylistArtwork(playlist: playlist, size: size, cornerRadius: 20)
+                .overlay(alignment: .bottomTrailing) {
+                    Image(systemName: "camera.fill")
+                        .font(.footnote.weight(.semibold))
+                        .padding(9)
+                        .glassEffect(.regular.interactive(), in: .circle)
+                        .padding(7)
+                }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text("Cambia copertina"))
+    }
+
+    private func classicHeader(_ playlist: Playlist) -> some View {
+        VStack(spacing: 16) {
+            Button { showPhotoPicker = true } label: {
+                PlaylistArtwork(playlist: playlist, size: 232, cornerRadius: 4)
+                    .shadow(color: .black.opacity(0.45), radius: 18, y: 8)
+            }
+            .buttonStyle(.plain)
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text(playlist.name)
+                    .font(.system(size: 24, weight: .bold))
+                    .multilineTextAlignment(.leading)
+                ownerRow
+                Text(summary(playlist))
+                    .font(.footnote)
+                    .foregroundStyle(ClassicPalette.secondaryText)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            if !playlist.tracks.isEmpty { classicActionRow(playlist) }
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 8)

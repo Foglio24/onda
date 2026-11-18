@@ -75,10 +75,9 @@ struct HomeView: View {
                     phoneSections
                 }
             }
-            // In the colours of the song playing, as the other pages (on a Mac too).
-            .background { AmbientBackground() }
-            .navigationTitle(style == .classic ? "" : (Self.isMac ? String(localized: "Home") : greeting))
-            .navigationBarTitleDisplayMode(style == .classic ? .inline : .large)
+            .background { BrowseBackground() }
+            .navigationTitle(style == .classic ? "" : String(localized: "Home"))
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 if style != .classic {
                     ToolbarItem(placement: .topBarTrailing) { RecognitionButton() }
@@ -106,10 +105,41 @@ struct HomeView: View {
         }
     }
 
+    private func welcome(margin: CGFloat) -> some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 20) {
+                welcomeTitle.fixedSize(horizontal: true, vertical: false)
+                Spacer(minLength: 0)
+                Image(systemName: "waveform")
+                    .font(.largeTitle.weight(.light))
+                    .foregroundStyle(accent.color)
+                    .padding(14)
+                    .glassEffect(.regular, in: .circle)
+                    .accessibilityHidden(true)
+            }
+            welcomeTitle
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .modifier(BrowsePanel(featured: true))
+        .padding(.horizontal, margin)
+    }
+
+    private var welcomeTitle: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Seaglass")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+            Text(greeting)
+                .font(.largeTitle.weight(.bold))
+                .accessibilityAddTraits(.isHeader)
+        }
+    }
+
     private var classicPhone: Bool { style == .classic && !Self.isMac }
 
     private var phoneSections: some View {
         VStack(alignment: .leading, spacing: 30) {
+            welcome(margin: 16)
             if nowPlaying.isIdle, let point = player.resumePoint {
                 section("Riprendi da dove eri") {
                     ResumeCard(point: point, accent: accent.color) { player.continueListening(point) }
@@ -264,8 +294,7 @@ struct HomeView: View {
     private func section<Content: View>(_ title: LocalizedStringKey,
                                         @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(title)
-                .font(.title2.bold())
+            BrowseHeading(title: title)
                 .padding(.horizontal)
             content()
         }
@@ -488,6 +517,7 @@ struct HomeView: View {
 
     private var macSections: some View {
         VStack(alignment: .leading, spacing: 26) {
+            welcome(margin: Self.macMargin)
             if nowPlaying.isIdle, let point = player.resumePoint {
                 VStack(alignment: .leading, spacing: 12) {
                     macHeader("Riprendi da dove eri")

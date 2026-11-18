@@ -72,12 +72,17 @@ shot() {
     echo "::warning::Seaglass quit at $name"
     grep -i -E "fatal|error|exception|assert" "$logs/$name.log" | tail -20
     crash
+    if [[ "$name" == mac-browse-* ]]; then return 1; fi
   fi
   local window=""
   [ -x "$tools/window" ] && window=$("$tools/window")
   if [ -n "$window" ]; then
     screencapture -x -o -l"$window" "$out/$name.png" && echo "Saved $name (window $window)"
   else
+    if [[ "$name" == mac-browse-* ]]; then
+      echo "::error::No Seaglass window for $name"
+      return 1
+    fi
     screencapture -x "$out/$name.png" && echo "Saved $name (whole screen: no window found)"
   fi
 }
@@ -96,6 +101,18 @@ if [ "${3:-}" = "classic" ]; then
   shot mac-classic-9-home-light 16 home -theme.style classic -theme.mode light
   shot mac-classic-10-library-light 8 library-playlist -theme.style classic -theme.mode light
   pkill -x Seaglass 2>/dev/null
+  exit 0
+fi
+
+if [ "${3:-}" = "browse" ]; then
+  set -e
+  shot mac-browse-home 8 home -theme.style seaglass -SeaglassWindowSize 1440x900
+  shot mac-browse-search 6 search -theme.style seaglass
+  shot mac-browse-sidebar 6 sidebar-demo -theme.style seaglass
+  shot mac-browse-playlist-small 8 library-playlist -theme.style seaglass -SeaglassWindowSize 960x640
+  shot mac-browse-playlist-wide 8 library-playlist -theme.style seaglass -SeaglassWindowSize 1440x900 -theme.mode light
+  shot mac-browse-player-regression 8 player-demo -theme.style seaglass
+  pkill -x Seaglass 2>/dev/null || true
   exit 0
 fi
 

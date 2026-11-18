@@ -13,7 +13,7 @@ device=$(xcrun simctl list devices available -j | KIND="$kind" python3 -c '
 import json, os, sys
 devices = json.load(sys.stdin)["devices"]
 every = [d for runtime, list_ in sorted(devices.items()) if "iOS" in runtime for d in list_]
-if os.environ["KIND"] == "ipad":
+if os.environ["KIND"] in ("ipad", "browse-ipad"):
     pads = [d for d in every if d["name"].startswith("iPad")]
     big = [d for d in pads if "Pro" in d["name"] and "13" in d["name"]]
     print((big or pads)[-1]["udid"])
@@ -38,6 +38,23 @@ shot() {
   sleep "$wait"
   xcrun simctl io "$device" screenshot "$out/$name.png" >/dev/null && echo "Saved $name"
 }
+
+# Focused smoke captures for the Seaglass browsing screens on each device size.
+if [[ "$kind" == "browse" || "$kind" == "browse-ipad" ]]; then
+  set -e
+  shot browse-home-dark en 5 home -theme.style seaglass -theme.mode dark
+  shot browse-home-light it 5 home -theme.style seaglass -theme.mode light
+  shot browse-search en 5 search -theme.style seaglass
+  shot browse-library en 5 library -theme.style seaglass
+  shot browse-playlist en 6 library-playlist -theme.style seaglass
+  xcrun simctl ui "$device" content_size accessibility-extra-extra-extra-large
+  shot browse-playlist-large-text en 6 library-playlist -theme.style seaglass -theme.mode light
+  xcrun simctl ui "$device" content_size large
+  shot browse-settings en 5 settings -theme.style seaglass
+  shot browse-player-regression en 6 player-demo -theme.style seaglass
+  xcrun simctl shutdown "$device"
+  exit 0
+fi
 
 # The classic interface style (Settings › Aspetto › Classico): the main pages and the player.
 if [ "$kind" = "classic" ]; then

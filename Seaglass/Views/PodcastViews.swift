@@ -33,7 +33,7 @@ struct PodcastsView: View {
             }
             .padding(.vertical, 8)
         }
-        .background { AmbientBackground() }
+        .background { BrowseBackground() }
         .navigationTitle("Podcast")
         .searchable(text: $query, prompt: Text("Podcast e puntate"))
         .task {
@@ -226,7 +226,7 @@ struct PodcastShowView: View {
                 ProgressView().frame(maxWidth: .infinity).padding(.top, 140)
             }
         }
-        .background { AmbientBackground() }
+        .background { BrowseBackground() }
         .navigationTitle(page?.show.title ?? "")
         .navigationBarTitleDisplayMode(.inline)
         .task {
@@ -242,6 +242,7 @@ struct PodcastShowView: View {
     private func content(_ page: PodcastShowPage) -> some View {
         VStack(alignment: .leading, spacing: 24) {
             header(page)
+                .modifier(BrowsePanel(featured: true))
             LazyVStack(alignment: .leading, spacing: 16) {
                 ForEach(page.episodes) { episode in
                     EpisodeRow(episode: episode, linksShow: false)

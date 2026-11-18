@@ -30,7 +30,7 @@ struct LocalMusicView: View {
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
-        .background { AmbientBackground() }
+        .background { BrowseBackground() }
         .navigationTitle("File locali")
         .task { local.refresh() }
         .alert("Cartella non raggiungibile", isPresented: $failed) {

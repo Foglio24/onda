@@ -204,7 +204,7 @@ struct DownloadsView: View {
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
-        .background { AmbientBackground() }
+        .background { BrowseBackground() }
         .overlay {
             if songs.isEmpty, pending.isEmpty {
                 ContentUnavailableView("Nessun download", systemImage: "arrow.down.circle",
@@ -251,8 +251,7 @@ struct DownloadsView: View {
             }
             Spacer(minLength: 0)
         }
-        .padding(14)
-        .styledSurface(in: .rect(cornerRadius: 22))
+        .modifier(DownloadSummarySurface())
     }
 
     private func details(_ songs: [Track]) -> String {
@@ -392,7 +391,7 @@ struct DownloadStorageView: View {
             }
         }
         .scrollContentBackground(.hidden)
-        .background { AmbientBackground() }
+        .background { BrowseBackground() }
         .navigationTitle("Spazio occupato")
         .navigationBarTitleDisplayMode(.inline)
         .confirmationDialog("Eliminare tutti i brani scaricati?", isPresented: $confirmDeleteAll,
@@ -530,13 +529,25 @@ private struct ArtistDownloadsView: View {
             }
         }
         .scrollContentBackground(.hidden)
-        .background { AmbientBackground() }
+        .background { BrowseBackground() }
         .navigationTitle(name)
         .navigationBarTitleDisplayMode(.inline)
         .overlay {
             if tracks.isEmpty {
                 ContentUnavailableView("Nessun download", systemImage: "arrow.down.circle")
             }
+        }
+    }
+}
+
+private struct DownloadSummarySurface: ViewModifier {
+    @Environment(\.interfaceStyle) private var style
+
+    @ViewBuilder func body(content: Content) -> some View {
+        if style == .classic {
+            content.padding(14).styledSurface(in: .rect(cornerRadius: 22))
+        } else {
+            content.modifier(BrowsePanel(featured: true))
         }
     }
 }

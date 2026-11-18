@@ -180,7 +180,7 @@ struct ArtistView: View {
                 if let page { content(page) }
             }
         }
-        .background { AmbientBackground() }
+        .background { BrowseBackground() }
         .navigationTitle(page?.name ?? name)
         .navigationBarTitleDisplayMode(.inline)
         .task { await load() }
@@ -217,6 +217,7 @@ struct ArtistView: View {
                 }
             }
             .frame(maxWidth: .infinity)
+            .modifier(BrowsePanel(featured: true))
             .padding(.horizontal)
 
             if !page.topSongs.isEmpty {
@@ -278,7 +279,7 @@ struct AlbumView: View {
                 if let page { content(page) }
             }
         }
-        .background { AmbientBackground() }
+        .background { BrowseBackground() }
         .navigationTitle(page?.title ?? "")
         .navigationBarTitleDisplayMode(.inline)
         .task {
@@ -337,6 +338,7 @@ struct AlbumView: View {
                 }
             }
             .frame(maxWidth: .infinity)
+            .modifier(BrowsePanel(featured: true))
 
             VStack(alignment: .leading, spacing: 10) {
                 ForEach(Array(page.tracks.enumerated()), id: \.offset) { position, track in
@@ -377,7 +379,7 @@ struct RemotePlaylistView: View {
                 if let tracks { content(tracks) }
             }
         }
-        .background { AmbientBackground() }
+        .background { BrowseBackground() }
         .navigationTitle(loadedTitle ?? title)
         .navigationBarTitleDisplayMode(.inline)
         .task {

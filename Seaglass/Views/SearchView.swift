@@ -48,7 +48,7 @@ struct SearchView: View {
                     seaglassBody
                 }
             }
-            .background { AmbientBackground() }
+            .background { BrowseBackground() }
             .navigationDestination(for: MusicPage.self) { MusicPageView(page: $0) }
             .task(id: query) { await search() }
             .onAppear(perform: takePendingSearch)
@@ -61,6 +61,7 @@ struct SearchView: View {
             Group {
                 if query.trimmed.isEmpty {
                     recentSection
+                    browseSection
                 } else {
                     resultSections
                 }
@@ -425,15 +426,10 @@ struct SearchView: View {
     }
 
     @ViewBuilder private var overlay: some View {
-        if query.trimmed.isEmpty {
-            if recent.isEmpty, style != .classic {
-                ContentUnavailableView("Cerca su YouTube Music", systemImage: "magnifyingglass",
-                                       description: Text("Scegli un brano: parte una radio di canzoni simili."))
-            }
-        } else if let errorText, searchedText == query.trimmed, localResults.isEmpty {
+        if !query.trimmed.isEmpty, let errorText, searchedText == query.trimmed, localResults.isEmpty {
             ContentUnavailableView("Ricerca non riuscita", systemImage: "wifi.exclamationmark",
                                    description: Text(errorText))
-        } else if results.isEmpty && catalog.isEmpty && localResults.isEmpty {
+        } else if !query.trimmed.isEmpty && results.isEmpty && catalog.isEmpty && localResults.isEmpty {
             // Nothing found only once this very text has been searched; until then, it is on its way.
             if isSearching || searchedText != query.trimmed {
                 ProgressView()
@@ -691,10 +687,18 @@ private struct BrowseTile: Identifiable {
 /// The tile: its colour, the name in bold at the top, a large symbol tilted in the bottom corner.
 private struct BrowseTileView: View {
     let tile: BrowseTile
+    @Environment(\.interfaceStyle) private var style
+    @ScaledMetric(relativeTo: .headline) private var tileHeight = 96.0
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-            tile.tint
+            if style == .classic {
+                tile.tint
+            } else {
+                LinearGradient(colors: [tile.tint, tile.tint.opacity(0.65)],
+                               startPoint: .topLeading, endPoint: .bottomTrailing)
+                Color.black.opacity(0.32)
+            }
             Image(systemName: tile.symbol)
                 .font(.system(size: 46, weight: .bold))
                 .foregroundStyle(.white.opacity(0.85))
@@ -708,8 +712,8 @@ private struct BrowseTileView: View {
                 .lineLimit(2)
                 .padding(12)
         }
-        .frame(height: 96)
-        .clipShape(.rect(cornerRadius: 6))
-        .contentShape(.rect(cornerRadius: 6))
+        .frame(height: style == .classic ? 96 : tileHeight)
+        .clipShape(.rect(cornerRadius: style.coverRadius(20)))
+        .contentShape(.rect(cornerRadius: style.coverRadius(20)))
     }
 }

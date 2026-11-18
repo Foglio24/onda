@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.36.19 (2026-11-18)
+
+### Changed
+- **Seaglass browsing on iPhone, iPad and Mac.** Home has a welcome panel, playlists adapt their cover layout to the available space, and Search lets you browse genres before typing. The library, settings, artist and album pages, podcasts and downloads share the new browsing palette. The Mac sidebar identifies the selected page with an accent marker.
+
 ## 1.36.18 (2026-11-17)
 
 ### Fixed

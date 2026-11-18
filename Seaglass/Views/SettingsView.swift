@@ -89,7 +89,7 @@ struct SettingsView: View {
                 if classic {
                     ClassicPalette.background.ignoresSafeArea()
                 } else {
-                    AmbientBackground()
+                    BrowseBackground()
                 }
             }
             .navigationTitle("Impostazioni")
@@ -130,12 +130,12 @@ struct SettingsRow: View {
         HStack(spacing: 12) {
             Image(systemName: symbol)
                 .font(.callout.weight(.semibold))
-                .foregroundStyle(interfaceStyle == .classic ? ClassicPalette.accent : Color.white)
+                .foregroundStyle(interfaceStyle == .classic ? ClassicPalette.accent : Color.primary)
                 .frame(width: 30, height: 30)
                 .background(
                     interfaceStyle == .classic
                         ? AnyShapeStyle(ClassicPalette.elevated)
-                        : AnyShapeStyle(tint.gradient),
+                        : AnyShapeStyle(tint.opacity(0.15)),
                     in: .rect(cornerRadius: 7)
                 )
             Text(title)
@@ -179,7 +179,7 @@ private struct SettingsPageChrome: ViewModifier {
                 if classic {
                     ClassicPalette.background.ignoresSafeArea()
                 } else {
-                    AmbientBackground()
+                    BrowseBackground()
                 }
             }
             .toolbarBackground(classic ? ClassicPalette.background : Color.clear, for: .navigationBar)
@@ -197,7 +197,7 @@ private struct SettingsListStyle: ViewModifier {
         if classic {
             content.listStyle(.insetGrouped)
         } else {
-            content
+            content.listStyle(.insetGrouped)
         }
     }
 }

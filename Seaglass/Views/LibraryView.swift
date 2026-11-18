@@ -48,7 +48,7 @@ struct LibraryView: View {
                 }
             }
             .scrollContentBackground(.hidden)
-            .background { AmbientBackground() }
+            .background { BrowseBackground() }
             .navigationTitle(classicPhone ? "" : (style == .classic ? String(localized: "La tua libreria") : String(localized: "Libreria")))
             .navigationBarTitleDisplayMode(classicPhone ? .inline : .large)
             // Opened directly only by the CI screenshots (see `LaunchScene`).
@@ -207,6 +207,7 @@ struct LibraryView: View {
                 }
             }
         }
+        .listStyle(.insetGrouped)
     }
 
     /// Classic: filter pills, Recenti + grid toggle, dense list like the common streaming apps.
@@ -616,7 +617,7 @@ struct TrackCollectionView: View {
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
-        .background { AmbientBackground() }
+        .background { BrowseBackground() }
         .environment(\.editMode, $editMode)
         .overlay {
             if tracks.isEmpty { emptyState }

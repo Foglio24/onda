@@ -714,6 +714,14 @@ private struct MacSidebarRow<Icon: View, Title: View>: View {
             .padding(.horizontal, 10)
             .padding(.vertical, 4)
             .frame(minHeight: classic ? 48 : 52)
+            .overlay(alignment: .leading) {
+                if selected && !classic {
+                    Capsule()
+                        .fill(accent)
+                        .frame(width: 3, height: 22)
+                        .allowsHitTesting(false)
+                }
+            }
             .background {
                 RoundedRectangle(cornerRadius: classic ? 8 : 14, style: .continuous)
                     .fill(fill)
@@ -729,7 +737,7 @@ private struct MacSidebarRow<Icon: View, Title: View>: View {
         if classic {
             return selected ? ClassicPalette.primaryText.opacity(0.12) : (hovering ? ClassicPalette.primaryText.opacity(0.06) : .clear)
         }
-        return Color.primary.opacity(selected ? 0.1 : hovering ? 0.05 : 0)
+        return selected ? accent.opacity(0.15) : Color.primary.opacity(hovering ? 0.06 : 0)
     }
 }
 
