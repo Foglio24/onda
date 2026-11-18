@@ -422,6 +422,14 @@ struct SearchView: View {
             .listRowSeparator(.hidden)
         } header: {
             Text("Sfoglia tutto")
+        } footer: {
+            if style != .classic {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Cerca su YouTube Music").font(.subheadline.weight(.semibold))
+                    Text("Scegli un brano: parte una radio di canzoni simili.").font(.footnote)
+                }
+                .foregroundStyle(.secondary)
+            }
         }
     }
 
