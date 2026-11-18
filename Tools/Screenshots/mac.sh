@@ -61,7 +61,7 @@ PY
 shot() {
   local name="$1" wait="$2" scene="$3"
   shift 3
-  pkill -x Seaglass 2>/dev/null
+  pkill -x Seaglass 2>/dev/null || true
   sleep 1
   # Unbuffered, so its output is in the log even though it's stopped with a signal.
   NSUnbufferedIO=YES "$binary" -AppleLanguages "(en)" -AppleInterfaceStyle Dark -SeaglassScene "$scene" "$@" \
