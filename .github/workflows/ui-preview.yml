@@ -1,6 +1,6 @@
 # Screenshots of the interface on an iPhone simulator, on demand and on changes to the views, apart from
 # build.yml so a change to how the app looks can be seen from a working branch in one go. The kind is
-# Tools/Screenshots/run.sh's: "classic" (the classic interface style) by default.
+# Tools/Screenshots/run.sh's: "browse" (the Seaglass browsing screens) by default.
 name: Interface preview
 
 on:
@@ -16,9 +16,9 @@ on:
     inputs:
       kind:
         description: "Screenshots to take (iphone, ipad, classic, browse, browse-ipad)"
-        default: classic
+        default: browse
       mac:
-        description: "Also the Mac's classic screenshots"
+        description: "Also the Mac screenshots"
         type: boolean
         default: true
 
@@ -26,7 +26,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: ui-preview-${{ github.ref }}
+  group: ui-preview-${{ github.ref }}-${{ inputs.kind || 'browse' }}
   cancel-in-progress: true
 
 jobs:
@@ -64,7 +64,9 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             build
       - name: Take the screenshots
-        run: bash Tools/Screenshots/run.sh build-sim/Build/Products/Debug-iphonesimulator/Seaglass.app preview "${{ inputs.kind || 'classic' }}"
+        env:
+          PREVIEW_KIND: ${{ inputs.kind || 'browse' }}
+        run: bash Tools/Screenshots/run.sh build-sim/Build/Products/Debug-iphonesimulator/Seaglass.app preview "$PREVIEW_KIND"
       - uses: actions/upload-artifact@v4
         if: ${{ always() }}
         with:
@@ -73,7 +75,7 @@ jobs:
           retention-days: 14
           if-no-files-found: ignore
 
-  # The Mac app in the classic style, built and opened on the runner (see Tools/Screenshots/mac.sh).
+  # The Mac app built and opened on the runner (see Tools/Screenshots/mac.sh).
   mac:
     if: ${{ github.event_name == 'push' || inputs.mac }}
     runs-on: macos-26
@@ -119,7 +121,9 @@ jobs:
             -exec codesign --force --sign - --timestamp=none {} \;
           codesign --force --sign - --timestamp=none "$app"
       - name: Take the screenshots
-        run: bash Tools/Screenshots/mac.sh build-mac/Build/Products/Debug-maccatalyst/Seaglass.app preview-mac "${{ startsWith(inputs.kind, 'browse') && 'browse' || 'classic' }}"
+        env:
+          PREVIEW_KIND: ${{ startsWith(inputs.kind || 'browse', 'browse') && 'browse' || 'classic' }}
+        run: bash Tools/Screenshots/mac.sh build-mac/Build/Products/Debug-maccatalyst/Seaglass.app preview-mac "$PREVIEW_KIND"
       - uses: actions/upload-artifact@v4
         if: ${{ always() }}
         with:
