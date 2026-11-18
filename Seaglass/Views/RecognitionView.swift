@@ -3,6 +3,9 @@ import SwiftUI
 
 /// The same entry point on the Home and Search pages, on iPhone, iPad and Mac.
 struct RecognitionButton: View {
+    /// Big and round, in a panel (Home's welcome), instead of a toolbar's icon.
+    var large = false
+    var tint: Color = .accentColor
     @ObservedObject private var account = AccountService.shared
     @State private var showsRecognition = false
     @State private var openedPreview = false
@@ -13,7 +16,16 @@ struct RecognitionButton: View {
             // A Premium feature where Premium can be bought.
             if account.unlocks(.recognition) { showsRecognition = true } else { paywall = .recognition }
         } label: {
-            Label("Riconosci un brano", systemImage: "waveform.badge.magnifyingglass")
+            if large {
+                Image(systemName: "waveform.badge.magnifyingglass")
+                    .font(.largeTitle.weight(.light))
+                    .foregroundStyle(tint)
+                    .padding(14)
+                    .glassEffect(.regular.interactive(), in: .circle)
+                    .accessibilityLabel(Text("Riconosci un brano"))
+            } else {
+                Label("Riconosci un brano", systemImage: "waveform.badge.magnifyingglass")
+            }
         }
         .sheet(isPresented: $showsRecognition) {
             RecognitionView(previewPhase: LaunchScene.recognitionPreview).appEnvironment()

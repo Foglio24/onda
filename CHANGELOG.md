@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.36.20 (2026-11-18)
+
+### Changed
+- **One button to recognise a song on Home** (iPhone, iPad and Mac). The round button in the welcome panel now opens song recognition, and the small one at the top right is gone, so it is no longer there twice. Search keeps its own.
+
 ## 1.36.19 (2026-11-18)
 
 ### Changed

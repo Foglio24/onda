@@ -78,11 +78,6 @@ struct HomeView: View {
             .background { BrowseBackground() }
             .navigationTitle(style == .classic ? "" : String(localized: "Home"))
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                if style != .classic {
-                    ToolbarItem(placement: .topBarTrailing) { RecognitionButton() }
-                }
-            }
             .modifier(ClassicHomeHeader(enabled: style == .classic, filter: $homeFilter))
             // Once a day, and as soon as there is a first song to go on.
             .task(id: "\(Recommendations.today)|\(library.history.isEmpty)") {
@@ -110,14 +105,13 @@ struct HomeView: View {
             HStack(spacing: 20) {
                 welcomeTitle.fixedSize(horizontal: true, vertical: false)
                 Spacer(minLength: 0)
-                Image(systemName: "waveform")
-                    .font(.largeTitle.weight(.light))
-                    .foregroundStyle(accent.color)
-                    .padding(14)
-                    .glassEffect(.regular, in: .circle)
-                    .accessibilityHidden(true)
+                // Song recognition, one button: the welcome's own (the toolbar's small one is gone).
+                RecognitionButton(large: true, tint: accent.color)
             }
-            welcomeTitle
+            VStack(alignment: .leading, spacing: 16) {
+                welcomeTitle
+                RecognitionButton(large: true, tint: accent.color)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .modifier(BrowsePanel(featured: true))
