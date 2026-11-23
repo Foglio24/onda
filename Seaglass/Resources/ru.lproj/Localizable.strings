@@ -869,3 +869,4 @@
 "%lld playlist importate. Apri una playlist per controllare i brani non trovati." = "Импортировано плейлистов: %lld. Откройте плейлист, чтобы проверить ненайденные треки.";
 "Il brano in riproduzione, con i suoi comandi." = "Песня, которая сейчас играет, и кнопки управления.";
 "La tua playlist" = "Ваш плейлист";
+"Widget" = "Виджеты";

@@ -1007,6 +1007,11 @@ private struct DiagnosticsSettingsView: View {
                 }
                 LabeledContent("Bundle ID", value: Bundle.main.bundleIdentifier ?? "—")
                     .textSelection(.enabled)
+                // The folder the widgets read the song from (see `SharedStore`): "—" when the signer made none.
+                if !ProcessInfo.processInfo.isMacCatalystApp {
+                    LabeledContent("Widget", value: SharedStore.activeGroup ?? "—")
+                        .textSelection(.enabled)
+                }
             } header: {
                 Text("Sistema")
             }

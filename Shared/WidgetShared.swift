@@ -32,42 +32,74 @@ struct WidgetSnapshot: Codable, Equatable {
 
 /// The folder the app and its widgets share (an App Group).
 ///
-/// Seaglass is installed by sideloading, and the tools that sign it (AltStore, SideStore) rename the
-/// group after the signer's team, then list the names they gave in the app's Info.plist under
-/// `ALTAppGroups`: those come first, the name the app declares last. The widget extension reads the
-/// app's own Info.plist too (its bundle is inside the app's). Without a group the signer could make,
-/// there is no shared folder: the widgets then show "Niente in riproduzione", and their buttons still
-/// work, since they run in the app (see `WidgetCommands`).
+/// Seaglass is installed by sideloading, and the tools that sign it rename the group after the
+/// signer's team (AltStore and SideStore make "group.com.onda.player.<team>", others their own). The
+/// name that counts is the one in the signature, so it is looked for where the signers write it: the
+/// provisioning profile each signed bundle carries (`embedded.mobileprovision`, which lists the
+/// groups it grants), then the `ALTAppGroups` list AltStore adds to the Info.plist, then the name the
+/// app declares. App and widgets build the same list from both bundles (the app's and the widgets'),
+/// groups granted to both first, and each takes the first one it can open. 1.36.21 looked only at the
+/// last two, and on an iPhone signed otherwise the widget found no folder and showed nothing.
+/// Without any group the widgets show "Niente in riproduzione", and their buttons still work (see
+/// `WidgetCommands`).
 enum SharedStore {
     static let declaredGroup = "group.com.onda.player"
+    static let widgetsBundleName = "SeaglassWidgets.appex"
+
+    /// The app's bundle and the widgets', from whichever of the two is running.
+    private static var bundleURLs: (app: URL, widgets: URL) {
+        let main = Bundle.main.bundleURL
+        if main.pathExtension == "appex" {
+            // App.app/PlugIns/X.appex on an iPhone, App.app/Contents/PlugIns/X.appex on a Mac.
+            var app = main.deletingLastPathComponent().deletingLastPathComponent()
+            if app.lastPathComponent == "Contents" { app = app.deletingLastPathComponent() }
+            return (app, main)
+        }
+        let plugIns = Bundle.main.builtInPlugInsURL ?? main.appending(path: "PlugIns")
+        return (main, plugIns.appending(path: widgetsBundleName))
+    }
+
+    /// The groups a bundle's provisioning profile grants (none: no profile, or none granted).
+    static func provisionedGroups(in bundle: URL) -> [String] {
+        guard let data = try? Data(contentsOf: bundle.appending(path: "embedded.mobileprovision")),
+              let start = data.range(of: Data("<?xml".utf8)),
+              let end = data.range(of: Data("</plist>".utf8), in: start.lowerBound..<data.endIndex),
+              let plist = try? PropertyListSerialization.propertyList(from: data[start.lowerBound..<end.upperBound], format: nil)
+                as? [String: Any],
+              let entitlements = plist["Entitlements"] as? [String: Any],
+              let groups = entitlements["com.apple.security.application-groups"] as? [String] else { return [] }
+        return groups.filter { !$0.contains("*") }
+    }
+
+    private static func listedGroups(in bundle: URL) -> [String] {
+        Bundle(url: bundle)?.object(forInfoDictionaryKey: "ALTAppGroups") as? [String] ?? []
+    }
 
     static var groupIdentifiers: [String] {
-        var bundles = [Bundle.main]
-        // An extension's bundle is App.app/PlugIns/X.appex on an iPhone, App.app/Contents/PlugIns/X.appex
-        // on a Mac: the app's is two levels up, or three.
-        if Bundle.main.bundleURL.pathExtension == "appex" {
-            var url = Bundle.main.bundleURL.deletingLastPathComponent().deletingLastPathComponent()
-            if url.lastPathComponent == "Contents" { url = url.deletingLastPathComponent() }
-            if let app = Bundle(url: url) { bundles.append(app) }
-        }
+        let (app, widgets) = bundleURLs
+        let appGroups = provisionedGroups(in: app), widgetGroups = provisionedGroups(in: widgets)
         var identifiers: [String] = []
-        for bundle in bundles {
-            for identifier in (bundle.object(forInfoDictionaryKey: "ALTAppGroups") as? [String]) ?? []
-            where !identifiers.contains(identifier) {
-                identifiers.append(identifier)
-            }
+        func add(_ list: [String]) {
+            for identifier in list where !identifiers.contains(identifier) { identifiers.append(identifier) }
         }
-        if !identifiers.contains(declaredGroup) { identifiers.append(declaredGroup) }
+        add(appGroups.filter(widgetGroups.contains))
+        add(appGroups)
+        add(widgetGroups)
+        add(listedGroups(in: app))
+        add(listedGroups(in: widgets))
+        add([declaredGroup])
         return identifiers
     }
 
+    /// The group in use (nil: none can be opened), found once per process.
+    static let activeGroup: String? = groupIdentifiers.first {
+        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: $0) != nil
+    }
+
     static var folder: URL? {
-        for identifier in groupIdentifiers {
-            if let url = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: identifier) {
-                return url.appending(path: "Widgets", directoryHint: .isDirectory)
-            }
-        }
-        return nil
+        guard let activeGroup,
+              let url = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: activeGroup) else { return nil }
+        return url.appending(path: "Widgets", directoryHint: .isDirectory)
     }
 
     private static var snapshotURL: URL? { folder?.appending(path: "now-playing.json") }
@@ -116,15 +148,45 @@ enum WidgetCommand: String {
     case togglePlayback, next, recognize
 }
 
-/// What the widgets' buttons do, set by the app as it starts (see `SeaglassApp`). The intents below
-/// run in the app's process: an audio intent (`AudioPlaybackIntent`) wakes it in the background, one
-/// that opens it (`openAppWhenRun`) brings it forward. In the widget extension there is no handler.
+/// What the widgets' buttons do, set by the app as it starts (see `SeaglassApp`). An intent the
+/// system runs in the app (one that opens it, `openAppWhenRun`) calls it directly. One it runs in the
+/// widget extension, where there is no handler, as the widget's play button was on an iPhone, tells
+/// the app with a system-wide notification (`WidgetSignal`), which needs no shared folder: the app,
+/// playing in the background, does it at once.
 @MainActor
 enum WidgetCommands {
     static var handler: (@MainActor (WidgetCommand) -> Void)?
 
     static func run(_ command: WidgetCommand) {
-        handler?(command)
+        if let handler {
+            handler(command)
+        } else {
+            WidgetSignal.post(command)
+        }
+    }
+}
+
+/// The widgets' commands as Darwin notifications, from the widget extension to the app.
+enum WidgetSignal {
+    static func name(_ command: WidgetCommand) -> String { "com.onda.player.widget.\(command.rawValue)" }
+
+    static func post(_ command: WidgetCommand) {
+        CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(),
+                                             CFNotificationName(name(command) as CFString), nil, nil, true)
+    }
+
+    /// In the app: runs `WidgetCommands`' handler when the extension sends a command.
+    static func listen() {
+        let center = CFNotificationCenterGetDarwinNotifyCenter()
+        for command in [WidgetCommand.togglePlayback, .next, .recognize] {
+            CFNotificationCenterAddObserver(center, nil, { _, _, name, _, _ in
+                guard let cfName = name?.rawValue else { return }
+                let raw = cfName as String
+                guard let command = [WidgetCommand.togglePlayback, .next, .recognize].first(where: { WidgetSignal.name($0) == raw })
+                else { return }
+                Task { @MainActor in WidgetCommands.handler?(command) }
+            }, name(command) as CFString, nil, .deliverImmediately)
+        }
     }
 }
 

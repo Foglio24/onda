@@ -26,6 +26,8 @@ struct SeaglassApp: App {
             case .recognize: AppRouter.shared.openRecognition()
             }
         }
+        // The same commands when the system runs a widget's button in the widget extension.
+        WidgetSignal.listen()
         #if targetEnvironment(macCatalyst)
         // A Mac's pages start beside the glass sidebar, where their navigation bars have no margin:
         // the large titles take the margin the lists have, rather than touching the page's edge.

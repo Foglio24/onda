@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.36.22 (2026-11-23)
+
+### Fixed
+- **The widget now shows the song playing and its buttons work** (iPhone and iPad). In 1.36.21 it could stay on "Niente in riproduzione" while a song played, and its play and next buttons did nothing:
+  - The widget reads the song from a folder it shares with Seaglass, which the signing tool renames after its account. Seaglass looked for it only under its own name and the one AltStore lists in the app; it now reads the real name from the signature itself (the provisioning profile every signing tool puts in the app), so it finds it however Seaglass was installed.
+  - The buttons' commands could run in the widget itself, where they reached nothing. They now reach Seaglass in any case, through a system notification that needs no shared folder, and the song plays, pauses or moves on at once.
+- **Settings › Informazioni › Diagnostica › Widget** shows the shared folder the widgets use, or "—" when the signing tool made none (then the widget can't show the song, but its buttons still work).
+
 ## 1.36.21 (2026-11-23)
 
 ### Added
