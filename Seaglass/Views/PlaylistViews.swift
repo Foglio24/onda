@@ -224,7 +224,8 @@ struct PlaylistDetailView: View {
 
     private func playlistIdentity(_ playlist: Playlist) -> some View {
         VStack(alignment: .leading, spacing: 7) {
-            Text("Playlist")
+            // Not "Playlist": that text names the library's list of playlists, plural in other languages.
+            Text("La tua playlist")
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.secondary)
             Text(playlist.name)
@@ -245,6 +246,8 @@ struct PlaylistDetailView: View {
                 .overlay(alignment: .bottomTrailing) {
                     Image(systemName: "camera.fill")
                         .font(.footnote.weight(.semibold))
+                        // A badge on the cover: it grows with the text only so far, or it covers it.
+                        .dynamicTypeSize(...DynamicTypeSize.xLarge)
                         .padding(9)
                         .glassEffect(.regular.interactive(), in: .circle)
                         .padding(7)

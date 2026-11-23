@@ -868,3 +868,4 @@
 "Esci da Spotify" = "Spotify からログアウト";
 "%lld playlist importate. Apri una playlist per controllare i brani non trovati." = "%lld 件のプレイリストを読み込みました。見つからなかった曲はプレイリストを開いて確認してください。";
 "Il brano in riproduzione, con i suoi comandi." = "再生中の曲と、その操作ボタン。";
+"La tua playlist" = "あなたのプレイリスト";

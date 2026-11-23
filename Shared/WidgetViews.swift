@@ -35,11 +35,6 @@ struct NowPlayingWidgetView: View {
     private var small: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .top) {
-                if artwork == nil {
-                    Image(systemName: "waveform")
-                        .font(.title2.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.9))
-                }
                 Spacer(minLength: 0)
                 playButton(size: 40)
             }
@@ -56,11 +51,14 @@ struct NowPlayingWidgetView: View {
                 .clipShape(.rect(cornerRadius: 16, style: .continuous))
                 .shadow(color: .black.opacity(0.3), radius: 8, y: 4)
             VStack(alignment: .leading, spacing: 10) {
-                Text("In riproduzione")
-                    .font(.caption.weight(.semibold))
-                    .textCase(.uppercase)
-                    .foregroundStyle(.white.opacity(0.7))
-                    .lineLimit(1)
+                // Only over a song: over "Niente in riproduzione" it would say the opposite.
+                if snapshot?.title.isEmpty == false {
+                    Text("In riproduzione")
+                        .font(.caption.weight(.semibold))
+                        .textCase(.uppercase)
+                        .foregroundStyle(.white.opacity(0.7))
+                        .lineLimit(1)
+                }
                 titles(alignment: .leading, titleFont: .headline, lines: 2)
                 Spacer(minLength: 0)
                 HStack(spacing: 10) {

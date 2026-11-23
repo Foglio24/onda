@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.36.21 (2026-11-23)
+
+### Added
+- **Widgets** (iPhone and iPad). Hold the Home Screen, tap **Modifica** › **Aggiungi widget** and look for Seaglass: **In riproduzione**, small or medium, shows the song playing with its cover, play/pause and the next song; a tap opens the player. On the lock screen it comes in two sizes too. In Control Center (**Modifica** › **Aggiungi un controllo**) there are **Riconosci un brano**, which opens Seaglass on song recognition, and **Riproduci o metti in pausa**. The buttons work without opening Seaglass. They arrive with the update: there is nothing to reinstall, only open Seaglass once after updating so the widgets can show the song.
+  - The widgets read the song from a folder Seaglass shares with them, which AltStore and SideStore now create when they sign the app (the IPA declares it). Where the signing tool makes none, the widgets show "Niente in riproduzione" and their buttons still work.
+  - With a free Apple account, AltStore counts the widgets as one more app of the three it allows; if it asks, it can install Seaglass without them.
+  - Not on a Mac: macOS runs widgets only inside its sandbox, and the Mac app, signed anew at each version, would make macOS ask after every update whether the widget may open its data. On a Mac with the same Apple Account, System Settings › Desktop & Dock › **Use iPhone widgets** may show the iPhone's Seaglass widgets.
+
+### Changed
+- **The browsing screens' new look, fixed and finished** (iPhone, iPad and Mac; the player is unchanged). The theme's colour now fades from the top of the screen over its whole height: it used to end in a straight edge across the page (mid-screen on an iPhone in dark mode), and on a Mac it started with an edge beside the sidebar and changed colour as pages opened; the account, equaliser and import pages now share it too. Home opens with the date and the greeting, the recognition button always beside them (it fell under an English greeting); its sections come in one after the other, the quick-access tiles open their page by zooming out of themselves, and covers, cards and genres sink a little under a finger. **Riproduci** is filled with the theme's colour (on a Mac it nearly disappeared on the light panel). On a Mac, **Scelti per te** pages with the shelves' arrows, without a scroll bar across it or a column cut at the edge. A playlist's page says "Your playlist" in other languages, no longer "Playlists", and its cover's camera stays small at the largest text sizes. Reduce Motion turns the movement off, Reduce Transparency the colour.
+
 ## 1.36.20 (2026-11-18)
 
 ### Changed
