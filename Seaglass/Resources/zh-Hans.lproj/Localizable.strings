@@ -867,3 +867,4 @@
 "Playlist %lld di %lld: %@" = "播放列表 %lld/%lld：%@";
 "Esci da Spotify" = "退出 Spotify";
 "%lld playlist importate. Apri una playlist per controllare i brani non trovati." = "已导入 %lld 个播放列表。打开播放列表可检查未找到的歌曲。";
+"Il brano in riproduzione, con i suoi comandi." = "正在播放的歌曲及其控制按钮。";

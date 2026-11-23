@@ -45,6 +45,12 @@ final class AppRouter: ObservableObject {
     }
 
     @Published var showPlayer = false
+    /// Song recognition, opened from its Control Center control (see `openRecognition`), and the
+    /// Premium page in its place where recognition needs Premium.
+    @Published var showRecognition = false
+    @Published var recognitionPaywall: PremiumFeature?
+    /// CI only: the widgets' faces drawn in the app (`LaunchScene`'s "widgets").
+    @Published var showWidgetPreview = false
     /// The settings as a sheet: the classic style's profile button (it has no Settings tab).
     @Published var showSettings = false
     /// The classic style's profile menu (Recenti, Impostazioni…); not friends or messages.
@@ -86,6 +92,11 @@ final class AppRouter: ObservableObject {
 
     /// Shows the player. The cover appears without the system's animation: `PlayerCard` grows
     /// out of the mini player itself.
+    /// As the recognition button does: the listening sheet, or the Premium page where it needs Premium.
+    func openRecognition() {
+        if AccountService.shared.unlocks(.recognition) { showRecognition = true } else { recognitionPaywall = .recognition }
+    }
+
     func openPlayer() {
         var transaction = Transaction()
         transaction.disablesAnimations = true

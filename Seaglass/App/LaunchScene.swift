@@ -158,6 +158,8 @@ enum LaunchScene {
                 PlayerController.shared.cue(tracks, source: "Radio")
                 router.openPlayer()
             }
+        case "widgets":
+            router.showWidgetPreview = true
         case "player-demo":
             PlayerController.shared.cue(previewTracks, source: "Seaglass Demo")
             PlayerController.shared.progress.currentTime = 66

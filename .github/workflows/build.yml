@@ -166,10 +166,24 @@ jobs:
           python3 Tools/check_localization.py build Seaglass/Resources/en.lproj/Localizable.strings \
             build/Build/Products/Release-iphoneos/Seaglass.app
 
+      # The app and its widgets declare the App Group they share (Entitlements/): written into their
+      # binaries with ldid, as unsigned sideloaded apps do, so AltStore and SideStore create the group
+      # when they sign it (an IPA with no entitlements gets none, and the widgets would see nothing).
       - name: Package IPA
         run: |
+          brew list ldid >/dev/null 2>&1 || brew install ldid
           mkdir -p Payload
           cp -R build/Build/Products/Release-iphoneos/Seaglass.app Payload/
+          app=Payload/Seaglass.app
+          widgets="$app/PlugIns/SeaglassWidgets.appex"
+          test -x "$widgets/SeaglassWidgets" || { echo "::error::The widgets aren't in the app"; exit 1; }
+          test "$(/usr/libexec/PlistBuddy -c "Print :NSExtension:NSExtensionPointIdentifier" "$widgets/Info.plist")" = com.apple.widgetkit-extension
+          ldid -SEntitlements/SeaglassWidgets.entitlements "$widgets/SeaglassWidgets"
+          ldid -SEntitlements/Seaglass.entitlements "$app/Seaglass"
+          for binary in "$app/Seaglass" "$widgets/SeaglassWidgets"; do
+            echo "$binary:"; ldid -e "$binary"
+            ldid -e "$binary" | grep -q "group.com.onda.player" || { echo "::error::$binary has no App Group"; exit 1; }
+          done
           zip -qry Seaglass.ipa Payload
           ls -lh Seaglass.ipa
 

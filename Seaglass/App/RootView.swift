@@ -73,6 +73,12 @@ struct RootView: View {
         .sheet(item: $router.trackActions) { track in
             TrackActionSheet(track: track).appEnvironment()
         }
+        // Opened from the widgets' Control Center control (see `AppRouter.openRecognition`).
+        .sheet(isPresented: $router.showRecognition) {
+            RecognitionView().appEnvironment()
+        }
+        .premiumPaywall($router.recognitionPaywall)
+        .fullScreenCover(isPresented: $router.showWidgetPreview) { WidgetGalleryPreview() }
         .sheet(item: $router.mixTarget) { target in
             PlaylistMixView(playlistID: target.playlistID, opensFirst: target.opensFirst, opensOptions: target.options,
                             opensEditing: target.editing)

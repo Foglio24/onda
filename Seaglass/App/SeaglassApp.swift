@@ -17,6 +17,15 @@ struct SeaglassApp: App {
         URLCache.shared = URLCache(memoryCapacity: 64 << 20, diskCapacity: 512 << 20, directory: nil)
         _ = NetworkMonitor.shared
         Diagnostics.shared.start()
+        // What the widgets' buttons do: they run here, in the app (see `WidgetCommands`), even when the
+        // system wakes it in the background for them.
+        WidgetCommands.handler = { command in
+            switch command {
+            case .togglePlayback: PlayerController.shared.togglePlayPause()
+            case .next: PlayerController.shared.next()
+            case .recognize: AppRouter.shared.openRecognition()
+            }
+        }
         #if targetEnvironment(macCatalyst)
         // A Mac's pages start beside the glass sidebar, where their navigation bars have no margin:
         // the large titles take the margin the lists have, rather than touching the page's edge.
@@ -31,6 +40,10 @@ struct SeaglassApp: App {
         WindowGroup {
             RootView()
                 .appEnvironment()
+                // A tap on the widget opens the player.
+                .onOpenURL { url in
+                    if url == WidgetLink.player, PlayerController.shared.current != nil { AppRouter.shared.openPlayer() }
+                }
                 .task {
                     // The user's own songs: their folders opened, so a song from the history plays at once.
                     _ = LocalMusic.shared

@@ -28,6 +28,14 @@ xcrun simctl ui "$device" appearance dark
 xcrun simctl status_bar "$device" override --time 9:41 --batteryState charged --batteryLevel 100 \
   --cellularBars 4 --wifiBars 3 2>/dev/null || true
 xcrun simctl install "$device" "$app"
+# The widgets: their extension known to the system once the app is installed.
+if xcrun simctl spawn "$device" pluginkit -m -A -v -i com.onda.player.widgets 2>/dev/null | grep -q com.onda.player.widgets; then
+  echo "Widgets: registered"
+  xcrun simctl spawn "$device" pluginkit -m -A -v -i com.onda.player.widgets 2>/dev/null
+else
+  echo "::warning::The widgets' extension isn't registered on the simulator"
+  xcrun simctl spawn "$device" pluginkit -m -A -v -p com.apple.widgetkit-extension 2>/dev/null | head -20
+fi
 
 # shot <file name> <language> <seconds to wait> <scene> [more launch arguments]
 shot() {
@@ -52,6 +60,7 @@ if [[ "$kind" == "browse" || "$kind" == "browse-ipad" ]]; then
   shot browse-playlist-large-text en 6 library-playlist -theme.style seaglass -theme.mode light
   xcrun simctl ui "$device" content_size large
   shot browse-settings en 5 settings -theme.style seaglass
+  shot browse-widgets en 5 widgets -theme.style seaglass
   shot browse-player-regression en 6 player-demo -theme.style seaglass
   xcrun simctl shutdown "$device"
   exit 0

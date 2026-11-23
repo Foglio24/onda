@@ -867,3 +867,4 @@
 "Playlist %lld di %lld: %@" = "Плейлист %lld из %lld: %@";
 "Esci da Spotify" = "Выйти из Spotify";
 "%lld playlist importate. Apri una playlist per controllare i brani non trovati." = "Импортировано плейлистов: %lld. Откройте плейлист, чтобы проверить ненайденные треки.";
+"Il brano in riproduzione, con i suoi comandi." = "Песня, которая сейчас играет, и кнопки управления.";

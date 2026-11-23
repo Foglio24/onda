@@ -3228,6 +3228,8 @@ final class PlayerController: ObservableObject {
             guard let artwork = await ArtworkLoader.shared.artwork(for: track),
                   !Task.isCancelled, self.current?.id == track.id else { return }
             self.nowPlayingArtwork = Self.makeArtwork(artwork.image)
+            // The widgets' cover too (written with the next update below).
+            WidgetFeed.shared.artwork(artwork.image, for: track.id)
             // Only the iOS 27 player takes the cover as data: don't re-encode it for nothing.
             if self.systemNowPlayingBox != nil {
                 self.currentArtworkData = artwork.image.jpegData(compressionQuality: 0.85)
@@ -3612,6 +3614,8 @@ final class PlayerController: ObservableObject {
     }
 
     private func updateNowPlayingInfo() {
+        // The widgets follow the same changes; they write only when what they show changes.
+        WidgetFeed.shared.update(track: current, isPlaying: isPlaying)
         #if canImport(NowPlaying) && !targetEnvironment(macCatalyst)
         if #available(iOS 27, *), let system = systemNowPlayingBox as? SystemNowPlaying {
             let model = system.model

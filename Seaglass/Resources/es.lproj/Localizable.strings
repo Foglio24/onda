@@ -867,3 +867,4 @@
 "Playlist %lld di %lld: %@" = "Playlist %lld de %lld: %@";
 "Esci da Spotify" = "Cerrar sesión de Spotify";
 "%lld playlist importate. Apri una playlist per controllare i brani non trovati." = "%lld playlists importadas. Abre una playlist para revisar las canciones que no se encontraron.";
+"Il brano in riproduzione, con i suoi comandi." = "La canción que suena, con sus controles.";
