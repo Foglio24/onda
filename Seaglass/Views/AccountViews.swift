@@ -51,7 +51,7 @@ struct AccountSettingsView: View {
             support
         }
         .scrollContentBackground(.hidden)
-        .background { AmbientBackground() }
+        .background { BrowseBackground() }
         .navigationTitle("Account")
         .task { await account.refreshStatus() }
         .navigationBarTitleDisplayMode(.inline)

@@ -413,7 +413,7 @@ struct SearchView: View {
                     } label: {
                         BrowseTileView(tile: tile)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.browsePress)
                 }
             }
             .padding(.horizontal, 16)

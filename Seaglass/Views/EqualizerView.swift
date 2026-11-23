@@ -57,7 +57,7 @@ struct EqualizerView: View {
             }
         }
         .scrollContentBackground(.hidden)
-        .background { AmbientBackground() }
+        .background { BrowseBackground() }
         .navigationTitle("Equalizzatore")
         .navigationBarTitleDisplayMode(.inline)
     }

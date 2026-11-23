@@ -49,6 +49,8 @@ struct PlaylistImportReviewView: View {
                         }
                     }
                 }
+                .scrollContentBackground(.hidden)
+                .background { BrowseBackground() }
                 .navigationTitle("Importazione")
                 .navigationBarTitleDisplayMode(.inline)
             } else {
@@ -143,6 +145,8 @@ private struct PlaylistImportAlternativesView: View {
                 }
             }
         }
+        .scrollContentBackground(.hidden)
+        .background { BrowseBackground() }
         .navigationTitle("Scegli un'alternativa")
         .navigationBarTitleDisplayMode(.inline)
         .task {

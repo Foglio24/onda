@@ -47,6 +47,7 @@ if [[ "$kind" == "browse" || "$kind" == "browse-ipad" ]]; then
   shot browse-search en 5 search -theme.style seaglass
   shot browse-library en 5 library -theme.style seaglass
   shot browse-playlist en 6 library-playlist -theme.style seaglass
+  shot browse-playlist-light it 6 library-playlist -theme.style seaglass -theme.mode light
   xcrun simctl ui "$device" content_size accessibility-extra-extra-extra-large
   shot browse-playlist-large-text en 6 library-playlist -theme.style seaglass -theme.mode light
   xcrun simctl ui "$device" content_size large

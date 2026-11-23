@@ -407,6 +407,8 @@ struct PlayShuffleButtons: View {
         .disabled(tracks.isEmpty)
     }
 
+    /// Play filled with the theme's colour, the first thing to see; Shuffle in glass beside it. Play
+    /// used to be glass tinted with the colour, which nearly vanished on the light panel of a Mac.
     private var seaglass: some View {
         HStack(spacing: 12) {
             Button {
@@ -414,12 +416,17 @@ struct PlayShuffleButtons: View {
             } label: {
                 Label("Riproduci", systemImage: "play.fill")
                     .font(.headline)
+                    .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
+                    .background {
+                        Capsule().fill(LinearGradient(colors: [accent.color, accent.color.mix(with: .black, by: 0.18)],
+                                                      startPoint: .top, endPoint: .bottom))
+                    }
+                    .shadow(color: accent.color.opacity(0.35), radius: 10, y: 4)
                     .contentShape(.capsule)
             }
-            .buttonStyle(.plain)
-            .glassEffect(.regular.tint(accent.color.opacity(0.55)).interactive(), in: .capsule)
+            .buttonStyle(.browsePress)
 
             Button {
                 player.play(tracks, startAt: Int.random(in: tracks.indices), source: source, shuffled: true,
@@ -427,6 +434,7 @@ struct PlayShuffleButtons: View {
             } label: {
                 Label("Casuale", systemImage: "shuffle")
                     .font(.headline)
+                    .foregroundStyle(accent.color)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
                     .contentShape(.capsule)
@@ -435,6 +443,7 @@ struct PlayShuffleButtons: View {
             .glassEffect(.regular.interactive(), in: .capsule)
         }
         .disabled(tracks.isEmpty)
+        .opacity(tracks.isEmpty ? 0.5 : 1)
     }
 }
 

@@ -191,9 +191,9 @@ extension RootView {
         macPages
             .safeAreaPadding(.bottom, MacPlayerBar.height + 24)
             .padding(.leading, MacSidebar.width + 2 * MacSidebar.inset)
-            .background {
-                Color(.systemBackground).ignoresSafeArea()
-            }
+            // The pages' own wash (see `BrowseBackground`), under the sidebar too: it only changes from
+            // top to bottom, so the window's and each page's line up where they meet.
+            .background { BrowseBackground() }
             .overlay(alignment: .bottom) {
                 MacPlayerBar()
                     .glassEffect(.regular, in: .capsule)

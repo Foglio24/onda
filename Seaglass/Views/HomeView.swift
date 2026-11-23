@@ -3,6 +3,9 @@ import SwiftUI
 struct HomeView: View {
     /// Regular on an iPad: more tiles to a row.
     @Environment(\.horizontalSizeClass) private var sizeClass
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    /// The quick access tiles open their page by zooming out of themselves.
+    @Namespace private var zoom
     /// Which song plays, not the whole player: the Home doesn't redraw for every player change.
     @EnvironmentObject private var nowPlaying: NowPlayingState
     private var player: PlayerController { .shared }
@@ -100,31 +103,36 @@ struct HomeView: View {
         }
     }
 
+    /// The day and the greeting, with song recognition (the Home's only button for it) always on the
+    /// right: a greeting too long for the line wraps or shrinks a little instead of pushing the button
+    /// under it, as "Good morning" did. Under each other only at the accessibility text sizes.
     private func welcome(margin: CGFloat) -> some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 20) {
-                welcomeTitle.fixedSize(horizontal: true, vertical: false)
-                Spacer(minLength: 0)
-                // Song recognition, one button: the welcome's own (the toolbar's small one is gone).
-                RecognitionButton(large: true, tint: accent.color)
-            }
-            VStack(alignment: .leading, spacing: 16) {
-                welcomeTitle
-                RecognitionButton(large: true, tint: accent.color)
-            }
+        let layout = dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 16))
+            : AnyLayout(HStackLayout(alignment: .center, spacing: 16))
+        return layout {
+            welcomeTitle
+                .frame(maxWidth: .infinity, alignment: .leading)
+            RecognitionButton(large: true, tint: accent.color)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
         .modifier(BrowsePanel(featured: true))
         .padding(.horizontal, margin)
     }
 
     private var welcomeTitle: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Seaglass")
+            // The date as the system writes it in the user's language (no text of ours to translate).
+            Text(Date.now.formatted(.dateTime.weekday(.wide).day().month(.wide)))
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(accent.color)
+                .textCase(.uppercase)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
             Text(greeting)
                 .font(.largeTitle.weight(.bold))
+                .lineLimit(2)
+                .minimumScaleFactor(0.75)
+                .fixedSize(horizontal: false, vertical: true)
                 .accessibilityAddTraits(.isHeader)
         }
     }
@@ -134,21 +142,28 @@ struct HomeView: View {
     private var phoneSections: some View {
         VStack(alignment: .leading, spacing: 30) {
             welcome(margin: 16)
+                .browseAppear(0)
             if nowPlaying.isIdle, let point = player.resumePoint {
                 section("Riprendi da dove eri") {
                     ResumeCard(point: point, accent: accent.color) { player.continueListening(point) }
                         .padding(.horizontal)
                 }
+                .browseAppear(1)
+                .transition(.opacity.combined(with: .move(edge: .top)))
             }
             let shortcuts = self.shortcuts
-            if !shortcuts.isEmpty { shortcutsSection(shortcuts) }
+            if !shortcuts.isEmpty { shortcutsSection(shortcuts).browseAppear(2) }
             let mixes = Recommendations.dailyMixes()
-            if !mixes.isEmpty { dailyMixesSection(mixes) }
-            moodsSection
-            if !quickPicks.isEmpty { quickPicksShelf }
-            if !library.history.isEmpty { recentShelf }
+            if !mixes.isEmpty { dailyMixesSection(mixes).browseAppear(3) }
+            moodsSection.browseAppear(4)
+            if !quickPicks.isEmpty { quickPicksShelf.browseAppear(5).transition(.opacity) }
+            if !library.history.isEmpty { recentShelf.browseAppear(6) }
         }
         .padding(.vertical, 8)
+        // Sections that arrive or leave later (the picks once loaded, the resume card as a song
+        // starts) slide in and out instead of jumping.
+        .animation(.smooth(duration: 0.35), value: quickPicks.isEmpty)
+        .animation(.smooth(duration: 0.35), value: nowPlaying.isIdle)
     }
 
     /// Classic Home: profile + filter pills, quick-access grid with no title, then Continua /
@@ -371,13 +386,15 @@ struct HomeView: View {
                                                         @ViewBuilder label: () -> Label) -> some View {
         switch shortcut {
         case .liked:
-            NavigationLink { TrackCollectionView(collection: .liked) } label: { label() }
+            NavigationLink { zooming(TrackCollectionView(collection: .liked), from: shortcut) } label: { zoomSource(label(), shortcut) }
                 .buttonStyle(.plain)
         case .downloads:
-            NavigationLink { DownloadsView() } label: { label() }
+            NavigationLink { zooming(DownloadsView(), from: shortcut) } label: { zoomSource(label(), shortcut) }
                 .buttonStyle(.plain)
         case .playlist(let playlist):
-            NavigationLink { PlaylistDetailView(playlistID: playlist.id) } label: { label() }
+            NavigationLink { zooming(PlaylistDetailView(playlistID: playlist.id), from: shortcut) } label: {
+                zoomSource(label(), shortcut)
+            }
                 .buttonStyle(.plain)
         case .tasteMix:
             Button {
@@ -403,6 +420,24 @@ struct HomeView: View {
         }
     }
 
+    /// A page opened from a tile grows out of it (and shrinks back into it), in Seaglass's style; the
+    /// classic style keeps the plain push.
+    @ViewBuilder private func zooming<Page: View>(_ page: Page, from shortcut: HomeShortcut) -> some View {
+        if style == .classic {
+            page
+        } else {
+            page.navigationTransition(.zoom(sourceID: shortcut.id, in: zoom))
+        }
+    }
+
+    @ViewBuilder private func zoomSource<Label: View>(_ label: Label, _ shortcut: HomeShortcut) -> some View {
+        if style == .classic {
+            label
+        } else {
+            label.matchedTransitionSource(id: shortcut.id, in: zoom)
+        }
+    }
+
     private func dailyMixesSection(_ mixes: [DailyMix]) -> some View {
         section("I tuoi mix del giorno") {
             ScrollView(.horizontal) {
@@ -411,7 +446,7 @@ struct HomeView: View {
                         Button { playMix(mix) } label: {
                             DailyMixCard(mix: mix, busy: busyItem == mix.id)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.browsePress)
                     }
                 }
                 .padding(.horizontal)
@@ -487,7 +522,7 @@ struct HomeView: View {
                 LazyHStack(spacing: 12) {
                     ForEach(library.history.prefix(20)) { track in
                         Button { player.playRadio(from: track) } label: { TrackCard(track: track, size: 112) }
-                            .buttonStyle(.plain)
+                            .buttonStyle(.browsePress)
                     }
                 }
                 .padding(.horizontal)
@@ -512,6 +547,7 @@ struct HomeView: View {
     private var macSections: some View {
         VStack(alignment: .leading, spacing: 26) {
             welcome(margin: Self.macMargin)
+                .browseAppear(0)
             if nowPlaying.isIdle, let point = player.resumePoint {
                 VStack(alignment: .leading, spacing: 12) {
                     macHeader("Riprendi da dove eri")
@@ -519,6 +555,8 @@ struct HomeView: View {
                         .frame(maxWidth: 560)
                         .padding(.horizontal, Self.macMargin)
                 }
+                .browseAppear(1)
+                .transition(.opacity.combined(with: .move(edge: .top)))
             }
             let mixes = Recommendations.dailyMixes()
             if !mixes.isEmpty {
@@ -531,8 +569,9 @@ struct HomeView: View {
                                                                createdAt: .distantPast), cornerRadius: 0)
                         }
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.browsePress)
                 }
+                .browseAppear(2)
             }
             if !library.history.isEmpty {
                 let recent = Array(library.history.prefix(20))
@@ -543,10 +582,11 @@ struct HomeView: View {
                             ArtworkView(track: track, cornerRadius: 0)
                         }
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.browsePress)
                     .contextMenu { TrackMenu(track: track) }
                     .playbackWarmup(track)
                 }
+                .browseAppear(3)
             }
             let shortcuts = self.shortcuts
             if !shortcuts.isEmpty {
@@ -557,27 +597,23 @@ struct HomeView: View {
                                      busy: busyItem == shortcut.id, plays: plays(shortcut)) { artwork(of: shortcut) }
                     }
                 }
+                .browseAppear(3)
             }
             if !quickPicks.isEmpty {
-                VStack(alignment: .leading, spacing: 12) {
-                    macHeader("Scelti per te")
-                    ScrollView(.horizontal) {
-                        LazyHGrid(rows: Array(repeating: GridItem(.fixed(58), spacing: 8), count: 4), spacing: 24) {
-                            ForEach(Array(quickPicks.enumerated()), id: \.element.id) { position, track in
-                                TrackRow(track: track, swipe: .none) {
-                                    player.play(quickPicks, startAt: position, source: String(localized: "Scelti per te"))
-                                }
-                                .frame(width: 380)
+                // Columns of four songs, paged with the shelves' arrows: a sideways grid of its own
+                // showed the Mac's scroll bar across it and cut its last column at the window's edge.
+                let columns = stride(from: 0, to: quickPicks.count, by: 4).map { Array($0..<min($0 + 4, quickPicks.count)) }
+                MacShelf(title: "Scelti per te", count: columns.count, itemWidth: 380, margin: Self.macMargin, spacing: 24) { column in
+                    VStack(spacing: 8) {
+                        ForEach(columns[column], id: \.self) { position in
+                            TrackRow(track: quickPicks[position], swipe: .none) {
+                                player.play(quickPicks, startAt: position, source: String(localized: "Scelti per te"))
                             }
+                            .frame(height: 58)
                         }
-                        .scrollTargetLayout()
-                        // Room for the Mac's scroll bar under the rows.
-                        .padding(.bottom, 12)
                     }
-                    .contentMargins(.horizontal, Self.macMargin, for: .scrollContent)
-                    .scrollTargetBehavior(.viewAligned)
-                    .scrollIndicators(.hidden)
                 }
+                .browseAppear(4)
             }
             VStack(alignment: .leading, spacing: 12) {
                 macHeader("Mood")
@@ -585,13 +621,16 @@ struct HomeView: View {
                     Button { playMood(mood) } label: {
                         MacMoodCard(title: mood.title, symbol: mood.symbol, tint: mood.tint, busy: busyItem == mood.id)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.browsePress)
                 }
                 .padding(.horizontal, Self.macMargin)
             }
+            .browseAppear(5)
         }
         .padding(.top, 4)
         .padding(.bottom, 24)
+        .animation(.smooth(duration: 0.35), value: quickPicks.isEmpty)
+        .animation(.smooth(duration: 0.35), value: nowPlaying.isIdle)
     }
 
     private func macHeader(_ title: LocalizedStringKey) -> some View {

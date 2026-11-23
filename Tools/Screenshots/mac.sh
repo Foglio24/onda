@@ -112,6 +112,10 @@ if [ "${3:-}" = "browse" ]; then
   shot mac-browse-playlist-small 8 library-playlist -theme.style seaglass -SeaglassWindowSize 960x640
   shot mac-browse-playlist-wide 8 library-playlist -theme.style seaglass -SeaglassWindowSize 1440x900 -theme.mode light
   shot mac-browse-player-regression 8 player-demo -theme.style seaglass
+  # Dark, set by the app (the runner's Mac is light): the wash behind the sidebar and the pages.
+  shot mac-browse-home-dark 8 home -theme.style seaglass -theme.mode dark -SeaglassWindowSize 1440x900
+  shot mac-browse-playlist-dark 8 library-playlist -theme.style seaglass -theme.mode dark -SeaglassWindowSize 1440x900
+  shot mac-browse-search-dark 6 search -theme.style seaglass -theme.mode dark
   pkill -x Seaglass 2>/dev/null || true
   exit 0
 fi

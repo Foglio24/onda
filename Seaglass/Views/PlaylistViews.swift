@@ -249,8 +249,9 @@ struct PlaylistDetailView: View {
                         .glassEffect(.regular.interactive(), in: .circle)
                         .padding(7)
                 }
+                .shadow(color: .black.opacity(0.18), radius: 12, y: 6)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.browsePress)
         .accessibilityLabel(Text("Cambia copertina"))
     }
 

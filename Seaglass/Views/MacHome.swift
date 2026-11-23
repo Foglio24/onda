@@ -41,7 +41,8 @@ struct MacShelf<Card: View>: View {
             .contentMargins(.horizontal, margin, for: .scrollContent)
             .scrollPosition(id: $first, anchor: .leading)
             .scrollTargetBehavior(.viewAligned)
-            .scrollIndicators(.hidden)
+            // Never: "hidden" still let the Mac flash its scroll bar across the cards as they loaded.
+            .scrollIndicators(.never)
             .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
             .overlay {
                 if hovering { arrows }
