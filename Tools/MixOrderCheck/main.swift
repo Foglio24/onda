@@ -31,7 +31,7 @@ if let beat = analysed(bpm: 124, root: 57, level: 0.8, drums: true) {
     expect(features.tempo.map { abs($0 - 124) < 1 } == true, "a song made to a click has its tempo")
     expect(features.camelot != nil, "and its key (\(features.camelotCode ?? "none"))")
     expect(features.energy != nil, "and its energy")
-    if let quiet = analysed(bpm: 124, root: 57, level: 0.3, drums: true).map(MixFeatures.init),
+    if let quiet = analysed(bpm: 124, root: 57, level: 0.3, drums: true).map { MixFeatures($0) },
        let quietEnergy = quiet.energy, let loudEnergy = features.energy {
         expect(loudEnergy - quietEnergy > 6, "a quieter version has less energy (\(format(loudEnergy - quietEnergy, 1)) dB)")
     } else {

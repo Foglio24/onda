@@ -124,7 +124,7 @@ final class MixOrderModel: ObservableObject {
         let mixes = self.mixes
         let folder = self.folder
         passageTask = Task {
-            let clip: TransitionClip? = await Task.detached(priority: .userInitiated) {
+            let clip = await Task.detached(priority: .userInitiated) { () -> TransitionClip? in
                 try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
                 let gains = MixOrder.passageGains(analysisA, analysisB)
                 let destination = folder.appending(path: "\(UUID().uuidString).caf")
@@ -135,9 +135,9 @@ final class MixOrderModel: ObservableObject {
                     let outgoing = await fullA ?? analysisA, incoming = await fullB ?? analysisB
                     let decision = SeguePolicy.decide(.withListenerSettings(outgoing, incoming, earliestExit: 0))
                     if let plan = decision.plan, decision.level != .normal,
-                       let clip = try? await TransitionClipMaker.autoMix(plan, outgoing: fileA, incoming: fileB, gains: gains,
-                                                                         to: destination) {
-                        return clip
+                       let mixed = try? await TransitionClipMaker.autoMix(plan, outgoing: fileA, incoming: fileB, gains: gains,
+                                                                          to: destination) {
+                        return mixed
                     }
                 }
                 return try? await TransitionClipMaker.plain(outgoing: fileA, incoming: fileB, gains: gains, to: destination)
