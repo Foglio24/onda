@@ -62,6 +62,9 @@ struct LibraryView: View {
                 if LaunchScene.opensPlaylistInLibrary { openedPlaylist = library.playlists.first?.id }
                 if let kind = LaunchScene.opensSmartCollection { openedCollection = kind }
                 if LaunchScene.opensRecap { showRecap = true }
+                if LaunchScene.opensMixOrder, let playlist = await LaunchScene.mixOrderPlaylist?.value {
+                    openedPlaylist = playlist.id
+                }
             }
             .navigationDestination(item: $openedPlaylist) { PlaylistDetailView(playlistID: $0) }
             .navigationDestination(item: $openedCollection) { SmartCollectionView(kind: $0) }

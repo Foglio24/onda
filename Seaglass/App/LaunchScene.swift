@@ -41,7 +41,7 @@ enum LaunchScene {
 
     /// Library → the first playlist is opened at launch, pushed inside the library (CI's Mac check
     /// that the player bar stays over pages pushed there).
-    static var opensPlaylistInLibrary: Bool { scene == "library-playlist" || opensMixOrder }
+    static var opensPlaylistInLibrary: Bool { scene == "library-playlist" }
 
     /// `smart:<recent | downloaded | forgottenFavourites>`: that smart collection opened in the library.
     static var opensSmartCollection: SmartCollectionKind? {
@@ -97,6 +97,8 @@ enum LaunchScene {
     /// The playlist opened at launch shows "Ordina per il mix" (`mix-order`: songs made here, some
     /// downloaded and some not).
     static var opensMixOrder: Bool { scene == "mix-order" }
+    /// The scene "mix-order"'s playlist, made once its songs are written: the library opens it then.
+    static var mixOrderPlaylist: Task<Playlist, Never>?
 
     /// Settings → Account is opened at launch, signed in with `-SeaglassAccountToken` (a session CI
     /// makes on the account service for Tools/MacAccountCheck).
@@ -199,8 +201,8 @@ enum LaunchScene {
                 let first = Track(videoId: "SeaglassMixDemoA", title: "Neon Drive", artists: ["Seaglass Demo"], duration: 72)
                 let second = Track(videoId: "SeaglassMixDemoB", title: "Night Run", artists: ["Seaglass Demo"], duration: 72)
                 await Task.detached(priority: .userInitiated) {
-                    try? DemoSongs.write(to: Storage.audioFile(for: "SeaglassMixDemoA"), bpm: 124, root: 57, introBars: 0)
-                    try? DemoSongs.write(to: Storage.audioFile(for: "SeaglassMixDemoB"), bpm: 128, root: 60, introBars: 8)
+                    _ = try? DemoSongs.write(to: Storage.audioFile(for: "SeaglassMixDemoA"), bpm: 124, root: 57, introBars: 0)
+                    _ = try? DemoSongs.write(to: Storage.audioFile(for: "SeaglassMixDemoB"), bpm: 128, root: 60, introBars: 8)
                 }.value
                 let playlist = Library.shared.createPlaylist(named: "Mix demo", tracks: [first, second])
                 router.mixTarget = MixTarget(playlistID: playlist.id, opensFirst: true,
@@ -233,10 +235,8 @@ enum LaunchScene {
             Task { await smartCheck() }
         case "mix-order":
             // A playlist of songs made here, some downloaded and some not, with "Ordina per il mix" open.
-            Task {
-                _ = await makeMixOrderPlaylist()
-                select(.library)
-            }
+            mixOrderPlaylist = Task { await makeMixOrderPlaylist() }
+            select(.library)
         case "mix-order-check":
             // CI (Tools/FeatureScenes/run.sh): the order suggested for a playlist analysed in part.
             select(.library)
@@ -261,7 +261,7 @@ enum LaunchScene {
             Task {
                 let track = Track(videoId: "SeaglassTempoDemo", title: "Tempo demo", artists: ["Seaglass Demo"], duration: 72)
                 await Task.detached(priority: .userInitiated) {
-                    try? DemoSongs.write(to: Storage.audioFile(for: "SeaglassTempoDemo"), bpm: 124, root: 57, introBars: 0)
+                    _ = try? DemoSongs.write(to: Storage.audioFile(for: "SeaglassTempoDemo"), bpm: 124, root: 57, introBars: 0)
                 }.value
                 PlayerController.shared.play([track], source: "Tempo demo")
                 router.openPlayer()
@@ -300,12 +300,12 @@ enum LaunchScene {
                 let live = value.isEmpty
                 await Task.detached(priority: .userInitiated) {
                     let alac = value == "alac"
-                    try? DemoSongs.write(to: Storage.audioFile(for: "SeaglassSegueDemoA"), bpm: 124, root: 57, introBars: 0,
+                    _ = try? DemoSongs.write(to: Storage.audioFile(for: "SeaglassSegueDemoA"), bpm: 124, root: 57, introBars: 0,
                                             seconds: 120, alac: alac)
-                    try? DemoSongs.write(to: Storage.audioFile(for: "SeaglassSegueDemoB"), bpm: 126, root: 60, introBars: 4,
+                    _ = try? DemoSongs.write(to: Storage.audioFile(for: "SeaglassSegueDemoB"), bpm: 126, root: 60, introBars: 4,
                                             seconds: 120, alac: alac)
                     if live {
-                        try? DemoSongs.write(to: Storage.audioFile(for: "SeaglassSegueDemoC"), bpm: 128, root: 62, introBars: 4,
+                        _ = try? DemoSongs.write(to: Storage.audioFile(for: "SeaglassSegueDemoC"), bpm: 128, root: 62, introBars: 4,
                                                 seconds: 120, alac: alac)
                     }
                 }.value
@@ -531,7 +531,7 @@ enum LaunchScene {
         let id = "SeaglassRecapDemo\(Int(Date.now.timeIntervalSince1970))"
         let song = Track(videoId: id, title: "Recap demo", artists: ["Seaglass Recap"], duration: 72)
         await Task.detached(priority: .userInitiated) {
-            try? DemoSongs.write(to: Storage.audioFile(for: id), bpm: 120, root: 60, introBars: 0)
+            _ = try? DemoSongs.write(to: Storage.audioFile(for: id), bpm: 120, root: 60, introBars: 0)
         }.value
         func plays() -> [ListenEvent] { log.events.filter { $0.videoId == id } }
 
@@ -621,7 +621,7 @@ enum LaunchScene {
 
         // Downloads: one with its file, one whose file has gone.
         let kept = track("Downloaded", 1), gone = track("Downloaded", 2)
-        try? DemoSongs.write(to: Storage.audioFile(for: kept.videoId ?? ""), bpm: 120, root: 60, introBars: 0, seconds: 5)
+        _ = try? DemoSongs.write(to: Storage.audioFile(for: kept.videoId ?? ""), bpm: 120, root: 60, introBars: 0, seconds: 5)
         library.addDownload(gone)
         library.addDownload(kept)
         let downloaded = SmartCollectionSource.tracks(.downloaded).map(\.id)
@@ -653,7 +653,7 @@ enum LaunchScene {
                     Made(id: "SeaglassOrderF", title: "Still Water", bpm: 90, root: 65, level: 0.3, drums: false)]
         await Task.detached(priority: .userInitiated) {
             for song in made where !Storage.audioFileExists(videoId: song.id) {
-                try? DemoSongs.write(to: Storage.audioFile(for: song.id), bpm: song.bpm, root: song.root, introBars: 0,
+                _ = try? DemoSongs.write(to: Storage.audioFile(for: song.id), bpm: song.bpm, root: song.root, introBars: 0,
                                      seconds: 75, level: song.level, drums: song.drums)
             }
             // Not a song at all: its analysis must fail, and the song still stay in the playlist.
@@ -739,8 +739,8 @@ enum LaunchScene {
         let songs = [Track(videoId: "SeaglassQueueDemoA", title: "Queue A", artists: ["Seaglass Demo"], duration: 72),
                      Track(videoId: "SeaglassQueueDemoB", title: "Queue B", artists: ["Seaglass Demo"], duration: 72)]
         await Task.detached(priority: .userInitiated) {
-            try? DemoSongs.write(to: Storage.audioFile(for: "SeaglassQueueDemoA"), bpm: 118, root: 62, introBars: 0)
-            try? DemoSongs.write(to: Storage.audioFile(for: "SeaglassQueueDemoB"), bpm: 120, root: 64, introBars: 0)
+            _ = try? DemoSongs.write(to: Storage.audioFile(for: "SeaglassQueueDemoA"), bpm: 118, root: 62, introBars: 0)
+            _ = try? DemoSongs.write(to: Storage.audioFile(for: "SeaglassQueueDemoB"), bpm: 120, root: 64, introBars: 0)
         }.value
         func wait(_ seconds: Double, until done: () -> Bool) async -> Bool {
             for _ in 0..<Int(seconds * 4) {

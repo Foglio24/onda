@@ -88,7 +88,7 @@ enum DemoSongs {
             try file.write(from: buffer)
         }
         let bar = 4 * 60 / bpm
-        return level(of: mono, from: Int((1 + Double(introBars) * bar) * rate))
+        return Self.level(of: mono, from: Int((1 + Double(introBars) * bar) * rate))
     }
 }
 
