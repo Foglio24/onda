@@ -762,7 +762,7 @@ enum LaunchScene {
         _ = await wait(20) { player.isPlaying && player.progress.currentTime > 1 }
         player.seek(to: 20)
         _ = await wait(10) { player.isPlaying && player.progress.currentTime > 21 }
-        let queue = player.queue.map(\.id), index = player.index, time = player.progress.currentTime
+        let queue = player.queue.map(\.id), index = player.index
         expect(player.isPlaying, "the queue plays before the demo (\(state()))")
 
         router.showAutoMixDemo = true
@@ -772,7 +772,10 @@ enum LaunchScene {
             print("automix-demo: done")
             return
         }
+        // The queue plays on while the demo is made; it pauses when a listen starts.
         model.toggle(.plain)
+        try? await Task.sleep(for: .milliseconds(300))
+        let time = player.progress.currentTime
         try? await Task.sleep(for: .seconds(3))
         expect(model.player.playing == "plain" && model.player.position > 1, "the plain listen plays (\(model.player.position) s)")
         expect(!player.isPlaying, "the queue is paused under the demo (\(state()))")
@@ -786,7 +789,7 @@ enum LaunchScene {
         expect(player.queue.map(\.id) == queue && player.index == index, "the queue is the same after the demo (\(state()))")
         expect(player.isPlaying, "the queue plays on after the demo (\(state()))")
         let resumedAt = player.progress.currentTime
-        expect(resumedAt >= time - 0.5 && resumedAt < time + 12, String(format: "from where it was: %.1f s, then %.1f s", time, resumedAt))
+        expect(resumedAt >= time - 0.5 && resumedAt < time + 5, String(format: "from where it was paused: %.1f s, then %.1f s", time, resumedAt))
 
         // Paused before the demo: still paused after it.
         player.pause()
