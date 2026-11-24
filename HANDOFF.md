@@ -31,13 +31,16 @@ Standing rules from the owner (on top of `AGENTS.md`):
 5. No force pushes, `main` only by fast-forward, no secrets in the repository, no YouTube
    bot-check evasion, a version bump always with its changelog entry.
 
-## 2. State on 2026-11-15
+## 2. State on 2026-11-24
 
 | App | Version | Release tag | Where the code is |
 | --- | --- | --- | --- |
-| iPhone, iPad, Mac | 1.36.12 (build 91) | `v1.36.12`, the repository's "Latest"; AltStore source at 1.36.12 / 91 | `main` |
+| iPhone, iPad, Mac | 1.37.0 (build 102) | `v1.37.0`, the repository's "Latest"; AltStore source at 1.37.0 / 102 | `main` |
 | Android | 0.4.3 (versionCode 8) | `android-v0.4.3` | `main`, `android/` |
-| Windows | 1.2.0 | `windows-v1.2.0` (not Latest) | branch **`windows`**, `windows/` |
+| Windows | 1.5.3 | `windows-v1.5.3` (not Latest) | branch **`windows`**, `windows/` |
+
+iOS 1.37.0 added the Home's AutoMix demo, "Ordina per il mix", the library's smart collections and
+the monthly recap (iPhone, iPad and Mac only: none of them is on Android or Windows yet).
 | Account service | deployed | none | `main`, `server/account/` (deploys by itself) |
 | Website | deployed | none | `main`, `site/` (deploys by itself) |
 
@@ -196,6 +199,15 @@ released as a new `windows-v` minor version.
    "unrecognized app"; there is no certificate, don't invent one.
 
 ## 6. Not verified yet
+
+- **iOS 1.37.0's four features on a real iPhone, iPad and Mac.** CI checks their logic (AutoMixDemoCheck,
+  MixOrderCheck, SmartCollectionsCheck, MonthlyRecapCheck) and runs them in the Mac app
+  (`Tools/FeatureScenes/run.sh`: the AutoMix demo over a playing queue, "Ordina per il mix" on a playlist
+  analysed in part, the smart collections, plays recorded once through pause, seek and "Riprendi", the
+  recap's image); the simulator only takes screenshots. Not heard or tapped by a person yet: the demo's
+  sound through Bluetooth and CarPlay (it plays a file beside the player, so the lock screen still shows
+  the paused song), the system share sheet and the Photos permission when saving the recap, and the
+  first analysis of a large playlist on a real phone (one song at a time; a few seconds each).
 
 - **Streaming and sound on a real Windows PC** are tested only by the owner (they use it). The
   development machine couldn't play YouTube streams (URLs bound to another IP) and has no sound card;
