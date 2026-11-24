@@ -6,8 +6,8 @@ import Foundation
 /// and offline; it opens AutoMix for these two songs only, and never touches the queue (see
 /// `PassagePlayer`).
 ///
-/// The mix is AutoMix's own: the songs analysed as any song is (`AutoMixLibrary`, Beat This! where it
-/// is bundled), the transition planned by `SeguePolicy` with the settings of Settings › AutoMix, and
+/// The mix is AutoMix's own: the songs analysed as any song is (`AutoMixLibrary`; without Beat This!,
+/// which songs made to a click don't need), the transition planned by `SeguePolicy` with the settings of Settings › AutoMix, and
 /// rendered by `SegueRender`, the code that renders it in the player.
 enum AutoMixDemo {
     typealias Song = DemoSongs.Spec
@@ -76,8 +76,10 @@ enum AutoMixDemo {
         await step(String(localized: "Creazione dei brani demo…"))
         let (urls, gains) = try songFiles()
         await step(String(localized: "Analisi dei brani demo…"))
-        async let first = AutoMixLibrary.shared.analysis(of: urls[0], priority: .userInitiated)
-        async let second = AutoMixLibrary.shared.analysis(of: urls[1], priority: .userInitiated)
+        // Without Beat This!: the songs are made to a click, so the analysis' own grid is exact, and
+        // the model would only make the first opening slower (more than half a minute on a simulator).
+        async let first = AutoMixLibrary.shared.analysis(of: urls[0], priority: .userInitiated, beats: false)
+        async let second = AutoMixLibrary.shared.analysis(of: urls[1], priority: .userInitiated, beats: false)
         guard let outgoing = await first, let incoming = await second else { throw Failure.analysis }
         try Task.checkCancellation()
         await step(String(localized: "Preparazione del mix…"))
