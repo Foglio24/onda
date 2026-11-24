@@ -924,3 +924,26 @@
 "Salvata come «%@»" = "Gespeichert als „%@“";
 "Salva come nuova playlist" = "Als neue Playlist sichern";
 "La playlist originale resta com'è; la nuova ha tutti i suoi brani." = "Die ursprüngliche Playlist bleibt, wie sie ist; die neue enthält alle ihre Songs.";
+
+/* Smart collections (Library) */
+"Scaricati" = "Geladen";
+"Preferiti che ascolti poco" = "Selten gehörte Favoriten";
+"Gli ultimi %lld brani che hai avviato, dal più recente, presi dalla cronologia." = "Die letzten %lld Songs, die du gestartet hast, die neuesten zuerst, aus dem Verlauf.";
+"I brani scaricati il cui file è su questo dispositivo, dal più recente." = "Die geladenen Songs, deren Datei auf diesem Gerät ist, die neuesten zuerst.";
+"Preferiti con al massimo un ascolto di almeno 30 secondi dal %@: da quel giorno Seaglass registra gli ascolti su questo dispositivo." = "Favoriten, die seit dem %@ höchstens einmal mindestens 30 Sekunden lang gehört wurden: Seit diesem Tag zeichnet Seaglass das Hören auf diesem Gerät auf.";
+"Su questo dispositivo non ci sono ancora ascolti registrati: compaiono i preferiti che non sono nella cronologia." = "Auf diesem Gerät ist noch nichts aufgezeichnet: Hier stehen die Favoriten, die nicht im Verlauf sind.";
+"Si aggiorna da sola su questo dispositivo." = "Aktualisiert sich auf diesem Gerät von selbst.";
+"Solo brani disponibili offline" = "Nur offline verfügbare Songs";
+"%lld di %lld sul dispositivo" = "%lld von %lld auf dem Gerät";
+"Nessun brano disponibile offline" = "Keine Songs offline verfügbar";
+"Scarica questi brani per ascoltarli senza connessione." = "Lade diese Songs, um sie ohne Verbindung zu hören.";
+"Ancora nessun ascolto" = "Noch nichts gehört";
+"Qui compaiono gli ultimi %lld brani che avvii, dal più recente." = "Hier erscheinen die letzten %lld Songs, die du startest, die neuesten zuerst.";
+"Nessun brano scaricato" = "Keine geladenen Songs";
+"Scarica brani, album o playlist: compaiono qui e si ascoltano anche offline." = "Lade Songs, Alben oder Playlists: Sie erscheinen hier und laufen auch offline.";
+"Metti il cuore ai brani: quelli che ascolti poco compariranno qui." = "Markiere Songs mit dem Herz: Die, die du selten hörst, erscheinen hier.";
+"Ascolti spesso tutti i tuoi preferiti" = "Du hörst alle deine Favoriten oft";
+"Nessun preferito rientra nella regola qui sopra." = "Kein Favorit erfüllt die Regel oben.";
+"Raccolte intelligenti" = "Intelligente Sammlungen";
+"Si aggiornano da sole sul dispositivo: aprile per vedere la regola di ciascuna." = "Sie aktualisieren sich auf dem Gerät von selbst: Öffne eine, um ihre Regel zu sehen.";
+"Raccolta intelligente · %lld brani" = "Intelligente Sammlung · %lld Songs";

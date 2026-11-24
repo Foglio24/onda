@@ -924,3 +924,26 @@
 "Salvata come «%@»" = "「%@」として保存しました";
 "Salva come nuova playlist" = "新しいプレイリストとして保存";
 "La playlist originale resta com'è; la nuova ha tutti i suoi brani." = "元のプレイリストはそのまま残り、新しいプレイリストにすべての曲が入ります。";
+
+/* Smart collections (Library) */
+"Scaricati" = "ダウンロード済み";
+"Preferiti che ascolti poco" = "あまり聴いていないお気に入り";
+"Gli ultimi %lld brani che hai avviato, dal più recente, presi dalla cronologia." = "最近再生を始めた%lld曲（新しい順、履歴から）。";
+"I brani scaricati il cui file è su questo dispositivo, dal più recente." = "ファイルがこのデバイスにあるダウンロード済みの曲（新しい順）。";
+"Preferiti con al massimo un ascolto di almeno 30 secondi dal %@: da quel giorno Seaglass registra gli ascolti su questo dispositivo." = "%@以降、30秒以上の再生が1回以下のお気に入り。Seaglassはその日からこのデバイスでの再生を記録しています。";
+"Su questo dispositivo non ci sono ancora ascolti registrati: compaiono i preferiti che non sono nella cronologia." = "このデバイスにはまだ再生記録がありません。履歴にないお気に入りを表示します。";
+"Si aggiorna da sola su questo dispositivo." = "このデバイス上で自動的に更新されます。";
+"Solo brani disponibili offline" = "オフラインで聴ける曲のみ";
+"%lld di %lld sul dispositivo" = "デバイス上に %lld / %lld 曲";
+"Nessun brano disponibile offline" = "オフラインで聴ける曲はありません";
+"Scarica questi brani per ascoltarli senza connessione." = "接続なしで聴くにはこれらの曲をダウンロードしてください。";
+"Ancora nessun ascolto" = "まだ再生していません";
+"Qui compaiono gli ultimi %lld brani che avvii, dal più recente." = "最近再生を始めた%lld曲が新しい順にここに表示されます。";
+"Nessun brano scaricato" = "ダウンロード済みの曲はありません";
+"Scarica brani, album o playlist: compaiono qui e si ascoltano anche offline." = "曲・アルバム・プレイリストをダウンロードすると、ここに表示されオフラインでも聴けます。";
+"Metti il cuore ai brani: quelli che ascolti poco compariranno qui." = "曲にハートを付けると、あまり聴いていない曲がここに表示されます。";
+"Ascolti spesso tutti i tuoi preferiti" = "お気に入りはどれもよく聴いています";
+"Nessun preferito rientra nella regola qui sopra." = "上のルールに当てはまるお気に入りはありません。";
+"Raccolte intelligenti" = "スマートコレクション";
+"Si aggiornano da sole sul dispositivo: aprile per vedere la regola di ciascuna." = "デバイス上で自動的に更新されます。開くとそれぞれのルールが表示されます。";
+"Raccolta intelligente · %lld brani" = "スマートコレクション・%lld曲";

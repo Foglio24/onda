@@ -924,3 +924,26 @@
 "Salvata come «%@»" = "حُفظت باسم «%@»";
 "Salva come nuova playlist" = "احفظ كقائمة تشغيل جديدة";
 "La playlist originale resta com'è; la nuova ha tutti i suoi brani." = "تبقى قائمة التشغيل الأصلية كما هي؛ والجديدة تضم كل أغانيها.";
+
+/* Smart collections (Library) */
+"Scaricati" = "المنزّلة";
+"Preferiti che ascolti poco" = "مفضلات نادرًا ما تستمع إليها";
+"Gli ultimi %lld brani che hai avviato, dal più recente, presi dalla cronologia." = "آخر %lld أغنية بدأت تشغيلها، الأحدث أولًا، من السجل.";
+"I brani scaricati il cui file è su questo dispositivo, dal più recente." = "الأغاني المنزّلة التي يوجد ملفها على هذا الجهاز، الأحدث أولًا.";
+"Preferiti con al massimo un ascolto di almeno 30 secondi dal %@: da quel giorno Seaglass registra gli ascolti su questo dispositivo." = "مفضلات استُمع إليها مرة واحدة على الأكثر لمدة 30 ثانية أو أكثر منذ %@: منذ ذلك اليوم يسجّل Seaglass مرات الاستماع على هذا الجهاز.";
+"Su questo dispositivo non ci sono ancora ascolti registrati: compaiono i preferiti che non sono nella cronologia." = "لا توجد بعد مرات استماع مسجّلة على هذا الجهاز: تظهر المفضلات غير الموجودة في السجل.";
+"Si aggiorna da sola su questo dispositivo." = "تتحدّث تلقائيًا على هذا الجهاز.";
+"Solo brani disponibili offline" = "الأغاني المتاحة دون اتصال فقط";
+"%lld di %lld sul dispositivo" = "%lld من %lld على الجهاز";
+"Nessun brano disponibile offline" = "لا توجد أغانٍ متاحة دون اتصال";
+"Scarica questi brani per ascoltarli senza connessione." = "نزّل هذه الأغاني لتستمع إليها دون اتصال.";
+"Ancora nessun ascolto" = "لا استماع بعد";
+"Qui compaiono gli ultimi %lld brani che avvii, dal più recente." = "تظهر هنا آخر %lld أغنية تبدأ تشغيلها، الأحدث أولًا.";
+"Nessun brano scaricato" = "لا توجد أغانٍ منزّلة";
+"Scarica brani, album o playlist: compaiono qui e si ascoltano anche offline." = "نزّل أغاني أو ألبومات أو قوائم تشغيل: تظهر هنا وتعمل دون اتصال أيضًا.";
+"Metti il cuore ai brani: quelli che ascolti poco compariranno qui." = "ضع قلبًا على الأغاني: ستظهر هنا تلك التي نادرًا ما تستمع إليها.";
+"Ascolti spesso tutti i tuoi preferiti" = "تستمع كثيرًا إلى كل مفضلاتك";
+"Nessun preferito rientra nella regola qui sopra." = "لا توجد مفضلة تنطبق عليها القاعدة أعلاه.";
+"Raccolte intelligenti" = "مجموعات ذكية";
+"Si aggiornano da sole sul dispositivo: aprile per vedere la regola di ciascuna." = "تتحدّث تلقائيًا على الجهاز: افتح إحداها لترى قاعدتها.";
+"Raccolta intelligente · %lld brani" = "مجموعة ذكية · %lld أغنية";

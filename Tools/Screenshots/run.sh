@@ -66,6 +66,11 @@ if [[ "$kind" == "browse" || "$kind" == "browse-ipad" ]]; then
   shot browse-automix-demo-classic it 20 automix-demo -theme.style classic -theme.mode light
   shot browse-mix-order en 40 mix-order -theme.style seaglass
   shot browse-mix-order-classic en 25 mix-order -theme.style classic
+  # The smart collections with an empty library (nothing has played or been liked on this simulator).
+  shot browse-smart-library en 6 library -theme.style seaglass
+  shot browse-smart-recent-empty en 6 smart:recent -theme.style seaglass
+  shot browse-smart-forgotten-empty it 6 smart:forgottenFavourites -theme.style seaglass -theme.mode light
+  shot browse-smart-classic en 6 smart:downloaded -theme.style classic
   xcrun simctl shutdown "$device"
   exit 0
 fi

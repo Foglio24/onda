@@ -924,3 +924,26 @@
 "Salvata come «%@»" = "Сохранено как «%@»";
 "Salva come nuova playlist" = "Сохранить как новый плейлист";
 "La playlist originale resta com'è; la nuova ha tutti i suoi brani." = "Исходный плейлист остаётся как есть; в новом — все его треки.";
+
+/* Smart collections (Library) */
+"Scaricati" = "Скачанные";
+"Preferiti che ascolti poco" = "Редко слушаемое избранное";
+"Gli ultimi %lld brani che hai avviato, dal più recente, presi dalla cronologia." = "Последние %lld треков, которые вы запускали, сначала новые, из истории.";
+"I brani scaricati il cui file è su questo dispositivo, dal più recente." = "Скачанные треки, файл которых есть на этом устройстве, сначала новые.";
+"Preferiti con al massimo un ascolto di almeno 30 secondi dal %@: da quel giorno Seaglass registra gli ascolti su questo dispositivo." = "Избранное, прослушанное не больше одного раза (от 30 секунд) с %@: с этого дня Seaglass записывает прослушивания на этом устройстве.";
+"Su questo dispositivo non ci sono ancora ascolti registrati: compaiono i preferiti che non sono nella cronologia." = "На этом устройстве пока нет записанных прослушиваний: показано избранное, которого нет в истории.";
+"Si aggiorna da sola su questo dispositivo." = "Обновляется сама на этом устройстве.";
+"Solo brani disponibili offline" = "Только доступные офлайн";
+"%lld di %lld sul dispositivo" = "%lld из %lld на устройстве";
+"Nessun brano disponibile offline" = "Нет треков, доступных офлайн";
+"Scarica questi brani per ascoltarli senza connessione." = "Скачайте эти треки, чтобы слушать их без подключения.";
+"Ancora nessun ascolto" = "Пока ничего не прослушано";
+"Qui compaiono gli ultimi %lld brani che avvii, dal più recente." = "Здесь появятся последние %lld треков, которые вы запустите, сначала новые.";
+"Nessun brano scaricato" = "Нет скачанных треков";
+"Scarica brani, album o playlist: compaiono qui e si ascoltano anche offline." = "Скачивайте треки, альбомы или плейлисты: они появятся здесь и будут играть и офлайн.";
+"Metti il cuore ai brani: quelli che ascolti poco compariranno qui." = "Отмечайте треки сердечком: те, что вы слушаете редко, появятся здесь.";
+"Ascolti spesso tutti i tuoi preferiti" = "Вы часто слушаете всё своё избранное";
+"Nessun preferito rientra nella regola qui sopra." = "Ни одна песня из избранного не подходит под правило выше.";
+"Raccolte intelligenti" = "Умные подборки";
+"Si aggiornano da sole sul dispositivo: aprile per vedere la regola di ciascuna." = "Обновляются сами на устройстве: откройте любую, чтобы увидеть её правило.";
+"Raccolta intelligente · %lld brani" = "Умная подборка · %lld треков";

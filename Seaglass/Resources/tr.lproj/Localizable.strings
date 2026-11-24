@@ -924,3 +924,26 @@
 "Salvata come «%@»" = "“%@” olarak kaydedildi";
 "Salva come nuova playlist" = "Yeni çalma listesi olarak kaydet";
 "La playlist originale resta com'è; la nuova ha tutti i suoi brani." = "Asıl çalma listesi olduğu gibi kalır; yenisinde tüm şarkıları vardır.";
+
+/* Smart collections (Library) */
+"Scaricati" = "İndirilenler";
+"Preferiti che ascolti poco" = "Az dinlediğin favoriler";
+"Gli ultimi %lld brani che hai avviato, dal più recente, presi dalla cronologia." = "Başlattığın son %lld şarkı, en yeniden, geçmişten alınır.";
+"I brani scaricati il cui file è su questo dispositivo, dal più recente." = "Dosyası bu cihazda olan indirilmiş şarkılar, en yeniden.";
+"Preferiti con al massimo un ascolto di almeno 30 secondi dal %@: da quel giorno Seaglass registra gli ascolti su questo dispositivo." = "%@ tarihinden beri en fazla bir kez, en az 30 saniye dinlenen favoriler: Seaglass o günden beri bu cihazdaki dinlemeleri kaydediyor.";
+"Su questo dispositivo non ci sono ancora ascolti registrati: compaiono i preferiti che non sono nella cronologia." = "Bu cihazda henüz kayıtlı dinleme yok: geçmişte olmayan favoriler gösteriliyor.";
+"Si aggiorna da sola su questo dispositivo." = "Bu cihazda kendiliğinden güncellenir.";
+"Solo brani disponibili offline" = "Yalnızca çevrimdışı kullanılabilenler";
+"%lld di %lld sul dispositivo" = "Cihazda %lld / %lld";
+"Nessun brano disponibile offline" = "Çevrimdışı kullanılabilen şarkı yok";
+"Scarica questi brani per ascoltarli senza connessione." = "Bağlantı olmadan dinlemek için bu şarkıları indir.";
+"Ancora nessun ascolto" = "Henüz dinleme yok";
+"Qui compaiono gli ultimi %lld brani che avvii, dal più recente." = "Başlattığın son %lld şarkı burada en yeniden görünür.";
+"Nessun brano scaricato" = "İndirilmiş şarkı yok";
+"Scarica brani, album o playlist: compaiono qui e si ascoltano anche offline." = "Şarkı, albüm ya da çalma listesi indir: burada görünür ve çevrimdışı da çalar.";
+"Metti il cuore ai brani: quelli che ascolti poco compariranno qui." = "Şarkıları kalpleyin: az dinledikleriniz burada görünecek.";
+"Ascolti spesso tutti i tuoi preferiti" = "Tüm favorilerini sık dinliyorsun";
+"Nessun preferito rientra nella regola qui sopra." = "Yukarıdaki kurala uyan favori yok.";
+"Raccolte intelligenti" = "Akıllı koleksiyonlar";
+"Si aggiornano da sole sul dispositivo: aprile per vedere la regola di ciascuna." = "Cihazda kendiliğinden güncellenir: kuralını görmek için birini aç.";
+"Raccolta intelligente · %lld brani" = "Akıllı koleksiyon · %lld şarkı";

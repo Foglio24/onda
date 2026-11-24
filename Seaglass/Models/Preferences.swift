@@ -319,13 +319,14 @@ enum Preferences {
     }
 }
 
-/// Tells whether the current connection is cellular (or otherwise metered).
+/// Tells whether the current connection is cellular (or otherwise metered), and whether there is one.
 final class NetworkMonitor: @unchecked Sendable {
     static let shared = NetworkMonitor()
 
     private let monitor = NWPathMonitor()
     private let lock = NSLock()
     private var expensive = false
+    private var offline = false
 
     var isExpensive: Bool {
         lock.lock()
@@ -333,16 +334,24 @@ final class NetworkMonitor: @unchecked Sendable {
         return expensive
     }
 
+    /// No connection at all (the smart collections then show what plays offline).
+    var isOffline: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return offline
+    }
+
     private init() {
         monitor.pathUpdateHandler = { [unowned self] path in
-            self.update(path.isExpensive || path.usesInterfaceType(.cellular))
+            self.update(path.isExpensive || path.usesInterfaceType(.cellular), offline: path.status != .satisfied)
         }
         monitor.start(queue: DispatchQueue(label: "seaglass.network-monitor"))
     }
 
-    private func update(_ metered: Bool) {
+    private func update(_ metered: Bool, offline: Bool) {
         lock.lock()
         expensive = metered
+        self.offline = offline
         lock.unlock()
     }
 }

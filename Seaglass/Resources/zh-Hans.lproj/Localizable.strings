@@ -924,3 +924,26 @@
 "Salvata come «%@»" = "已保存为“%@”";
 "Salva come nuova playlist" = "存为新的播放列表";
 "La playlist originale resta com'è; la nuova ha tutti i suoi brani." = "原播放列表保持不变；新列表包含其全部歌曲。";
+
+/* Smart collections (Library) */
+"Scaricati" = "已下载";
+"Preferiti che ascolti poco" = "很少听的收藏";
+"Gli ultimi %lld brani che hai avviato, dal più recente, presi dalla cronologia." = "你最近开始播放的 %lld 首歌曲，按时间由近到远，来自播放记录。";
+"I brani scaricati il cui file è su questo dispositivo, dal più recente." = "文件在此设备上的已下载歌曲，按时间由近到远。";
+"Preferiti con al massimo un ascolto di almeno 30 secondi dal %@: da quel giorno Seaglass registra gli ascolti su questo dispositivo." = "自 %@ 起最多播放过一次（至少 30 秒）的收藏：从那天起 Seaglass 在此设备上记录收听。";
+"Su questo dispositivo non ci sono ancora ascolti registrati: compaiono i preferiti che non sono nella cronologia." = "此设备上尚无收听记录：显示不在播放记录中的收藏。";
+"Si aggiorna da sola su questo dispositivo." = "在此设备上自动更新。";
+"Solo brani disponibili offline" = "仅离线可用的歌曲";
+"%lld di %lld sul dispositivo" = "设备上有 %lld / %lld 首";
+"Nessun brano disponibile offline" = "没有离线可用的歌曲";
+"Scarica questi brani per ascoltarli senza connessione." = "下载这些歌曲即可无网络收听。";
+"Ancora nessun ascolto" = "还没有收听记录";
+"Qui compaiono gli ultimi %lld brani che avvii, dal più recente." = "这里会显示你最近开始播放的 %lld 首歌曲，按时间由近到远。";
+"Nessun brano scaricato" = "没有已下载的歌曲";
+"Scarica brani, album o playlist: compaiono qui e si ascoltano anche offline." = "下载歌曲、专辑或播放列表：它们会显示在这里，离线也能播放。";
+"Metti il cuore ai brani: quelli che ascolti poco compariranno qui." = "为歌曲点亮爱心：你很少听的会显示在这里。";
+"Ascolti spesso tutti i tuoi preferiti" = "你的收藏都经常听";
+"Nessun preferito rientra nella regola qui sopra." = "没有收藏符合上面的规则。";
+"Raccolte intelligenti" = "智能合集";
+"Si aggiornano da sole sul dispositivo: aprile per vedere la regola di ciascuna." = "它们会在设备上自动更新：打开即可查看各自的规则。";
+"Raccolta intelligente · %lld brani" = "智能合集 · %lld 首歌曲";

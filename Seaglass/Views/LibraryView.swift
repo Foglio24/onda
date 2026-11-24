@@ -12,6 +12,8 @@ struct LibraryView: View {
     @State private var showDownloads = false
     /// Opened directly only by CI (see `LaunchScene.opensPlaylistInLibrary`).
     @State private var openedPlaylist: UUID?
+    /// A smart collection opened directly, only by CI (see `LaunchScene.opensSmartCollection`).
+    @State private var openedCollection: SmartCollectionKind?
     @State private var showNewPlaylist = false
     @State private var showImport = false
     @State private var newName = ""
@@ -56,8 +58,10 @@ struct LibraryView: View {
             .task {
                 if LaunchScene.opensDownloads { showDownloads = true }
                 if LaunchScene.opensPlaylistInLibrary { openedPlaylist = library.playlists.first?.id }
+                if let kind = LaunchScene.opensSmartCollection { openedCollection = kind }
             }
             .navigationDestination(item: $openedPlaylist) { PlaylistDetailView(playlistID: $0) }
+            .navigationDestination(item: $openedCollection) { SmartCollectionView(kind: $0) }
             .alert("Nuova playlist", isPresented: $showNewPlaylist) {
                 TextField("Nome", text: $newName)
                 Button("Crea") { library.createPlaylist(named: newName) }
@@ -189,6 +193,19 @@ struct LibraryView: View {
             }
 
             Section {
+                ForEach(SmartCollectionKind.allCases) { kind in
+                    NavigationLink { SmartCollectionView(kind: kind) } label: {
+                        shortcut(kind.titleKey, symbol: kind.symbol, tint: kind.tint,
+                                 count: SmartCollectionSource.tracks(kind).count)
+                    }
+                }
+            } header: {
+                Text("Raccolte intelligenti")
+            } footer: {
+                Text("Si aggiornano da sole sul dispositivo: aprile per vedere la regola di ciascuna.")
+            }
+
+            Section {
                 playlistActions
                 ForEach(library.playlists) { playlist in
                     NavigationLink { PlaylistDetailView(playlistID: playlist.id) } label: {
@@ -265,6 +282,18 @@ struct LibraryView: View {
                     subtitle: String(localized: "\(library.history.count) brani")
                 ) {
                     SymbolArtwork(symbol: "clock.fill", tint: .orange)
+                }
+            }
+        }
+        if shows(.playlists) {
+            ForEach(SmartCollectionKind.allCases) { kind in
+                NavigationLink { SmartCollectionView(kind: kind) } label: {
+                    classicLibraryRow(
+                        title: kind.title,
+                        subtitle: String(localized: "Raccolta intelligente · \(SmartCollectionSource.tracks(kind).count) brani")
+                    ) {
+                        SymbolArtwork(symbol: kind.symbol, tint: kind.tint)
+                    }
                 }
             }
         }

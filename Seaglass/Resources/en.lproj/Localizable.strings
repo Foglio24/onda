@@ -1003,3 +1003,26 @@
 "Salvata come «%@»" = "Saved as “%@”";
 "Salva come nuova playlist" = "Save as a new playlist";
 "La playlist originale resta com'è; la nuova ha tutti i suoi brani." = "The original playlist stays as it is; the new one has all of its songs.";
+
+/* Smart collections (Library) */
+"Scaricati" = "Downloaded";
+"Preferiti che ascolti poco" = "Favourites you rarely play";
+"Gli ultimi %lld brani che hai avviato, dal più recente, presi dalla cronologia." = "The last %lld songs you started, most recent first, from your history.";
+"I brani scaricati il cui file è su questo dispositivo, dal più recente." = "The downloaded songs whose file is on this device, most recent first.";
+"Preferiti con al massimo un ascolto di almeno 30 secondi dal %@: da quel giorno Seaglass registra gli ascolti su questo dispositivo." = "Favourites played at most once for 30 seconds or more since %@: Seaglass has recorded listens on this device since that day.";
+"Su questo dispositivo non ci sono ancora ascolti registrati: compaiono i preferiti che non sono nella cronologia." = "No listens recorded on this device yet: showing the favourites that aren't in your history.";
+"Si aggiorna da sola su questo dispositivo." = "Updates by itself on this device.";
+"Solo brani disponibili offline" = "Only songs available offline";
+"%lld di %lld sul dispositivo" = "%lld of %lld on this device";
+"Nessun brano disponibile offline" = "No songs available offline";
+"Scarica questi brani per ascoltarli senza connessione." = "Download these songs to play them without a connection.";
+"Ancora nessun ascolto" = "Nothing played yet";
+"Qui compaiono gli ultimi %lld brani che avvii, dal più recente." = "The last %lld songs you start show up here, most recent first.";
+"Nessun brano scaricato" = "No downloaded songs";
+"Scarica brani, album o playlist: compaiono qui e si ascoltano anche offline." = "Download songs, albums or playlists: they show up here and play offline too.";
+"Metti il cuore ai brani: quelli che ascolti poco compariranno qui." = "Heart some songs: the ones you rarely play will show up here.";
+"Ascolti spesso tutti i tuoi preferiti" = "You often play all your favourites";
+"Nessun preferito rientra nella regola qui sopra." = "No favourite fits the rule above.";
+"Raccolte intelligenti" = "Smart collections";
+"Si aggiornano da sole sul dispositivo: aprile per vedere la regola di ciascuna." = "They update by themselves on this device: open one to see its rule.";
+"Raccolta intelligente · %lld brani" = "Smart collection · %lld songs";

@@ -924,3 +924,26 @@
 "Salvata come «%@»" = "Salva como “%@”";
 "Salva come nuova playlist" = "Salvar como nova playlist";
 "La playlist originale resta com'è; la nuova ha tutti i suoi brani." = "A playlist original fica como está; a nova tem todas as músicas dela.";
+
+/* Smart collections (Library) */
+"Scaricati" = "Baixadas";
+"Preferiti che ascolti poco" = "Favoritas que você ouve pouco";
+"Gli ultimi %lld brani che hai avviato, dal più recente, presi dalla cronologia." = "As últimas %lld músicas que você iniciou, da mais recente, tiradas do histórico.";
+"I brani scaricati il cui file è su questo dispositivo, dal più recente." = "As músicas baixadas cujo arquivo está neste dispositivo, da mais recente.";
+"Preferiti con al massimo un ascolto di almeno 30 secondi dal %@: da quel giorno Seaglass registra gli ascolti su questo dispositivo." = "Favoritas ouvidas no máximo uma vez por pelo menos 30 segundos desde %@: desde esse dia o Seaglass registra as audições neste dispositivo.";
+"Su questo dispositivo non ci sono ancora ascolti registrati: compaiono i preferiti che non sono nella cronologia." = "Ainda não há audições registradas neste dispositivo: aparecem as favoritas que não estão no histórico.";
+"Si aggiorna da sola su questo dispositivo." = "Atualiza-se sozinha neste dispositivo.";
+"Solo brani disponibili offline" = "Só músicas disponíveis offline";
+"%lld di %lld sul dispositivo" = "%lld de %lld no dispositivo";
+"Nessun brano disponibile offline" = "Nenhuma música disponível offline";
+"Scarica questi brani per ascoltarli senza connessione." = "Baixe estas músicas para ouvi-las sem conexão.";
+"Ancora nessun ascolto" = "Nada ouvido ainda";
+"Qui compaiono gli ultimi %lld brani che avvii, dal più recente." = "Aqui aparecem as últimas %lld músicas que você iniciar, da mais recente.";
+"Nessun brano scaricato" = "Nenhuma música baixada";
+"Scarica brani, album o playlist: compaiono qui e si ascoltano anche offline." = "Baixe músicas, álbuns ou playlists: aparecem aqui e tocam também offline.";
+"Metti il cuore ai brani: quelli che ascolti poco compariranno qui." = "Curta algumas músicas: as que você ouve pouco aparecerão aqui.";
+"Ascolti spesso tutti i tuoi preferiti" = "Você ouve sempre todas as suas favoritas";
+"Nessun preferito rientra nella regola qui sopra." = "Nenhuma favorita se encaixa na regra acima.";
+"Raccolte intelligenti" = "Coleções inteligentes";
+"Si aggiornano da sole sul dispositivo: aprile per vedere la regola di ciascuna." = "Atualizam-se sozinhas no dispositivo: abra uma para ver a regra dela.";
+"Raccolta intelligente · %lld brani" = "Coleção inteligente · %lld músicas";

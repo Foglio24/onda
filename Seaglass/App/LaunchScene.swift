@@ -43,6 +43,12 @@ enum LaunchScene {
     /// that the player bar stays over pages pushed there).
     static var opensPlaylistInLibrary: Bool { scene == "library-playlist" || opensMixOrder }
 
+    /// `smart:<recent | downloaded | forgottenFavourites>`: that smart collection opened in the library.
+    static var opensSmartCollection: SmartCollectionKind? {
+        guard let scene, scene.hasPrefix("smart:") else { return nil }
+        return SmartCollectionKind(rawValue: String(scene.dropFirst("smart:".count)))
+    }
+
     /// The playlist opened at launch shows "Ordina per il mix" (`mix-order`: songs made here, some
     /// downloaded and some not).
     static var opensMixOrder: Bool { scene == "mix-order" }
@@ -168,6 +174,13 @@ enum LaunchScene {
             // The Home's AutoMix demo, open over the Home (it makes and mixes its songs as it opens).
             select(.home)
             router.showAutoMixDemo = true
+        case "smart":
+            select(.library)
+        case "smart-check":
+            // CI (Tools/FeatureScenes/run.sh): the smart collections' rules on songs played, liked and
+            // downloaded here, whatever else the library holds.
+            select(.library)
+            Task { await smartCheck() }
         case "mix-order":
             // A playlist of songs made here, some downloaded and some not, with "Ordina per il mix" open.
             Task {
@@ -453,6 +466,67 @@ enum LaunchScene {
         default:
             select(.home)
         }
+    }
+
+    private static func smartCheck() async {
+        var failed = false
+        func expect(_ condition: Bool, _ text: String) {
+            print("smart: \(condition ? "ok" : "FAIL") \(text)")
+            if !condition { failed = true }
+        }
+        let library = Library.shared, log = ListeningLog.shared
+        let stamp = Int(Date.now.timeIntervalSince1970)
+        func track(_ name: String, _ index: Int) -> Track {
+            Track(videoId: "SeaglassSmart\(name)\(stamp)x\(index)", title: "\(name) \(index)", artists: ["Seaglass Demo"], duration: 200)
+        }
+        // Played: 55 songs, one after the other.
+        let played = (1...55).map { track("Played", $0) }
+        for song in played { library.recordPlay(song) }
+        let recent = SmartCollectionSource.tracks(.recent)
+        expect(recent.count == SmartCollections.recentLimit, "Ascoltati di recente holds the last \(SmartCollections.recentLimit) songs (\(recent.count))")
+        expect(recent.map(\.id) == played.reversed().prefix(SmartCollections.recentLimit).map(\.id), "the most recent first, as they started")
+
+        // Favourites: one listened to three times, one once, one only for a few seconds twice, one never.
+        let liked = (1...4).map { track("Liked", $0) }
+        for song in liked.reversed() where !library.isLiked(song) { library.toggleLike(song) }
+        func listen(_ song: Track, _ seconds: TimeInterval) {
+            log.start(song)
+            log.addListened(seconds)
+            log.close()
+        }
+        for _ in 0..<3 { listen(liked[0], 45) }
+        listen(liked[1], 45)
+        listen(liked[2], 8)
+        listen(liked[2], 8)
+        let forgotten = SmartCollectionSource.forgotten()
+        let ids = forgotten.tracks.map(\.id)
+        expect(!ids.contains(liked[0].id), "a favourite listened to three times is not listened to little")
+        expect(ids.contains(liked[1].id) && ids.contains(liked[2].id) && ids.contains(liked[3].id),
+               "once, a few seconds twice and never are listened to little")
+        if let once = ids.firstIndex(of: liked[1].id), let seconds = ids.firstIndex(of: liked[2].id), let never = ids.firstIndex(of: liked[3].id) {
+            expect(seconds < never && never < once, "the least listened first, then in the favourites' order (\(seconds), \(never), \(once))")
+        }
+        expect(forgotten.since != nil, "the rule says since when the log counts")
+
+        // Downloads: one with its file, one whose file has gone.
+        let kept = track("Downloaded", 1), gone = track("Downloaded", 2)
+        try? DemoSongs.write(to: Storage.audioFile(for: kept.videoId ?? ""), bpm: 120, root: 60, introBars: 0, seconds: 5)
+        library.addDownload(gone)
+        library.addDownload(kept)
+        let downloaded = SmartCollectionSource.tracks(.downloaded).map(\.id)
+        expect(downloaded.first == kept.id, "a song downloaded here is in Scaricati, the most recent first")
+        expect(!downloaded.contains(gone.id), "a download whose file has gone is not")
+        let offline = SmartCollections.availableOffline(liked + [kept], isOnDevice: SmartCollectionSource.isOnDevice).map(\.id)
+        expect(offline == [kept.id], "only the song on the device plays offline")
+
+        // Nothing is stored or synced: the library holds what it held, plus what was done here.
+        library.removeFromHistory(played)
+        for song in liked where library.isLiked(song) { library.toggleLike(song) }
+        library.removeDownload(kept)
+        library.removeDownload(gone)
+        try? FileManager.default.removeItem(at: Storage.audioFile(for: kept.videoId ?? ""))
+        print(failed ? "smart: FAIL" : "smart: PASS")
+        print("smart: done")
     }
 
     /// Nine songs: six made here and downloaded (124 to 128 BPM and 100 and 102, louder and quieter,
