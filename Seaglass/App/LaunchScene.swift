@@ -63,10 +63,10 @@ enum LaunchScene {
         let now = Date.now
         let monthStart = calendar.dateInterval(of: .month, for: now)?.start ?? now
         let span = max(3600, now.timeIntervalSince(monthStart) - 600)
-        func play(_ artist: String, _ title: String, at share: Double, listened: TimeInterval = 190, monthsAgo: Int = 0) -> ListenEvent {
+        func play(_ artist: String, _ title: String?, at share: Double, listened: TimeInterval = 190, monthsAgo: Int = 0) -> ListenEvent {
             let base = monthsAgo == 0 ? monthStart.addingTimeInterval(span * share)
                 : (calendar.date(byAdding: .day, value: -10 * monthsAgo, to: monthStart) ?? monthStart).addingTimeInterval(share * 3600)
-            return ListenEvent(videoId: "Preview-\(artist)-\(title)", artist: artist, date: base,
+            return ListenEvent(videoId: "Preview-\(artist)", artist: artist, date: base,
                                listened: listened, length: 200, skipped: listened < 30, title: title)
         }
         if few {
@@ -87,10 +87,11 @@ enum LaunchScene {
                 events.append(play(entry.0, entry.1, at: share / (total + 1)))
             }
         }
-        // A song left at once, and one taken up again after the app was closed: neither adds a listen.
+        // A song left at once, and one taken up again after the app was closed as versions before 1.37.0
+        // recorded it (two plays without a title): neither adds a listen.
         events.append(play("Afterglow", "Last Light", at: (total - 1) / (total + 1), listened: 6))
-        events.append(play("Tide Pools", "Salt Air", at: total / (total + 1), listened: 90))
-        events.append(play("Tide Pools", "Salt Air", at: total / (total + 1) + 0.001, listened: 80))
+        events.append(play("Tide Pools", nil, at: total / (total + 1), listened: 90))
+        events.append(play("Tide Pools", nil, at: total / (total + 1) + 0.001, listened: 80))
         return events.sorted { $0.date < $1.date }
     }
 

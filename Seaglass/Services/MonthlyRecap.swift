@@ -9,20 +9,20 @@ enum ListenHistory {
     }
 
     /// The log's plays with a song taken up again where it was left joined into one listen. Since
-    /// this version the player does it as it records (`ListeningLog.start(_:resuming:)`); the plays
-    /// recorded before were two when a session restored after the app was closed carried on: two
-    /// plays of the same song in a row, the second within 12 hours of the first, that together are
-    /// no longer than the song (and 15 seconds) are one listen. A song played whole twice stays two.
+    /// 1.37.0 the player does it as it records (`ListeningLog.start(_:resuming:)`), and its plays
+    /// (the ones with a title) are taken as they are: two are two listens. The plays recorded before
+    /// (no title) were two when a session restored after the app was closed carried on: two of them,
+    /// of the same song in a row, the second within 12 hours of the first, that together are no
+    /// longer than the song (and 15 seconds) are one listen. A song played whole twice stays two.
     static func merged(_ events: [ListenEvent]) -> [ListenEvent] {
         var result: [ListenEvent] = []
         result.reserveCapacity(events.count)
         for event in events {
-            if var last = result.last, last.videoId == event.videoId,
+            if var last = result.last, last.title == nil, event.title == nil, last.videoId == event.videoId,
                event.date >= last.date, event.date.timeIntervalSince(last.date) < 12 * 3600,
                last.listened + event.listened <= (last.length ?? event.length ?? .infinity) + 15 {
                 last.listened += event.listened
                 last.skipped = last.skipped && event.skipped
-                if last.title == nil { last.title = event.title }
                 result[result.count - 1] = last
             } else {
                 result.append(event)

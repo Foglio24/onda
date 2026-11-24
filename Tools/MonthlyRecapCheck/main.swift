@@ -1,7 +1,8 @@
 // Checks the monthly recap (Seaglass/Services/MonthlyRecap.swift):
 // - plays recorded before this version (no title) still decode, and new ones keep their title;
-// - a song taken up again where it was left is one listen; a song played whole twice is two; a pause
-//   of more than 12 hours, or another song between, keeps plays apart;
+// - in plays recorded before 1.37.0, a song taken up again where it was left is one listen; a song
+//   played whole twice is two; a pause of more than 12 hours, or another song between, keeps plays
+//   apart; plays recorded since (with a title) are taken as they are, the player joining resumed ones;
 // - the month counts only its own plays: listens (from 30 seconds), minutes (all the time listened),
 //   artists (one whatever their case), the top artists and songs (titles from the library for older
 //   plays, none invented);
@@ -50,6 +51,8 @@ expect(later.count == 2, "more than 12 hours apart: two plays")
 let between = ListenHistory.merged([play("s", "A", day(11, 3, 8), 60), play("t", "B", day(11, 3, 8, 5), 60),
                                     play("s", "A", day(11, 3, 8, 10), 60)])
 expect(between.count == 3, "another song between: three plays")
+let recorded = ListenHistory.merged([play("s", "A", day(11, 3, 20), 45, title: "S"), play("s", "A", day(11, 3, 20, 2), 45, title: "S")])
+expect(recorded.count == 2, "two plays recorded since 1.37.0 (with a title) are two listens: the player joins a resumed one itself")
 expect(ListenHistory.counts(play("x", "A", day(11, 1), 30)) && !ListenHistory.counts(play("x", "A", day(11, 1), 29)),
        "a listen counts from 30 seconds")
 
@@ -65,7 +68,8 @@ for d in 6...8 { events.append(play("b1", "beta ", day(11, d), 150)) }
 events += [play("g1", "Gamma", day(11, 9), 120, title: "Gamma Ray"), play("g1", "Gamma", day(11, 10), 120, title: "Gamma Ray"),
            play("d1", "Delta", day(11, 11), 100),
            play("e1", "Epsilon", day(11, 12), 5, title: "Gone"),
-           play("g2", "Gamma", day(11, 13, 22), 60, title: "Gamma Two"), play("g2", "Gamma", day(11, 14, 9), 70, title: "Gamma Two")]
+           // Recorded before 1.37.0 (no title): a session restored the next morning, one listen.
+           play("g2", "Gamma", day(11, 13, 22), 60), play("g2", "Gamma", day(11, 14, 9), 70)]
 // December: one play, not November's.
 events.append(play("a1", "Alpha", day(12, 1, 10), 200, title: "Alpha One"))
 let november = MonthlyRecap.make(events: events.shuffled(), month: day(11, 15), calendar: calendar) { $0 == "d1" ? "Delta Song" : nil }
