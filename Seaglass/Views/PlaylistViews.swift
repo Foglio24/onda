@@ -33,6 +33,8 @@ struct PlaylistDetailView: View {
     @State private var showPhotoPicker = false
     @State private var photoItem: PhotosPickerItem?
     @State private var showMix = false
+    /// "Ordina per il mix" (see `MixOrderView`).
+    @State private var showMixOrder = false
     @ObservedObject private var account = AccountService.shared
     /// The Mix is a Premium feature of its own: where Premium is needed and there is none, it explains it.
     @State private var paywall: PremiumFeature?
@@ -126,9 +128,19 @@ struct PlaylistDetailView: View {
         }
         .background { BrowseBackground() }
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear { PlaylistUsage.noteOpened(playlistID) }
+        .onAppear {
+            PlaylistUsage.noteOpened(playlistID)
+            if LaunchScene.opensMixOrder { showMixOrder = true }
+        }
         .photosPicker(isPresented: $showPhotoPicker, selection: $photoItem, matching: .images)
         .sheet(isPresented: $showMix) { PlaylistMixView(playlistID: playlistID).appEnvironment() }
+        .sheet(isPresented: $showMixOrder) {
+            if let playlist = library.playlist(playlistID) {
+                MixOrderView(playlist: playlist)
+                    .appEnvironment()
+                    .classicPageSheet(ProcessInfo.processInfo.isMacCatalystApp)
+            }
+        }
         .premiumPaywall($paywall)
         .onChange(of: photoItem) { _, item in
             guard let item else { return }
@@ -177,6 +189,11 @@ struct PlaylistDetailView: View {
             if playlist.tracks.count >= 2 {
                 Button { withAnimation { editMode = .active } } label: {
                     Label("Riordina i brani", systemImage: "arrow.up.arrow.down")
+                }
+            }
+            if playlist.tracks.count >= 3 {
+                Button { showMixOrder = true } label: {
+                    Label("Ordina per il mix", systemImage: "wand.and.stars")
                 }
             }
             if playlist.tracks.contains(where: { downloads.isDownloaded($0) }) {

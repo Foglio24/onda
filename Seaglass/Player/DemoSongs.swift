@@ -8,8 +8,10 @@ import Foundation
 /// (see `AutoMixDemo`).
 enum DemoSongs {
     /// One channel of a song: `seconds` long at `sampleRate`, quieter (0.35) for its first `introBars`
-    /// bars. The same samples every time for the same arguments.
-    static func samples(bpm: Double, root: Int, introBars: Int, seconds: Double, sampleRate rate: Double) -> [Float] {
+    /// bars, at `level`; `drums` false leaves one chord held throughout (a song without a beat). The same samples
+    /// every time for the same arguments.
+    static func samples(bpm: Double, root: Int, introBars: Int, seconds: Double, sampleRate rate: Double,
+                        level: Double = 0.8, drums: Bool = true) -> [Float] {
         let frames = Int(seconds * rate)
         var out = [Float](repeating: 0, count: frames)
         let beat = 60 / bpm
@@ -22,22 +24,23 @@ enum DemoSongs {
                 let sinceBeat = time - Double(beatIndex) * beat
                 let accent: Double = beatIndex % 4 == 0 ? 1.3 : 1
                 let sweep: Double = 50 + 80 * exp(-sinceBeat * 40)
-                value += 0.7 * sin(2 * Double.pi * sweep * sinceBeat) * exp(-sinceBeat * 16) * accent
+                if drums { value += 0.7 * sin(2 * Double.pi * sweep * sinceBeat) * exp(-sinceBeat * 16) * accent }
                 let sinceHat = sinceBeat - beat / 2
-                if sinceHat >= 0 {
+                if drums, sinceHat >= 0 {
                     noise = noise &* 1_664_525 &+ 1_013_904_223
                     value += 0.12 * (Double(noise >> 8) / Double(1 << 24) * 2 - 1) * exp(-sinceHat * 60)
                 }
                 let bar = beatIndex / 4
-                let chord = [root, root + 5, root + 7, root][bar % 4]
-                let sinceBar = time - Double(bar) * 4 * beat
+                // Without drums, one chord held throughout (no change of chord to hear as a beat either).
+                let chord = drums ? [root, root + 5, root + 7, root][bar % 4] : root
+                let sinceBar = drums ? time - Double(bar) * 4 * beat : time
                 for interval in [0, 4, 7] {
                     let pitch = 440 * pow(2, Double(chord + interval - 69) / 12)
                     value += 0.06 * sin(2 * Double.pi * pitch * sinceBar)
                 }
                 if bar < introBars { value *= 0.35 }
             }
-            out[frame] = Float(value * 0.8)
+            out[frame] = Float(value * level)
         }
         return out
     }
@@ -62,9 +65,10 @@ enum DemoSongs {
     /// Writes a song to `url` (see `samples`), in both channels, as AAC (`alac`: ALAC, 16 bit, as the
     /// "Massima" downloads are kept). Returns its body's level.
     @discardableResult
-    static func write(to url: URL, bpm: Double, root: Int, introBars: Int, seconds: Double = 72, alac: Bool = false) throws -> Level {
+    static func write(to url: URL, bpm: Double, root: Int, introBars: Int, seconds: Double = 72, alac: Bool = false,
+                      level: Double = 0.8, drums: Bool = true) throws -> Level {
         let rate = 44_100.0
-        let mono = samples(bpm: bpm, root: root, introBars: introBars, seconds: seconds, sampleRate: rate)
+        let mono = samples(bpm: bpm, root: root, introBars: introBars, seconds: seconds, sampleRate: rate, level: level, drums: drums)
         guard let format = AVAudioFormat(standardFormatWithSampleRate: rate, channels: 2),
               let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(mono.count)),
               let channels = buffer.floatChannelData else { throw CocoaError(.fileWriteUnknown) }

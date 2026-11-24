@@ -5,6 +5,9 @@
 # - automix-demo-check: the Home's AutoMix demo played over a queue that plays, then closed: the
 #   queue, its song and its position as they were, playing on; a paused queue stays paused; the
 #   demo's songs never in the history.
+# - mix-order-check: "Ordina per il mix" on a playlist analysed in part (two songs not downloaded,
+#   one unreadable file, one song without a beat): the six on the device ordered, the others kept at
+#   the end, nothing invented, a passage heard, every song in the new playlist, the original unchanged.
 # Usage: bash Tools/FeatureScenes/run.sh <Seaglass.app>
 set -uo pipefail
 app="$1"
@@ -34,5 +37,6 @@ run() {
 }
 
 run automix-demo-check automix-demo 300
+run mix-order-check mix-order 300
 rm -rf "$work"
 exit "$failed"

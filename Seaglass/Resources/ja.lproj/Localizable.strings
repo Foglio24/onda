@@ -894,3 +894,33 @@
 "Con le tue impostazioni di AutoMix questi brani non si mixano: la demo usa quelle predefinite." = "現在のAutoMix設定ではこの2曲はミックスされないため、デモは既定の設定を使います。";
 "AutoMix sui tuoi brani fa parte di Premium: la prova gratuita vale solo per i brani demo." = "自分の曲でのAutoMixはPremiumの機能です。無料のデモはデモ曲だけが対象です。";
 "Lo stesso passaggio, normale e mixato. Anche offline." = "同じつなぎを通常とミックスで。オフラインでも。";
+
+/* Ordina per il mix (playlists) */
+"Ordina per il mix" = "ミックス用に並べ替え";
+"Ordine" = "並び順";
+"Fluido" = "スムーズ";
+"Energia crescente" = "だんだん盛り上がる";
+"Brani vicini per tempo, tonalità ed energia: ogni passaggio il più morbido possibile." = "テンポ・キー・エネルギーが近い曲を隣に。どのつなぎもできるだけなめらかに。";
+"Dal brano più calmo al più energico, misurati dall'analisi di AutoMix." = "AutoMixの解析にもとづき、いちばん穏やかな曲からいちばんエネルギッシュな曲へ。";
+"Ordine suggerito" = "おすすめの並び順";
+"Senza analisi" = "未解析";
+"Questi brani non sono sul dispositivo o non si possono analizzare: restano in fondo, nell'ordine della playlist, e nessun valore viene inventato. Scaricali per includerli." = "これらの曲はデバイスにないか解析できません。プレイリストの順のまま最後に置かれ、値を推測で補うことはありません。含めるにはダウンロードしてください。";
+"Analisi dei brani sul dispositivo: %lld di %lld" = "デバイス上の曲を解析中：%lld / %lld";
+"Analizzati %lld brani di %lld" = "%lld / %lld 曲を解析済み";
+"Passaggi a tempo: %lld di %lld (prima %lld)" = "テンポが合うつなぎ：%lld / %lld（変更前 %lld）";
+"Passaggi in tonalità: %lld di %lld (prima %lld)" = "キーが合うつなぎ：%lld / %lld（変更前 %lld）";
+"Senza Premium i passaggi si ascoltano un brano dopo l'altro; con AutoMix li senti mixati." = "Premiumがない場合、つなぎは1曲ずつ再生されます。AutoMixならミックスで聴けます。";
+"Non scaricato" = "未ダウンロード";
+"Analisi non riuscita" = "解析できません";
+"Tempo incerto" = "テンポ不明";
+"Tonalità incerta" = "キー不明";
+"Energia %lld su 5" = "エネルギー %lld/5";
+"Passaggio non disponibile" = "つなぎを再生できません";
+"Preparazione del passaggio…" = "つなぎを準備中…";
+"In ascolto del passaggio" = "つなぎを再生中";
+"Ascolta il passaggio" = "つなぎを聴く";
+"A tempo" = "テンポが合う";
+"In tonalità" = "キーが合う";
+"Salvata come «%@»" = "「%@」として保存しました";
+"Salva come nuova playlist" = "新しいプレイリストとして保存";
+"La playlist originale resta com'è; la nuova ha tutti i suoi brani." = "元のプレイリストはそのまま残り、新しいプレイリストにすべての曲が入ります。";

@@ -42,26 +42,11 @@ enum AutoMixDemo {
         return (songs.map(file(of:)), DemoSongs.matchedGains(levels))
     }
 
-    /// The request the player would make for these two songs, with the listener's AutoMix settings.
+    /// The request the player would make for these two songs, with the listener's AutoMix settings
+    /// or (`settings` false) AutoMix's defaults.
     static func request(_ outgoing: TrackAnalysis, _ incoming: TrackAnalysis, settings: Bool) -> SegueRequest {
-        var request = DemoSongs.autoMixRequest(outgoing, incoming)
-        guard settings else { return request }
-        var tuning = SegueTuning()
-        tuning.maxRateChange = Preferences.autoMixTempoBend.maxRateChange
-        if Preferences.mixLabVocals {
-            tuning.voiceOverlapMax = 0.25
-            tuning.penaltyVoice *= 2
-        }
-        request.harmonic = Preferences.autoMixHarmonic
-        request.length = Preferences.mixLength
-        request.eq = Preferences.autoMixEqualiser
-        request.tuning = tuning
-        request.families = Preferences.autoMixStyle.families
-        request.bassHandover = Preferences.mixLabBass
-        request.echoes = Preferences.mixLabEcho
-        request.fadeOnBeat = Preferences.mixLabBeatFade
-        request.byEnergy = Preferences.mixLabEnergy
-        return request
+        guard settings else { return DemoSongs.autoMixRequest(outgoing, incoming) }
+        return .withListenerSettings(outgoing, incoming, earliestExit: DemoSongs.autoMixEarliestExit)
     }
 
     struct Prepared: Sendable {
@@ -109,5 +94,30 @@ enum AutoMixDemo {
         let mixed = try await TransitionClipMaker.autoMix(plan, outgoing: urls[0], incoming: urls[1], gains: pair,
                                                           to: folder.appending(path: "automix.caf"))
         return Prepared(analyses: [outgoing, incoming], plain: plain, autoMix: mixed, plan: plan, usedDefaults: usedDefaults)
+    }
+}
+
+extension SegueRequest {
+    /// What the player asks of AutoMix for two songs, with Settings › AutoMix as the listener has it
+    /// (the style, the tempo's bend, the keys, the length, Mix Lab), for songs heard outside the queue.
+    static func withListenerSettings(_ outgoing: TrackAnalysis, _ incoming: TrackAnalysis, earliestExit: Double) -> SegueRequest {
+        var request = SegueRequest(outgoing: SegueSong(outgoing, voices: nil), incoming: SegueSong(incoming, voices: nil),
+                                   earliestExit: earliestExit)
+        var tuning = SegueTuning()
+        tuning.maxRateChange = Preferences.autoMixTempoBend.maxRateChange
+        if Preferences.mixLabVocals {
+            tuning.voiceOverlapMax = 0.25
+            tuning.penaltyVoice *= 2
+        }
+        request.harmonic = Preferences.autoMixHarmonic
+        request.length = Preferences.mixLength
+        request.eq = Preferences.autoMixEqualiser
+        request.tuning = tuning
+        request.families = Preferences.autoMixStyle.families
+        request.bassHandover = Preferences.mixLabBass
+        request.echoes = Preferences.mixLabEcho
+        request.fadeOnBeat = Preferences.mixLabBeatFade
+        request.byEnergy = Preferences.mixLabEnergy
+        return request
     }
 }

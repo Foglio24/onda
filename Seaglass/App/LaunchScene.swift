@@ -41,7 +41,11 @@ enum LaunchScene {
 
     /// Library → the first playlist is opened at launch, pushed inside the library (CI's Mac check
     /// that the player bar stays over pages pushed there).
-    static var opensPlaylistInLibrary: Bool { scene == "library-playlist" }
+    static var opensPlaylistInLibrary: Bool { scene == "library-playlist" || opensMixOrder }
+
+    /// The playlist opened at launch shows "Ordina per il mix" (`mix-order`: songs made here, some
+    /// downloaded and some not).
+    static var opensMixOrder: Bool { scene == "mix-order" }
 
     /// Settings → Account is opened at launch, signed in with `-SeaglassAccountToken` (a session CI
     /// makes on the account service for Tools/MacAccountCheck).
@@ -164,6 +168,16 @@ enum LaunchScene {
             // The Home's AutoMix demo, open over the Home (it makes and mixes its songs as it opens).
             select(.home)
             router.showAutoMixDemo = true
+        case "mix-order":
+            // A playlist of songs made here, some downloaded and some not, with "Ordina per il mix" open.
+            Task {
+                _ = await makeMixOrderPlaylist()
+                select(.library)
+            }
+        case "mix-order-check":
+            // CI (Tools/FeatureScenes/run.sh): the order suggested for a playlist analysed in part.
+            select(.library)
+            Task { await mixOrderCheck() }
         case "automix-demo-check":
             // CI (Tools/FeatureScenes/run.sh): the demo played over a queue that plays, then closed. The
             // queue, its song and its position must be as they were, playing on; a queue that was
@@ -439,6 +453,100 @@ enum LaunchScene {
         default:
             select(.home)
         }
+    }
+
+    /// Nine songs: six made here and downloaded (124 to 128 BPM and 100 and 102, louder and quieter,
+    /// the last without a beat), two not downloaded and one whose file can't be read, in an order
+    /// that mixes badly.
+    private static func makeMixOrderPlaylist() async -> Playlist {
+        struct Made: Sendable { let id: String, title: String, bpm: Double, root: Int, level: Double, drums: Bool }
+        let made = [Made(id: "SeaglassOrderA", title: "Harbour Lights", bpm: 128, root: 57, level: 0.8, drums: true),
+                    Made(id: "SeaglassOrderB", title: "Slow Tide", bpm: 100, root: 60, level: 0.45, drums: true),
+                    Made(id: "SeaglassOrderC", title: "Night Ferry", bpm: 126, root: 64, level: 0.9, drums: true),
+                    Made(id: "SeaglassOrderD", title: "Low Clouds", bpm: 102, root: 62, level: 0.4, drums: true),
+                    Made(id: "SeaglassOrderE", title: "Signal Fire", bpm: 124, root: 55, level: 0.7, drums: true),
+                    Made(id: "SeaglassOrderF", title: "Still Water", bpm: 90, root: 65, level: 0.3, drums: false)]
+        await Task.detached(priority: .userInitiated) {
+            for song in made where !Storage.audioFileExists(videoId: song.id) {
+                try? DemoSongs.write(to: Storage.audioFile(for: song.id), bpm: song.bpm, root: song.root, introBars: 0,
+                                     seconds: 75, level: song.level, drums: song.drums)
+            }
+            // Not a song at all: its analysis must fail, and the song still stay in the playlist.
+            try? Data(repeating: 0x5A, count: 4096).write(to: Storage.audioFile(for: "SeaglassOrderBroken"))
+        }.value
+        func track(_ id: String, _ title: String) -> Track {
+            Track(videoId: id, title: title, artists: ["Seaglass Demo"], duration: 75)
+        }
+        let songs = made.map { track($0.id, $0.title) }
+        let tracks = [songs[0], songs[1], songs[2], track("SeaglassOrderNotHere1", "Open Sea"), songs[3],
+                      track("SeaglassOrderBroken", "Broken File"), songs[4], track("SeaglassOrderNotHere2", "Far Shore"), songs[5]]
+        if let old = Library.shared.playlists.first(where: { $0.name == "Mix order demo" }) {
+            Library.shared.deletePlaylist(old.id)
+        }
+        return Library.shared.createPlaylist(named: "Mix order demo", tracks: tracks)
+    }
+
+    private static func mixOrderCheck() async {
+        var failed = false
+        func expect(_ condition: Bool, _ text: String) {
+            print("mix-order: \(condition ? "ok" : "FAIL") \(text)")
+            if !condition { failed = true }
+        }
+        let playlist = await makeMixOrderPlaylist()
+        let before = playlist.tracks.map(\.id)
+        let model = MixOrderModel(playlist: playlist)
+        model.start()
+        for _ in 0..<240 where model.isAnalysing { try? await Task.sleep(for: .milliseconds(500)) }
+        let status = model.songs.map(\.status)
+        expect(!model.isAnalysing, "the analysis finishes")
+        expect(status.filter { $0 == .analysed }.count == 6, "the six songs on the device are analysed (\(status))")
+        expect(status.filter { $0 == .notOnDevice }.count == 2, "the two songs not downloaded are not analysed")
+        expect(model.songs[5].status == .failed, "the unreadable file is a failed analysis, not a guess")
+        expect(model.songs[8].features?.tempo == nil, "the song without a beat has no tempo (not an invented one)")
+        for song in model.songs where song.features != nil {
+            print("mix-order: \(song.track.title): tempo \(song.features?.tempo.map { String(format: "%.1f", $0) } ?? "-"), "
+                  + "key \(song.features?.camelotCode ?? "-"), energy \(song.features?.energy.map { String(format: "%.1f dB", $0) } ?? "-")")
+        }
+        let features = Dictionary(uniqueKeysWithValues: model.songs.compactMap { song in song.features.map { (song.position, $0) } })
+
+        model.mode = .smooth
+        let smooth = model.suggestion
+        expect(smooth.placed.count == 6 && smooth.unplaced == [3, 5, 7],
+               "Fluido orders the six and keeps the other three at the end in the playlist's order (\(smooth.order))")
+        expect(smooth.placed.first == 0, "Fluido starts from the playlist's first song")
+        let original = model.originalOrder.filter { features[$0] != nil }
+        let costBefore = MixOrder.totalCost(original, features: features), costAfter = MixOrder.totalCost(smooth.placed, features: features)
+        expect(costAfter <= costBefore + 1e-9, String(format: "Fluido is smoother than the playlist's order (%.2f, before %.2f)", costAfter, costBefore))
+        let summaryBefore = model.summary(of: model.originalOrder), summaryAfter = model.summary(of: smooth.order)
+        print("mix-order: Fluido \(smooth.order), tempo \(summaryAfter.tempoClose)/\(summaryAfter.tempoPairs) "
+              + "(before \(summaryBefore.tempoClose)/\(summaryBefore.tempoPairs)), keys \(summaryAfter.keysMatch)/\(summaryAfter.keyPairs)")
+        expect(summaryAfter.tempoClose >= summaryBefore.tempoClose, "Fluido has at least as many passages at tempo")
+
+        model.mode = .rising
+        let rising = model.suggestion
+        let energies = rising.placed.compactMap { features[$0]?.energy }
+        expect(rising.placed.count == 6 && rising.unplaced == [3, 5, 7], "Energia crescente orders the six (\(rising.order))")
+        expect(zip(energies, energies.dropFirst()).allSatisfy { $0 <= $1 },
+               "Energia crescente never steps down (\(energies.map { String(format: "%.1f", $0) }))")
+
+        // A passage between the first two songs of the order, heard and stopped.
+        if rising.placed.count >= 2 {
+            model.togglePassage(from: rising.placed[0], to: rising.placed[1])
+            for _ in 0..<120 where model.player.playing == nil && !model.failedPassages.contains(MixOrderModel.key(rising.placed[0], rising.placed[1])) {
+                try? await Task.sleep(for: .milliseconds(500))
+            }
+            expect(model.player.playing == MixOrderModel.key(rising.placed[0], rising.placed[1]), "a passage plays")
+            model.player.stop()
+        }
+
+        let saved = model.save(named: "Mix order demo · Energia crescente")
+        expect(saved?.tracks.count == playlist.tracks.count && Set(saved?.tracks.map(\.id) ?? []) == Set(before),
+               "the new playlist has every song (\(saved?.tracks.count ?? 0) of \(playlist.tracks.count))")
+        expect(saved?.tracks.map(\.id) == rising.order.map { before[$0] }, "the new playlist is in the suggested order")
+        expect(Library.shared.playlist(playlist.id)?.tracks.map(\.id) == before, "the playlist itself is unchanged")
+        model.close()
+        print(failed ? "mix-order: FAIL" : "mix-order: PASS")
+        print("mix-order: done")
     }
 
     private static func automixDemoCheck(_ router: AppRouter) async {

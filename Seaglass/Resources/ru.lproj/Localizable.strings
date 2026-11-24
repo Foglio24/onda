@@ -894,3 +894,33 @@
 "Con le tue impostazioni di AutoMix questi brani non si mixano: la demo usa quelle predefinite." = "С вашими настройками AutoMix эти треки не сводятся: демо использует настройки по умолчанию.";
 "AutoMix sui tuoi brani fa parte di Premium: la prova gratuita vale solo per i brani demo." = "AutoMix для ваших треков входит в Premium: бесплатное демо касается только демо-треков.";
 "Lo stesso passaggio, normale e mixato. Anche offline." = "Один и тот же переход — обычный и сведённый. Даже офлайн.";
+
+/* Ordina per il mix (playlists) */
+"Ordina per il mix" = "Сортировать для микса";
+"Ordine" = "Порядок";
+"Fluido" = "Плавно";
+"Energia crescente" = "Нарастающая энергия";
+"Brani vicini per tempo, tonalità ed energia: ogni passaggio il più morbido possibile." = "Рядом треки, близкие по темпу, тональности и энергии: каждый переход как можно мягче.";
+"Dal brano più calmo al più energico, misurati dall'analisi di AutoMix." = "От самого спокойного трека к самому энергичному — по анализу AutoMix.";
+"Ordine suggerito" = "Предлагаемый порядок";
+"Senza analisi" = "Без анализа";
+"Questi brani non sono sul dispositivo o non si possono analizzare: restano in fondo, nell'ordine della playlist, e nessun valore viene inventato. Scaricali per includerli." = "Этих треков нет на устройстве или их нельзя проанализировать: они остаются в конце в порядке плейлиста, и никакие значения не выдумываются. Скачайте их, чтобы включить.";
+"Analisi dei brani sul dispositivo: %lld di %lld" = "Анализ треков на устройстве: %lld из %lld";
+"Analizzati %lld brani di %lld" = "Проанализировано треков: %lld из %lld";
+"Passaggi a tempo: %lld di %lld (prima %lld)" = "Переходы в темпе: %lld из %lld (было %lld)";
+"Passaggi in tonalità: %lld di %lld (prima %lld)" = "Переходы в тональности: %lld из %lld (было %lld)";
+"Senza Premium i passaggi si ascoltano un brano dopo l'altro; con AutoMix li senti mixati." = "Без Premium переходы звучат трек за треком; с AutoMix вы слышите их сведёнными.";
+"Non scaricato" = "Не скачан";
+"Analisi non riuscita" = "Ошибка анализа";
+"Tempo incerto" = "Темп неясен";
+"Tonalità incerta" = "Тональность неясна";
+"Energia %lld su 5" = "Энергия %lld из 5";
+"Passaggio non disponibile" = "Переход недоступен";
+"Preparazione del passaggio…" = "Подготовка перехода…";
+"In ascolto del passaggio" = "Звучит переход";
+"Ascolta il passaggio" = "Прослушать переход";
+"A tempo" = "В темпе";
+"In tonalità" = "В тональности";
+"Salvata come «%@»" = "Сохранено как «%@»";
+"Salva come nuova playlist" = "Сохранить как новый плейлист";
+"La playlist originale resta com'è; la nuova ha tutti i suoi brani." = "Исходный плейлист остаётся как есть; в новом — все его треки.";

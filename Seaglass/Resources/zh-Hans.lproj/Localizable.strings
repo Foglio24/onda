@@ -894,3 +894,33 @@
 "Con le tue impostazioni di AutoMix questi brani non si mixano: la demo usa quelle predefinite." = "按你的 AutoMix 设置，这两首歌无法混音：演示使用默认设置。";
 "AutoMix sui tuoi brani fa parte di Premium: la prova gratuita vale solo per i brani demo." = "在你自己的歌曲上使用 AutoMix 属于 Premium：免费试听仅限演示歌曲。";
 "Lo stesso passaggio, normale e mixato. Anche offline." = "同一个过渡，普通与混音对比。离线也能用。";
+
+/* Ordina per il mix (playlists) */
+"Ordina per il mix" = "按混音排序";
+"Ordine" = "顺序";
+"Fluido" = "流畅";
+"Energia crescente" = "能量渐强";
+"Brani vicini per tempo, tonalità ed energia: ogni passaggio il più morbido possibile." = "把速度、调性和能量相近的歌曲排在一起：每个过渡都尽量平滑。";
+"Dal brano più calmo al più energico, misurati dall'analisi di AutoMix." = "从最平静的歌曲到最有活力的歌曲，依据 AutoMix 的分析。";
+"Ordine suggerito" = "建议顺序";
+"Senza analisi" = "未分析";
+"Questi brani non sono sul dispositivo o non si possono analizzare: restano in fondo, nell'ordine della playlist, e nessun valore viene inventato. Scaricali per includerli." = "这些歌曲不在设备上或无法分析：它们按播放列表的顺序留在最后，不会编造任何数值。下载后即可纳入。";
+"Analisi dei brani sul dispositivo: %lld di %lld" = "正在分析设备上的歌曲：%lld / %lld";
+"Analizzati %lld brani di %lld" = "已分析 %lld / %lld 首歌曲";
+"Passaggi a tempo: %lld di %lld (prima %lld)" = "速度相合的过渡：%lld / %lld（之前 %lld）";
+"Passaggi in tonalità: %lld di %lld (prima %lld)" = "调性相合的过渡：%lld / %lld（之前 %lld）";
+"Senza Premium i passaggi si ascoltano un brano dopo l'altro; con AutoMix li senti mixati." = "没有 Premium 时过渡按一首接一首播放；使用 AutoMix 可听到混音效果。";
+"Non scaricato" = "未下载";
+"Analisi non riuscita" = "分析失败";
+"Tempo incerto" = "速度不确定";
+"Tonalità incerta" = "调性不确定";
+"Energia %lld su 5" = "能量 %lld/5";
+"Passaggio non disponibile" = "过渡不可用";
+"Preparazione del passaggio…" = "正在准备过渡…";
+"In ascolto del passaggio" = "正在播放过渡";
+"Ascolta il passaggio" = "试听过渡";
+"A tempo" = "速度相合";
+"In tonalità" = "调性相合";
+"Salvata come «%@»" = "已保存为“%@”";
+"Salva come nuova playlist" = "存为新的播放列表";
+"La playlist originale resta com'è; la nuova ha tutti i suoi brani." = "原播放列表保持不变；新列表包含其全部歌曲。";

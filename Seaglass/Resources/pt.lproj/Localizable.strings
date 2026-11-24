@@ -894,3 +894,33 @@
 "Con le tue impostazioni di AutoMix questi brani non si mixano: la demo usa quelle predefinite." = "Com suas configurações do AutoMix estas músicas não se mixam: a demo usa as padrão.";
 "AutoMix sui tuoi brani fa parte di Premium: la prova gratuita vale solo per i brani demo." = "O AutoMix nas suas músicas faz parte do Premium: a demo gratuita vale só para as músicas de demo.";
 "Lo stesso passaggio, normale e mixato. Anche offline." = "A mesma transição, normal e mixada. Também offline.";
+
+/* Ordina per il mix (playlists) */
+"Ordina per il mix" = "Ordenar para o mix";
+"Ordine" = "Ordem";
+"Fluido" = "Fluido";
+"Energia crescente" = "Energia crescente";
+"Brani vicini per tempo, tonalità ed energia: ogni passaggio il più morbido possibile." = "Músicas próximas em andamento, tom e energia: cada transição o mais suave possível.";
+"Dal brano più calmo al più energico, misurati dall'analisi di AutoMix." = "Da música mais calma à mais enérgica, conforme a análise do AutoMix.";
+"Ordine suggerito" = "Ordem sugerida";
+"Senza analisi" = "Sem análise";
+"Questi brani non sono sul dispositivo o non si possono analizzare: restano in fondo, nell'ordine della playlist, e nessun valore viene inventato. Scaricali per includerli." = "Estas músicas não estão no dispositivo ou não podem ser analisadas: ficam no fim, na ordem da playlist, e nenhum valor é inventado. Baixe-as para incluí-las.";
+"Analisi dei brani sul dispositivo: %lld di %lld" = "Analisando as músicas do dispositivo: %lld de %lld";
+"Analizzati %lld brani di %lld" = "%lld de %lld músicas analisadas";
+"Passaggi a tempo: %lld di %lld (prima %lld)" = "Transições no andamento: %lld de %lld (antes: %lld)";
+"Passaggi in tonalità: %lld di %lld (prima %lld)" = "Transições no tom: %lld de %lld (antes: %lld)";
+"Senza Premium i passaggi si ascoltano un brano dopo l'altro; con AutoMix li senti mixati." = "Sem Premium as transições tocam uma música depois da outra; com o AutoMix você as ouve mixadas.";
+"Non scaricato" = "Não baixada";
+"Analisi non riuscita" = "Falha na análise";
+"Tempo incerto" = "Andamento incerto";
+"Tonalità incerta" = "Tom incerto";
+"Energia %lld su 5" = "Energia %lld de 5";
+"Passaggio non disponibile" = "Transição indisponível";
+"Preparazione del passaggio…" = "Preparando a transição…";
+"In ascolto del passaggio" = "Ouvindo a transição";
+"Ascolta il passaggio" = "Ouvir a transição";
+"A tempo" = "No andamento";
+"In tonalità" = "No tom";
+"Salvata come «%@»" = "Salva como “%@”";
+"Salva come nuova playlist" = "Salvar como nova playlist";
+"La playlist originale resta com'è; la nuova ha tutti i suoi brani." = "A playlist original fica como está; a nova tem todas as músicas dela.";

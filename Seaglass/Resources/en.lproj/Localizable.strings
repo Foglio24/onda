@@ -973,3 +973,33 @@
 "Con le tue impostazioni di AutoMix questi brani non si mixano: la demo usa quelle predefinite." = "With your AutoMix settings these songs don't mix: the demo uses the default ones.";
 "AutoMix sui tuoi brani fa parte di Premium: la prova gratuita vale solo per i brani demo." = "AutoMix on your own songs is part of Premium: the free demo covers only the demo songs.";
 "Lo stesso passaggio, normale e mixato. Anche offline." = "The same transition, plain and mixed. Offline too.";
+
+/* Ordina per il mix (playlists) */
+"Ordina per il mix" = "Sort for mixing";
+"Ordine" = "Order";
+"Fluido" = "Smooth";
+"Energia crescente" = "Rising energy";
+"Brani vicini per tempo, tonalità ed energia: ogni passaggio il più morbido possibile." = "Songs close in tempo, key and energy side by side: every transition as smooth as it can be.";
+"Dal brano più calmo al più energico, misurati dall'analisi di AutoMix." = "From the calmest song to the most energetic, as AutoMix's analysis measures them.";
+"Ordine suggerito" = "Suggested order";
+"Senza analisi" = "Not analysed";
+"Questi brani non sono sul dispositivo o non si possono analizzare: restano in fondo, nell'ordine della playlist, e nessun valore viene inventato. Scaricali per includerli." = "These songs aren't on this device or can't be analysed: they stay at the end, in the playlist's order, and no value is made up. Download them to include them.";
+"Analisi dei brani sul dispositivo: %lld di %lld" = "Analysing the songs on this device: %lld of %lld";
+"Analizzati %lld brani di %lld" = "%lld of %lld songs analysed";
+"Passaggi a tempo: %lld di %lld (prima %lld)" = "Transitions in tempo: %lld of %lld (before: %lld)";
+"Passaggi in tonalità: %lld di %lld (prima %lld)" = "Transitions in key: %lld of %lld (before: %lld)";
+"Senza Premium i passaggi si ascoltano un brano dopo l'altro; con AutoMix li senti mixati." = "Without Premium the transitions play one song after the other; with AutoMix you hear them mixed.";
+"Non scaricato" = "Not downloaded";
+"Analisi non riuscita" = "Analysis failed";
+"Tempo incerto" = "Tempo unclear";
+"Tonalità incerta" = "Key unclear";
+"Energia %lld su 5" = "Energy %lld of 5";
+"Passaggio non disponibile" = "Transition not available";
+"Preparazione del passaggio…" = "Preparing the transition…";
+"In ascolto del passaggio" = "Playing the transition";
+"Ascolta il passaggio" = "Hear the transition";
+"A tempo" = "In tempo";
+"In tonalità" = "In key";
+"Salvata come «%@»" = "Saved as “%@”";
+"Salva come nuova playlist" = "Save as a new playlist";
+"La playlist originale resta com'è; la nuova ha tutti i suoi brani." = "The original playlist stays as it is; the new one has all of its songs.";

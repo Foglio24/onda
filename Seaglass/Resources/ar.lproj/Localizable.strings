@@ -894,3 +894,33 @@
 "Con le tue impostazioni di AutoMix questi brani non si mixano: la demo usa quelle predefinite." = "بإعدادات AutoMix الخاصة بك لا تُمزج هاتان الأغنيتان: يستخدم العرض الإعدادات الافتراضية.";
 "AutoMix sui tuoi brani fa parte di Premium: la prova gratuita vale solo per i brani demo." = "AutoMix على أغانيك جزء من Premium: العرض المجاني يقتصر على الأغاني التجريبية.";
 "Lo stesso passaggio, normale e mixato. Anche offline." = "الانتقال نفسه، عاديًا وممزوجًا. حتى دون اتصال.";
+
+/* Ordina per il mix (playlists) */
+"Ordina per il mix" = "رتّب للمزج";
+"Ordine" = "الترتيب";
+"Fluido" = "سلس";
+"Energia crescente" = "طاقة متصاعدة";
+"Brani vicini per tempo, tonalità ed energia: ogni passaggio il più morbido possibile." = "أغانٍ متقاربة في الإيقاع والمقام والطاقة متجاورة: كل انتقال سلس قدر الإمكان.";
+"Dal brano più calmo al più energico, misurati dall'analisi di AutoMix." = "من الأغنية الأهدأ إلى الأكثر حيوية، كما يقيسها تحليل AutoMix.";
+"Ordine suggerito" = "الترتيب المقترح";
+"Senza analisi" = "دون تحليل";
+"Questi brani non sono sul dispositivo o non si possono analizzare: restano in fondo, nell'ordine della playlist, e nessun valore viene inventato. Scaricali per includerli." = "هذه الأغاني ليست على الجهاز أو لا يمكن تحليلها: تبقى في النهاية بترتيب قائمة التشغيل، ولا تُختلق أي قيمة. نزّلها لتضمينها.";
+"Analisi dei brani sul dispositivo: %lld di %lld" = "جارٍ تحليل الأغاني على الجهاز: %lld من %lld";
+"Analizzati %lld brani di %lld" = "تم تحليل %lld من %lld أغنية";
+"Passaggi a tempo: %lld di %lld (prima %lld)" = "انتقالات على الإيقاع: %lld من %lld (قبل: %lld)";
+"Passaggi in tonalità: %lld di %lld (prima %lld)" = "انتقالات على المقام: %lld من %lld (قبل: %lld)";
+"Senza Premium i passaggi si ascoltano un brano dopo l'altro; con AutoMix li senti mixati." = "بدون Premium تُسمع الانتقالات أغنية تلو الأخرى؛ ومع AutoMix تسمعها ممزوجة.";
+"Non scaricato" = "غير منزّلة";
+"Analisi non riuscita" = "فشل التحليل";
+"Tempo incerto" = "الإيقاع غير واضح";
+"Tonalità incerta" = "المقام غير واضح";
+"Energia %lld su 5" = "الطاقة %lld من 5";
+"Passaggio non disponibile" = "الانتقال غير متاح";
+"Preparazione del passaggio…" = "جارٍ تحضير الانتقال…";
+"In ascolto del passaggio" = "يُشغَّل الانتقال";
+"Ascolta il passaggio" = "استمع إلى الانتقال";
+"A tempo" = "على الإيقاع";
+"In tonalità" = "على المقام";
+"Salvata come «%@»" = "حُفظت باسم «%@»";
+"Salva come nuova playlist" = "احفظ كقائمة تشغيل جديدة";
+"La playlist originale resta com'è; la nuova ha tutti i suoi brani." = "تبقى قائمة التشغيل الأصلية كما هي؛ والجديدة تضم كل أغانيها.";

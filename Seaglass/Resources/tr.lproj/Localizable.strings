@@ -894,3 +894,33 @@
 "Con le tue impostazioni di AutoMix questi brani non si mixano: la demo usa quelle predefinite." = "AutoMix ayarlarınızla bu şarkılar miks edilmiyor: demo varsayılan ayarları kullanıyor.";
 "AutoMix sui tuoi brani fa parte di Premium: la prova gratuita vale solo per i brani demo." = "Kendi şarkılarınızda AutoMix Premium’a dahildir: ücretsiz deneme yalnızca demo şarkıları için geçerlidir.";
 "Lo stesso passaggio, normale e mixato. Anche offline." = "Aynı geçiş, normal ve miksli. Çevrimdışı da.";
+
+/* Ordina per il mix (playlists) */
+"Ordina per il mix" = "Miks için sırala";
+"Ordine" = "Sıra";
+"Fluido" = "Akıcı";
+"Energia crescente" = "Artan enerji";
+"Brani vicini per tempo, tonalità ed energia: ogni passaggio il più morbido possibile." = "Tempo, ton ve enerjide yakın şarkılar yan yana: her geçiş olabildiğince yumuşak.";
+"Dal brano più calmo al più energico, misurati dall'analisi di AutoMix." = "AutoMix analizine göre en sakin şarkıdan en enerjik olana.";
+"Ordine suggerito" = "Önerilen sıra";
+"Senza analisi" = "Analiz yok";
+"Questi brani non sono sul dispositivo o non si possono analizzare: restano in fondo, nell'ordine della playlist, e nessun valore viene inventato. Scaricali per includerli." = "Bu şarkılar cihazda değil ya da analiz edilemiyor: çalma listesindeki sırayla sonda kalırlar ve hiçbir değer uydurulmaz. Dahil etmek için indirin.";
+"Analisi dei brani sul dispositivo: %lld di %lld" = "Cihazdaki şarkılar analiz ediliyor: %lld / %lld";
+"Analizzati %lld brani di %lld" = "%lld / %lld şarkı analiz edildi";
+"Passaggi a tempo: %lld di %lld (prima %lld)" = "Tempoya uyan geçişler: %lld / %lld (önce %lld)";
+"Passaggi in tonalità: %lld di %lld (prima %lld)" = "Tona uyan geçişler: %lld / %lld (önce %lld)";
+"Senza Premium i passaggi si ascoltano un brano dopo l'altro; con AutoMix li senti mixati." = "Premium olmadan geçişler şarkı şarkı çalar; AutoMix ile miksli duyarsınız.";
+"Non scaricato" = "İndirilmedi";
+"Analisi non riuscita" = "Analiz başarısız";
+"Tempo incerto" = "Tempo belirsiz";
+"Tonalità incerta" = "Ton belirsiz";
+"Energia %lld su 5" = "Enerji %lld/5";
+"Passaggio non disponibile" = "Geçiş kullanılamıyor";
+"Preparazione del passaggio…" = "Geçiş hazırlanıyor…";
+"In ascolto del passaggio" = "Geçiş çalıyor";
+"Ascolta il passaggio" = "Geçişi dinle";
+"A tempo" = "Tempoya uygun";
+"In tonalità" = "Tona uygun";
+"Salvata come «%@»" = "“%@” olarak kaydedildi";
+"Salva come nuova playlist" = "Yeni çalma listesi olarak kaydet";
+"La playlist originale resta com'è; la nuova ha tutti i suoi brani." = "Asıl çalma listesi olduğu gibi kalır; yenisinde tüm şarkıları vardır.";

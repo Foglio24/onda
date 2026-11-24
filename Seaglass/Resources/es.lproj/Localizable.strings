@@ -894,3 +894,33 @@
 "Con le tue impostazioni di AutoMix questi brani non si mixano: la demo usa quelle predefinite." = "Con tus ajustes de AutoMix estas canciones no se mezclan: la demo usa los predeterminados.";
 "AutoMix sui tuoi brani fa parte di Premium: la prova gratuita vale solo per i brani demo." = "AutoMix en tus canciones forma parte de Premium: la prueba gratuita vale solo para las canciones de demo.";
 "Lo stesso passaggio, normale e mixato. Anche offline." = "La misma transición, normal y mezclada. También sin conexión.";
+
+/* Ordina per il mix (playlists) */
+"Ordina per il mix" = "Ordenar para mezclar";
+"Ordine" = "Orden";
+"Fluido" = "Fluido";
+"Energia crescente" = "Energía creciente";
+"Brani vicini per tempo, tonalità ed energia: ogni passaggio il più morbido possibile." = "Canciones cercanas en tempo, tonalidad y energía: cada transición lo más suave posible.";
+"Dal brano più calmo al più energico, misurati dall'analisi di AutoMix." = "De la canción más tranquila a la más enérgica, según el análisis de AutoMix.";
+"Ordine suggerito" = "Orden sugerido";
+"Senza analisi" = "Sin análisis";
+"Questi brani non sono sul dispositivo o non si possono analizzare: restano in fondo, nell'ordine della playlist, e nessun valore viene inventato. Scaricali per includerli." = "Estas canciones no están en el dispositivo o no se pueden analizar: quedan al final, en el orden de la playlist, y no se inventa ningún valor. Descárgalas para incluirlas.";
+"Analisi dei brani sul dispositivo: %lld di %lld" = "Analizando las canciones del dispositivo: %lld de %lld";
+"Analizzati %lld brani di %lld" = "%lld de %lld canciones analizadas";
+"Passaggi a tempo: %lld di %lld (prima %lld)" = "Transiciones a tempo: %lld de %lld (antes: %lld)";
+"Passaggi in tonalità: %lld di %lld (prima %lld)" = "Transiciones en tonalidad: %lld de %lld (antes: %lld)";
+"Senza Premium i passaggi si ascoltano un brano dopo l'altro; con AutoMix li senti mixati." = "Sin Premium las transiciones se escuchan una canción tras otra; con AutoMix las oyes mezcladas.";
+"Non scaricato" = "No descargada";
+"Analisi non riuscita" = "Análisis fallido";
+"Tempo incerto" = "Tempo incierto";
+"Tonalità incerta" = "Tonalidad incierta";
+"Energia %lld su 5" = "Energía %lld de 5";
+"Passaggio non disponibile" = "Transición no disponible";
+"Preparazione del passaggio…" = "Preparando la transición…";
+"In ascolto del passaggio" = "Escuchando la transición";
+"Ascolta il passaggio" = "Escuchar la transición";
+"A tempo" = "A tempo";
+"In tonalità" = "En tonalidad";
+"Salvata come «%@»" = "Guardada como «%@»";
+"Salva come nuova playlist" = "Guardar como nueva playlist";
+"La playlist originale resta com'è; la nuova ha tutti i suoi brani." = "La playlist original se queda como está; la nueva tiene todas sus canciones.";

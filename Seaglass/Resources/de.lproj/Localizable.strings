@@ -894,3 +894,33 @@
 "Con le tue impostazioni di AutoMix questi brani non si mixano: la demo usa quelle predefinite." = "Mit deinen AutoMix-Einstellungen lassen sich diese Songs nicht mixen: Die Demo nutzt die Standardeinstellungen.";
 "AutoMix sui tuoi brani fa parte di Premium: la prova gratuita vale solo per i brani demo." = "AutoMix für deine Songs gehört zu Premium: Die kostenlose Demo gilt nur für die Demo-Songs.";
 "Lo stesso passaggio, normale e mixato. Anche offline." = "Derselbe Übergang, normal und gemixt. Auch offline.";
+
+/* Ordina per il mix (playlists) */
+"Ordina per il mix" = "Für den Mix sortieren";
+"Ordine" = "Reihenfolge";
+"Fluido" = "Fließend";
+"Energia crescente" = "Steigende Energie";
+"Brani vicini per tempo, tonalità ed energia: ogni passaggio il più morbido possibile." = "Songs mit ähnlichem Tempo, ähnlicher Tonart und Energie nebeneinander: jeder Übergang so weich wie möglich.";
+"Dal brano più calmo al più energico, misurati dall'analisi di AutoMix." = "Vom ruhigsten bis zum energiegeladensten Song, gemessen von der AutoMix-Analyse.";
+"Ordine suggerito" = "Vorgeschlagene Reihenfolge";
+"Senza analisi" = "Ohne Analyse";
+"Questi brani non sono sul dispositivo o non si possono analizzare: restano in fondo, nell'ordine della playlist, e nessun valore viene inventato. Scaricali per includerli." = "Diese Songs sind nicht auf dem Gerät oder lassen sich nicht analysieren: Sie bleiben am Ende in der Reihenfolge der Playlist, und kein Wert wird erfunden. Lade sie, um sie einzubeziehen.";
+"Analisi dei brani sul dispositivo: %lld di %lld" = "Songs auf dem Gerät werden analysiert: %lld von %lld";
+"Analizzati %lld brani di %lld" = "%lld von %lld Songs analysiert";
+"Passaggi a tempo: %lld di %lld (prima %lld)" = "Übergänge im Takt: %lld von %lld (vorher: %lld)";
+"Passaggi in tonalità: %lld di %lld (prima %lld)" = "Übergänge in passender Tonart: %lld von %lld (vorher: %lld)";
+"Senza Premium i passaggi si ascoltano un brano dopo l'altro; con AutoMix li senti mixati." = "Ohne Premium hörst du die Übergänge Song für Song; mit AutoMix hörst du sie gemixt.";
+"Non scaricato" = "Nicht geladen";
+"Analisi non riuscita" = "Analyse fehlgeschlagen";
+"Tempo incerto" = "Tempo unklar";
+"Tonalità incerta" = "Tonart unklar";
+"Energia %lld su 5" = "Energie %lld von 5";
+"Passaggio non disponibile" = "Übergang nicht verfügbar";
+"Preparazione del passaggio…" = "Übergang wird vorbereitet …";
+"In ascolto del passaggio" = "Übergang wird abgespielt";
+"Ascolta il passaggio" = "Übergang anhören";
+"A tempo" = "Im Takt";
+"In tonalità" = "In passender Tonart";
+"Salvata come «%@»" = "Gespeichert als „%@“";
+"Salva come nuova playlist" = "Als neue Playlist sichern";
+"La playlist originale resta com'è; la nuova ha tutti i suoi brani." = "Die ursprüngliche Playlist bleibt, wie sie ist; die neue enthält alle ihre Songs.";
