@@ -116,8 +116,8 @@ if [ "${3:-}" = "browse" ]; then
   shot mac-browse-home-dark 8 home -theme.style seaglass -theme.mode dark -SeaglassWindowSize 1440x900
   shot mac-browse-playlist-dark 8 library-playlist -theme.style seaglass -theme.mode dark -SeaglassWindowSize 1440x900
   shot mac-browse-search-dark 6 search -theme.style seaglass -theme.mode dark
-  shot mac-browse-automix-demo 25 automix-demo -theme.style seaglass -SeaglassWindowSize 1440x900
-  shot mac-browse-mix-order 30 mix-order -theme.style seaglass -SeaglassWindowSize 1440x900
+  shot mac-browse-automix-demo 75 automix-demo -theme.style seaglass -SeaglassWindowSize 1440x900
+  shot mac-browse-mix-order 75 mix-order -theme.style seaglass -SeaglassWindowSize 1440x900
   shot mac-browse-recap 10 recap -theme.style seaglass -SeaglassWindowSize 1440x900
   pkill -x Seaglass 2>/dev/null || true
   exit 0

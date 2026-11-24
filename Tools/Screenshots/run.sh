@@ -62,9 +62,11 @@ if [[ "$kind" == "browse" || "$kind" == "browse-ipad" ]]; then
   shot browse-settings en 5 settings -theme.style seaglass
   shot browse-widgets en 5 widgets -theme.style seaglass
   shot browse-player-regression en 6 player-demo -theme.style seaglass
-  shot browse-automix-demo en 30 automix-demo -theme.style seaglass
+  # The demo and "Ordina per il mix" make and analyse their songs as they open: slow in a Debug build, the
+  # first time (the second shot of each finds them made).
+  shot browse-automix-demo en 90 automix-demo -theme.style seaglass
   shot browse-automix-demo-classic it 20 automix-demo -theme.style classic -theme.mode light
-  shot browse-mix-order en 40 mix-order -theme.style seaglass
+  shot browse-mix-order en 90 mix-order -theme.style seaglass
   shot browse-mix-order-classic en 25 mix-order -theme.style classic
   # The smart collections with an empty library (nothing has played or been liked on this simulator).
   shot browse-smart-library en 6 library -theme.style seaglass

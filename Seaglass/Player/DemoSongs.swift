@@ -16,6 +16,10 @@ enum DemoSongs {
         var out = [Float](repeating: 0, count: frames)
         let beat = 60 / bpm
         var noise: UInt32 = 7
+        // Each chord's three pitches, worked out once (the same values the loop used to compute per
+        // sample, so the samples don't change), and the arrays the loop reads made once too.
+        let chords = drums ? [root, root + 5, root + 7, root] : [root]
+        let pitches = chords.map { chord in [0, 4, 7].map { 440 * pow(2, Double(chord + $0 - 69) / 12) } }
         for frame in 0..<frames {
             let time = Double(frame) / rate - 1
             var value = 0.0
@@ -32,12 +36,11 @@ enum DemoSongs {
                 }
                 let bar = beatIndex / 4
                 // Without drums, one chord held throughout (no change of chord to hear as a beat either).
-                let chord = drums ? [root, root + 5, root + 7, root][bar % 4] : root
+                let chord = pitches[drums ? bar % 4 : 0]
                 let sinceBar = drums ? time - Double(bar) * 4 * beat : time
-                for interval in [0, 4, 7] {
-                    let pitch = 440 * pow(2, Double(chord + interval - 69) / 12)
-                    value += 0.06 * sin(2 * Double.pi * pitch * sinceBar)
-                }
+                value += 0.06 * sin(2 * Double.pi * chord[0] * sinceBar)
+                value += 0.06 * sin(2 * Double.pi * chord[1] * sinceBar)
+                value += 0.06 * sin(2 * Double.pi * chord[2] * sinceBar)
                 if bar < introBars { value *= 0.35 }
             }
             out[frame] = Float(value * level)
