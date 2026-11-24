@@ -2733,7 +2733,8 @@ final class PlayerController: ObservableObject {
     }
 
     /// A live plan in words, for the queue.
-    private static func describe(_ plan: SeguePlan) -> String {
+    /// What a Segue plan does, in a line (the queue's AutoMix note, the AutoMix demo).
+    static func describe(_ plan: SeguePlan) -> String {
         let before = Int((plan.outgoingStart).rounded())
         let seconds = Int(plan.length.rounded())
         switch plan.level {

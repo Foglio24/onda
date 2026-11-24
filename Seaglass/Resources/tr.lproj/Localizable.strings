@@ -870,3 +870,27 @@
 "Il brano in riproduzione, con i suoi comandi." = "Çalan şarkı ve denetimleri.";
 "La tua playlist" = "Çalma listen";
 "Widget" = "Widget'lar";
+
+/* AutoMix demo (Home) */
+"Preparazione della demo…" = "Demo hazırlanıyor…";
+"Creazione dei brani demo…" = "Demo şarkıları oluşturuluyor…";
+"Analisi dei brani demo…" = "Demo şarkıları analiz ediliyor…";
+"L'analisi dei brani demo non è riuscita." = "Demo şarkıları analiz edilemedi.";
+"AutoMix non ha trovato un passaggio per i brani demo." = "AutoMix demo şarkıları için bir geçiş bulamadı.";
+"Ascolta due volte la stessa coppia di brani: prima uno dopo l'altro, poi con AutoMix. Stessi brani, stesso volume: cambia solo il passaggio." = "Aynı iki şarkıyı iki kez dinleyin: önce art arda, sonra AutoMix ile. Aynı şarkılar, aynı ses seviyesi: yalnızca geçiş değişir.";
+"Prova AutoMix" = "AutoMix’i dene";
+"Passaggio normale" = "Normal geçiş";
+"Con AutoMix" = "AutoMix ile";
+"Un brano dopo l'altro, come senza transizioni" = "Geçişler kapalıyken olduğu gibi şarkılar art arda";
+"Il mix che AutoMix prepara per questi brani" = "AutoMix’in bu şarkılar için hazırladığı miks";
+"Durata %@ · il passaggio a %@" = "Süre %@ · geçiş %@ noktasında";
+"Il passaggio inizia tra %lld s" = "Geçiş %lld sn sonra";
+"Passaggio in corso" = "Geçiş sürüyor";
+"Ora suona %@" = "Şimdi çalan: %@";
+"Ferma" = "Durdur";
+"Ascolta: %@" = "Dinle: %@";
+"I brani demo sono creati sul dispositivo: la prova funziona senza account, senza Premium e offline, e non entra nella cronologia." = "Demo şarkıları cihazda oluşturulur: deneme hesapsız, Premium olmadan ve çevrimdışı çalışır, geçmişe de eklenmez.";
+"Quello che stavi ascoltando è in pausa e riprende da dove era quando chiudi." = "Dinlediğiniz şey duraklatıldı; kapattığınızda kaldığı yerden devam eder.";
+"Con le tue impostazioni di AutoMix questi brani non si mixano: la demo usa quelle predefinite." = "AutoMix ayarlarınızla bu şarkılar miks edilmiyor: demo varsayılan ayarları kullanıyor.";
+"AutoMix sui tuoi brani fa parte di Premium: la prova gratuita vale solo per i brani demo." = "Kendi şarkılarınızda AutoMix Premium’a dahildir: ücretsiz deneme yalnızca demo şarkıları için geçerlidir.";
+"Lo stesso passaggio, normale e mixato. Anche offline." = "Aynı geçiş, normal ve miksli. Çevrimdışı da.";

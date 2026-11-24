@@ -69,6 +69,10 @@ struct TrackAnalysis: Codable, Equatable, Sendable {
     /// Made to a steady grid that beats can be matched to.
     var isGridLocked: Bool { gridFit >= 0.65 }
 
+    /// The key was heard clearly enough to be shown and matched on (as `TransitionPlanner.keysCompatible`
+    /// takes it): an unclear one is never shown as a key.
+    var hasClearKey: Bool { keyClarity >= 0.6 }
+
     /// The BPM the tempo panel shows: the measured tempo whenever a beat was followed. Beat matching
     /// needs a steady grid (`isGridLocked`), a number to read doesn't: about half of real songs
     /// (played freely, live, swung) fall short of the grid yet have their tempo measured right.

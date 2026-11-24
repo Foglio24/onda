@@ -870,3 +870,27 @@
 "Il brano in riproduzione, con i suoi comandi." = "Песня, которая сейчас играет, и кнопки управления.";
 "La tua playlist" = "Ваш плейлист";
 "Widget" = "Виджеты";
+
+/* AutoMix demo (Home) */
+"Preparazione della demo…" = "Подготовка демо…";
+"Creazione dei brani demo…" = "Создание демо-треков…";
+"Analisi dei brani demo…" = "Анализ демо-треков…";
+"L'analisi dei brani demo non è riuscita." = "Не удалось проанализировать демо-треки.";
+"AutoMix non ha trovato un passaggio per i brani demo." = "AutoMix не нашёл перехода для демо-треков.";
+"Ascolta due volte la stessa coppia di brani: prima uno dopo l'altro, poi con AutoMix. Stessi brani, stesso volume: cambia solo il passaggio." = "Послушайте одни и те же два трека дважды: сначала один за другим, затем с AutoMix. Те же треки, та же громкость: меняется только переход.";
+"Prova AutoMix" = "Попробовать AutoMix";
+"Passaggio normale" = "Обычный переход";
+"Con AutoMix" = "С AutoMix";
+"Un brano dopo l'altro, come senza transizioni" = "Один трек за другим, как без переходов";
+"Il mix che AutoMix prepara per questi brani" = "Микс, который AutoMix готовит для этих треков";
+"Durata %@ · il passaggio a %@" = "Длительность %@ · переход на %@";
+"Il passaggio inizia tra %lld s" = "Переход через %lld с";
+"Passaggio in corso" = "Идёт переход";
+"Ora suona %@" = "Сейчас играет %@";
+"Ferma" = "Остановить";
+"Ascolta: %@" = "Слушать: %@";
+"I brani demo sono creati sul dispositivo: la prova funziona senza account, senza Premium e offline, e non entra nella cronologia." = "Демо-треки создаются на устройстве: демо работает без аккаунта, без Premium и офлайн и не попадает в историю.";
+"Quello che stavi ascoltando è in pausa e riprende da dove era quando chiudi." = "То, что вы слушали, на паузе и продолжится с того же места, когда вы закроете это окно.";
+"Con le tue impostazioni di AutoMix questi brani non si mixano: la demo usa quelle predefinite." = "С вашими настройками AutoMix эти треки не сводятся: демо использует настройки по умолчанию.";
+"AutoMix sui tuoi brani fa parte di Premium: la prova gratuita vale solo per i brani demo." = "AutoMix для ваших треков входит в Premium: бесплатное демо касается только демо-треков.";
+"Lo stesso passaggio, normale e mixato. Anche offline." = "Один и тот же переход — обычный и сведённый. Даже офлайн.";

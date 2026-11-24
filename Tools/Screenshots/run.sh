@@ -62,6 +62,8 @@ if [[ "$kind" == "browse" || "$kind" == "browse-ipad" ]]; then
   shot browse-settings en 5 settings -theme.style seaglass
   shot browse-widgets en 5 widgets -theme.style seaglass
   shot browse-player-regression en 6 player-demo -theme.style seaglass
+  shot browse-automix-demo en 30 automix-demo -theme.style seaglass
+  shot browse-automix-demo-classic it 20 automix-demo -theme.style classic -theme.mode light
   xcrun simctl shutdown "$device"
   exit 0
 fi

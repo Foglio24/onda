@@ -78,6 +78,7 @@ jobs:
           bash Tools/AutoMixPlaybackProbe/run.sh
           bash Tools/OpusStreamCheck/run.sh
           bash Tools/AutoMixLevels/run.sh
+          bash Tools/AutoMixDemoCheck/run.sh
 
       # Talks to the real YouTube Music: a failure means YouTube changed something (or is down),
       # so it is reported without blocking the build.
@@ -394,6 +395,12 @@ jobs:
       - name: Check AutoMix's live mix on the Mac
         timeout-minutes: 15
         run: bash Tools/SegueScene/run.sh build-mac/Build/Products/Release-maccatalyst/Seaglass.app
+
+      # The Home's AutoMix demo, for real in the Mac app: played over a queue that plays, then closed,
+      # the queue must play on from where it was (see Tools/FeatureScenes/run.sh).
+      - name: Check the new features in the Mac app
+        timeout-minutes: 15
+        run: bash Tools/FeatureScenes/run.sh build-mac/Build/Products/Release-maccatalyst/Seaglass.app
 
       # Signed in to a throwaway account on the live account service, as the sign-in sheet leaves it:
       # the session stays in the Mac's keychain and Settings › Account shows the account. It talks

@@ -49,6 +49,8 @@ final class AppRouter: ObservableObject {
     /// Premium page in its place where recognition needs Premium.
     @Published var showRecognition = false
     @Published var recognitionPaywall: PremiumFeature?
+    /// The Home's AutoMix demo (see `AutoMixDemoView`).
+    @Published var showAutoMixDemo = false
     /// CI only: the widgets' faces drawn in the app (`LaunchScene`'s "widgets").
     @Published var showWidgetPreview = false
     /// The settings as a sheet: the classic style's profile button (it has no Settings tab).

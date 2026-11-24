@@ -155,6 +155,9 @@ struct HomeView: View {
             if !shortcuts.isEmpty { shortcutsSection(shortcuts).browseAppear(2) }
             let mixes = Recommendations.dailyMixes()
             if !mixes.isEmpty { dailyMixesSection(mixes).browseAppear(3) }
+            AutoMixDemoCard()
+                .padding(.horizontal, 16)
+                .browseAppear(3)
             moodsSection.browseAppear(4)
             if !quickPicks.isEmpty { quickPicksShelf.browseAppear(5).transition(.opacity) }
             if !library.history.isEmpty { recentShelf.browseAppear(6) }
@@ -234,6 +237,8 @@ struct HomeView: View {
                         .scrollIndicators(.hidden)
                     }
                 }
+                AutoMixDemoCard()
+                    .padding(.horizontal, 16)
                 moodsSection
             } else {
                 classicPodcasts
@@ -573,6 +578,10 @@ struct HomeView: View {
                 }
                 .browseAppear(2)
             }
+            AutoMixDemoCard()
+                .frame(maxWidth: 560, alignment: .leading)
+                .padding(.horizontal, Self.macMargin)
+                .browseAppear(2)
             if !library.history.isEmpty {
                 let recent = Array(library.history.prefix(20))
                 MacShelf(title: "Ascoltati di recente", count: recent.count, itemWidth: 180, margin: Self.macMargin) { position in

@@ -870,3 +870,27 @@
 "Il brano in riproduzione, con i suoi comandi." = "正在播放的歌曲及其控制按钮。";
 "La tua playlist" = "你的播放列表";
 "Widget" = "小组件";
+
+/* AutoMix demo (Home) */
+"Preparazione della demo…" = "正在准备演示…";
+"Creazione dei brani demo…" = "正在生成演示歌曲…";
+"Analisi dei brani demo…" = "正在分析演示歌曲…";
+"L'analisi dei brani demo non è riuscita." = "无法分析演示歌曲。";
+"AutoMix non ha trovato un passaggio per i brani demo." = "AutoMix 没有为演示歌曲找到过渡。";
+"Ascolta due volte la stessa coppia di brani: prima uno dopo l'altro, poi con AutoMix. Stessi brani, stesso volume: cambia solo il passaggio." = "把同一对歌曲听两遍：先一首接一首，再用 AutoMix。歌曲相同、音量相同，只有过渡不同。";
+"Prova AutoMix" = "试听 AutoMix";
+"Passaggio normale" = "普通过渡";
+"Con AutoMix" = "使用 AutoMix";
+"Un brano dopo l'altro, come senza transizioni" = "一首接一首，就像关闭过渡时那样";
+"Il mix che AutoMix prepara per questi brani" = "AutoMix 为这两首歌准备的混音";
+"Durata %@ · il passaggio a %@" = "时长 %@ · 过渡在 %@";
+"Il passaggio inizia tra %lld s" = "%lld 秒后开始过渡";
+"Passaggio in corso" = "正在过渡";
+"Ora suona %@" = "正在播放 %@";
+"Ferma" = "停止";
+"Ascolta: %@" = "收听：%@";
+"I brani demo sono creati sul dispositivo: la prova funziona senza account, senza Premium e offline, e non entra nella cronologia." = "演示歌曲在设备上生成：无需账户、无需 Premium、离线也能试听，且不会进入播放记录。";
+"Quello che stavi ascoltando è in pausa e riprende da dove era quando chiudi." = "你正在听的内容已暂停，关闭后会从原来的位置继续播放。";
+"Con le tue impostazioni di AutoMix questi brani non si mixano: la demo usa quelle predefinite." = "按你的 AutoMix 设置，这两首歌无法混音：演示使用默认设置。";
+"AutoMix sui tuoi brani fa parte di Premium: la prova gratuita vale solo per i brani demo." = "在你自己的歌曲上使用 AutoMix 属于 Premium：免费试听仅限演示歌曲。";
+"Lo stesso passaggio, normale e mixato. Anche offline." = "同一个过渡，普通与混音对比。离线也能用。";

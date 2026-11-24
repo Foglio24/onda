@@ -78,6 +78,11 @@ struct RootView: View {
             RecognitionView().appEnvironment()
         }
         .premiumPaywall($router.recognitionPaywall)
+        .sheet(isPresented: $router.showAutoMixDemo) {
+            AutoMixDemoView()
+                .appEnvironment()
+                .classicPageSheet(Self.isMac)
+        }
         .fullScreenCover(isPresented: $router.showWidgetPreview) { WidgetGalleryPreview() }
         .sheet(item: $router.mixTarget) { target in
             PlaylistMixView(playlistID: target.playlistID, opensFirst: target.opensFirst, opensOptions: target.options,

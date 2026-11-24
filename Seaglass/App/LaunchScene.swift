@@ -144,8 +144,8 @@ enum LaunchScene {
                 let first = Track(videoId: "SeaglassMixDemoA", title: "Neon Drive", artists: ["Seaglass Demo"], duration: 72)
                 let second = Track(videoId: "SeaglassMixDemoB", title: "Night Run", artists: ["Seaglass Demo"], duration: 72)
                 await Task.detached(priority: .userInitiated) {
-                    try? Self.writeDemoSong(to: Storage.audioFile(for: "SeaglassMixDemoA"), bpm: 124, root: 57, introBars: 0)
-                    try? Self.writeDemoSong(to: Storage.audioFile(for: "SeaglassMixDemoB"), bpm: 128, root: 60, introBars: 8)
+                    try? DemoSongs.write(to: Storage.audioFile(for: "SeaglassMixDemoA"), bpm: 124, root: 57, introBars: 0)
+                    try? DemoSongs.write(to: Storage.audioFile(for: "SeaglassMixDemoB"), bpm: 128, root: 60, introBars: 8)
                 }.value
                 let playlist = Library.shared.createPlaylist(named: "Mix demo", tracks: [first, second])
                 router.mixTarget = MixTarget(playlistID: playlist.id, opensFirst: true,
@@ -160,6 +160,16 @@ enum LaunchScene {
             }
         case "widgets":
             router.showWidgetPreview = true
+        case "automix-demo":
+            // The Home's AutoMix demo, open over the Home (it makes and mixes its songs as it opens).
+            select(.home)
+            router.showAutoMixDemo = true
+        case "automix-demo-check":
+            // CI (Tools/FeatureScenes/run.sh): the demo played over a queue that plays, then closed. The
+            // queue, its song and its position must be as they were, playing on; a queue that was
+            // paused stays paused; the demo's songs never reach the history.
+            select(.home)
+            Task { await automixDemoCheck(router) }
         case "player-demo":
             PlayerController.shared.cue(previewTracks, source: "Seaglass Demo")
             PlayerController.shared.progress.currentTime = 66
@@ -174,7 +184,7 @@ enum LaunchScene {
             Task {
                 let track = Track(videoId: "SeaglassTempoDemo", title: "Tempo demo", artists: ["Seaglass Demo"], duration: 72)
                 await Task.detached(priority: .userInitiated) {
-                    try? Self.writeDemoSong(to: Storage.audioFile(for: "SeaglassTempoDemo"), bpm: 124, root: 57, introBars: 0)
+                    try? DemoSongs.write(to: Storage.audioFile(for: "SeaglassTempoDemo"), bpm: 124, root: 57, introBars: 0)
                 }.value
                 PlayerController.shared.play([track], source: "Tempo demo")
                 router.openPlayer()
@@ -213,12 +223,12 @@ enum LaunchScene {
                 let live = value.isEmpty
                 await Task.detached(priority: .userInitiated) {
                     let alac = value == "alac"
-                    try? Self.writeDemoSong(to: Storage.audioFile(for: "SeaglassSegueDemoA"), bpm: 124, root: 57, introBars: 0,
+                    try? DemoSongs.write(to: Storage.audioFile(for: "SeaglassSegueDemoA"), bpm: 124, root: 57, introBars: 0,
                                             seconds: 120, alac: alac)
-                    try? Self.writeDemoSong(to: Storage.audioFile(for: "SeaglassSegueDemoB"), bpm: 126, root: 60, introBars: 4,
+                    try? DemoSongs.write(to: Storage.audioFile(for: "SeaglassSegueDemoB"), bpm: 126, root: 60, introBars: 4,
                                             seconds: 120, alac: alac)
                     if live {
-                        try? Self.writeDemoSong(to: Storage.audioFile(for: "SeaglassSegueDemoC"), bpm: 128, root: 62, introBars: 4,
+                        try? DemoSongs.write(to: Storage.audioFile(for: "SeaglassSegueDemoC"), bpm: 128, root: 62, introBars: 4,
                                                 seconds: 120, alac: alac)
                     }
                 }.value
@@ -431,6 +441,76 @@ enum LaunchScene {
         }
     }
 
+    private static func automixDemoCheck(_ router: AppRouter) async {
+        let player = PlayerController.shared
+        let songs = [Track(videoId: "SeaglassQueueDemoA", title: "Queue A", artists: ["Seaglass Demo"], duration: 72),
+                     Track(videoId: "SeaglassQueueDemoB", title: "Queue B", artists: ["Seaglass Demo"], duration: 72)]
+        await Task.detached(priority: .userInitiated) {
+            try? DemoSongs.write(to: Storage.audioFile(for: "SeaglassQueueDemoA"), bpm: 118, root: 62, introBars: 0)
+            try? DemoSongs.write(to: Storage.audioFile(for: "SeaglassQueueDemoB"), bpm: 120, root: 64, introBars: 0)
+        }.value
+        func wait(_ seconds: Double, until done: () -> Bool) async -> Bool {
+            for _ in 0..<Int(seconds * 4) {
+                if done() { return true }
+                try? await Task.sleep(for: .milliseconds(250))
+            }
+            return done()
+        }
+        func state() -> String {
+            String(format: "%@ #%d at %.1f s, %@", player.current?.title ?? "-", player.index, player.progress.currentTime,
+                   player.isPlaying ? "playing" : "paused")
+        }
+        var failed = false
+        func expect(_ condition: Bool, _ text: String) {
+            print("automix-demo: \(condition ? "ok" : "FAIL") \(text)")
+            if !condition { failed = true }
+        }
+        player.play(songs, source: "Queue demo")
+        _ = await wait(20) { player.isPlaying && player.progress.currentTime > 1 }
+        player.seek(to: 20)
+        _ = await wait(10) { player.isPlaying && player.progress.currentTime > 21 }
+        let queue = player.queue.map(\.id), index = player.index, time = player.progress.currentTime
+        expect(player.isPlaying, "the queue plays before the demo (\(state()))")
+
+        router.showAutoMixDemo = true
+        let ready = await wait(180) { AutoMixDemoModel.shown?.phase == .ready }
+        expect(ready, "the demo is ready (\(String(describing: AutoMixDemoModel.shown?.phase)))")
+        guard ready, let model = AutoMixDemoModel.shown else {
+            print("automix-demo: done")
+            return
+        }
+        model.toggle(.plain)
+        try? await Task.sleep(for: .seconds(3))
+        expect(model.player.playing == "plain" && model.player.position > 1, "the plain listen plays (\(model.player.position) s)")
+        expect(!player.isPlaying, "the queue is paused under the demo (\(state()))")
+        model.toggle(.autoMix)
+        try? await Task.sleep(for: .seconds(3))
+        expect(model.player.playing == "autoMix" && model.player.position > 1, "the AutoMix listen plays (\(model.player.position) s)")
+        expect(player.queue.map(\.id) == queue && player.index == index, "the queue is unchanged under the demo")
+        router.showAutoMixDemo = false
+        _ = await wait(8) { player.isPlaying }
+        try? await Task.sleep(for: .seconds(1))
+        expect(player.queue.map(\.id) == queue && player.index == index, "the queue is the same after the demo (\(state()))")
+        expect(player.isPlaying, "the queue plays on after the demo (\(state()))")
+        let resumedAt = player.progress.currentTime
+        expect(resumedAt >= time - 0.5 && resumedAt < time + 12, String(format: "from where it was: %.1f s, then %.1f s", time, resumedAt))
+
+        // Paused before the demo: still paused after it.
+        player.pause()
+        let pausedAt = player.progress.currentTime
+        router.showAutoMixDemo = true
+        _ = await wait(60) { AutoMixDemoModel.shown?.phase == .ready }
+        AutoMixDemoModel.shown?.toggle(.autoMix)
+        try? await Task.sleep(for: .seconds(2))
+        router.showAutoMixDemo = false
+        try? await Task.sleep(for: .seconds(2))
+        expect(!player.isPlaying && abs(player.progress.currentTime - pausedAt) < 0.6, "a paused queue stays paused (\(state()))")
+        let heard = Library.shared.history.contains { AutoMixDemo.songs.map(\.id).contains($0.videoId ?? "") }
+        expect(!heard, "the demo's songs are not in the history")
+        print(failed ? "automix-demo: FAIL" : "automix-demo: PASS")
+        print("automix-demo: done")
+    }
+
     /// Generated locally and used only by explicitly requested demo scenes; no external media.
     private static let previewTracks: [Track] = {
         ["Neon Coast", "Moonlit Avenue", "Tide Pools", "Afterglow"].enumerated().map { index, title in
@@ -463,52 +543,5 @@ enum LaunchScene {
                 .draw(in: CGRect(x: 116, y: 116, width: 280, height: 280))
         }
         return image.jpegData(compressionQuality: 0.9)
-    }
-
-    /// A song made to a click (kick, hi-hat, a chord per bar), `seconds` long with a second of
-    /// silence at each end, quieter for its first `introBars` bars, saved as AAC (`alac`: in ALAC,
-    /// 16 bit, as the "Massima" downloads are kept).
-    nonisolated private static func writeDemoSong(to url: URL, bpm: Double, root: Int, introBars: Int, seconds: Double = 72,
-                                                  alac: Bool = false) throws {
-        let rate = 44_100.0
-        guard let format = AVAudioFormat(standardFormatWithSampleRate: rate, channels: 2) else { return }
-        let frames = Int(seconds * rate)
-        guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(frames)),
-              let channels = buffer.floatChannelData else { return }
-        buffer.frameLength = AVAudioFrameCount(frames)
-        let beat = 60 / bpm
-        var noise: UInt32 = 7
-        for frame in 0..<frames {
-            let time = Double(frame) / rate - 1
-            var value = 0.0
-            if time >= 0, time < seconds - 2 {
-                let beatIndex = Int(time / beat)
-                let sinceBeat = time - Double(beatIndex) * beat
-                let accent: Double = beatIndex % 4 == 0 ? 1.3 : 1
-                let sweep: Double = 50 + 80 * exp(-sinceBeat * 40)
-                value += 0.7 * sin(2 * Double.pi * sweep * sinceBeat) * exp(-sinceBeat * 16) * accent
-                let sinceHat = sinceBeat - beat / 2
-                if sinceHat >= 0 {
-                    noise = noise &* 1_664_525 &+ 1_013_904_223
-                    value += 0.12 * (Double(noise >> 8) / Double(1 << 24) * 2 - 1) * exp(-sinceHat * 60)
-                }
-                let bar = beatIndex / 4
-                let chord = [root, root + 5, root + 7, root][bar % 4]
-                let sinceBar = time - Double(bar) * 4 * beat
-                for interval in [0, 4, 7] {
-                    let pitch = 440 * pow(2, Double(chord + interval - 69) / 12)
-                    value += 0.06 * sin(2 * Double.pi * pitch * sinceBar)
-                }
-                if bar < introBars { value *= 0.35 }
-            }
-            channels[0][frame] = Float(value * 0.8)
-            channels[1][frame] = Float(value * 0.8)
-        }
-        try? FileManager.default.removeItem(at: url)
-        let settings: [String: Any] = alac
-            ? [AVFormatIDKey: kAudioFormatAppleLossless, AVSampleRateKey: rate, AVNumberOfChannelsKey: 2, AVEncoderBitDepthHintKey: 16]
-            : [AVFormatIDKey: kAudioFormatMPEG4AAC, AVSampleRateKey: rate, AVNumberOfChannelsKey: 2, AVEncoderBitRateKey: 192_000]
-        let file = try AVAudioFile(forWriting: url, settings: settings)
-        try file.write(from: buffer)
     }
 }

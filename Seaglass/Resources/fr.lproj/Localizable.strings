@@ -870,3 +870,27 @@
 "Il brano in riproduzione, con i suoi comandi." = "Le morceau en cours de lecture, avec ses commandes.";
 "La tua playlist" = "Votre playlist";
 "Widget" = "Widgets";
+
+/* AutoMix demo (Home) */
+"Preparazione della demo…" = "Préparation de la démo…";
+"Creazione dei brani demo…" = "Création des morceaux de démo…";
+"Analisi dei brani demo…" = "Analyse des morceaux de démo…";
+"L'analisi dei brani demo non è riuscita." = "L’analyse des morceaux de démo a échoué.";
+"AutoMix non ha trovato un passaggio per i brani demo." = "AutoMix n’a trouvé aucune transition pour les morceaux de démo.";
+"Ascolta due volte la stessa coppia di brani: prima uno dopo l'altro, poi con AutoMix. Stessi brani, stesso volume: cambia solo il passaggio." = "Écoutez deux fois les deux mêmes morceaux : d’abord l’un après l’autre, puis avec AutoMix. Mêmes morceaux, même volume : seule la transition change.";
+"Prova AutoMix" = "Essayer AutoMix";
+"Passaggio normale" = "Transition normale";
+"Con AutoMix" = "Avec AutoMix";
+"Un brano dopo l'altro, come senza transizioni" = "Un morceau après l’autre, comme sans transitions";
+"Il mix che AutoMix prepara per questi brani" = "Le mix qu’AutoMix prépare pour ces morceaux";
+"Durata %@ · il passaggio a %@" = "Durée %@ · transition à %@";
+"Il passaggio inizia tra %lld s" = "Transition dans %lld s";
+"Passaggio in corso" = "Transition en cours";
+"Ora suona %@" = "Lecture de %@";
+"Ferma" = "Arrêter";
+"Ascolta: %@" = "Écouter : %@";
+"I brani demo sono creati sul dispositivo: la prova funziona senza account, senza Premium e offline, e non entra nella cronologia." = "Les morceaux de démo sont créés sur l’appareil : la démo fonctionne sans compte, sans Premium et hors ligne, et n’apparaît pas dans l’historique.";
+"Quello che stavi ascoltando è in pausa e riprende da dove era quando chiudi." = "Ce que vous écoutiez est en pause et reprendra là où il en était à la fermeture.";
+"Con le tue impostazioni di AutoMix questi brani non si mixano: la demo usa quelle predefinite." = "Avec vos réglages AutoMix, ces morceaux ne se mixent pas : la démo utilise les réglages par défaut.";
+"AutoMix sui tuoi brani fa parte di Premium: la prova gratuita vale solo per i brani demo." = "AutoMix sur vos morceaux fait partie de Premium : la démo gratuite ne concerne que les morceaux de démo.";
+"Lo stesso passaggio, normale e mixato. Anche offline." = "La même transition, normale et mixée. Même hors ligne.";

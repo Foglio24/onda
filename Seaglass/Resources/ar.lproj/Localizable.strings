@@ -870,3 +870,27 @@
 "Il brano in riproduzione, con i suoi comandi." = "الأغنية قيد التشغيل مع عناصر التحكم بها.";
 "La tua playlist" = "قائمة التشغيل الخاصة بك";
 "Widget" = "الأدوات";
+
+/* AutoMix demo (Home) */
+"Preparazione della demo…" = "جارٍ تحضير العرض التجريبي…";
+"Creazione dei brani demo…" = "جارٍ إنشاء الأغاني التجريبية…";
+"Analisi dei brani demo…" = "جارٍ تحليل الأغاني التجريبية…";
+"L'analisi dei brani demo non è riuscita." = "تعذّر تحليل الأغاني التجريبية.";
+"AutoMix non ha trovato un passaggio per i brani demo." = "لم يجد AutoMix انتقالًا للأغاني التجريبية.";
+"Ascolta due volte la stessa coppia di brani: prima uno dopo l'altro, poi con AutoMix. Stessi brani, stesso volume: cambia solo il passaggio." = "استمع إلى الأغنيتين نفسيهما مرتين: أولًا واحدة تلو الأخرى، ثم مع AutoMix. الأغاني نفسها والصوت نفسه: يتغير الانتقال فقط.";
+"Prova AutoMix" = "جرّب AutoMix";
+"Passaggio normale" = "انتقال عادي";
+"Con AutoMix" = "مع AutoMix";
+"Un brano dopo l'altro, come senza transizioni" = "أغنية تلو الأخرى، كما بلا انتقالات";
+"Il mix che AutoMix prepara per questi brani" = "المزيج الذي يحضّره AutoMix لهاتين الأغنيتين";
+"Durata %@ · il passaggio a %@" = "المدة %@ · الانتقال عند %@";
+"Il passaggio inizia tra %lld s" = "يبدأ الانتقال بعد %lld ث";
+"Passaggio in corso" = "الانتقال جارٍ";
+"Ora suona %@" = "يُشغَّل الآن %@";
+"Ferma" = "إيقاف";
+"Ascolta: %@" = "استمع: %@";
+"I brani demo sono creati sul dispositivo: la prova funziona senza account, senza Premium e offline, e non entra nella cronologia." = "تُنشأ الأغاني التجريبية على جهازك: يعمل العرض دون حساب ودون Premium ودون اتصال، ولا يظهر في السجل.";
+"Quello che stavi ascoltando è in pausa e riprende da dove era quando chiudi." = "ما كنت تستمع إليه متوقف مؤقتًا، وسيُستأنف من حيث توقف عند الإغلاق.";
+"Con le tue impostazioni di AutoMix questi brani non si mixano: la demo usa quelle predefinite." = "بإعدادات AutoMix الخاصة بك لا تُمزج هاتان الأغنيتان: يستخدم العرض الإعدادات الافتراضية.";
+"AutoMix sui tuoi brani fa parte di Premium: la prova gratuita vale solo per i brani demo." = "AutoMix على أغانيك جزء من Premium: العرض المجاني يقتصر على الأغاني التجريبية.";
+"Lo stesso passaggio, normale e mixato. Anche offline." = "الانتقال نفسه، عاديًا وممزوجًا. حتى دون اتصال.";

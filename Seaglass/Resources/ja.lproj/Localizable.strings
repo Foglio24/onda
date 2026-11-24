@@ -870,3 +870,27 @@
 "Il brano in riproduzione, con i suoi comandi." = "再生中の曲と、その操作ボタン。";
 "La tua playlist" = "あなたのプレイリスト";
 "Widget" = "ウィジェット";
+
+/* AutoMix demo (Home) */
+"Preparazione della demo…" = "デモを準備中…";
+"Creazione dei brani demo…" = "デモ曲を作成中…";
+"Analisi dei brani demo…" = "デモ曲を解析中…";
+"L'analisi dei brani demo non è riuscita." = "デモ曲を解析できませんでした。";
+"AutoMix non ha trovato un passaggio per i brani demo." = "AutoMixはデモ曲のつなぎを見つけられませんでした。";
+"Ascolta due volte la stessa coppia di brani: prima uno dopo l'altro, poi con AutoMix. Stessi brani, stesso volume: cambia solo il passaggio." = "同じ2曲を2回聴いてみましょう。まずは1曲ずつ、次にAutoMixで。曲も音量も同じで、変わるのはつなぎだけです。";
+"Prova AutoMix" = "AutoMixを試す";
+"Passaggio normale" = "通常のつなぎ";
+"Con AutoMix" = "AutoMixあり";
+"Un brano dopo l'altro, come senza transizioni" = "つなぎなしのときのように1曲ずつ";
+"Il mix che AutoMix prepara per questi brani" = "AutoMixがこの2曲のために作るミックス";
+"Durata %@ · il passaggio a %@" = "長さ %@・つなぎは %@";
+"Il passaggio inizia tra %lld s" = "あと%lld秒でつなぎ";
+"Passaggio in corso" = "つなぎの最中";
+"Ora suona %@" = "%@ を再生中";
+"Ferma" = "停止";
+"Ascolta: %@" = "聴く：%@";
+"I brani demo sono creati sul dispositivo: la prova funziona senza account, senza Premium e offline, e non entra nella cronologia." = "デモ曲はデバイス上で作られます。アカウントやPremiumがなくても、オフラインでも試せて、履歴には残りません。";
+"Quello che stavi ascoltando è in pausa e riprende da dove era quando chiudi." = "聴いていた曲は一時停止中です。閉じると止めたところから再開します。";
+"Con le tue impostazioni di AutoMix questi brani non si mixano: la demo usa quelle predefinite." = "現在のAutoMix設定ではこの2曲はミックスされないため、デモは既定の設定を使います。";
+"AutoMix sui tuoi brani fa parte di Premium: la prova gratuita vale solo per i brani demo." = "自分の曲でのAutoMixはPremiumの機能です。無料のデモはデモ曲だけが対象です。";
+"Lo stesso passaggio, normale e mixato. Anche offline." = "同じつなぎを通常とミックスで。オフラインでも。";
