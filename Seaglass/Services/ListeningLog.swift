@@ -2,7 +2,10 @@ import Foundation
 import UIKit
 
 /// What was played, for how long and what was skipped: what the recommendations learn from
-/// (see `TasteProfile`). Kept only on the iPhone, the last 3000 plays (a few months of listening).
+/// (see `TasteProfile`), the smart collections count and the monthly recap sums up. Kept only on
+/// the device, the last 3000 plays (a few months of listening). One play per song started: a pause,
+/// a seek or the song moving to another file (a download, a better stream) adds to the same play,
+/// and a song taken up again where it was left (`start(_:resuming:)`) too.
 @MainActor
 final class ListeningLog {
     static let shared = ListeningLog()
@@ -28,12 +31,18 @@ final class ListeningLog {
         }
     }
 
-    /// A song starts: the previous one is closed.
-    func start(_ track: Track) {
+    /// A song starts: the previous one is closed. `resuming`: it is the song of the last play taken
+    /// up again where it was left (a session restored after the app was closed, the Home's
+    /// "Riprendi"), and the listening goes on in that play, so it counts once.
+    func start(_ track: Track, resuming: Bool = false) {
         close()
         guard let videoId = track.videoId else { return }
+        if resuming, let last = events.last, last.videoId == videoId, Date.now.timeIntervalSince(last.date) < 12 * 3600 {
+            isOpen = true
+            return
+        }
         events.append(ListenEvent(videoId: videoId, artist: track.primaryArtist, date: .now, listened: 0,
-                                  length: track.duration, skipped: false))
+                                  length: track.duration, skipped: false, title: track.title))
         if events.count > Self.limit { events.removeFirst(events.count - Self.limit) }
         isOpen = true
         changed()

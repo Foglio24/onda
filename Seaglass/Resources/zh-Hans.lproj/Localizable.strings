@@ -947,3 +947,30 @@
 "Raccolte intelligenti" = "智能合集";
 "Si aggiornano da sole sul dispositivo: aprile per vedere la regola di ciascuna." = "它们会在设备上自动更新：打开即可查看各自的规则。";
 "Raccolta intelligente · %lld brani" = "智能合集 · %lld 首歌曲";
+
+/* Monthly recap */
+"Il tuo mese" = "你的这个月";
+"minuti di ascolto" = "分钟收听";
+"%lld ascolti · %lld artisti" = "%lld 次收听 · %lld 位艺人";
+"Artisti più ascoltati" = "最常听的艺人";
+"%lld ascolti" = "%lld 次";
+"Brano del mese" = "本月之歌";
+"Nuove scoperte" = "新发现";
+"Nessun artista nuovo questo mese" = "本月没有新艺人";
+"%lld artisti ascoltati per la prima volta" = "首次收听 %lld 位艺人";
+"Si contano dal mese dopo l'inizio dei dati." = "从数据开始后的下一个月起统计。";
+"Pochi ascolti, per ora" = "目前收听还不多";
+"%lld ascolti e %lld minuti questo mese: la classifica compare da %lld ascolti." = "本月收听 %lld 次、%lld 分钟：满 %lld 次后显示排行。";
+"Finora più di tutti: %@" = "目前听得最多：%@";
+"Ancora nessun ascolto questo mese" = "本月还没有收听";
+"Il riepilogo si riempie con la musica che ascolti in Seaglass." = "回顾会随着你在 Seaglass 中收听的音乐逐渐丰富。";
+"Ascolti registrati su questo dispositivo dal %@." = "自 %@ 起在此设备上记录的收听。";
+"Mese" = "月份";
+"Riepilogo del mese" = "每月回顾";
+"Salva immagine…" = "存储图片…";
+"Salva nelle Foto" = "存储到照片";
+"Solo dati registrati su questo dispositivo: un ascolto conta da 30 secondi in su (metà di un brano più breve di un minuto), un brano ripreso dove era rimasto conta una volta, pause e salti nel brano non aggiungono ascolti. Le demo non contano." = "仅限此设备上记录的数据：收听满 30 秒才算一次（不足一分钟的歌曲为一半时长），从中断处继续播放的歌曲只算一次，暂停和在歌曲内跳转不会增加次数。演示不计入。";
+"L'immagine resta sul dispositivo finché non scegli tu di condividerla o salvarla." = "在你选择分享或保存之前，图片只留在设备上。";
+"Immagine salvata nelle Foto." = "图片已存储到照片。";
+"I tuoi ascolti del mese in una scheda in formato storia, da salvare o condividere." = "把本月收听做成快拍尺寸的卡片，可保存或分享。";
+"Scheda da salvare o condividere" = "可保存或分享的卡片";

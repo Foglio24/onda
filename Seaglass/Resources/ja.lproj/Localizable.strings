@@ -947,3 +947,30 @@
 "Raccolte intelligenti" = "スマートコレクション";
 "Si aggiornano da sole sul dispositivo: aprile per vedere la regola di ciascuna." = "デバイス上で自動的に更新されます。開くとそれぞれのルールが表示されます。";
 "Raccolta intelligente · %lld brani" = "スマートコレクション・%lld曲";
+
+/* Monthly recap */
+"Il tuo mese" = "あなたの1か月";
+"minuti di ascolto" = "分の再生";
+"%lld ascolti · %lld artisti" = "%lld回再生・%lldアーティスト";
+"Artisti più ascoltati" = "よく聴いたアーティスト";
+"%lld ascolti" = "%lld回";
+"Brano del mese" = "今月の1曲";
+"Nuove scoperte" = "新しい出会い";
+"Nessun artista nuovo questo mese" = "今月は新しいアーティストなし";
+"%lld artisti ascoltati per la prima volta" = "初めて聴いたアーティスト：%lld";
+"Si contano dal mese dopo l'inizio dei dati." = "データ開始の翌月から数えます。";
+"Pochi ascolti, per ora" = "今のところ再生は少なめ";
+"%lld ascolti e %lld minuti questo mese: la classifica compare da %lld ascolti." = "今月は%lld回・%lld分：ランキングは%lld回から表示されます。";
+"Finora più di tutti: %@" = "これまでの最多：%@";
+"Ancora nessun ascolto questo mese" = "今月はまだ再生していません";
+"Il riepilogo si riempie con la musica che ascolti in Seaglass." = "Seaglassで聴いた音楽でまとめが埋まっていきます。";
+"Ascolti registrati su questo dispositivo dal %@." = "%@以降にこのデバイスで記録された再生。";
+"Mese" = "月";
+"Riepilogo del mese" = "月間まとめ";
+"Salva immagine…" = "画像を保存…";
+"Salva nelle Foto" = "写真に保存";
+"Solo dati registrati su questo dispositivo: un ascolto conta da 30 secondi in su (metà di un brano più breve di un minuto), un brano ripreso dove era rimasto conta una volta, pause e salti nel brano non aggiungono ascolti. Le demo non contano." = "このデバイスで記録したデータのみ：30秒以上（1分未満の曲は半分以上）で1回、止めたところから再開した曲は1回、曲内の一時停止や移動は回数に加わりません。デモは数えません。";
+"L'immagine resta sul dispositivo finché non scegli tu di condividerla o salvarla." = "共有または保存を選ぶまで、画像はデバイスに残ります。";
+"Immagine salvata nelle Foto." = "画像を写真に保存しました。";
+"I tuoi ascolti del mese in una scheda in formato storia, da salvare o condividere." = "今月の再生をストーリーサイズのカードに。保存も共有もできます。";
+"Scheda da salvare o condividere" = "保存・共有できるカード";

@@ -49,6 +49,51 @@ enum LaunchScene {
         return SmartCollectionKind(rawValue: String(scene.dropFirst("smart:".count)))
     }
 
+    /// `recap`, `recap:few`: the library opens the monthly recap, on plays made up here (a full month,
+    /// or a few plays in a log that starts this month), never written to the listening log.
+    static var opensRecap: Bool { scene == "recap" || scene == "recap:few" }
+
+    static var recapPreviewEvents: [ListenEvent]? {
+        guard opensRecap else { return nil }
+        return previewListens(few: scene == "recap:few")
+    }
+
+    private static func previewListens(few: Bool) -> [ListenEvent] {
+        let calendar = Calendar.current
+        let now = Date.now
+        let monthStart = calendar.dateInterval(of: .month, for: now)?.start ?? now
+        let span = max(3600, now.timeIntervalSince(monthStart) - 600)
+        func play(_ artist: String, _ title: String, at share: Double, listened: TimeInterval = 190, monthsAgo: Int = 0) -> ListenEvent {
+            let base = monthsAgo == 0 ? monthStart.addingTimeInterval(span * share)
+                : (calendar.date(byAdding: .day, value: -10 * monthsAgo, to: monthStart) ?? monthStart).addingTimeInterval(share * 3600)
+            return ListenEvent(videoId: "Preview-\(artist)-\(title)", artist: artist, date: base,
+                               listened: listened, length: 200, skipped: listened < 30, title: title)
+        }
+        if few {
+            return [play("Harbour Lights", "Low Tide", at: 0.2), play("Harbour Lights", "Low Tide", at: 0.4),
+                    play("Signal Fire", "Embers", at: 0.6), play("Slow Tide", "Drift", at: 0.8, listened: 12)]
+        }
+        let artists: [(String, String, Int)] = [("Neon Coast Collective", "Night Swim", 9), ("Moonlit Avenue", "Streetlight", 7),
+                                                ("Tide Pools", "Salt Air", 6), ("Afterglow", "Last Light", 5),
+                                                ("Harbour Lights", "Low Tide", 4), ("Signal Fire", "Embers", 3), ("Slow Tide", "Drift", 2)]
+        var events: [ListenEvent] = []
+        // Last month, the first five: the last two are this month's discoveries.
+        for (offset, entry) in artists.prefix(5).enumerated() { events.append(play(entry.0, entry.1, at: Double(offset), monthsAgo: 1)) }
+        var share = 0.0
+        let total = Double(artists.reduce(0) { $0 + $1.2 } + 2)
+        for entry in artists {
+            for _ in 0..<entry.2 {
+                share += 1
+                events.append(play(entry.0, entry.1, at: share / (total + 1)))
+            }
+        }
+        // A song left at once, and one taken up again after the app was closed: neither adds a listen.
+        events.append(play("Afterglow", "Last Light", at: (total - 1) / (total + 1), listened: 6))
+        events.append(play("Tide Pools", "Salt Air", at: total / (total + 1), listened: 90))
+        events.append(play("Tide Pools", "Salt Air", at: total / (total + 1) + 0.001, listened: 80))
+        return events.sorted { $0.date < $1.date }
+    }
+
     /// The playlist opened at launch shows "Ordina per il mix" (`mix-order`: songs made here, some
     /// downloaded and some not).
     static var opensMixOrder: Bool { scene == "mix-order" }
@@ -174,8 +219,13 @@ enum LaunchScene {
             // The Home's AutoMix demo, open over the Home (it makes and mixes its songs as it opens).
             select(.home)
             router.showAutoMixDemo = true
-        case "smart":
+        case "smart", "recap":
             select(.library)
+        case "recap-check":
+            // CI (Tools/FeatureScenes/run.sh): plays recorded once through a pause, a seek and "Riprendi",
+            // a repeat recorded as another, and the recap's image at a story's size.
+            select(.library)
+            Task { await recapCheck() }
         case "smart-check":
             // CI (Tools/FeatureScenes/run.sh): the smart collections' rules on songs played, liked and
             // downloaded here, whatever else the library holds.
@@ -466,6 +516,67 @@ enum LaunchScene {
         default:
             select(.home)
         }
+    }
+
+    private static func recapCheck() async {
+        var failed = false
+        func expect(_ condition: Bool, _ text: String) {
+            print("recap: \(condition ? "ok" : "FAIL") \(text)")
+            if !condition { failed = true }
+        }
+        func wait(_ seconds: Double, until done: () -> Bool) async {
+            for _ in 0..<Int(seconds * 4) where !done() { try? await Task.sleep(for: .milliseconds(250)) }
+        }
+        let player = PlayerController.shared, log = ListeningLog.shared
+        let id = "SeaglassRecapDemo\(Int(Date.now.timeIntervalSince1970))"
+        let song = Track(videoId: id, title: "Recap demo", artists: ["Seaglass Recap"], duration: 72)
+        await Task.detached(priority: .userInitiated) {
+            try? DemoSongs.write(to: Storage.audioFile(for: id), bpm: 120, root: 60, introBars: 0)
+        }.value
+        func plays() -> [ListenEvent] { log.events.filter { $0.videoId == id } }
+
+        player.play([song], source: "Recap demo")
+        await wait(20) { player.isPlaying && player.progress.currentTime > 2 }
+        player.pause()
+        try? await Task.sleep(for: .seconds(1))
+        player.seek(to: 30)
+        player.resume()
+        await wait(10) { player.isPlaying && player.progress.currentTime > 32 }
+        expect(plays().count == 1, "a pause, a seek and play again make one play (\(plays().count))")
+        expect(plays().last?.title == "Recap demo", "the play has its song's title")
+        player.pause()
+        let listened = plays().last?.listened ?? 0
+
+        player.continueListening(PlayerController.ResumePoint(track: song, time: 40))
+        await wait(20) { player.isPlaying && player.progress.currentTime > 42 }
+        expect(plays().count == 1, "taken up again with Riprendi where it was left, still one play (\(plays().count))")
+        expect((plays().last?.listened ?? 0) > listened + 1, String(format: "and its listening goes on (%.1f s, then %.1f s)",
+                                                                       listened, plays().last?.listened ?? 0))
+        player.repeatMode = .one
+        player.seek(to: 69)
+        await wait(15) { plays().count >= 2 }
+        expect(plays().count == 2, "played again with repeat one, a second play (\(plays().count))")
+        player.repeatMode = .off
+        player.pause()
+
+        let recap = MonthlyRecap.make(events: log.events, month: .now)
+        expect(recap.coveredFrom != nil, "the recap says when its data start")
+        if let image = RecapImage.render(recap, tint: .pink), let data = image.pngData() {
+            let width = Int(image.size.width * image.scale), height = Int(image.size.height * image.scale)
+            expect(width == 1080 && height == 1920, "the card is a story's size (\(width)×\(height))")
+            if let file = try? RecapImage.file(for: data, month: recap.month), let back = UIImage(contentsOfFile: file.path) {
+                expect(Int(back.size.width * back.scale) == 1080, "its PNG for the share sheet reads back (\(file.lastPathComponent))")
+            } else {
+                expect(false, "its PNG for the share sheet is written")
+            }
+        } else {
+            expect(false, "the card is drawn")
+        }
+        log.remove([id])
+        Library.shared.removeFromHistory([song])
+        try? FileManager.default.removeItem(at: Storage.audioFile(for: id))
+        print(failed ? "recap: FAIL" : "recap: PASS")
+        print("recap: done")
     }
 
     private static func smartCheck() async {

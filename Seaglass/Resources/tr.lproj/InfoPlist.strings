@@ -3,3 +3,6 @@
 
 /* Location permission for concerts near you under the classic player. */
 "NSLocationWhenInUseUsageDescription" = "Seaglass yaklaşık konumunuzu yalnızca oynatıcının altında yakınınızdaki konserleri göstermek için kullanır. Konumunuz cihazınızda kalır ve kimseye gönderilmez.";
+
+/* Photos permission, asked only when saving the monthly recap's image. */
+"NSPhotoLibraryAddUsageDescription" = "Seaglass Fotoğraflar’a yalnızca aylık özetin görselini, kaydetmeyi seçtiğinde kaydeder.";

@@ -9,6 +9,9 @@ struct ListenEvent: Codable, Equatable, Sendable {
     let length: TimeInterval?
     /// Left with "next" in its first 30 seconds (songs longer than a minute).
     var skipped: Bool
+    /// The song's title, recorded since 1.37.0 for the monthly recap (nil in plays recorded before:
+    /// decoding them still works, as the field is optional).
+    var title: String? = nil
 }
 
 /// Random numbers that come out the same for the same day and salt (SplitMix64), so

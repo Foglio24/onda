@@ -947,3 +947,30 @@
 "Raccolte intelligenti" = "Умные подборки";
 "Si aggiornano da sole sul dispositivo: aprile per vedere la regola di ciascuna." = "Обновляются сами на устройстве: откройте любую, чтобы увидеть её правило.";
 "Raccolta intelligente · %lld brani" = "Умная подборка · %lld треков";
+
+/* Monthly recap */
+"Il tuo mese" = "Ваш месяц";
+"minuti di ascolto" = "минут прослушивания";
+"%lld ascolti · %lld artisti" = "Прослушиваний: %lld · артистов: %lld";
+"Artisti più ascoltati" = "Самые слушаемые артисты";
+"%lld ascolti" = "%lld прослуш.";
+"Brano del mese" = "Трек месяца";
+"Nuove scoperte" = "Новые открытия";
+"Nessun artista nuovo questo mese" = "В этом месяце новых артистов нет";
+"%lld artisti ascoltati per la prima volta" = "Впервые услышано артистов: %lld";
+"Si contano dal mese dopo l'inizio dei dati." = "Считаются с месяца после начала данных.";
+"Pochi ascolti, per ora" = "Пока мало прослушиваний";
+"%lld ascolti e %lld minuti questo mese: la classifica compare da %lld ascolti." = "В этом месяце прослушиваний: %lld, минут: %lld. Рейтинг появится от %lld прослушиваний.";
+"Finora più di tutti: %@" = "Чаще всего пока: %@";
+"Ancora nessun ascolto questo mese" = "В этом месяце пока ничего не прослушано";
+"Il riepilogo si riempie con la musica che ascolti in Seaglass." = "Итог заполняется музыкой, которую вы слушаете в Seaglass.";
+"Ascolti registrati su questo dispositivo dal %@." = "Прослушивания, записанные на этом устройстве с %@.";
+"Mese" = "Месяц";
+"Riepilogo del mese" = "Итоги месяца";
+"Salva immagine…" = "Сохранить изображение…";
+"Salva nelle Foto" = "Сохранить в Фото";
+"Solo dati registrati su questo dispositivo: un ascolto conta da 30 secondi in su (metà di un brano più breve di un minuto), un brano ripreso dove era rimasto conta una volta, pause e salti nel brano non aggiungono ascolti. Le demo non contano." = "Только данные с этого устройства: прослушивание засчитывается от 30 секунд (половина трека короче минуты), трек, продолженный с места остановки, считается один раз, паузы и перемотка внутри трека прослушиваний не добавляют. Демо не учитываются.";
+"L'immagine resta sul dispositivo finché non scegli tu di condividerla o salvarla." = "Изображение остаётся на устройстве, пока вы не решите поделиться им или сохранить его.";
+"Immagine salvata nelle Foto." = "Изображение сохранено в Фото.";
+"I tuoi ascolti del mese in una scheda in formato storia, da salvare o condividere." = "Ваши прослушивания за месяц на карточке в формате сторис — сохраните или поделитесь.";
+"Scheda da salvare o condividere" = "Карточка, чтобы сохранить или поделиться";

@@ -81,6 +81,7 @@ jobs:
           bash Tools/AutoMixDemoCheck/run.sh
           bash Tools/MixOrderCheck/run.sh
           bash Tools/SmartCollectionsCheck/run.sh
+          bash Tools/MonthlyRecapCheck/run.sh
 
       # Talks to the real YouTube Music: a failure means YouTube changed something (or is down),
       # so it is reported without blocking the build.
@@ -398,8 +399,9 @@ jobs:
         timeout-minutes: 15
         run: bash Tools/SegueScene/run.sh build-mac/Build/Products/Release-maccatalyst/Seaglass.app
 
-      # The Home's AutoMix demo, "Ordina per il mix" and the smart collections, for real in the Mac app
-      # (see Tools/FeatureScenes/run.sh): the demo over a playing queue, a playlist analysed in part.
+      # The Home's AutoMix demo, "Ordina per il mix", the smart collections and the monthly recap, for
+      # real in the Mac app (see Tools/FeatureScenes/run.sh): the demo over a playing queue, a playlist
+      # analysed in part, plays recorded once through pauses, seeks and "Riprendi", the recap's image.
       - name: Check the new features in the Mac app
         timeout-minutes: 15
         run: bash Tools/FeatureScenes/run.sh build-mac/Build/Products/Release-maccatalyst/Seaglass.app

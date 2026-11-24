@@ -947,3 +947,30 @@
 "Raccolte intelligenti" = "Akıllı koleksiyonlar";
 "Si aggiornano da sole sul dispositivo: aprile per vedere la regola di ciascuna." = "Cihazda kendiliğinden güncellenir: kuralını görmek için birini aç.";
 "Raccolta intelligente · %lld brani" = "Akıllı koleksiyon · %lld şarkı";
+
+/* Monthly recap */
+"Il tuo mese" = "Senin ayın";
+"minuti di ascolto" = "dakika dinleme";
+"%lld ascolti · %lld artisti" = "%lld dinleme · %lld sanatçı";
+"Artisti più ascoltati" = "En çok dinlenen sanatçılar";
+"%lld ascolti" = "%lld dinleme";
+"Brano del mese" = "Ayın şarkısı";
+"Nuove scoperte" = "Yeni keşifler";
+"Nessun artista nuovo questo mese" = "Bu ay yeni sanatçı yok";
+"%lld artisti ascoltati per la prima volta" = "İlk kez dinlenen %lld sanatçı";
+"Si contano dal mese dopo l'inizio dei dati." = "Verilerin başladığı aydan sonraki aydan itibaren sayılır.";
+"Pochi ascolti, per ora" = "Şimdilik az dinleme";
+"%lld ascolti e %lld minuti questo mese: la classifica compare da %lld ascolti." = "Bu ay %lld dinleme ve %lld dakika: sıralama %lld dinlemeden sonra görünür.";
+"Finora più di tutti: %@" = "Şimdiye kadar en çok: %@";
+"Ancora nessun ascolto questo mese" = "Bu ay henüz dinleme yok";
+"Il riepilogo si riempie con la musica che ascolti in Seaglass." = "Özet, Seaglass’ta dinlediğin müzikle dolar.";
+"Ascolti registrati su questo dispositivo dal %@." = "%@ tarihinden beri bu cihazda kaydedilen dinlemeler.";
+"Mese" = "Ay";
+"Riepilogo del mese" = "Aylık özet";
+"Salva immagine…" = "Görseli kaydet…";
+"Salva nelle Foto" = "Fotoğraflar’a kaydet";
+"Solo dati registrati su questo dispositivo: un ascolto conta da 30 secondi in su (metà di un brano più breve di un minuto), un brano ripreso dove era rimasto conta una volta, pause e salti nel brano non aggiungono ascolti. Le demo non contano." = "Yalnızca bu cihazda kaydedilen veriler: bir dinleme 30 saniyeden itibaren sayılır (bir dakikadan kısa şarkılarda yarısı), kaldığı yerden sürdürülen şarkı bir kez sayılır, şarkı içindeki duraklatma ve atlamalar dinleme eklemez. Demolar sayılmaz.";
+"L'immagine resta sul dispositivo finché non scegli tu di condividerla o salvarla." = "Görsel, paylaşmayı veya kaydetmeyi seçene kadar cihazda kalır.";
+"Immagine salvata nelle Foto." = "Görsel Fotoğraflar’a kaydedildi.";
+"I tuoi ascolti del mese in una scheda in formato storia, da salvare o condividere." = "Ayın dinlemeleri hikâye boyutunda bir kartta; kaydet ya da paylaş.";
+"Scheda da salvare o condividere" = "Kaydedilecek ya da paylaşılacak kart";

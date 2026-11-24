@@ -3,3 +3,6 @@
 
 /* Location permission for concerts near you under the classic player. */
 "NSLocationWhenInUseUsageDescription" = "Seaglass はおおよその位置情報を、プレーヤーの下に近くのコンサートを表示するためだけに使用します。位置情報はデバイス内にとどまり、誰にも送信されません。";
+
+/* Photos permission, asked only when saving the monthly recap's image. */
+"NSPhotoLibraryAddUsageDescription" = "Seaglassが写真に保存するのは、保存を選んだときの月間まとめの画像だけです。";

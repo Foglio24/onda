@@ -1026,3 +1026,30 @@
 "Raccolte intelligenti" = "Smart collections";
 "Si aggiornano da sole sul dispositivo: aprile per vedere la regola di ciascuna." = "They update by themselves on this device: open one to see its rule.";
 "Raccolta intelligente · %lld brani" = "Smart collection · %lld songs";
+
+/* Monthly recap */
+"Il tuo mese" = "Your month";
+"minuti di ascolto" = "minutes listened";
+"%lld ascolti · %lld artisti" = "%lld listens · %lld artists";
+"Artisti più ascoltati" = "Top artists";
+"%lld ascolti" = "%lld listens";
+"Brano del mese" = "Song of the month";
+"Nuove scoperte" = "New discoveries";
+"Nessun artista nuovo questo mese" = "No new artists this month";
+"%lld artisti ascoltati per la prima volta" = "%lld artists heard for the first time";
+"Si contano dal mese dopo l'inizio dei dati." = "Counted from the month after the data begin.";
+"Pochi ascolti, per ora" = "A few listens, for now";
+"%lld ascolti e %lld minuti questo mese: la classifica compare da %lld ascolti." = "%lld listens and %lld minutes this month: the ranking shows from %lld listens.";
+"Finora più di tutti: %@" = "Most so far: %@";
+"Ancora nessun ascolto questo mese" = "Nothing played this month yet";
+"Il riepilogo si riempie con la musica che ascolti in Seaglass." = "The recap fills up with the music you play in Seaglass.";
+"Ascolti registrati su questo dispositivo dal %@." = "Listens recorded on this device since %@.";
+"Mese" = "Month";
+"Riepilogo del mese" = "Monthly recap";
+"Salva immagine…" = "Save Image…";
+"Salva nelle Foto" = "Save to Photos";
+"Solo dati registrati su questo dispositivo: un ascolto conta da 30 secondi in su (metà di un brano più breve di un minuto), un brano ripreso dove era rimasto conta una volta, pause e salti nel brano non aggiungono ascolti. Le demo non contano." = "Only data recorded on this device: a listen counts from 30 seconds (half of a song under a minute), a song taken up again where it was left counts once, and pausing or skipping within a song adds no listens. Demos don't count.";
+"L'immagine resta sul dispositivo finché non scegli tu di condividerla o salvarla." = "The image stays on your device until you choose to share or save it.";
+"Immagine salvata nelle Foto." = "Image saved to Photos.";
+"I tuoi ascolti del mese in una scheda in formato storia, da salvare o condividere." = "Your month of listening on a story-sized card, to save or share.";
+"Scheda da salvare o condividere" = "A card to save or share";

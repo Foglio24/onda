@@ -9,6 +9,8 @@
 #   one unreadable file, one song without a beat): the six on the device ordered, the others kept at
 #   the end, nothing invented, a passage heard, every song in the new playlist, the original unchanged.
 # - smart-check: the library's smart collections on songs played, liked and downloaded here.
+# - recap-check: a song played, paused, sought and taken up again with "Riprendi" recorded as one play,
+#   a repeat as another, and the monthly recap's image at a story's size, as a PNG to share.
 # Usage: bash Tools/FeatureScenes/run.sh <Seaglass.app>
 set -uo pipefail
 app="$1"
@@ -40,5 +42,6 @@ run() {
 run automix-demo-check automix-demo 300
 run mix-order-check mix-order 300
 run smart-check smart 120
+run recap-check recap 120
 rm -rf "$work"
 exit "$failed"

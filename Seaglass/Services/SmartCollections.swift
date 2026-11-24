@@ -20,11 +20,8 @@ enum SmartCollections {
     /// A favourite listened to at most this many times counts as listened to little.
     static let fewListens = 1
 
-    /// A listen that counts: at least 30 seconds, or half of a song shorter than a minute. A song
-    /// started and left at once isn't listened to.
-    static func counts(_ event: ListenEvent) -> Bool {
-        event.listened >= min(30, max(1, (event.length ?? 60) / 2))
-    }
+    /// A listen that counts (see `ListenHistory.counts`).
+    static func counts(_ event: ListenEvent) -> Bool { ListenHistory.counts(event) }
 
     /// The history keeps the songs in the order they last started (the most recent first, each
     /// once, up to 200), with no dates: the recent ones are its first `recentLimit`.
@@ -57,7 +54,10 @@ enum SmartCollections {
             return Forgotten(tracks: tracks, since: nil, listens: [:])
         }
         var listens: [String: Int] = [:]
-        for event in events where counts(event) { listens[event.videoId, default: 0] += 1 }
+        // A song taken up again where it was left is one listen (see `ListenHistory.merged`).
+        for event in ListenHistory.merged(events.sorted { $0.date < $1.date }) where counts(event) {
+            listens[event.videoId, default: 0] += 1
+        }
         let counted = liked.enumerated().map { position, track -> (position: Int, track: Track, count: Int) in
             (position, track, videoId(track).map { listens[$0] ?? 0 } ?? 0)
         }

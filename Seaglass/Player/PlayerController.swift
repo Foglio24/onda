@@ -1725,7 +1725,8 @@ final class PlayerController: ObservableObject {
             beginEpisode(track)
         } else {
             scrobbler.begin(track)
-            ListeningLog.shared.start(track)
+            // A song started at a saved position (a restored session, "Riprendi") goes on with its play.
+            ListeningLog.shared.start(track, resuming: pendingStartTime != nil)
             Library.shared.recordPlay(track)
             loadLyrics(for: track)
         }
@@ -1967,6 +1968,8 @@ final class PlayerController: ObservableObject {
         guard repeatMode == .one, let track = current else { return advance() }
         seek(to: 0)
         scrobbler.begin(track)
+        // Played again: another listen (until 1.37.0 the repeats added to the first one).
+        ListeningLog.shared.start(track)
         player.play()
     }
 

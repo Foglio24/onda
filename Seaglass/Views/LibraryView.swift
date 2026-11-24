@@ -22,6 +22,8 @@ struct LibraryView: View {
     @State private var importResult: Playlist?
     @State private var importSuccess: String?
     @State private var showImportFile = false
+    /// The monthly recap (see `MonthlyRecapView`).
+    @State private var showRecap = false
     @State private var showSpotifyAccount = false
     @State private var spotifyResult: SpotifyAccountImport.Result?
     @ObservedObject private var account = AccountService.shared
@@ -59,6 +61,7 @@ struct LibraryView: View {
                 if LaunchScene.opensDownloads { showDownloads = true }
                 if LaunchScene.opensPlaylistInLibrary { openedPlaylist = library.playlists.first?.id }
                 if let kind = LaunchScene.opensSmartCollection { openedCollection = kind }
+                if LaunchScene.opensRecap { showRecap = true }
             }
             .navigationDestination(item: $openedPlaylist) { PlaylistDetailView(playlistID: $0) }
             .navigationDestination(item: $openedCollection) { SmartCollectionView(kind: $0) }
@@ -97,6 +100,11 @@ struct LibraryView: View {
                         .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Fine") { importResult = nil } } }
                 }
                 .appEnvironment()
+            }
+            .sheet(isPresented: $showRecap) {
+                MonthlyRecapView()
+                    .appEnvironment()
+                    .classicPageSheet(ProcessInfo.processInfo.isMacCatalystApp)
             }
             .sheet(isPresented: $showSpotifyAccount, onDismiss: showSpotifyResult) {
                 SpotifyImportSheet { spotifyResult = $0 }
@@ -206,6 +214,18 @@ struct LibraryView: View {
             }
 
             Section {
+                Button { showRecap = true } label: {
+                    shortcut("Riepilogo del mese", symbol: "chart.bar.doc.horizontal.fill", tint: .orange) {
+                        Image(systemName: "square.and.arrow.up")
+                    }
+                    .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
+            } footer: {
+                Text("I tuoi ascolti del mese in una scheda in formato storia, da salvare o condividere.")
+            }
+
+            Section {
                 playlistActions
                 ForEach(library.playlists) { playlist in
                     NavigationLink { PlaylistDetailView(playlistID: playlist.id) } label: {
@@ -296,6 +316,18 @@ struct LibraryView: View {
                     }
                 }
             }
+        }
+        if shows(.playlists) {
+            Button { showRecap = true } label: {
+                classicLibraryRow(
+                    title: String(localized: "Riepilogo del mese"),
+                    subtitle: String(localized: "Scheda da salvare o condividere")
+                ) {
+                    SymbolArtwork(symbol: "chart.bar.doc.horizontal.fill", tint: .orange)
+                }
+                .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
         }
         if shows(.local) {
             NavigationLink { LocalMusicView() } label: {

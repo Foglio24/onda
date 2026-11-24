@@ -947,3 +947,30 @@
 "Raccolte intelligenti" = "مجموعات ذكية";
 "Si aggiornano da sole sul dispositivo: aprile per vedere la regola di ciascuna." = "تتحدّث تلقائيًا على الجهاز: افتح إحداها لترى قاعدتها.";
 "Raccolta intelligente · %lld brani" = "مجموعة ذكية · %lld أغنية";
+
+/* Monthly recap */
+"Il tuo mese" = "شهرك";
+"minuti di ascolto" = "دقيقة استماع";
+"%lld ascolti · %lld artisti" = "%lld استماع · %lld فنان";
+"Artisti più ascoltati" = "الفنانون الأكثر استماعًا";
+"%lld ascolti" = "%lld استماع";
+"Brano del mese" = "أغنية الشهر";
+"Nuove scoperte" = "اكتشافات جديدة";
+"Nessun artista nuovo questo mese" = "لا فنانين جدد هذا الشهر";
+"%lld artisti ascoltati per la prima volta" = "%lld فنانين استُمع إليهم لأول مرة";
+"Si contano dal mese dopo l'inizio dei dati." = "تُحتسب بدءًا من الشهر التالي لبداية البيانات.";
+"Pochi ascolti, per ora" = "استماع قليل حتى الآن";
+"%lld ascolti e %lld minuti questo mese: la classifica compare da %lld ascolti." = "%lld استماع و%lld دقيقة هذا الشهر: يظهر الترتيب ابتداءً من %lld استماع.";
+"Finora più di tutti: %@" = "الأكثر حتى الآن: %@";
+"Ancora nessun ascolto questo mese" = "لا استماع هذا الشهر بعد";
+"Il riepilogo si riempie con la musica che ascolti in Seaglass." = "يمتلئ الملخص بالموسيقى التي تستمع إليها في Seaglass.";
+"Ascolti registrati su questo dispositivo dal %@." = "مرات استماع مسجّلة على هذا الجهاز منذ %@.";
+"Mese" = "الشهر";
+"Riepilogo del mese" = "ملخص الشهر";
+"Salva immagine…" = "حفظ الصورة…";
+"Salva nelle Foto" = "حفظ في الصور";
+"Solo dati registrati su questo dispositivo: un ascolto conta da 30 secondi in su (metà di un brano più breve di un minuto), un brano ripreso dove era rimasto conta una volta, pause e salti nel brano non aggiungono ascolti. Le demo non contano." = "بيانات مسجّلة على هذا الجهاز فقط: يُحتسب الاستماع من 30 ثانية فأكثر (نصف الأغنية إن كانت أقصر من دقيقة)، والأغنية المستأنفة من حيث توقفت تُحتسب مرة واحدة، ولا يضيف الإيقاف المؤقت أو التنقل داخل الأغنية مرات استماع. العروض التجريبية لا تُحتسب.";
+"L'immagine resta sul dispositivo finché non scegli tu di condividerla o salvarla." = "تبقى الصورة على جهازك إلى أن تختار مشاركتها أو حفظها.";
+"Immagine salvata nelle Foto." = "حُفظت الصورة في الصور.";
+"I tuoi ascolti del mese in una scheda in formato storia, da salvare o condividere." = "استماعك هذا الشهر في بطاقة بحجم القصص، لحفظها أو مشاركتها.";
+"Scheda da salvare o condividere" = "بطاقة للحفظ أو المشاركة";

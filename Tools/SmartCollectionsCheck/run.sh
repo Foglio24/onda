@@ -5,6 +5,6 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 binary="$(mktemp "${TMPDIR:-/tmp}/seaglass-smart-collections-check.XXXXXX")"
 trap 'rm -f "$binary"' EXIT
-swiftc -O Seaglass/Models/Track.swift Seaglass/Services/Recommender.swift Seaglass/Services/SmartCollections.swift \
+swiftc -O Seaglass/Models/Track.swift Seaglass/Services/Recommender.swift Seaglass/Services/SmartCollections.swift Seaglass/Services/MonthlyRecap.swift \
   Tools/SmartCollectionsCheck/main.swift -o "$binary"
 "$binary"

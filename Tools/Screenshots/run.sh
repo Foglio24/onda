@@ -71,6 +71,9 @@ if [[ "$kind" == "browse" || "$kind" == "browse-ipad" ]]; then
   shot browse-smart-recent-empty en 6 smart:recent -theme.style seaglass
   shot browse-smart-forgotten-empty it 6 smart:forgottenFavourites -theme.style seaglass -theme.mode light
   shot browse-smart-classic en 6 smart:downloaded -theme.style classic
+  shot browse-recap en 8 recap -theme.style seaglass
+  shot browse-recap-few it 8 recap:few -theme.style seaglass -theme.mode light
+  shot browse-recap-classic en 8 recap -theme.style classic
   xcrun simctl shutdown "$device"
   exit 0
 fi

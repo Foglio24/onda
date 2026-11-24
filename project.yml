@@ -93,6 +93,8 @@ targets:
         # Asked only from the classic player's "Eventi dal vivo"; approximate by default, as it's all that's needed.
         NSLocationWhenInUseUsageDescription: "Seaglass usa la tua posizione approssimativa solo per mostrarti i concerti vicino a te sotto il player. Resta sul dispositivo: non viene inviata a nessuno."
         NSLocationDefaultAccuracyReduced: true
+        # Asked only when the listener saves the monthly recap's image in Photos (or picks "Save Image" while sharing it).
+        NSPhotoLibraryAddUsageDescription: "Seaglass salva nelle Foto solo l’immagine del riepilogo mensile, quando scegli di salvarla."
         # Shows Documents in the Files app (Sul mio iPhone › Seaglass), where app updates are saved.
         UIFileSharingEnabled: true
         LSSupportsOpeningDocumentsInPlace: true

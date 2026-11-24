@@ -947,3 +947,30 @@
 "Raccolte intelligenti" = "Colecciones inteligentes";
 "Si aggiornano da sole sul dispositivo: aprile per vedere la regola di ciascuna." = "Se actualizan solas en el dispositivo: abre una para ver su regla.";
 "Raccolta intelligente · %lld brani" = "Colección inteligente · %lld canciones";
+
+/* Monthly recap */
+"Il tuo mese" = "Tu mes";
+"minuti di ascolto" = "minutos de escucha";
+"%lld ascolti · %lld artisti" = "%lld escuchas · %lld artistas";
+"Artisti più ascoltati" = "Artistas más escuchados";
+"%lld ascolti" = "%lld escuchas";
+"Brano del mese" = "Canción del mes";
+"Nuove scoperte" = "Nuevos descubrimientos";
+"Nessun artista nuovo questo mese" = "Ningún artista nuevo este mes";
+"%lld artisti ascoltati per la prima volta" = "%lld artistas escuchados por primera vez";
+"Si contano dal mese dopo l'inizio dei dati." = "Se cuentan a partir del mes siguiente al inicio de los datos.";
+"Pochi ascolti, per ora" = "Pocas escuchas, por ahora";
+"%lld ascolti e %lld minuti questo mese: la classifica compare da %lld ascolti." = "%lld escuchas y %lld minutos este mes: la clasificación aparece a partir de %lld escuchas.";
+"Finora più di tutti: %@" = "Lo más escuchado hasta ahora: %@";
+"Ancora nessun ascolto questo mese" = "Todavía nada escuchado este mes";
+"Il riepilogo si riempie con la musica che ascolti in Seaglass." = "El resumen se llena con la música que escuchas en Seaglass.";
+"Ascolti registrati su questo dispositivo dal %@." = "Escuchas registradas en este dispositivo desde el %@.";
+"Mese" = "Mes";
+"Riepilogo del mese" = "Resumen del mes";
+"Salva immagine…" = "Guardar imagen…";
+"Salva nelle Foto" = "Guardar en Fotos";
+"Solo dati registrati su questo dispositivo: un ascolto conta da 30 secondi in su (metà di un brano più breve di un minuto), un brano ripreso dove era rimasto conta una volta, pause e salti nel brano non aggiungono ascolti. Le demo non contano." = "Solo datos registrados en este dispositivo: una escucha cuenta a partir de 30 segundos (la mitad de una canción de menos de un minuto), una canción retomada donde se quedó cuenta una vez y las pausas y saltos dentro de la canción no suman escuchas. Las demos no cuentan.";
+"L'immagine resta sul dispositivo finché non scegli tu di condividerla o salvarla." = "La imagen se queda en el dispositivo hasta que decidas compartirla o guardarla.";
+"Immagine salvata nelle Foto." = "Imagen guardada en Fotos.";
+"I tuoi ascolti del mese in una scheda in formato storia, da salvare o condividere." = "Tus escuchas del mes en una tarjeta en formato historia, para guardar o compartir.";
+"Scheda da salvare o condividere" = "Tarjeta para guardar o compartir";

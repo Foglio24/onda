@@ -947,3 +947,30 @@
 "Raccolte intelligenti" = "Collections intelligentes";
 "Si aggiornano da sole sul dispositivo: aprile per vedere la regola di ciascuna." = "Elles se mettent à jour toutes seules sur l’appareil : ouvrez-en une pour voir sa règle.";
 "Raccolta intelligente · %lld brani" = "Collection intelligente · %lld morceaux";
+
+/* Monthly recap */
+"Il tuo mese" = "Votre mois";
+"minuti di ascolto" = "minutes d’écoute";
+"%lld ascolti · %lld artisti" = "%lld écoutes · %lld artistes";
+"Artisti più ascoltati" = "Artistes les plus écoutés";
+"%lld ascolti" = "%lld écoutes";
+"Brano del mese" = "Morceau du mois";
+"Nuove scoperte" = "Nouvelles découvertes";
+"Nessun artista nuovo questo mese" = "Aucun nouvel artiste ce mois-ci";
+"%lld artisti ascoltati per la prima volta" = "%lld artistes écoutés pour la première fois";
+"Si contano dal mese dopo l'inizio dei dati." = "Comptées à partir du mois qui suit le début des données.";
+"Pochi ascolti, per ora" = "Peu d’écoutes, pour l’instant";
+"%lld ascolti e %lld minuti questo mese: la classifica compare da %lld ascolti." = "%lld écoutes et %lld minutes ce mois-ci : le classement apparaît à partir de %lld écoutes.";
+"Finora più di tutti: %@" = "Le plus écouté jusqu’ici : %@";
+"Ancora nessun ascolto questo mese" = "Aucune écoute ce mois-ci pour l’instant";
+"Il riepilogo si riempie con la musica che ascolti in Seaglass." = "Le récapitulatif se remplit avec la musique que vous écoutez dans Seaglass.";
+"Ascolti registrati su questo dispositivo dal %@." = "Écoutes enregistrées sur cet appareil depuis le %@.";
+"Mese" = "Mois";
+"Riepilogo del mese" = "Récap du mois";
+"Salva immagine…" = "Enregistrer l’image…";
+"Salva nelle Foto" = "Enregistrer dans Photos";
+"Solo dati registrati su questo dispositivo: un ascolto conta da 30 secondi in su (metà di un brano più breve di un minuto), un brano ripreso dove era rimasto conta una volta, pause e salti nel brano non aggiungono ascolti. Le demo non contano." = "Uniquement les données enregistrées sur cet appareil : une écoute compte à partir de 30 secondes (la moitié d’un morceau de moins d’une minute), un morceau repris là où il s’était arrêté compte une fois, les pauses et les sauts dans le morceau n’ajoutent pas d’écoutes. Les démos ne comptent pas.";
+"L'immagine resta sul dispositivo finché non scegli tu di condividerla o salvarla." = "L’image reste sur l’appareil tant que vous ne choisissez pas de la partager ou de l’enregistrer.";
+"Immagine salvata nelle Foto." = "Image enregistrée dans Photos.";
+"I tuoi ascolti del mese in una scheda in formato storia, da salvare o condividere." = "Vos écoutes du mois sur une carte au format story, à enregistrer ou partager.";
+"Scheda da salvare o condividere" = "Une carte à enregistrer ou partager";
